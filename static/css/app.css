@@ -30,7 +30,7 @@ body {
 }
 a { color: var(--color-progressive, #36c); }
 code { font-size: 0.8125rem; background: var(--background-color-interactive-subtle, #f8f9fa); padding: 0 0.25em; border-radius: 2px; display: inline-block; margin: 0 0.25em 0.25em 0; }
-h1 { font-family: "Linux Libertine", "Georgia", "Times", serif; font-weight: normal; font-size: 1.75rem; margin: 0.5rem 0 1rem; }
+h1 { font-weight: bold; font-size: 1.5rem; line-height: 1.25; margin: 0.5rem 0 1rem; } /* sans-serif like the rest of the app and Codex */
 h2, h3, h4 { margin: 0.5rem 0; }
 
 /* -- Header and footer -------------------------------------------------- */
@@ -178,6 +178,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-rand-nw { top: -4px; left: -4px; cursor: nwse-resize; }
 .cc-rand-se { bottom: -4px; right: -4px; cursor: nwse-resize; }
 .cc-rand-se::after { content: ""; position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; border-right: 2px solid var(--cc-rand); border-bottom: 2px solid var(--cc-rand); }
+/* The tab bar of the magnifier stays in view while the content scrolls (the dialog body scrolls). */
+.cc-vergroter .cdx-tabs__header { position: sticky; top: -8px; z-index: 2; background-color: var(--background-color-base, #fff); }
 .cc-vergroter-beeld { text-align: center; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; margin: 0.5rem 0; }
 .cc-vergroter-beeld img { max-width: 100%; max-height: 50vh; }
 .cc-bezig { margin: 0.75rem 0; }

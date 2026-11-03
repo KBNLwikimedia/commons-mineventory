@@ -24,6 +24,8 @@ FIXTURES = ROOT / "tests" / "fixtures" / "commons"
 ALBUM = "File:Album amicorum van Jacob van Bronckhorst van Batenburg (8077131573).jpg"
 BOOK_OF_HOURS = "M83565772"
 PDF = "File:Heritage Album Paperwork - Polk Co SO - COMPLETE.pdf"
+# A page of a picture book with {{Book}} and |Wikidata=, without a date of its own.
+PICTURE_BOOK = "M90890204"
 
 
 class RecordingFetcher:
@@ -52,7 +54,7 @@ def main():
         CachedFetcher(FileCache(ROOT / "cache" / "record"), RateLimiter(1.0), user_agent=config.COMMONS_USER_AGENT)
     )
     client = CommonsClient(fetcher, api=config.COMMONS_API, wikidata_api=config.WIKIDATA_API)
-    for ref in (ALBUM, BOOK_OF_HOURS, PDF):
+    for ref in (ALBUM, BOOK_OF_HOURS, PDF, PICTURE_BOOK):
         file = client.load_file(ref)
         # The API looks files up by M-id, the start page by title or URL: record both.
         client.load_file({"pageid": file["pageid"]})

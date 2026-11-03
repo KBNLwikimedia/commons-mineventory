@@ -66,6 +66,14 @@
             <dt>{{ t("file.rights_reasons") }}</dt>
             <dd v-for="(reason, i) in file.rechten.redenen" :key="`r${i}`">{{ reason }}</dd>
             <dd v-if="!file.rechten.redenen.length">{{ t("rights.in_orde") }}</dd>
+            <template v-if="file.werk">
+              <dt>{{ t("file.work") }}</dt>
+              <dd>
+                <a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener">{{ file.werk.label || file.werk.wikidata }}</a>
+                <small class="cc-qid">{{ file.werk.wikidata }}</small>
+                <template v-if="file.werk.datum"> · <code>{{ file.werk.datum }}</code></template>
+              </dd>
+            </template>
             <dt>{{ t("file.licence_templates") }}</dt>
             <dd><code v-for="(tpl, i) in file.licentie.sjablonen" :key="i">{{ tpl }}</code></dd>
           </dl>

@@ -2,6 +2,8 @@
 (functional design 5.2 and 7.5). Writing SDC for a cut-out is in concept.py.
 """
 
+import re
+
 PUBLIC_DOMAIN = "Q19652"  # P6216 copyright status: public domain
 
 PROPERTIES = {
@@ -72,6 +74,41 @@ def parse_entity(entity):
                 }
             )
     return result
+
+
+def wikitext_date(value):
+    """A Wikidata/SDC time value ({"time": "+1920-00-00T00:00:00Z", "precision": 8})
+    as a date for the wikitext: 1920-05-17, 1920-05, 1920, or {{other date}} for
+    a decade or century. None for dates before the year 1 or without a year."""
+    if not isinstance(value, dict) or not value.get("time"):
+        return None
+    match = re.match(r"^\+(\d{1,4})-(\d{2})-(\d{2})", value["time"])
+    if not match:
+        return None
+    year, month, day = int(match.group(1)), match.group(2), match.group(3)
+    precision = value.get("precision", 9)
+    if precision >= 11 and month != "00" and day != "00":
+        return f"{year:04d}-{month}-{day}"
+    if precision == 10 and month != "00":
+        return f"{year:04d}-{month}"
+    if precision == 9:
+        return f"{year:04d}"
+    if precision == 8:
+        return f"{{{{other date|decade|{year // 10 * 10}}}}}"
+    if precision == 7:
+        return f"{{{{other date|century|{(year - 1) // 100 + 1}}}}}"
+    return f"{year:04d}" if precision > 9 else None
+
+
+def first_date(statements):
+    """The wikitext date of the first statement with a time value (preferred rank first)."""
+    ranked = sorted(statements or [], key=lambda s: {"preferred": 0, "normal": 1}.get(s.get("rang"), 2))
+    for statement in ranked:
+        value = ((statement.get("_mainsnak") or {}).get("datavalue") or {}).get("value")
+        date = wikitext_date(value)
+        if date:
+            return date
+    return None
 
 
 def item_ids(parsed):

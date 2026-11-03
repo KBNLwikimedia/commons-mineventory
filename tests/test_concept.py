@@ -134,3 +134,48 @@ def test_check_before_upload():
     assert codes == {"exists", "duplicate", "missing_category"}
     assert result["a"]["ontbrekende_categorieen"] == ["Fake"]
     assert result["b"]["in_orde"]
+
+
+# -- Date and maker from the work's Wikidata item ------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ({"time": "+1920-05-17T00:00:00Z", "precision": 11}, "1920-05-17"),
+        ({"time": "+1920-05-00T00:00:00Z", "precision": 10}, "1920-05"),
+        ({"time": "+1920-00-00T00:00:00Z", "precision": 9}, "1920"),
+        ({"time": "+1920-00-00T00:00:00Z", "precision": 8}, "{{other date|decade|1920}}"),
+        ({"time": "+1650-00-00T00:00:00Z", "precision": 7}, "{{other date|century|17}}"),
+        ({"time": "-0300-00-00T00:00:00Z", "precision": 9}, None),
+        (None, None),
+    ],
+)
+def test_wikitext_date(value, expected):
+    from cutter import sdc
+
+    assert sdc.wikitext_date(value) == expected
+
+
+def test_picture_book_gets_date_and_maker_from_wikidata(client):
+    page = client.load_file("M90890204")  # {{Book}} with |Date= empty and |Wikidata=Q72752528
+    assert page["werk"]["wikidata"] == "Q72752528"
+    assert page["werk"]["datum"] == "{{other date|decade|1920}}" and page["werk"]["datum_eigenschap"] == "P577"
+    c = concept.concept(page, {"id": "o", "label": "doll", "box": {"x": 0, "y": 0, "w": 1, "h": 1}})
+    assert c["datum"] == "{{other date|decade|1920}}"
+    assert c["herkomst"]["datum"] == {"bron": "wikidata", "item": "Q72752528", "eigenschap": "P577"}
+    assert c["maker"] == "{{Unknown|author}}"  # P50 no value, P110 unknown value
+    text = c["wikitekst"]
+    # {{Book}} keeps its own capitalised parameter names, the book's data and its Wikidata link.
+    assert text.startswith("=={{int:filedesc}}==\n{{Book\n")
+    assert "|Date={{other date|decade|1920}}" in text and "|date=" not in text
+    assert "|Author={{Unknown|author}}" in text
+    assert "|City=Haarlem" in text and "|Language=Dutch" in text and "|Wikidata=Q72752528" in text
+    assert "|Source={{Extracted from|File:003-KW XKZ 0214-Buiten waar de vogels fluiten-page3.jpg}}" in text
+    assert "|Other_versions=" in text
+
+
+def test_date_from_the_wikitext_wins(album):
+    c = concept.concept(album, {"id": "o", "label": "x", "box": {"x": 0, "y": 0, "w": 1, "h": 1}})
+    assert c["herkomst"]["datum"] == {"bron": "wikitekst"}
+    assert c["herkomst"]["maker"] == {"bron": "wikitekst"}

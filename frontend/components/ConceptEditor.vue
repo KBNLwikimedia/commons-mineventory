@@ -45,10 +45,12 @@
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.date") }}</template>
+        <template v-if="concept.herkomst?.datum" #help-text><source-note :source="concept.herkomst.datum" /></template>
         <cdx-text-input v-model="draft.datum" />
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.maker") }}</template>
+        <template v-if="concept.herkomst?.maker" #help-text><source-note :source="concept.herkomst.maker" /></template>
         <cdx-text-input v-model="draft.maker" />
       </cdx-field>
     </div>
@@ -89,9 +91,9 @@
     </cdx-field>
 
     <div class="cc-knoppen">
-      <cdx-button action="progressive" weight="primary" :disabled="saving" @click="save">{{ t("actions.save_short") }}</cdx-button>
       <cdx-button :disabled="saving" @click="reset">{{ t("concept.reset") }}</cdx-button>
     </div>
+    <p class="cc-klein cc-opslagstatus" role="status">{{ saving ? t("concept.saving") : t("concept.autosave") }}</p>
     <cdx-message v-if="message" :type="messageType" :inline="true">{{ message }}</cdx-message>
 
     <cdx-accordion>
@@ -107,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, inject, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import {
   CdxAccordion, CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxLookup, CdxMessage, CdxSelect, CdxTextArea, CdxTextInput,
 } from "@wikimedia/codex";
@@ -116,6 +118,7 @@ import { API, errorText, get, objectPath, patch, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
 import RightsLabel from "./RightsLabel.vue";
+import SourceNote from "./SourceNote.vue";
 
 const props = defineProps({ mid: { type: String, required: true }, n: { type: Number, required: true }, objectId: { type: String, required: true } });
 const emit = defineEmits(["saved"]);
@@ -142,6 +145,13 @@ const previewUrl = computed(() => {
   return draft.value?.formaat === "png" ? `${base}/uitsnede.png` : `${base}/uitsnede.jpg?w=480`;
 });
 
+// Every change is saved by itself, shortly after the last keystroke or click,
+// and right away when the magnifier closes; so nothing gets lost.
+const AUTOSAVE_MS = 600;
+let lastSaved = "";
+let saveTimer = null;
+const bodyOf = (d) => ({ ...d, merk_bevestigd: (d.merk_bevestigd || "").trim() || null });
+
 function fill(data) {
   concept.value = data;
   draft.value = JSON.parse(JSON.stringify({
@@ -156,7 +166,23 @@ function fill(data) {
     image_extracted: data.image_extracted,
     merk_bevestigd: data.merk_bevestigd || "",
   }));
+  lastSaved = JSON.stringify(bodyOf(draft.value));
 }
+
+watch(
+  draft,
+  () => {
+    if (!draft.value || JSON.stringify(bodyOf(draft.value)) === lastSaved) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, AUTOSAVE_MS);
+  },
+  { deep: true }
+);
+
+onBeforeUnmount(() => {
+  if (saveTimer && draft.value && JSON.stringify(bodyOf(draft.value)) !== lastSaved) save();
+  clearTimeout(saveTimer);
+});
 
 async function reload() {
   try {
@@ -168,13 +194,22 @@ async function reload() {
 }
 watch(path, reload, { immediate: true });
 
-async function send(body) {
+async function send(body, { announce = false } = {}) {
   saving.value = true;
   message.value = "";
+  const sent = JSON.stringify(body);
   try {
-    fill(await patch(path.value, body));
-    message.value = t("concept.saved");
-    messageType.value = "success";
+    const data = await patch(path.value, body);
+    // Typed on while saving? Keep what is in the form; the next save follows.
+    if (body.herstel || JSON.stringify(bodyOf(draft.value)) === sent) fill(data);
+    else {
+      concept.value = data;
+      lastSaved = sent;
+    }
+    if (announce) {
+      message.value = t("concept.saved");
+      messageType.value = "success";
+    }
     emit("saved", concept.value);
   } catch (e) {
     message.value = errorText(t, e);
@@ -185,16 +220,20 @@ async function send(body) {
 }
 
 function save() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
   // The extension follows the format; the server makes them match.
-  const body = { ...draft.value, merk_bevestigd: draft.value.merk_bevestigd.trim() || null };
-  return send(body);
+  return send(bodyOf(draft.value));
 }
 
 // Throws away the user's changes (texts, categories, chosen Wikidata items) and
 // puts back the draft the app composes itself; so it asks first.
 async function reset() {
   const ok = await askConfirm(t("concept.reset_confirm"), { title: t("concept.reset"), go: t("concept.reset_go"), destructive: true });
-  if (ok) return send({ herstel: true });
+  if (ok) {
+    clearTimeout(saveTimer);
+    return send({ herstel: true }, { announce: true });
+  }
 }
 
 function addCategory() {

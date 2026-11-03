@@ -24,6 +24,11 @@ KEPT_FIELDS = (
     "artist", "author", "photographer", "illustrator", "date", "medium", "institution",
     "accession number", "credit line", "object history", "references", "permission",
 )
+# Extra fields of {{Book}} that also hold for a page or detail of the book.
+BOOK_FIELDS = (
+    "translator", "editor", "subtitle", "series title", "volume", "edition", "publisher", "printer",
+    "city", "language", "isbn", "lccn", "oclc",
+)
 # Statements copied from the original (9.4).
 COPIED_PROPERTIES = ("P6216", "P275", "P170", "P571", "P195")
 FORMATS = ("jpg", "png")
@@ -78,6 +83,45 @@ def subject_of(obj):
     return "Detail" if label in ("klik", "rechthoek", "regio") else label
 
 
+MAKER_FIELDS = ("author", "artist", "photographer", "illustrator")
+
+
+def date_and_maker(file, params):
+    """Date and maker of the original, with where they come from (for the UI):
+    the information template first (verbatim), then the file's own SDC (P571
+    date, P170 maker), then the Wikidata item of the work (|wikidata= in the
+    template: P577/P571, P170/P50/P110). An unknown maker becomes {{Unknown|author}}."""
+    from . import sdc
+
+    work = file.get("werk") or {}
+    sources = {}
+    date = params.get("date", "")
+    if date:
+        sources["datum"] = {"bron": "wikitekst"}
+    else:
+        date = sdc.first_date((file.get("_sdc") or {}).get("datum")) or ""
+        if date:
+            sources["datum"] = {"bron": "sdc", "eigenschap": "P571"}
+        elif work.get("datum"):
+            date = work["datum"]
+            sources["datum"] = {"bron": "wikidata", "item": work["wikidata"], "eigenschap": work["datum_eigenschap"]}
+    maker = next((params[k] for k in MAKER_FIELDS if params.get(k)), "")
+    if maker:
+        sources["maker"] = {"bron": "wikitekst"}
+    else:
+        sdc_makers = [m["label"] for m in (file.get("sdc") or {}).get("maker", []) if m.get("soort") == "item" and m.get("label")]
+        if sdc_makers:
+            maker = ", ".join(sdc_makers)
+            sources["maker"] = {"bron": "sdc", "eigenschap": "P170"}
+        elif work.get("makers"):
+            maker = ", ".join(work["makers"])
+            sources["maker"] = {"bron": "wikidata", "item": work["wikidata"], "eigenschap": work["maker_eigenschap"]}
+        elif work.get("maker_onbekend"):
+            maker = "{{Unknown|author}}"
+            sources["maker"] = {"bron": "wikidata", "item": work["wikidata"], "eigenschap": "onbekend"}
+    return date, maker, sources
+
+
 def default_concept(file, obj):
     """The proposal for an object, from the original and the object (free)."""
     text = file.get("_wikitekst") or ""
@@ -86,6 +130,7 @@ def default_concept(file, obj):
     description = obj.get("beschrijving") or {}
     label_nl = obj.get("label_nl") or obj.get("label")
     caption = obj.get("bijschrift") or {}
+    date, maker, sources = date_and_maker(file, params)
     depicts = []
     if obj.get("wikidata"):
         depicts.append({"q": obj["wikidata"], "label": obj.get("label")})
@@ -100,8 +145,9 @@ def default_concept(file, obj):
             "nl": (description.get("onderwerp") or label_nl or "")[:MAX_CAPTION],
             "en": (description.get("onderwerp_en") or obj.get("label_en") or "")[:MAX_CAPTION],
         },
-        "datum": params.get("date", ""),
-        "maker": params.get("author") or params.get("artist") or params.get("photographer") or "",
+        "datum": date,
+        "maker": maker,
+        "herkomst": sources,
         "permissie": params.get("permission", ""),
         "licentie": wikitekst.license_templates(text),
         "categorieen": [{"naam": c, "gekozen": True} for c in file.get("categorieen", [])],
@@ -196,14 +242,32 @@ def wikitext(file, c):
     source = f"{{{{Extracted from|{original}}}}}"
     if info and info.name in ("artwork", "photograph", "book"):
         name = {"artwork": "Artwork", "photograph": "Photograph", "book": "Book"}[info.name]
-        fields = [f"|{key}={info.params[key]}" for key in KEPT_FIELDS if info.params.get(key) and key not in ("date", "permission")]
+        capitals = any(k[:1].isupper() for k in info.keys.values())
+
+        def key(field):
+            """The template's own spelling ({{Book}}: |Date=, {{Artwork}}: |date=)."""
+            return info.keys.get(field) or (field[:1].upper() + field[1:] if capitals else field)
+
+        default_maker = {"book": "author", "photograph": "photographer"}.get(info.name, "artist")
+        maker_field = next((f for f in MAKER_FIELDS if f in info.keys), default_maker)
+        written = {"date", "permission", "description", "source", "other versions", "other_versions", "title", "wikidata", maker_field}
+        fields = [f"|{key(k)}={info.params[k]}" for k in KEPT_FIELDS if info.params.get(k) and k not in written]
+        if info.name == "book":
+            # The book stays the book: its title and data are those of the original.
+            fields += [f"|{key(k)}={info.params[k]}" for k in BOOK_FIELDS if info.params.get(k)]
+            if info.params.get("title"):
+                fields.append(f"|{key('title')}={info.params['title']}")
+        else:
+            fields.append(f"|{key('title')}={_languages({'nl': c['caption'].get('nl', ''), 'en': c['caption'].get('en', '')})}")
+        if info.params.get("wikidata"):
+            fields.append(f"|{key('wikidata')}={info.params['wikidata']}")
         fields += [
-            f"|title={_languages({'nl': c['caption'].get('nl', ''), 'en': c['caption'].get('en', '')})}",
-            f"|description={description}",
-            f"|date={c['datum']}",
-            f"|source={source}",
-            f"|permission={c.get('permissie', '')}",
-            "|other versions=",
+            f"|{key(maker_field)}={c['maker']}",
+            f"|{key('description')}={description}",
+            f"|{key('date')}={c['datum']}",
+            f"|{key('source')}={source}",
+            f"|{key('permission')}={c.get('permissie', '')}",
+            f"|{info.keys.get('other_versions') or key('other versions')}=",
         ]
         info_text = "{{" + name + "\n" + "\n".join(fields) + "\n}}"
     else:

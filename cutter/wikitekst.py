@@ -39,13 +39,15 @@ LICENSE_NAME = re.compile(
 class Template:
     """One template call: its name (normalised: lower case, single spaces,
     no underscores), its parameters (positional ones as "1", "2", …), the raw
-    wikitext and its position."""
+    wikitext and its position. `keys` maps each lower-case parameter name to
+    its original spelling ({{Book}} uses |Date=, {{Artwork}} |date=)."""
 
     name: str
     params: dict = field(default_factory=dict)
     raw: str = ""
     start: int = 0
     end: int = 0
+    keys: dict = field(default_factory=dict)
 
     def positional(self):
         return [v for k, v in sorted(self.params.items(), key=lambda kv: int(kv[0])) if k.isdigit()]
@@ -107,15 +109,16 @@ def templates(text, nested=False):
 def _template(text, start, end):
     inner = text[start + 2 : end - 2]
     parts = _split_top_level(inner)
-    params, position = {}, 0
+    params, keys, position = {}, {}, 0
     for part in parts[1:]:
         key, sep, value = part.partition("=")
         if sep and re.fullmatch(r"\s*[^{}\[\]|=]+?\s*", key):
             params[key.strip().lower()] = value.strip()
+            keys[key.strip().lower()] = key.strip()
         else:
             position += 1
             params[str(position)] = part.strip()
-    return Template(normalise_name(parts[0]), params, text[start:end], start, end)
+    return Template(normalise_name(parts[0]), params, text[start:end], start, end, keys)
 
 
 def names(text):

@@ -220,6 +220,7 @@ class CommonsClient:
         mid = f"M{page['pageid']}"
         parsed_sdc = self.entity(mid)
         labels = self.labels(sdc.item_ids(parsed_sdc))
+        work = self._work_for(text)
         width, height = info.get("width", 0), info.get("height", 0)
         pages_count = info.get("pagecount") or 1
         supported, reason = self._supported(mime, width, height)
@@ -262,12 +263,25 @@ class CommonsClient:
                 1 for s in parsed_sdc.get("beeldt_af", []) for p in s["kwalificatoren"].get("P2677") or [] if p
             ),
             "notitie_aantal": len(wikitekst.image_notes(text)),
+            "werk": work,
             # Internal (not in the API): the raw material for regions and the concept.
             "_wikitekst": text,
             "_sdc": parsed_sdc,
             "_labels": labels,
         }
         return file
+
+    def _work_for(self, text):
+        """The Wikidata item named in the information template (|wikidata=), looked up; None without one."""
+        info = wikitekst.info_template(text)
+        qid = (info.params.get("wikidata") or "").strip() if info else ""
+        if not re.fullmatch(r"Q\d+", qid):
+            return None
+        try:
+            return self.work(qid)
+        except (FetchError, CommonsError):
+            return {"wikidata": qid, "label": None, "datum": None, "datum_eigenschap": None,
+                    "makers": [], "maker_eigenschap": None, "maker_onbekend": False}
 
     def _supported(self, mime, width, height):
         if mime in SUPPORTED:
@@ -300,6 +314,46 @@ class CommonsClient:
                 names = entity.get("labels") or {}
                 result[qid] = {lang: (names.get(lang) or {}).get("value") for lang in ("nl", "en")}
         return result
+
+    MAKER_PROPERTIES = ("P170", "P50", "P110")  # creator, author, illustrator
+
+    def work(self, qid):
+        """The Wikidata item of the work the file shows (|wikidata= in {{Book}},
+        {{Artwork}} …): its label, date (P577 publication date, else P571
+        inception) and makers (P170 creator, P50 author, P110 illustrator).
+        Used when the file page itself leaves date or maker empty."""
+        data = self._json({"action": "wbgetentities", "ids": qid, "props": "labels|claims", "languages": "nl|en"}, api=self.wikidata_api)
+        entity = (data.get("entities") or {}).get(qid) or {}
+        claims = entity.get("claims") or {}
+
+        def statements(prop):
+            return [{"rang": c.get("rank"), "_mainsnak": c.get("mainsnak")} for c in claims.get(prop, [])]
+
+        date, date_prop = None, None
+        for prop in ("P577", "P571"):
+            date = sdc.first_date(statements(prop))
+            if date:
+                date_prop = prop
+                break
+        maker_ids, maker_prop, unknown = [], None, False
+        for prop in self.MAKER_PROPERTIES:
+            snaks = [s["_mainsnak"] or {} for s in statements(prop)]
+            ids = [((s.get("datavalue") or {}).get("value") or {}).get("id") for s in snaks if s.get("snaktype") == "value"]
+            if any(ids):
+                maker_ids, maker_prop = [i for i in ids if i], prop
+                break
+            unknown = unknown or any(s.get("snaktype") in ("somevalue", "novalue") for s in snaks)
+        labels = self.labels(maker_ids) if maker_ids else {}
+        names = entity.get("labels") or {}
+        return {
+            "wikidata": qid,
+            "label": (names.get("nl") or names.get("en") or {}).get("value"),
+            "datum": date,
+            "datum_eigenschap": date_prop,
+            "makers": [(labels.get(i) or {}).get("nl") or (labels.get(i) or {}).get("en") or i for i in maker_ids],
+            "maker_eigenschap": maker_prop,
+            "maker_onbekend": not maker_ids and unknown,
+        }
 
     def search_items(self, text, language="en", limit=7):
         """Wikidata items for a search term (free; 6.2): the user chooses the
