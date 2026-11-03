@@ -268,3 +268,4 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-tekst-bewerken { margin: 0.5em 0; display: flex; flex-direction: column; gap: 0.5em; }
 .cc-tekst-bewerken .cdx-field { margin: 0; }
 .cc-tekst-acties { align-items: center; }
+.cc-inventaris-knop { margin-top: 0.75rem; }

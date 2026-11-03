@@ -6,7 +6,13 @@
 <template>
   <div class="cc-paneel">
     <p class="cc-modus" :class="{ betaald: config.betaald }">
-      {{ config.betaald ? t("panel.mode_live", { model: config.sam_model }) : t("panel.mode_dummy") }}
+      <template v-if="config.betaald">
+        <template v-for="(part, i) in textParts(t('panel.mode_live'), modelLinks)" :key="i">
+          <a v-if="part.link" :href="part.link.href" target="_blank" rel="noopener">{{ part.link.label }}</a>
+          <template v-else>{{ part.text }}</template>
+        </template>
+      </template>
+      <template v-else>{{ t("panel.mode_dummy") }}</template>
     </p>
     <busy-note v-if="busy && where === 'top'" :message="t('busy.general')" />
 
@@ -64,7 +70,8 @@
           </cdx-button>
         </div>
       </template>
-      <cdx-button size="small" :disabled="busy" @click="act('inventory', 'inventory')">
+      <!-- The action itself: blue and full size, apart from the suggested labels above. -->
+      <cdx-button class="cc-inventaris-knop" action="progressive" weight="primary" :disabled="busy" @click="act('inventory', 'inventory')">
         {{ inventory ? t("panel.inventory_again") : t("panel.inventory") }}
       </cdx-button>
       <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
@@ -107,6 +114,7 @@
 <script setup>
 import { computed, inject, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
+import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import BusyNote from "./BusyNote.vue";
 
@@ -121,6 +129,12 @@ const props = defineProps({
 const emit = defineEmits(["detect", "smart", "inventory", "merge", "describe-all", "point-mode", "draw-mode"]);
 const t = useT();
 const config = inject("config");
+// The two models in the live-mode line link to Meta's own pages. Muse Spark
+// has no homepage of its own; its section in the model overview is the closest.
+const modelLinks = {
+  sam: { href: "https://ai.meta.com/sam3/", label: config.sam_model },
+  muse: { href: "https://dev.meta.ai/docs/models#muse-spark", label: "Muse Spark" },
+};
 const prompt = ref("");
 const open = reactive({ commons: true, search: true, quick: true, suggestions: false, point: false, draw: true, bulk: false });
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
