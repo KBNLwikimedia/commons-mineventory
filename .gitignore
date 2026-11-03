@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node / Vite
+node_modules/
+static/dist/
+
+# Configuration with secrets
+.env
+.env.local
+
+# Local data: Commons cache and generated output
+cache/
+uitvoer/
+
+# OS
+.DS_Store
+Thumbs.db
