@@ -14,3 +14,5 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 - De app heet nu **Commons Cutter** (`commons-cutter`), in plaats van Commons Uitsnijder. Tool, repo en map krijgen dezelfde Engelse naam.
 - FO v0.4: de tweede ronde besluiten van Olaf (3 november 2026) verwerkt.
+- Bewaartermijnen op Toolforge vastgelegd (FO 12.1).
+- De rol van de Upload Stash beschreven: alleen een controlestap vóór het publiceren (FO 9.1).

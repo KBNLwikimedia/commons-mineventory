@@ -319,6 +319,15 @@ Gebaseerd op `docs/commons-beschrijving.md` van de Delpher Uitsnijder:
 5. **Uploaden (n)**, alleen na het bevestigingsvinkje: *"Ik heb de beschrijving, de licentie en de rechten gecontroleerd. De bestanden worden op mijn naam geüpload."* Eén tegelijk, met voortgang en een knop **Stoppen**.
 6. **Na de upload**: de Commons-URL bij het object; optioneel `{{Image extracted}}` op het origineel (9.3); een link "Openen in CropTool".
 
+**De Upload Stash** ([Commons:UploadStash](https://commons.wikimedia.org/wiki/Commons:UploadStash)) is alleen de controlestap vlak vóór het publiceren (stap 5, zie ook 8.1): de app zet een uitsnede in de stash van de gebruiker, toont de waarschuwingen van Commons, en publiceert daarna met de wikitekst en de SDC. De stash vervangt de opslag op Toolforge (12.1) niet:
+
+- een bestand in de stash verdwijnt na 48 uur als het niet is gepubliceerd;
+- de stash vraagt een login met uploadrechten, terwijl bekijken, uitsnijden en downloaden ook zonder login moeten werken;
+- terugdownloaden uit de stash kan alleen voor bestanden onder 1 MiB;
+- de stash bewaart alleen het bestand, geen beschrijving, licentie of SDC.
+
+Besloten door Olaf (3-11-2026): **geen** knop om uitsneden in de stash klaar te zetten voor een ander gereedschap, zoals de Upload Workbench. Publiceren gebeurt altijd vanuit de Commons Cutter.
+
 ### 9.2 Bestandsnaam
 
 Besloten door Olaf (3-11-2026): **onderwerp voorop, in het Engels**.
@@ -483,7 +492,16 @@ API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-s
   1. **In de Build Service zelf**: als die naast Python ook een Node-stap kan draaien (`npm ci && npm run build`). Het eenvoudigst, als het kan.
   2. **In een GitHub Action** (terugvaloptie): bij elke push naar `main` bouwt de Action de frontend en zet het resultaat in een aparte branch (bijv. `deploy`), die de Build Service ophaalt. `static/dist/` komt dan nooit in `main`.
 - **Configuratie** met `toolforge envvars create …` (`MODEL_API_KEY`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `FLASK_SECRET_KEY`). Nooit in de repo.
-- **Opslag**: cache en uitvoer op de gedeelde schijf van de tool (`/data/project/<tool>/`), met een opruimtaak (originelen na 7 dagen weg, uitsneden na 30 dagen, tenzij geüpload). Niet beantwoord in ronde 2; dit is het voorstel.
+- **Opslag**: cache en uitvoer op de gedeelde schijf van de tool (`/data/project/commons-cutter/`). Die schijf is gedeeld en niet bedoeld voor veel of blijvende opslag, dus een dagelijkse opruimtaak (`toolforge jobs`) ruimt op. Bewaartermijnen, besloten door Olaf (3-11-2026); ze tellen vanaf het **laatste gebruik**, niet vanaf het aanmaken:
+
+  | Wat | Termijn | Waarom |
+  | --- | --- | --- |
+  | Originelen (de gedownloade scans) | 7 dagen | Staan altijd op Commons en zijn gratis opnieuw op te halen |
+  | Uitsneden en maskers die nog niet zijn geüpload | 30 dagen | Tijd om te controleren, te uploaden of als zip te downloaden. De app toont bij elke uitsnede wanneer die verloopt |
+  | Uitsneden die op Commons staan | Het bestand gaat weg na de upload; de gegevens (Commons-URL, datum, gebruiker) blijven | Het bestand op Commons is de blijvende kopie |
+  | Detecties en beschrijvingen (de antwoorden van SAM en Muse Spark, klein) | 1 jaar | Opnieuw vragen kost geld; met de cache kost het nog eens openen van een bestand niets |
+
+  Instelbaar met `BEWAAR_ORIGINELEN_DAGEN=7`, `BEWAAR_UITSNEDEN_DAGEN=30` en `BEWAAR_CACHE_DAGEN=365`. Hoeveel ruimte een tool mag gebruiken, bij de bouw nagaan; dat kan de termijnen nog veranderen.
 - **Sessies**: server-side, in Redis van Toolforge of in bestanden; tokens versleuteld.
 - **Lange taken** (Alles beschrijven, uploads van tientallen bestanden): pagina voor pagina vanuit de browser, zoals nu, of als `toolforge jobs`-taak. Voorstel: vanuit de browser, met de knop Stoppen.
 - **Werkgeheugen**: een webservice heeft standaard een beperkt geheugen; grote scans (5.4) kunnen dat overschrijden. Bij de bouw meten en zo nodig meer aanvragen.
@@ -584,12 +602,13 @@ commons-cutter/
 | Testwiki | Wat bij de bouw blijkt te werken | 9.6 |
 | Beeld naar SAM | Als data-URL | 6.1 |
 | API-sleutel per gebruiker | Later, fase 4 | 11, 13 |
+| Bewaartermijnen op Toolforge | Originelen 7 dagen, niet-geüploade uitsneden 30 dagen, detecties en beschrijvingen 1 jaar; telt vanaf het laatste gebruik | 12.1 |
+| Upload Stash | Alleen als controlestap vlak vóór het publiceren; geen overdracht aan de Upload Workbench of andere tools | 9.1 |
 
 ### Aangenomen (niet beantwoord, voorstel geldt tot Olaf anders zegt)
 
 - Grens voor grote bestanden: 100 megapixel (5.4).
 - Beschrijving en caption in het Nederlands én het Engels (6.2).
-- Bewaartermijnen op Toolforge: originelen 7 dagen, uitsneden 30 dagen, tenzij geüpload (12.1).
 
 ### Nog open
 

@@ -17,6 +17,10 @@ static/dist/
 cache/
 uitvoer/
 
+# IDE
+.idea/
+.vscode/
+
 # OS
 .DS_Store
 Thumbs.db
