@@ -268,3 +268,25 @@ def test_robots_and_sitemap(http):
     assert "Disallow: /api/" in robots and "Disallow: /commons" in robots
     sitemap = http.get("/sitemap.xml").get_data(as_text=True)
     assert "<loc>http://localhost/docs</loc>" in sitemap and "/api/" not in sitemap
+
+
+def test_local_user_only_counts_in_debug_mode(app, http):
+    app.config["LOKALE_GEBRUIKER"] = "OlafJanssen"
+    app.extensions["detectiedienst"].detector.betaald = True
+    try:
+        app.debug = False
+        assert http.get("/api/v1/status").get_json()["gebruiker"] is None
+        assert http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["code"] == "login_required"
+        app.debug = True
+        assert http.get("/api/v1/status").get_json()["gebruiker"] == "OlafJanssen"
+        assert "OlafJanssen (" in http.get("/").get_data(as_text=True)
+    finally:
+        app.debug = False
+        app.extensions["detectiedienst"].detector.betaald = False
+
+
+def test_back_link_on_every_page_but_the_start(http):
+    assert 'class="cc-terug"' not in http.get("/").get_data(as_text=True)
+    objects = http.get("/objecten?uselang=nl").get_data(as_text=True)
+    assert 'href="/" data-terug>' in objects and "Terug naar de Commons Cutter" in objects
+    assert 'href="/?mid=M5">' in http.get("/commons?mid=M5").get_data(as_text=True)

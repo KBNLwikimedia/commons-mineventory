@@ -46,6 +46,7 @@
       </cdx-tab>
     </cdx-tabs>
     <cdx-message v-if="error" type="error">{{ error }}</cdx-message>
+    <confirm-dialog />
   </div>
 </template>
 
@@ -54,7 +55,9 @@ import { computed, inject, onMounted, ref } from "vue";
 import { CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxMessage, CdxTab, CdxTabs, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconRestore } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch } from "../api.js";
+import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import { objectName } from "../state.js";
 
 const t = useT();
@@ -92,7 +95,7 @@ async function restore(obj) {
 }
 
 async function purge(obj) {
-  if (!window.confirm(t("objects.delete_confirm"))) return;
+  if (!(await askConfirm(t("objects.delete_confirm"), { go: t("objects.delete_forever"), destructive: true }))) return;
   try {
     await del(`${API}/prullenbak/${obj.mid}/${obj.pagina}/${encodeURIComponent(obj.id)}`);
     await load();
@@ -102,7 +105,7 @@ async function purge(obj) {
 }
 
 async function emptyTrash() {
-  if (!window.confirm(t("objects.empty_confirm", { n: trash.value.length }))) return;
+  if (!(await askConfirm(t("objects.empty_confirm", { n: trash.value.length }), { go: t("objects.empty_trash"), destructive: true }))) return;
   try {
     await del(`${API}/prullenbak`);
     await load();

@@ -73,6 +73,10 @@
           <cdx-button action="progressive" :disabled="busy" @click="describe(false)">{{ description ? t("describe.again_cache") : t("describe.ask") }}</cdx-button>
           <cdx-button v-if="description" :disabled="busy" @click="describe(true)">{{ t("describe.again") }}</cdx-button>
         </div>
+        <div v-if="busy" class="cc-bezig" role="status">
+          <cdx-progress-bar :inline="true" :aria-label="t('describe.busy', { seconds })" />
+          <p class="cc-klein">{{ t("describe.busy", { seconds }) }}</p>
+        </div>
       </cdx-tab>
 
       <cdx-tab name="commons" :label="t('concept.tab')">
@@ -84,11 +88,13 @@
 </template>
 
 <script setup>
-import { computed, inject, ref, watch } from "vue";
-import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxTab, CdxTabs, CdxTextInput } from "@wikimedia/codex";
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, errorText, get, objectPath, patch, post, query } from "../api.js";
+import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import { forgetPlacement, makeMovable } from "../movable.js";
 import { objectName } from "../state.js";
 import ConceptEditor from "./ConceptEditor.vue";
 
@@ -106,9 +112,50 @@ const tab = ref("uitsnede");
 const caption = ref(props.object.bijschrift?.tekst || "");
 const plan = ref(null);
 const busy = ref(false);
+const seconds = ref(0);
+let ticker = null;
 const error = ref("");
 const hits = ref([]);
 const editor = ref(null);
+
+// Move by the title bar, resize at the edges; double-click the title bar to
+// centre it again. Codex renders the dialog elsewhere in the page (teleport).
+const PLACEMENT_KEY = "cc-vergroter-plaats";
+let undoMovable = null;
+
+function enableMoving() {
+  undoMovable?.();
+  undoMovable = null;
+  const dialog = document.querySelector(".cc-vergroter");
+  const header = dialog?.querySelector(".cdx-dialog__header");
+  if (!dialog || !header) return;
+  undoMovable = makeMovable(dialog, {
+    handle: header,
+    storageKey: PLACEMENT_KEY,
+    labels: { move: t("magnifier.move"), resize: t("magnifier.resize") },
+    min: { width: 360, height: 240 },
+  });
+  header.ondblclick = (event) => {
+    if (event.target.closest("button")) return;
+    forgetPlacement(PLACEMENT_KEY);
+    dialog.removeAttribute("style");
+  };
+}
+
+watch(
+  () => props.open,
+  async (open) => {
+    if (!open) {
+      undoMovable?.();
+      undoMovable = null;
+      return;
+    }
+    await nextTick();
+    enableMoving();
+  },
+  { immediate: true }
+);
+onBeforeUnmount(() => undoMovable?.());
 
 const base = computed(() => objectPath(props.file.mid, props.n, props.object.id));
 const name = computed(() => objectName(props.object, language));
@@ -135,8 +182,12 @@ async function loadPlan() {
 loadPlan();
 
 async function describe(again) {
-  if (config.betaald && plan.value?.betaald && !window.confirm(t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) }))) return;
+  // "Opnieuw tonen" comes from the cache and is free; only a new question costs money.
+  const paid = again || !description.value;
+  if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) })))) return;
   busy.value = true;
+  seconds.value = 0;
+  ticker = setInterval(() => seconds.value++, 1000);
   error.value = "";
   try {
     const result = await post(`${base.value}/beschrijving`, { opnieuw: again });
@@ -146,6 +197,7 @@ async function describe(again) {
     error.value = errorText(t, e);
   } finally {
     busy.value = false;
+    clearInterval(ticker);
   }
 }
 

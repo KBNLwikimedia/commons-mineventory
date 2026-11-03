@@ -71,6 +71,9 @@ class Config:
         self.TOEGESTANE_GEBRUIKERS = _env_list("TOEGESTANE_GEBRUIKERS", "OlafJanssen")
         self.BEHEERDERS_START = _env_list("BEHEERDERS_START", "OlafJanssen")
         self.FLASK_SECRET_KEY = _env("FLASK_SECRET_KEY")
+        # Until OAuth (phase 2): a Commons user name that counts as logged in,
+        # only when Flask runs in debug mode on your own machine.
+        self.LOKALE_GEBRUIKER = _env("LOKALE_GEBRUIKER")
 
         # Retention (functional design 12.1), counted from the last use.
         self.BEWAAR_ORIGINELEN_DAGEN = _env_int("BEWAAR_ORIGINELEN_DAGEN", 7)

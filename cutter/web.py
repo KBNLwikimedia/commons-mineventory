@@ -115,7 +115,14 @@ def _globals():
         "vite_tags": vite_tags,
         "vite_dev": use_dev_server(),
         "client_config": _client_config,
+        "gebruiker": _current_user(),
     }
+
+
+def _current_user():
+    from .api import _user
+
+    return _user()
 
 
 def _muse_info():

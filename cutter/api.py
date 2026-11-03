@@ -42,8 +42,10 @@ def _descriptions():
 
 
 def _user():
-    """The logged-in Commons user (phase 2: OAuth); None until then."""
-    return session.get("gebruiker")
+    """The logged-in Commons user (phase 2: OAuth). Until then, in debug mode
+    only, LOKALE_GEBRUIKER stands in for a login, so live mode can be tried
+    locally; on a server (no debug) it is ignored."""
+    return session.get("gebruiker") or (current_app.debug and current_app.config.get("LOKALE_GEBRUIKER")) or None
 
 
 def _require_paid_access(paid):

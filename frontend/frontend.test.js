@@ -167,3 +167,80 @@ describe("ObjectList component", () => {
     expect(wrapper.emitted("toggle")[0]).toEqual(["b"]);
   });
 });
+
+describe("confirmation dialog", () => {
+  it("resolves with the answer, and a newer question cancels an open one", async () => {
+    const { askConfirm, answerConfirm, confirmState } = await import("./confirm.js");
+    const first = askConfirm("Eerste?");
+    const second = askConfirm("Tweede?", { destructive: true });
+    expect(await first).toBe(false);
+    expect(confirmState).toMatchObject({ open: true, text: "Tweede?", destructive: true });
+    answerConfirm(true);
+    expect(await second).toBe(true);
+    expect(confirmState.open).toBe(false);
+  });
+});
+
+describe("moving and resizing the magnifier", async () => {
+  const { makeMovable, moveRect, resizeRect } = await import("./movable.js");
+  const rect = { left: 100, top: 100, width: 500, height: 400 };
+  const viewport = { width: 1200, height: 800 };
+
+  it("resizes from each edge, with a minimum and within the screen", () => {
+    expect(resizeRect(rect, "e", 50, 0)).toEqual({ ...rect, width: 550 });
+    expect(resizeRect(rect, "sw", -40, 30)).toEqual({ left: 60, top: 100, width: 540, height: 430 });
+    expect(resizeRect(rect, "n", 0, 350, { width: 320, height: 200 })).toEqual({ left: 100, top: 300, width: 500, height: 200 });
+    expect(resizeRect(rect, "w", -500, 0)).toEqual({ left: 0, top: 100, width: 600, height: 400 });
+    expect(resizeRect(rect, "se", 2000, 2000, undefined, viewport)).toEqual({ left: 100, top: 100, width: 1100, height: 700 });
+  });
+
+  it("moves, but keeps the whole dialog on screen", () => {
+    expect(moveRect(rect, 20, -30, viewport)).toEqual({ ...rect, left: 120, top: 70 });
+    expect(moveRect(rect, 5000, 5000, viewport)).toEqual({ ...rect, left: 700, top: 400 });
+    expect(moveRect(rect, 0, -500, viewport).top).toBe(0);
+  });
+
+  it("adds edge grips and removes them again", () => {
+    const dialog = document.createElement("div");
+    const header = document.createElement("header");
+    dialog.append(header);
+    document.body.append(dialog);
+    const undo = makeMovable(dialog, { handle: header });
+    expect(dialog.querySelectorAll(".cc-rand")).toHaveLength(8);
+    expect(header.classList.contains("cc-sleepgreep")).toBe(true);
+    undo();
+    expect(dialog.querySelectorAll(".cc-rand")).toHaveLength(0);
+  });
+});
+
+describe("history of opened files", async () => {
+  const { addToHistory, clearHistory, lastFileUrl, readHistory, removeFromHistory, MAX_HISTORY } = await import("./state.js");
+  const memory = () => {
+    const data = {};
+    return { getItem: (k) => data[k] ?? null, setItem: (k, v) => (data[k] = String(v)) };
+  };
+
+  it("keeps files newest first, once each, with the page", () => {
+    const store = memory();
+    addToHistory({ mid: "M1", naam: "a.jpg", pagina: 1 }, store);
+    addToHistory({ mid: "M2", naam: "b.pdf", pagina: 3 }, store);
+    addToHistory({ mid: "M1", naam: "a.jpg", pagina: 1 }, store);
+    expect(readHistory(store).map((e) => e.mid)).toEqual(["M1", "M2"]);
+    expect(lastFileUrl(store)).toBe("/?mid=M1");
+    removeFromHistory("M1", store);
+    expect(lastFileUrl(store)).toBe("/?mid=M2&pagina=3");
+    clearHistory(store);
+    expect(readHistory(store)).toEqual([]);
+    expect(lastFileUrl(store)).toBeNull();
+  });
+
+  it("is capped and survives broken or missing storage", () => {
+    const store = memory();
+    for (let i = 0; i < MAX_HISTORY + 5; i++) addToHistory({ mid: `M${i}`, naam: "x", pagina: 1 }, store);
+    expect(readHistory(store)).toHaveLength(MAX_HISTORY);
+    store.setItem("cc-geschiedenis", "{kapot");
+    expect(readHistory(store)).toEqual([]);
+    expect(readHistory(null)).toEqual([]);
+    expect(addToHistory({ mid: "M9" }, null)).toHaveLength(1);
+  });
+});

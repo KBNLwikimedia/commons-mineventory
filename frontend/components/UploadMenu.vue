@@ -9,7 +9,6 @@
     <p v-if="!mid" class="cc-leeg">{{ t("upload.no_file") }}</p>
     <template v-else-if="menu">
       <h2><a :href="menu.bestand.url" target="_blank" rel="noopener">{{ menu.bestand.naam }}</a></h2>
-      <p class="cc-klein"><a :href="`/?mid=${mid}`">{{ t("upload.back") }}</a></p>
       <p v-if="!menu.uitsneden.length" class="cc-leeg">{{ t("upload.nothing_saved") }}</p>
       <ul class="cc-uploadlijst">
         <li v-for="item in menu.uitsneden" :key="item.id" :class="{ uit: !item.gekozen }">
@@ -20,7 +19,7 @@
           <div>
             <strong>{{ item.bestandsnaam }}</strong>
             <p class="cc-bestand-regel">
-              <span v-for="label in item.rechten.labels" :key="label" class="cc-rechtenlabel" :class="`cc-label-${label}`">{{ t(`rights.${label}`) }}</span>
+              <rights-label v-for="label in item.rechten.labels" :key="label" :label="label" />
               <span class="cc-klein">{{ item.formaat.toUpperCase() }} · {{ item.object.opgeslagen.breedte }} × {{ item.object.opgeslagen.hoogte }} px</span>
             </p>
             <p class="cc-klein">{{ item.caption[language] || item.caption.nl || item.caption.en }}</p>
@@ -59,6 +58,7 @@ import { CdxButton, CdxCheckbox, CdxIcon, CdxMessage, CdxToggleSwitch } from "@w
 import { cdxIconDownload, cdxIconUpload } from "@wikimedia/codex-icons";
 import { errorText, filePath, get, objectPath, patch, post } from "../api.js";
 import { useT } from "../i18n.js";
+import RightsLabel from "./RightsLabel.vue";
 
 const props = defineProps({ mid: { type: String, default: "" } });
 const t = useT();

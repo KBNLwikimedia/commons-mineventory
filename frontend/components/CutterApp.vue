@@ -9,12 +9,21 @@
 
     <notice-list :notices="notices" @dismiss="dismiss" />
 
+    <section v-if="!file && !loadingFile && visited.length" class="cc-start-geschiedenis">
+      <h2>{{ t("history.title") }}</h2>
+      <history-list :entries="visited" @remove="forget" @clear="forgetAll" />
+    </section>
+
     <div v-if="file && !file.ondersteund" class="cc-unsupported">
       <cdx-message type="warning">{{ file.niet_ondersteund }}</cdx-message>
     </div>
 
     <div v-else-if="file && page" class="cc-werkblad">
       <aside class="cc-links" :aria-label="t('layout.left')">
+        <cdx-accordion v-if="visited.length > 1" class="cc-geschiedenis-blok">
+          <template #title>{{ t("history.title") }} <small>({{ visited.length }})</small></template>
+          <history-list :entries="visited" :current="file.mid" @remove="forget" @clear="forgetAll" />
+        </cdx-accordion>
         <page-list v-if="file.paginas > 1" :file="file" :current="pageN" @select="goToPage" />
         <object-list
           :objects="objects"
@@ -83,29 +92,20 @@
       @refine="refineMask"
     />
 
-    <cdx-dialog
-      v-model:open="confirm.open"
-      :title="t('confirm.title')"
-      :use-close-button="true"
-      :close-button-label="t('actions.close')"
-      :primary-action="{ label: t('confirm.go'), actionType: 'progressive' }"
-      :default-action="{ label: t('actions.cancel') }"
-      @primary="confirm.resolve(true)"
-      @default="confirm.resolve(false)"
-      @update:open="(open) => !open && confirm.resolve(false)"
-    >
-      <p>{{ confirm.text }}</p>
-    </cdx-dialog>
+    <confirm-dialog />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
-import { CdxButton, CdxDialog, CdxIcon, CdxMessage } from "@wikimedia/codex";
+import { computed, onMounted, ref } from "vue";
+import { CdxAccordion, CdxButton, CdxIcon, CdxMessage } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
+import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
-import { appUrl, readStart } from "../state.js";
+import ConfirmDialog from "./ConfirmDialog.vue";
+import { addToHistory, appUrl, clearHistory, readHistory, readStart, removeFromHistory } from "../state.js";
+import HistoryList from "./HistoryList.vue";
 import DetectionPanel from "./DetectionPanel.vue";
 import FileBar from "./FileBar.vue";
 import Magnifier from "./Magnifier.vue";
@@ -132,6 +132,12 @@ const viewer = ref(null);
 const magnifierOpen = ref(false);
 const magnifiedId = ref(null);
 const start = readStart(window.location.search);
+const visited = ref(readHistory());
+// A bare start page (e.g. back from /objecten) reopens the file that was open last.
+if (!start.url && !start.titel && !start.mid && visited.value.length) {
+  start.mid = visited.value[0].mid;
+  start.pagina = String(visited.value[0].pagina || 1);
+}
 const initialInput = start.url || start.titel || start.mid || "";
 
 const selectedCount = computed(() => objects.value.filter((o) => o.status === "geselecteerd").length);
@@ -153,23 +159,9 @@ function fail(error) {
 
 // -- Confirming paid actions (6.4): only in live mode, with the amount --------------------
 
-const confirm = reactive({ open: false, text: "", resolve: () => {} });
-function ask(text) {
-  return new Promise((resolve) => {
-    Object.assign(confirm, {
-      open: true,
-      text,
-      resolve: (answer) => {
-        confirm.open = false;
-        confirm.resolve = () => {};
-        resolve(answer);
-      },
-    });
-  });
-}
 async function confirmCost(calls, usd) {
   if (!props.config.betaald || !calls) return true;
-  return ask(t("confirm.cost", { n: calls, amount: money(usd, props.config.taal) }));
+  return askConfirm(t("confirm.cost", { n: calls, amount: money(usd, props.config.taal) }));
 }
 
 // -- Loading --------------------------------------------------------------------------
@@ -199,7 +191,8 @@ async function goToPage(n) {
     objects.value = data.objecten;
     newIds.value = [];
     inventory.value = null;
-    history.replaceState(null, "", appUrl(file.value.mid, n));
+    window.history.replaceState(null, "", appUrl(file.value.mid, n));
+    visited.value = addToHistory({ mid: file.value.mid, naam: file.value.naam, pagina: n, paginas: file.value.paginas });
     get(`${pagePath(file.value.mid, n)}/inventaris`).then((plan) => (inventory.value = plan.inventaris)).catch(() => {});
     if (start.object) {
       const id = start.object;
@@ -371,6 +364,16 @@ async function trashObject(id) {
   } catch (error) {
     fail(error);
   }
+}
+
+// -- History ("Laatst bezocht") ----------------------------------------------------------
+
+function forget(mid) {
+  visited.value = removeFromHistory(mid);
+}
+
+async function forgetAll() {
+  if (await askConfirm(t("history.clear_confirm"), { go: t("history.clear"), destructive: true })) visited.value = clearHistory();
 }
 
 function openMagnifier(id) {

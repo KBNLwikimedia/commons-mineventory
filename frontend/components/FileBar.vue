@@ -30,10 +30,8 @@
           <cdx-icon :icon="cdxIconLinkExternal" size="small" />
         </h2>
         <p class="cc-bestand-regel">
-          <cdx-info-chip :status="licenceStatus">{{ file.licentie.kort || t("file.licence_unknown") }}</cdx-info-chip>
-          <span v-for="label in file.rechten.labels" :key="label" class="cc-rechtenlabel" :class="`cc-label-${label}`">
-            {{ t(`rights.${label}`) }}
-          </span>
+          <cdx-info-chip status="notice">{{ file.licentie.kort || t("file.licence_unknown") }}</cdx-info-chip>
+          <rights-label v-for="label in file.rechten.labels" :key="label" :label="label" />
         </p>
         <p class="cc-bestand-regel cc-klein">
           <span v-if="file.maker">{{ t("file.maker") }}: {{ file.maker }}</span>
@@ -78,10 +76,11 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconLinkExternal, cdxIconSearch } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
+import RightsLabel from "./RightsLabel.vue";
 
 const props = defineProps({
   file: { type: Object, default: null },
@@ -99,12 +98,6 @@ watch(
   }
 );
 
-const licenceStatus = computed(() => {
-  const label = props.file?.rechten.label;
-  if (label === "ter_discussie") return "error";
-  if (label === "in_orde" || label === "naamsvermelding") return "success";
-  return "warning";
-});
 
 function submit() {
   if (text.value.trim()) emit("open", text.value.trim());

@@ -8,14 +8,16 @@
     <p class="cc-modus" :class="{ betaald: config.betaald }">
       {{ config.betaald ? t("panel.mode_live", { model: config.sam_model }) : t("panel.mode_dummy") }}
     </p>
+    <busy-note v-if="busy && where === 'top'" :message="t('busy.general')" />
 
-    <cdx-accordion v-model="open.commons">
+    <!-- Only when Commons has regions or notes for this page (they always refer to page 1). -->
+    <cdx-accordion v-if="regionCount" v-model="open.commons">
       <template #title>{{ t("panel.from_commons") }}</template>
       <p class="cc-klein">{{ t("panel.from_commons_help") }}</p>
-      <cdx-button :disabled="busy || page.n !== 1 || !regionCount" @click="emit('detect', { modus: 'commons' })">
+      <cdx-button :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
         {{ t("panel.regions_button", { n: regionCount }) }}
       </cdx-button>
-      <p v-if="page.n !== 1" class="cc-klein">{{ t("panel.regions_page_one") }}</p>
+      <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
     </cdx-accordion>
 
     <cdx-accordion v-model="open.search">
@@ -24,6 +26,7 @@
         <cdx-text-input v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
         <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
       </form>
+      <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
       <p class="cc-klein">{{ t("panel.search_help") }} {{ cost(1) }}</p>
     </cdx-accordion>
 
@@ -36,11 +39,12 @@
           size="small"
           :disabled="busy"
           :title="group.termen.join(', ')"
-          @click="emit('detect', { modus: 'categorie', categorie: group.sleutel })"
+          @click="act('quick', 'detect', { modus: 'categorie', categorie: group.sleutel })"
         >
           {{ t(group.label) }}
         </cdx-button>
       </div>
+      <busy-note v-if="busy && where === 'quick'" :message="t('busy.sam')" />
     </cdx-accordion>
 
     <cdx-accordion v-model="open.suggestions">
@@ -54,15 +58,17 @@
             size="small"
             :disabled="busy"
             :title="`${term.aantal}× · ${term.waar}`"
-            @click="emit('detect', { modus: 'prompt', prompt: term.en })"
+            @click="act('suggestions', 'detect', { modus: 'prompt', prompt: term.en })"
           >
             {{ config.taal === "nl" ? term.nl : term.en }}
           </cdx-button>
         </div>
       </template>
-      <cdx-button size="small" :disabled="busy" @click="emit('inventory')">
+      <cdx-button size="small" :disabled="busy" @click="act('inventory', 'inventory')">
         {{ inventory ? t("panel.inventory_again") : t("panel.inventory") }}
       </cdx-button>
+      <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
+      <busy-note v-if="busy && where === 'inventory'" :message="t('busy.muse_page')" />
       <p class="cc-klein">{{ t("panel.inventory_help") }} {{ museCost(config.muse.pagina_usd) }}</p>
     </cdx-accordion>
 
@@ -71,28 +77,30 @@
       <cdx-toggle-switch :model-value="pointMode" @update:model-value="emit('point-mode', $event)">
         {{ t("panel.point_switch") }}
       </cdx-toggle-switch>
+      <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
       <p class="cc-klein">{{ t("panel.point_help") }} {{ cost(1) }}</p>
     </cdx-accordion>
 
     <cdx-accordion v-model="open.bulk">
       <template #title>{{ t("panel.bulk") }}</template>
       <div class="cc-knoppen cc-knoppen-rij">
-        <cdx-button :disabled="busy" :title="config.alles.map((a) => a.en).join(', ')" @click="emit('detect', { modus: 'alles' })">
+        <cdx-button :disabled="busy" :title="config.alles.map((a) => a.en).join(', ')" @click="act('bulk', 'detect', { modus: 'alles' })">
           {{ t("panel.all") }} <small>{{ cost(config.alles.length) }}</small>
         </cdx-button>
-        <cdx-button :disabled="busy" @click="emit('smart')">{{ t("panel.smart") }}</cdx-button>
-        <cdx-button :disabled="busy" @click="emit('describe-all')">{{ t("panel.describe_all") }}</cdx-button>
-        <cdx-button :disabled="busy" @click="emit('merge')">{{ t("panel.merge") }}</cdx-button>
+        <cdx-button :disabled="busy" @click="act('bulk', 'smart')">{{ t("panel.smart") }}</cdx-button>
+        <cdx-button :disabled="busy" @click="act('bulk', 'describe-all')">{{ t("panel.describe_all") }}</cdx-button>
+        <cdx-button :disabled="busy" @click="act('bulk', 'merge')">{{ t("panel.merge") }}</cdx-button>
       </div>
+      <busy-note v-if="busy && where === 'bulk'" :message="t('busy.general')" />
     </cdx-accordion>
-    <cdx-progress-bar v-if="busy" :inline="true" :aria-label="t('panel.busy')" />
   </div>
 </template>
 
 <script setup>
-import { computed, inject, reactive, ref } from "vue";
-import { CdxAccordion, CdxButton, CdxProgressBar, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
+import { computed, inject, reactive, ref, watch } from "vue";
+import { CdxAccordion, CdxButton, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
 import { money, useT } from "../i18n.js";
+import BusyNote from "./BusyNote.vue";
 
 const props = defineProps({
   file: { type: Object, required: true },
@@ -112,7 +120,24 @@ const SAM_PER_CALL = 0.0025;
 const cost = (calls) => (config.betaald ? `(${money(calls * SAM_PER_CALL, config.taal)})` : t("panel.free"));
 const museCost = (usd) => (config.betaald ? `(${money(usd, config.taal)})` : t("panel.free"));
 
+// Where the waiting feedback goes: the section whose button was clicked last;
+// a click in the image (point mode) shows it under Aanwijzen.
+const where = ref("top");
+let clicked = { section: "top", at: 0 };
+function act(section, event, payload) {
+  clicked = { section, at: Date.now() };
+  emit(event, payload);
+}
+watch(
+  () => props.busy,
+  (busy) => {
+    if (!busy) return;
+    const recent = Date.now() - clicked.at < 1500;
+    where.value = recent ? clicked.section : props.pointMode ? "point" : "top";
+  }
+);
+
 function search() {
-  if (prompt.value.trim()) emit("detect", { modus: "prompt", prompt: prompt.value.trim() });
+  if (prompt.value.trim()) act("search", "detect", { modus: "prompt", prompt: prompt.value.trim() });
 }
 </script>

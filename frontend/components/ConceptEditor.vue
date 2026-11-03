@@ -7,9 +7,15 @@
 <template>
   <div v-if="concept" class="cc-concept">
     <cdx-message v-if="!concept.upload_toegestaan" type="warning" :inline="true">{{ t("concept.not_allowed") }}</cdx-message>
-    <p class="cc-bestand-regel">
-      <span v-for="label in concept.rechten.labels" :key="label" class="cc-rechtenlabel" :class="`cc-label-${label}`">{{ t(`rights.${label}`) }}</span>
-    </p>
+    <div class="cc-concept-kop">
+      <figure class="cc-concept-voorbeeld">
+        <img :src="previewUrl" :alt="t('concept.preview_image')" />
+        <figcaption class="cc-klein">{{ draft.formaat.toUpperCase() }} · {{ t("concept.preview_image") }}</figcaption>
+      </figure>
+      <p class="cc-bestand-regel">
+        <rights-label v-for="label in concept.rechten.labels" :key="label" :label="label" />
+      </p>
+    </div>
 
     <cdx-field>
       <template #label>{{ t("concept.filename") }}</template>
@@ -61,7 +67,7 @@
       <ul class="cc-beeldt-af">
         <li v-for="(item, i) in draft.beeldt_af" :key="item.q">
           <a :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.label || item.q }}</a>
-          <small> {{ item.q }}</small>
+          <small class="cc-qid">{{ item.q }}</small>
           <cdx-button size="small" weight="quiet" action="destructive" :aria-label="t('actions.remove')" @click="draft.beeldt_af.splice(i, 1)">×</cdx-button>
         </li>
       </ul>
@@ -107,7 +113,9 @@ import {
 } from "@wikimedia/codex";
 import { cdxIconCopy } from "@wikimedia/codex-icons";
 import { API, errorText, get, objectPath, patch, query } from "../api.js";
+import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
+import RightsLabel from "./RightsLabel.vue";
 
 const props = defineProps({ mid: { type: String, required: true }, n: { type: Number, required: true }, objectId: { type: String, required: true } });
 const emit = defineEmits(["saved"]);
@@ -127,6 +135,12 @@ const formats = [
   { value: "png", label: "PNG" },
 ];
 const path = computed(() => `${objectPath(props.mid, props.n, props.objectId)}/commons`);
+// The cut-out as it would be uploaded: JPG (the rectangle, a light preview) or
+// PNG (the shape of the object, transparent outside it).
+const previewUrl = computed(() => {
+  const base = objectPath(props.mid, props.n, props.objectId);
+  return draft.value?.formaat === "png" ? `${base}/uitsnede.png` : `${base}/uitsnede.jpg?w=480`;
+});
 
 function fill(data) {
   concept.value = data;
@@ -176,8 +190,11 @@ function save() {
   return send(body);
 }
 
-function reset() {
-  return send({ herstel: true });
+// Throws away the user's changes (texts, categories, chosen Wikidata items) and
+// puts back the draft the app composes itself; so it asks first.
+async function reset() {
+  const ok = await askConfirm(t("concept.reset_confirm"), { title: t("concept.reset"), go: t("concept.reset_go"), destructive: true });
+  if (ok) return send({ herstel: true });
 }
 
 function addCategory() {

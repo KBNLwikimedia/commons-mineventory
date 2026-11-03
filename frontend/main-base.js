@@ -2,3 +2,8 @@
 // and the Codex component styles. No CDN: everything comes from the tool itself.
 import "@wikimedia/codex-design-tokens/theme-wikimedia-ui.css";
 import "@wikimedia/codex/dist/codex.style.css";
+import { lastFileUrl } from "./state.js";
+
+// The "back to Commons Cutter" link returns to the file that was open last.
+const last = lastFileUrl();
+if (last) document.querySelectorAll("a[data-terug]").forEach((a) => (a.href = last));

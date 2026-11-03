@@ -6,6 +6,60 @@ export function readStart(search) {
   return { url: read("url"), titel: read("titel"), mid: read("mid"), pagina: read("pagina"), object: read("object") };
 }
 
+// History ("Laatst bezocht"): the files opened in this browser, newest first,
+// with the page that was open. Per browser for now; with a login (phase 2)
+// it can move to the server, per user. The first entry is the file the
+// start page and the "back" link return to.
+export const HISTORY_KEY = "cc-geschiedenis";
+export const MAX_HISTORY = 30;
+
+function storage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function readHistory(store = storage()) {
+  try {
+    const list = JSON.parse(store?.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(list) ? list.filter((entry) => entry && /^M\d+$/.test(entry.mid)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeHistory(list, store) {
+  try {
+    store?.setItem(HISTORY_KEY, JSON.stringify(list));
+  } catch {
+    // Private mode or blocked storage: there is simply no history.
+  }
+  return list;
+}
+
+/* Put a file on top of the history ({mid, naam, pagina, paginas}); returns the new list. */
+export function addToHistory(entry, store = storage(), now = new Date()) {
+  const list = readHistory(store).filter((e) => e.mid !== entry.mid);
+  list.unshift({ ...entry, tijd: now.toISOString() });
+  return writeHistory(list.slice(0, MAX_HISTORY), store);
+}
+
+export function removeFromHistory(mid, store = storage()) {
+  return writeHistory(readHistory(store).filter((e) => e.mid !== mid), store);
+}
+
+export function clearHistory(store = storage()) {
+  return writeHistory([], store);
+}
+
+/* The URL of the file that was open last, or null. */
+export function lastFileUrl(store = storage()) {
+  const [last] = readHistory(store);
+  return last ? appUrl(last.mid, last.pagina || 1) : null;
+}
+
 export function appUrl(mid, n = 1, objectId) {
   const params = new URLSearchParams({ mid });
   if (n > 1) params.set("pagina", String(n));

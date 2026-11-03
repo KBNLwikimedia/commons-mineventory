@@ -49,6 +49,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-talen { display: inline-flex; gap: 0.4rem; }
 .cc-modusbalk { margin: 0; padding: 0.25rem 1rem; background: var(--background-color-notice-subtle, #eaecf0); font-size: 0.8125rem; }
 .cc-hoofd { max-width: 75rem; margin: 0 auto; padding: 1rem; min-height: 60vh; }
+.cc-terug { margin: 0 0 0.5rem; font-size: 0.875rem; }
 .cc-hoofd-breed { max-width: none; }
 .cc-voet { border-top: 1px solid var(--cc-rand); padding: 1rem; color: var(--cc-tekst-zacht); font-size: 0.8125rem; }
 .cc-voet p { margin: 0.25rem 0; max-width: 60rem; }
@@ -67,11 +68,9 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-zoek .cdx-button { flex-shrink: 0; }
 .cc-wikitekst { white-space: pre-wrap; word-break: break-word; background: var(--background-color-interactive-subtle, #f8f9fa); border: 1px solid var(--cc-rand); padding: 0.5rem; font-size: 0.8125rem; max-height: 22rem; overflow: auto; }
 
-.cc-rechtenlabel { display: inline-block; font-size: 0.75rem; border-radius: 2px; padding: 0 0.4em; margin-right: 0.3em; border: 1px solid; }
-.cc-label-in_orde { color: #14866d; }
-.cc-label-naamsvermelding { color: #36c; }
-.cc-label-merk, .cc-label-persoonlijkheidsrechten, .cc-label-alleen_vs { color: #ac6600; }
-.cc-label-ter_discussie { color: #d73333; font-weight: bold; }
+.cc-rechtenlabel { display: inline-block; margin-right: 0.3em; border-radius: 2px; }
+.cc-rechtenlabel:focus-visible { outline: 2px solid var(--color-progressive, #36c); }
+.cc-bestand-regel .cdx-info-chip { vertical-align: middle; margin-right: 0.3em; }
 
 /* -- Input bar and file ---------------------------------------------------- */
 .cc-invoer-form { display: flex; gap: 0.5rem; align-items: flex-start; max-width: 60rem; }
@@ -100,6 +99,17 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-modus { margin: 0 0 0.5rem; font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
 .cc-modus.betaald { color: var(--color-warning, #ac6600); }
 
+.cc-geschiedenis ul { list-style: none; margin: 0 0 0.4rem; padding: 0; }
+.cc-geschiedenis li { display: flex; align-items: center; gap: 0.25rem; border-left: 3px solid transparent; }
+.cc-geschiedenis li.huidig { border-left-color: var(--color-progressive, #36c); background: var(--background-color-progressive-subtle, #eaf3ff); }
+.cc-geschiedenis a { display: flex; gap: 0.5rem; align-items: center; flex: 1; min-width: 0; padding: 0.25rem; color: inherit; text-decoration: none; }
+.cc-geschiedenis a:hover strong { text-decoration: underline; color: var(--color-progressive, #36c); }
+.cc-geschiedenis img { width: 3rem; height: 3rem; object-fit: cover; flex-shrink: 0; border: 1px solid var(--cc-rand); background: #f8f9fa; }
+.cc-geschiedenis-tekst { min-width: 0; display: flex; flex-direction: column; }
+.cc-geschiedenis small { color: var(--cc-tekst-zacht); }
+.cc-start-geschiedenis { max-width: 40rem; margin-top: 1rem; }
+.cc-start-geschiedenis h2 { font-size: 1.125rem; }
+.cc-geschiedenis-blok { margin-bottom: 0.75rem; }
 .cc-paginas ol { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; }
 .cc-paginas button { width: 100%; border: 2px solid transparent; background: none; padding: 2px; cursor: pointer; font: inherit; font-size: 0.75rem; }
 .cc-paginas button.actief { border-color: var(--color-progressive, #36c); }
@@ -149,12 +159,37 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .viewer .tooltip small { color: var(--cc-tekst-zacht); margin-top: 0.25rem; }
 
 /* -- Magnifier and concept ------------------------------------------------------ */
+/* A confirmation always lies on top of other dialogs (e.g. the magnifier). */
+.cdx-dialog-backdrop:has(.cc-bevestig) { z-index: 401; }
+.cc-bevestig.cdx-dialog { max-width: 32rem; }
 .cc-vergroter.cdx-dialog { max-width: 56rem; width: 95vw; }
+/* Movable and resizable dialog (frontend/movable.js). */
+.cc-verplaatsbaar { position: relative; }
+.cc-sleepgreep { cursor: move; user-select: none; touch-action: none; }
+.cc-slepen, .cc-slepen * { user-select: none; }
+.cc-rand { position: absolute; z-index: 1; touch-action: none; }
+.cc-rand-n, .cc-rand-s { left: 8px; right: 8px; height: 8px; cursor: ns-resize; }
+.cc-rand-e, .cc-rand-w { top: 8px; bottom: 8px; width: 8px; cursor: ew-resize; }
+.cc-rand-n { top: -4px; } .cc-rand-s { bottom: -4px; }
+.cc-rand-e { right: -4px; } .cc-rand-w { left: -4px; }
+.cc-rand-ne, .cc-rand-nw, .cc-rand-se, .cc-rand-sw { width: 14px; height: 14px; }
+.cc-rand-ne { top: -4px; right: -4px; cursor: nesw-resize; }
+.cc-rand-sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+.cc-rand-nw { top: -4px; left: -4px; cursor: nwse-resize; }
+.cc-rand-se { bottom: -4px; right: -4px; cursor: nwse-resize; }
+.cc-rand-se::after { content: ""; position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; border-right: 2px solid var(--cc-rand); border-bottom: 2px solid var(--cc-rand); }
 .cc-vergroter-beeld { text-align: center; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; margin: 0.5rem 0; }
 .cc-vergroter-beeld img { max-width: 100%; max-height: 50vh; }
+.cc-bezig { margin: 0.75rem 0; }
+.cc-bezig p { margin: 0.35rem 0 0; }
 .cc-bijschrift { display: flex; gap: 0.4rem; }
 .cc-bijschrift .cdx-text-input { flex: 1; }
 .cc-twee { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+.cc-concept-kop { display: flex; gap: 1rem; align-items: flex-start; }
+.cc-concept-voorbeeld { margin: 0; flex-shrink: 0; max-width: 14rem; }
+.cc-concept-voorbeeld img { display: block; max-width: 14rem; max-height: 12rem; border: 1px solid var(--cc-rand); background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
+.cc-concept-voorbeeld figcaption { margin-top: 0.2rem; }
+.cc-qid { margin: 0 0.35rem; color: var(--cc-tekst-zacht); }
 .cc-beeldt-af { list-style: none; padding: 0; margin: 0 0 0.5rem; }
 .cc-treffers { list-style: none; padding: 0; }
 .cc-concept .cdx-field { margin-top: 0.75rem; }

@@ -25,7 +25,11 @@
           {% else %}<a href="{{ taal_url(code) }}" hreflang="{{ code }}" lang="{{ code }}">{{ code|upper }}</a>{% endif %}
         {% endfor %}
       </span>
+      {% if gebruiker %}
+      <span class="cc-gebruiker" title="{{ t('header.local_user') }}">{{ gebruiker }} ({{ t("header.local") }})</span>
+      {% else %}
       <button type="button" class="cdx-button" disabled title="{{ t('header.login_later') }}">{{ t("header.login") }}</button>
+      {% endif %}
     </nav>
   </header>
   {% if detectie_modus != "live" %}
@@ -33,6 +37,10 @@
   {% endif %}
 
   <main class="cc-hoofd{% block main_class %}{% endblock %}">
+    {% if request.endpoint != "web.index" %}
+    {# Back to the file that was open last (main-base.js fills it in), or to the given file. #}
+    <p class="cc-terug"><a href="{{ '/?mid=' ~ mid if mid else '/' }}"{% if not mid %} data-terug{% endif %}>← {{ t("nav.back") }}</a></p>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 
