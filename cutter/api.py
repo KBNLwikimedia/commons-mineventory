@@ -379,6 +379,16 @@ def search_wikidata():
 # -- Commons concept (9.1) --------------------------------------------------------------------
 
 
+def _ai_texts(obj):
+    description = obj.get("beschrijving") or {}
+    if not description:
+        return None
+    return {
+        "caption": {"nl": description.get("onderwerp") or "", "en": description.get("onderwerp_en") or ""},
+        "beschrijving": {"nl": description.get("beschrijving") or "", "en": description.get("beschrijving_en") or ""},
+    }
+
+
 def _concept(file, n, obj):
     result = concept.concept(file, obj)
     result.update(
@@ -387,6 +397,8 @@ def _concept(file, n, obj):
             "pagina": n,
             "opgeslagen": bool(obj.get("opgeslagen")),
             "bijschrift": (obj.get("bijschrift") or {}).get("tekst"),
+            # What "Wat staat hierop?" said, so the UI can go back to it.
+            "ai": _ai_texts(obj),
         }
     )
     return result

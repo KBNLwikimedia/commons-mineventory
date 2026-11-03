@@ -290,3 +290,12 @@ def test_back_link_on_every_page_but_the_start(http):
     objects = http.get("/objecten?uselang=nl").get_data(as_text=True)
     assert 'href="/" data-terug>' in objects and "Terug naar de Commons Cutter" in objects
     assert 'href="/?mid=M5">' in http.get("/commons?mid=M5").get_data(as_text=True)
+
+
+def test_concept_carries_the_ai_texts(http):
+    obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
+    url = f"{PAGE}/object/{obj['id']}"
+    assert http.get(url + "/commons").get_json()["ai"] is None
+    http.post(url + "/beschrijving", json={})
+    ai = http.get(url + "/commons").get_json()["ai"]
+    assert ai["caption"]["en"] == "Coat of arms" and ai["beschrijving"]["nl"].startswith("Voorbeeldbeschrijving")

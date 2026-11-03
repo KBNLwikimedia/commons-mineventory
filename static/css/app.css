@@ -123,6 +123,11 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-objecten li.cc-object-uitgesloten { opacity: 0.6; }
 .cc-object-naam { cursor: pointer; }
 .cc-object-bijschrift { display: block; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12rem; }
+.cc-veldlinks { display: flex; flex-wrap: wrap; gap: 0 1rem; }
+.cc-blok { margin-top: 1.25rem; padding: 0.75rem 1rem; border: 1px solid var(--cc-rand); border-radius: 2px; }
+.cc-blok-zacht { background: var(--background-color-interactive-subtle, #f8f9fa); }
+.cc-blok-kop { font-size: 1rem; margin: 0 0 0.35rem; }
+.cc-kosten { font-weight: normal; opacity: 0.85; margin-left: 0.35em; }
 .cc-waarschuwing { margin-top: 0.5rem; }
 .cc-object-knoppen { display: flex; flex-shrink: 0; }
 

@@ -48,6 +48,7 @@
       </cdx-tab>
 
       <cdx-tab name="beschrijving" :label="t('describe.title')">
+        <!-- The answer, with the cut-out beside it. -->
         <div class="cc-concept-kop">
           <div class="cc-concept-links">
             <template v-if="description">
@@ -58,33 +59,27 @@
                 <dt>{{ t("describe.description") }}</dt><dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
                 <template v-if="description.tekst_in_beeld"><dt>{{ t("describe.text_in") }}</dt><dd>{{ description.tekst_in_beeld }}</dd></template>
                 <template v-if="description.tekst_rond_beeld"><dt>{{ t("describe.text_around") }}</dt><dd>{{ description.tekst_rond_beeld }}</dd></template>
-                <dt>{{ t("describe.model") }}</dt><dd class="cc-klein">{{ description.model }} — {{ description.model_reden }}</dd>
               </dl>
-              <section v-if="description.wikidata_suggesties?.length" class="cc-suggesties">
-                <h4>{{ t("describe.suggestions") }}</h4>
-                <p class="cc-klein">{{ t("describe.suggestions_help") }}</p>
-                <div class="cc-knoppen">
-                  <cdx-button v-for="term in description.wikidata_suggesties" :key="term" size="small" @click="searchWikidata(term)">
-                    <cdx-icon :icon="cdxIconSearch" /> {{ term }}
-                  </cdx-button>
-                </div>
-                <ul v-if="hits.length" class="cc-treffers">
-                  <li v-for="hit in hits" :key="hit.q">
-                    <cdx-button size="small" weight="quiet" action="progressive" @click="addDepicts(hit)">+ {{ hit.label }}</cdx-button>
-                    <small>{{ hit.q }} · {{ hit.beschrijving }}</small>
-                  </li>
-                </ul>
-              </section>
+              <p class="cc-klein cc-waarschuwing">{{ t("describe.caution") }}</p>
             </template>
             <p v-else class="cc-klein">{{ t("describe.none_yet") }}</p>
-        <p v-if="description" class="cc-klein cc-waarschuwing">{{ t("describe.caution") }}</p>
-            <cdx-message v-if="plan" type="notice" :inline="true">
-              {{ plan.betaald ? t("describe.cost", { amount: money(plan.kosten_schatting_usd, language), model: plan.model }) : t("describe.free") }}
-              <span class="cc-klein">{{ plan.reden }}</span>
-            </cdx-message>
+
+            <!-- The actions, each with what it costs. -->
             <div class="cc-knoppen">
-              <cdx-button action="progressive" :disabled="busy" @click="describe(false)">{{ description ? t("describe.again_cache") : t("describe.ask") }}</cdx-button>
-              <cdx-button v-if="description" :disabled="busy" @click="describe(true)">{{ t("describe.again") }}</cdx-button>
+              <cdx-button v-if="!description" action="progressive" weight="primary" :disabled="busy" @click="describe(false)">
+                {{ t("describe.ask") }} <span class="cc-kosten">{{ costLabel }}</span>
+              </cdx-button>
+              <template v-else>
+                <cdx-button :disabled="busy" @click="describe(false)">
+                  {{ t("describe.again_cache") }} <span class="cc-kosten">{{ t("describe.free_short") }}</span>
+                </cdx-button>
+                <cdx-button :disabled="busy" @click="describe(true)">
+                  {{ t("describe.again") }} <span class="cc-kosten">{{ costLabel }}</span>
+                </cdx-button>
+                <cdx-button :disabled="busy" action="destructive" weight="quiet" @click="removeDescription">
+                  <cdx-icon :icon="cdxIconTrash" /> {{ t("describe.remove") }}
+                </cdx-button>
+              </template>
             </div>
             <div v-if="busy" class="cc-bezig" role="status">
               <cdx-progress-bar :inline="true" :aria-label="t('describe.busy', { seconds })" />
@@ -93,6 +88,35 @@
           </div>
           <cutout-preview :src="previewUrl" :caption="t('magnifier.preview')" />
         </div>
+
+        <!-- Suggestions for depicts: a block of its own. -->
+        <section v-if="description?.wikidata_suggesties?.length" class="cc-blok">
+          <h3 class="cc-blok-kop">{{ t("describe.suggestions") }}</h3>
+          <p class="cc-klein">{{ t("describe.suggestions_help") }}</p>
+          <div class="cc-knoppen">
+            <cdx-button v-for="term in description.wikidata_suggesties" :key="term" size="small" @click="searchWikidata(term)">
+              <cdx-icon :icon="cdxIconSearch" /> {{ term }}
+            </cdx-button>
+          </div>
+          <ul v-if="hits.length" class="cc-treffers">
+            <li v-for="hit in hits" :key="hit.q">
+              <cdx-button size="small" weight="quiet" action="progressive" @click="addDepicts(hit)">+ {{ hit.label }}</cdx-button>
+              <small>{{ hit.q }} · {{ hit.beschrijving }}</small>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Secondary: which model, why, and what this answer cost. -->
+        <section v-if="plan || description" class="cc-blok cc-blok-zacht">
+          <h3 class="cc-blok-kop">{{ t("describe.model_block") }}</h3>
+          <p class="cc-klein">
+            {{ (description || plan).model }} — {{ description ? description.model_reden : plan.reden }}
+            <template v-if="description && description.kosten_usd != null">
+              <br />{{ t("describe.paid", { amount: money(description.kosten_usd, language) }) }}
+              <template v-if="description.tokens?.invoer != null"> · {{ t("describe.tokens", { input: description.tokens.invoer, output: description.tokens.uitvoer }) }}</template>
+            </template>
+          </p>
+        </section>
       </cdx-tab>
 
       <cdx-tab name="commons" :label="t('concept.tab')">
@@ -107,7 +131,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
-import { API, errorText, get, objectPath, patch, post, query } from "../api.js";
+import { API, del, errorText, get, objectPath, patch, post, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { forgetPlacement, makeMovable } from "../movable.js";
@@ -180,6 +204,8 @@ const base = computed(() => objectPath(props.file.mid, props.n, props.object.id)
 const name = computed(() => objectName(props.object, language));
 const subtitle = computed(() => `${t(`source.${props.object.bron}`)} · ${t(`status.${props.object.status}`)}`);
 const description = computed(() => props.object.beschrijving || null);
+// The cost on the buttons: an estimate in live mode, free with the dummy.
+const costLabel = computed(() => (plan.value?.betaald ? `± ${money(plan.value.kosten_schatting_usd, language)}` : t("describe.free_short")));
 // The small preview on the "Wat staat hierop?" tab: the rectangle, like the model sees it.
 const previewUrl = computed(() => `${base.value}/uitsnede.jpg?w=480`);
 // View on the Cut-out tab: the shape (PNG, transparent) or the rectangle (JPG).
@@ -213,7 +239,7 @@ loadPlan();
 async function describe(again) {
   // "Opnieuw tonen" comes from the cache and is free; only a new question costs money.
   const paid = again || !description.value;
-  if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) })))) return;
+  if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) }), { title: t("confirm.cost_title") }))) return;
   busy.value = true;
   seconds.value = 0;
   ticker = setInterval(() => seconds.value++, 1000);
@@ -227,6 +253,18 @@ async function describe(again) {
   } finally {
     busy.value = false;
     clearInterval(ticker);
+  }
+}
+
+// Forget the description; the answer stays in the cache, so asking again is free.
+async function removeDescription() {
+  if (!(await askConfirm(t("describe.remove_confirm"), { go: t("describe.remove"), destructive: true }))) return;
+  try {
+    emit("changed", await del(`${base.value}/beschrijving`));
+    editor.value?.reload();
+    loadPlan();
+  } catch (e) {
+    error.value = errorText(t, e);
   }
 }
 

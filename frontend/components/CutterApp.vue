@@ -171,7 +171,7 @@ function fail(error) {
 
 async function confirmCost(calls, usd) {
   if (!props.config.betaald || !calls) return true;
-  return askConfirm(t("confirm.cost", { n: calls, amount: money(usd, props.config.taal) }));
+  return askConfirm(t("confirm.cost", { n: calls, amount: money(usd, props.config.taal) }), { title: t("confirm.cost_title") });
 }
 
 // -- Loading --------------------------------------------------------------------------

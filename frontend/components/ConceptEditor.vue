@@ -29,24 +29,36 @@
     <div class="cc-twee">
       <cdx-field>
         <template #label>{{ t("concept.caption") }} (nl)</template>
-        <template v-if="concept.bijschrift && draft.caption.nl !== concept.bijschrift" #help-text>
-          <button type="button" class="cc-link" @click="draft.caption.nl = concept.bijschrift.slice(0, 250)">{{ t("concept.use_caption") }}</button>
+        <template v-if="(concept.bijschrift && draft.caption.nl !== concept.bijschrift) || differsFromAi('caption', 'nl')" #help-text>
+          <span class="cc-veldlinks">
+            <button v-if="concept.bijschrift && draft.caption.nl !== concept.bijschrift" type="button" class="cc-link" @click="draft.caption.nl = concept.bijschrift.slice(0, 250)">{{ t("concept.use_caption") }}</button>
+            <button v-if="differsFromAi('caption', 'nl')" type="button" class="cc-link" @click="backToAi('caption', 'nl')">↶ {{ t("concept.back_to_ai") }}</button>
+          </span>
         </template>
         <cdx-text-input v-model="draft.caption.nl" />
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.caption") }} (en)</template>
+        <template v-if="differsFromAi('caption', 'en')" #help-text>
+          <button type="button" class="cc-link" @click="backToAi('caption', 'en')">↶ {{ t("concept.back_to_ai") }}</button>
+        </template>
         <cdx-text-input v-model="draft.caption.en" />
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.description") }} (nl)</template>
-        <template v-if="concept.bijschrift && !draft.beschrijving.nl.includes(concept.bijschrift)" #help-text>
-          <button type="button" class="cc-link" @click="addCaptionToDescription">{{ t("concept.use_caption_description") }}</button>
+        <template v-if="(concept.bijschrift && !draft.beschrijving.nl.includes(concept.bijschrift)) || differsFromAi('beschrijving', 'nl')" #help-text>
+          <span class="cc-veldlinks">
+            <button v-if="concept.bijschrift && !draft.beschrijving.nl.includes(concept.bijschrift)" type="button" class="cc-link" @click="addCaptionToDescription">{{ t("concept.use_caption_description") }}</button>
+            <button v-if="differsFromAi('beschrijving', 'nl')" type="button" class="cc-link" @click="backToAi('beschrijving', 'nl')">↶ {{ t("concept.back_to_ai") }}</button>
+          </span>
         </template>
         <cdx-text-area v-model="draft.beschrijving.nl" :autosize="true" />
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.description") }} (en)</template>
+        <template v-if="differsFromAi('beschrijving', 'en')" #help-text>
+          <button type="button" class="cc-link" @click="backToAi('beschrijving', 'en')">↶ {{ t("concept.back_to_ai") }}</button>
+        </template>
         <cdx-text-area v-model="draft.beschrijving.en" :autosize="true" />
       </cdx-field>
       <cdx-field>
@@ -241,6 +253,16 @@ async function reset() {
     clearTimeout(saveTimer);
     return send({ herstel: true }, { announce: true });
   }
+}
+
+// Back to what "Wat staat hierop?" (the AI image description) said, per field.
+function differsFromAi(field, language) {
+  const ai = concept.value?.ai?.[field]?.[language];
+  return Boolean(ai) && draft.value[field][language].trim() !== ai.trim();
+}
+
+function backToAi(field, language) {
+  draft.value[field][language] = concept.value.ai[field][language].slice(0, field === "caption" ? 250 : undefined);
 }
 
 // The caption (from the Cut-out tab) as an extra sentence under the description.
