@@ -1,4 +1,4 @@
-# CLAUDE.md – Commons Uitsnijder
+# CLAUDE.md – Commons Cutter
 
 ## Wat is dit
 Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te detecteren en uit te snijden met SAM 3.1 via de Meta Model API, ze te laten beschrijven met Muse Spark, en de uitsneden na bevestiging door de gebruiker weer op Commons te publiceren. Een verdieping op CropTool. Afgeleid van de Delpher Uitsnijder (`D:\KB-OPEN\github-repos\delpher-uitsnijder`). Geen officiële dienst van de KB of de Wikimedia Foundation.
@@ -27,7 +27,8 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 - Uitsneden en uploads altijd in de volledige resolutie van het origineel.
 
 ## Taal
-- Interface en documentatie: Nederlands. Code, identifiers en commentaar: Engels.
+- Interface: tweetalig, Nederlands en Engels, via vertaalbestanden (frontend/i18n/nl.json en en.json); geen tekst hard in de code.
+- Documentatie: Nederlands. Code, identifiers en commentaar: Engels. Python-package: cutter/.
 
 ## Commando's
 - Eenmalig: pip install -r requirements.txt en npm install

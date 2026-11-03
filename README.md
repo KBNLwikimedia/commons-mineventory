@@ -1,4 +1,4 @@
-# Commons Uitsnijder
+# Commons Cutter
 
 Een experimentele webapp om objecten te vinden in afbeeldingen op [Wikimedia Commons](https://commons.wikimedia.org/), ze uit te snijden als transparante PNG of als JPG, ze te laten beschrijven, en de uitsneden na controle weer op Commons te publiceren, met een koppeling naar het origineel. Een verdieping op [CropTool](https://commons.wikimedia.org/wiki/Commons:CropTool): niet één rechthoek met de hand, maar veel objecten tegelijk, gevonden met AI.
 
@@ -18,7 +18,7 @@ Ontwerpfase. Er is nog geen code. Het ontwerp staat in [docs/functioneel-ontwerp
 - "Wat staat hierop?" en "Wat staat op deze pagina?" met Muse Spark.
 - Inloggen met je Commons-account (OAuth 2.0).
 - Uitsneden uploaden naar Commons, op je eigen naam, na een overzicht en een bevestiging: met `{{Extracted from}}`, de licentie van het origineel, categorieën en gestructureerde gegevens.
-- Een interface in de stijl van Wikimedia, met [Codex](https://doc.wikimedia.org/codex/latest/) en Vue 3, gebouwd met Vite. De server is Python (Flask); Node.js is alleen nodig om de frontend te bouwen.
+- Een tweetalige interface (Nederlands en Engels) in de stijl van Wikimedia, met [Codex](https://doc.wikimedia.org/codex/latest/) en Vue 3, gebouwd met Vite. De server is Python (Flask); Node.js is alleen nodig om de frontend te bouwen.
 - Draaien op [Wikimedia Toolforge](https://toolforge.org/).
 
 ## Documentatie
@@ -26,6 +26,10 @@ Ontwerpfase. Er is nog geen code. Het ontwerp staat in [docs/functioneel-ontwerp
 - [Functioneel ontwerp](docs/functioneel-ontwerp.md)
 - [Backlog](BACKLOG.md)
 - [Changelog](CHANGELOG.md)
+
+## Broncode
+
+Komt op GitHub als [KBNLwikimedia/commons-cutter](https://github.com/KBNLwikimedia/commons-cutter) en draait straks als `commons-cutter` op Toolforge.
 
 ## Licentie
 

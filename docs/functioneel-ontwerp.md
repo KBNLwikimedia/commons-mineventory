@@ -1,10 +1,10 @@
-# Functioneel ontwerp – Commons Uitsnijder
+# Functioneel ontwerp – Commons Cutter
 
-Werktitel: **Commons Uitsnijder**. Status: concept v0.3, 3 november 2026 (v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
+Naam: **Commons Cutter** (Engels, zoals de tool op Toolforge en de repo; besluit Olaf 3-11-2026). Status: concept v0.4, 3 november 2026 (v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
 
 Dit FO beschrijft een variant van de [Delpher Uitsnijder](https://github.com/ookgezellig/delpher-uitsnijder) (versie 0.18.13, lokaal in `D:\KB-OPEN\github-repos\delpher-uitsnijder`) voor afbeeldingen op Wikimedia Commons. Waar dit document "de Delpher Uitsnijder" zegt, gaat het om die app: haar FO, `docs/api.md`, `docs/commons-beschrijving.md`, `docs/beeld-taalmodel.md` en `docs/meta-sam-api.md`. Die documenten blijven de bron voor alles wat ongewijzigd wordt overgenomen. Dit FO beschrijft vooral wat anders is.
 
-Punten met **[Vraag]** wachten op een keuze van Olaf; ze staan ook in hoofdstuk 15.
+Punten met **[Vraag]** wachten op een keuze van Olaf; ze staan ook in hoofdstuk 15. Wat Olaf heeft besloten, staat bij het onderwerp en in de tabel in hoofdstuk 15.
 
 ## 1. Doel
 
@@ -20,9 +20,9 @@ Voorbeelden:
 
 ## 2. Verhouding tot CropTool
 
-[CropTool](https://commons.wikimedia.org/wiki/Commons:CropTool) (croptool2.toolforge.org, broncode [wpmed/croptool2](https://github.com/wpmed/croptool2), PHP, GPL-2.0, OAuth 1.0a, ondersteund door Wiki Project Med) is het gangbare gereedschap om op Commons een bestand bij te snijden. De Commons Uitsnijder is daar een **verdieping** op, geen vervanging.
+[CropTool](https://commons.wikimedia.org/wiki/Commons:CropTool) (croptool2.toolforge.org, broncode [wpmed/croptool2](https://github.com/wpmed/croptool2), PHP, GPL-2.0, OAuth 1.0a, ondersteund door Wiki Project Med) is het gangbare gereedschap om op Commons een bestand bij te snijden. De Commons Cutter is daar een **verdieping** op, geen vervanging.
 
-| | CropTool | Commons Uitsnijder |
+| | CropTool | Commons Cutter |
 | --- | --- | --- |
 | Selectie | Eén rechthoek, met de hand getrokken; randdetectie | Veel objecten tegelijk, gevonden met AI (zoekterm, Snel zoeken, Aanwijzen, Alles detecteren), met maskers; handmatige rechthoek als terugvaloptie |
 | Vorm van de uitsnede | Rechthoek | Rechthoek (JPG) of de vorm van het object (transparante PNG) |
@@ -49,14 +49,18 @@ Voorbeelden:
 - **Geen live aanroepen naar de Meta Model API** zonder expliciete opdracht van Olaf. Tests draaien op fixtures.
 - **Hosting**: lokaal tijdens de bouw, daarna op **Wikimedia Toolforge**.
 - **RESTful**: alles via `/api/v1`; de UI is een client van dezelfde API. Een GET kost nooit geld en verandert niets.
-- **Taal**: interface en documentatie in het Nederlands; code, identifiers en commentaar in het Engels. Codex en de API-velden in het Nederlands, zoals in de Delpher Uitsnijder. **[Vraag]** Ook een Engelse interface (i18n), gezien het internationale publiek van Commons?
+- **Taal**: de interface is **meteen tweetalig, Nederlands en Engels** (besluit Olaf, 3-11-2026). De documentatie is Nederlands; code, identifiers en commentaar zijn Engels. De API-velden blijven Nederlands, zoals in de Delpher Uitsnijder.
+  - Alle teksten in vertaalbestanden (`frontend/i18n/nl.json` en `en.json`), gedeeld door de Jinja-templates en de Vue-componenten. Geen tekst hard in de code.
+  - De taal volgt, in deze volgorde: `?uselang=` in de URL (zoals op Commons), de keuze van de gebruiker (taalkeuze in de header, onthouden in de sessie), de taal van de browser, en anders Engels.
+  - Foutmeldingen van de API blijven Nederlands (`{"fout": …}`), met daarnaast een vaste code (`"code": "not_found"`) die de UI vertaalt.
+  - Andere talen kunnen later via [translatewiki.net](https://translatewiki.net/) of een vertaalbestand erbij.
 - **Volledige resolutie**: uitsneden en uploads altijd op de oorspronkelijke resolutie van het Commons-bestand, nooit op de verkleinde versie die naar het model gaat.
 
 ## 4. Wat hergebruikt wordt en wat vervalt
 
 ### 4.1 Overnemen (kopiëren en aanpassen, geen gedeelde bibliotheek)
 
-| Delpher Uitsnijder | In de Commons Uitsnijder |
+| Delpher Uitsnijder | In de Commons Cutter |
 | --- | --- |
 | `uitsnijder/detectie/basis.py`, `dummy.py`, `meta_sam.py`, `maskers.py` | Ongewijzigd: de detectorinterface, `DummyDetector`, `MetaSamDetector` (met `meta-sam-parser`), maskers lui decoderen en cachen |
 | `uitsnijder/detectie/dienst.py` | De kern blijft: zoektermen, cache per afbeelding+term+model, samenvoegen van dubbelingen (IoU), selectie, prullenbak, opslaan, uitsnede-JPG. De Delpher-delen (zones, ALTO, bijschriften, koppeling aan artikelen) gaan eruit |
@@ -75,7 +79,7 @@ Voorbeelden:
 - De **Delpher-adapter** (`delpher.py`): metadata, DIDL, OCR per artikel, `imageheader`, de imageviewer van de KB, de resolver.
 - **ALTO** en alles wat ervan afhangt: koppen, illustratieblokken, bijschriften uit de OCR (`bijschrift.py`), "tekst eromheen" als controle van de OCR.
 - De **krantenhiërarchie** (`hierarchie.py`): aflevering › pagina › artikel, de koppelregel object → artikel, `config/delpher_collectiesets.json` en de typedetectie krant/tijdschrift/boek.
-- De **Delpher-stijl** (`delpher-theme.css`, het Delpher-logo) en de Firefox-extensie (die kan later terugkomen als "Openen in de Commons Uitsnijder", zie de backlog).
+- De **Delpher-stijl** (`delpher-theme.css`, het Delpher-logo) en de Firefox-extensie (die kan later terugkomen als "Openen in de Commons Cutter", zie de backlog).
 - **De rechtenregel op verschijningsjaar** (`rechten.py`, `RECHTEN_GRENSJAAR`). Op Commons is de licentie al vastgesteld; zie 5.3.
 - Het **bot-wachtwoord** uit `docs/commons-beschrijving.md`. In plaats daarvan OAuth (hoofdstuk 8).
 
@@ -100,7 +104,7 @@ De gebruiker plakt in het invoerveld een van:
 
 Eén verzoek normaliseert dit naar de canonieke titel en de page-id. Een redirect (hernoemd bestand) wordt gevolgd en gemeld. Bestaat het bestand niet, of staat het niet op Commons maar op een andere wiki, dan meldt de app dat met een voorbeeld-URL.
 
-**[Vraag]** Ook een **categorie** als invoer (alle bestanden in `Category:…` als lijst om door te bladeren), net als een aflevering in Delpher? Voorstel: fase 2.
+Een **categorie** als invoer (alle bestanden in `Category:…` als lijst om door te bladeren, net als een aflevering in Delpher) komt in **fase 2** (besluit Olaf, 3-11-2026).
 
 ### 5.2 Gegevens ophalen (MediaWiki Action API)
 
@@ -140,10 +144,10 @@ Op Commons staat elk bestand al onder een vrije licentie of in het publieke dome
 ### 5.4 Bestandstypen en resolutie
 
 - **JPEG, PNG, WebP, TIFF**: direct. TIFF wordt intern naar RGB omgezet; de uitsnede wordt PNG of JPG.
-- **PDF en DjVu**: per pagina, als de gerenderde pagina van Commons (`page<n>-<breedte>px`) op de grootste beschikbare breedte. Dat is niet de "echte" scan, maar meestal de beste die Commons levert. **[Vraag]** Voldoende, of moeten we de PDF zelf renderen (dat vraagt een zware bibliotheek, strijdig met "geen zware libs")?
+- **PDF en DjVu**: per pagina, als de gerenderde pagina van Commons (`page<n>-<breedte>px`) op de grootste beschikbare breedte. Dat is niet de "echte" scan, maar meestal de beste die Commons levert, en het volstaat (besluit Olaf, 3-11-2026). De app rendert PDF's niet zelf.
 - **Meerpagina-TIFF**: per pagina, uit het origineel.
 - **SVG, GIF, video en audio**: niet ondersteund; de app meldt dat.
-- **Grote bestanden**: Commons heeft scans van honderden megapixels. Pillow beschermt tegen "decompression bombs"; op Toolforge is het werkgeheugen per webservice beperkt. Voorstel: tot **100 megapixel** gewoon verwerken; daarboven alleen detecteren op de verkleinde versie en uitsnijden in tegels uit het origineel, of weigeren met een melding. **[Vraag]** Welke grens?
+- **Grote bestanden**: Commons heeft scans van honderden megapixels. Pillow beschermt tegen "decompression bombs"; op Toolforge is het werkgeheugen per webservice beperkt. Voorstel: tot **100 megapixel** gewoon verwerken; daarboven alleen detecteren op de verkleinde versie en uitsnijden in tegels uit het origineel, of weigeren met een melding. Niet beantwoord in ronde 2; de app gaat uit van het voorstel (100 megapixel), bij de bouw te meten op Toolforge.
 
 ### 5.5 Hiërarchie
 
@@ -162,7 +166,7 @@ Opslag: `uitvoer/<M-id>/objecten.json` per bestand en per pagina, zoals in de De
 Ongewijzigd ten opzichte van de Delpher Uitsnijder (`docs/meta-sam-api.md`):
 
 - `POST https://api.meta.ai/v1/responses` met `model: sam-3.1`, één Engelse noun phrase per aanroep, of een punt- of boxprompt (Aanwijzen).
-- De server stuurt een verkleinde versie (standaard 2000 px breed) als base64-data-URL. **[Vraag]** Of de publieke URL van de Commons-thumbnail: dat spaart bandbreedte, maar dan haalt Meta het beeld zelf op bij Wikimedia (met hun eigen User-Agent). Voorstel: data-URL, zoals nu.
+- De server stuurt een verkleinde versie (standaard 2000 px breed) als base64-data-URL. Besloten (3-11-2026): **data-URL**, zoals in de Delpher Uitsnijder. Dan haalt Meta niets zelf op bij Wikimedia, en bepaalt de app de resolutie.
 - Antwoord via `meta-sam-parser`; maskers lui decoderen en cachen.
 - Cache per **SHA-1 van het bestand** + pagina + term + model. Een nieuwe versie van het bestand (andere SHA-1) geeft dus een nieuwe detectie.
 
@@ -172,7 +176,7 @@ Ongewijzigd ten opzichte van de Delpher Uitsnijder (`docs/meta-sam-api.md`):
 
 - **Context** voor het model: de beschrijving en de caption van het origineel (als platte tekst, ingekort), de zichtbare categorieën en de bestaande *beeldt af*-items, uitdrukkelijk als hulp en niet als waarheid. In plaats van de ALTO-tekst.
 - **Nieuw veld `wikidata_suggesties`**: hooguit drie zoektermen voor *beeldt af* (bijv. "coat of arms", "Jacob van Bronckhorst van Batenburg"). De app zoekt die gratis op met `wbsearchentities`; de gebruiker kiest het item. Het model verzint zelf geen Q-nummers.
-- **Taal**: beschrijving in het Nederlands, plus een Engelse caption. **[Vraag]** Altijd beide talen?
+- **Taal**: beschrijving en caption in het Nederlands én het Engels (in één aanroep). Niet beantwoord in ronde 2; dit is het voorstel, en het past bij de tweetalige interface.
 
 ### 6.3 Contributor of Standard
 
@@ -180,9 +184,11 @@ De regel uit de Delpher Uitsnijder ("Contributor alleen als alles klopt") wordt:
 
 1. P6216 van het origineel is **publiek domein** (`Q19652`) én de licentie is een PD-sjabloon (geen CC). Bij CC-licenties zou Meta het werk mogen gebruiken om te trainen zonder de voorwaarden (naamsvermelding, gelijk delen) na te komen; dat doen we niet.
 2. Geen labels **Merk**, **Persoonlijkheidsrechten** of **Origineel ter discussie**.
-3. `BEELDMODEL_CONTRIBUTOR=aan` (standaard `uit`).
+3. `BEELDMODEL_CONTRIBUTOR=aan` (standaard `aan`, zie onder).
 
-Anders: Standard. **[Vraag]** Wil de KB dit überhaupt voor bestanden van anderen op Commons? Voorstel: standaard uit laten.
+Anders: Standard.
+
+Besloten door Olaf (3-11-2026): **Contributor aan voor publiek domein**, ook voor bestanden van anderen. `BEELDMODEL_CONTRIBUTOR` staat daarom standaard op `aan`. Voorwaarden 1 en 2 blijven gelden: bij twijfel gaat het naar Standard. Per aanroep wordt vastgelegd welk model is gebruikt en waarom, zoals in de Delpher Uitsnijder.
 
 ### 6.4 Kosten en limieten
 
@@ -200,7 +206,7 @@ Op basis van de metingen in de Delpher Uitsnijder:
 
 Limieten:
 
-- **Daglimiet per gebruiker** (`DAGLIMIET_PER_GEBRUIKER`, 100 aanroepen, besloten 3-11-2026) en een **algemene daglimiet** (`DAGLIMIET_AANROEPEN`, voorstel 1000) plus een **dagbudget in dollars** (`DAGBUDGET_USD`, voorstel $5). Boven een limiet: 429 met de resterende tijd.
+- **Daglimiet per gebruiker** (`DAGLIMIET_PER_GEBRUIKER`, 100 aanroepen, besloten 3-11-2026) en een **algemene daglimiet** van **500 aanroepen** (`DAGLIMIET_AANROEPEN=500`) plus een **dagbudget van $2** (`DAGBUDGET_USD=2`), beide besloten door Olaf op 3-11-2026. Boven een limiet: 429 met de resterende tijd.
 - In live-modus vraagt de app vóór elke betaalde actie om bevestiging, met het bedrag (zoals nu).
 - Meta: 3000 verzoeken per minuut voor SAM; Contributor heeft lagere limieten.
 
@@ -296,9 +302,9 @@ Overgenomen uit de **IIIF Manifest Upload Workbench** (`src/api/oauth.js`, `docs
 | Uitsneden downloaden (zip) | ja | ja |
 | Uploaden naar Commons | nee | ja, op eigen naam |
 
-Besloten door Olaf (3-11-2026): betaalde aanroepen alleen voor een **toegangslijst** (`TOEGESTANE_GEBRUIKERS`, Commons-gebruikersnamen, komma-gescheiden), met een daglimiet van **100 aanroepen per gebruiker** (`DAGLIMIET_PER_GEBRUIKER=100`). Ingelogde gebruikers die niet op de lijst staan, zien de knoppen met kosten grijs, met de uitleg waarom. Uploaden mag iedere ingelogde gebruiker, want dat kost niets. **[Vraag]** Wie komen er op de lijst, en hoe vraagt iemand toegang aan?
+Besloten door Olaf (3-11-2026): betaalde aanroepen alleen voor een **toegangslijst** (`TOEGESTANE_GEBRUIKERS`, Commons-gebruikersnamen, komma-gescheiden), met een daglimiet van **100 aanroepen per gebruiker** (`DAGLIMIET_PER_GEBRUIKER=100`). Ingelogde gebruikers die niet op de lijst staan, zien de knoppen met kosten grijs, met de uitleg waarom. Uploaden mag iedere ingelogde gebruiker, want dat kost niets. De lijst staat in de omgevingsvariabele `TOEGESTANE_GEBRUIKERS`; Olaf beheert hem (besluit 3-11-2026). Toegang vraag je aan bij Olaf: de app noemt dat bij de grijze knoppen, met een link naar de overlegpagina van de projectpagina op Commons (9.3).
 
-In het verbruikslog staat per aanroep de Commons-gebruikersnaam. **[Vraag]** Mag dat (privacy op Toolforge, zie 12.3), of alleen een gehashte naam?
+In het verbruikslog staat per aanroep de Commons-gebruikersnaam, **leesbaar** (besluit Olaf, 3-11-2026). `/verbruik` is alleen zichtbaar voor gebruikers op de toegangslijst, en de privacyverklaring (12.3) noemt het.
 
 ## 9. Publiceren op Commons
 
@@ -343,7 +349,7 @@ Besloten door Olaf (3-11-2026): **onderwerp voorop, in het Engels**.
 <licentiesjablonen van het origineel, letterlijk overgenomen>
 
 [[Category:<door de gebruiker gekozen categorieën>]]
-[[Category:Uploaded with Commons Uitsnijder]]
+[[Category:Uploaded with Commons Cutter]]
 ```
 
 - **`{{Extracted from|File:…}}`** op de nieuwe pagina, net als CropTool.
@@ -352,8 +358,8 @@ Besloten door Olaf (3-11-2026): **onderwerp voorop, in het Engels**.
 - Gebruikt het origineel `{{Artwork}}`, `{{Photograph}}` of `{{Book}}`, dan neemt de app dat sjabloon over met de velden die op de uitsnede ook kloppen (maker, datum, instelling, inventarisnummer) en een nieuwe `description`/`title`. Welke velden precies: bij de bouw vastleggen per sjabloon.
 - **Licentie**: alle sjablonen uit de licentiesectie van het origineel, letterlijk. Bij `{{Flickrreview}}` of `{{LicenseReview}}` met een bevestiging: de bevestiging komt **niet** mee (CropTool doet dat ook niet), maar wel een verwijzing naar het origineel.
 - **Categorieën**: de zichtbare categorieën van het origineel als voorstel (aan te vinken), plus wat de gebruiker toevoegt. Onderhoudscategorieën en `{{Assessments}}`, `{{QI}}`, `{{FP}}` en dergelijke komen nooit mee.
-- **Volgcategorie** `Category:Uploaded with Commons Uitsnijder` (verborgen). **[Vraag]** Akkoord, en wie maakt die categorie aan?
-- **Uploadsamenvatting**: *"Uitsnede uit [[File:…]] met de [[Commons:Commons Uitsnijder|Commons Uitsnijder]]; beschrijving deels opgesteld met een taalmodel en gecontroleerd door de uploader."*
+- **Volgcategorie** `Category:Uploaded with Commons Cutter` (verborgen), en een projectpagina **`Commons:Commons Cutter`**. Olaf maakt beide aan (besluit 3-11-2026), vóór de eerste echte upload.
+- **Uploadsamenvatting**: *"Uitsnede uit [[File:…]] met de [[Commons:Commons Cutter|Commons Cutter]]; beschrijving deels opgesteld met een taalmodel en gecontroleerd door de uploader."*
 
 ### 9.4 Gestructureerde gegevens (SDC)
 
@@ -409,19 +415,19 @@ Het verzoek noemde Codex **v0.4.1**. Dat is een oude versie (2022), nog zonder d
 - **Commando's**: `npm run dev` (naast `flask --app app run --debug`), `npm run build` (schrijft naar `static/dist/`), `npm test` (Vitest, voor de JS-logica van viewer en componenten).
 - **Geen externe CDN's**: alles zit in de gebouwde bundel en wordt door Flask uitgeleverd. Niets wordt in de browser van unpkg of jsDelivr geladen; dat lekt het IP-adres van gebruikers naar derden, en dat staat Toolforge niet toe zonder toestemming (zie 12.3).
 - **`static/dist/` staat niet in git.** Het wordt gebouwd: lokaal voor het ontwikkelen, en voor Toolforge in de deploy (zie 12.1).
-- **Taal**: componentnamen en code in het Engels, teksten in de interface in het Nederlands, net als nu. Later Engels via een vertaalbestand (fase 4).
+- **Taal**: componentnamen en code in het Engels. De teksten van de interface staan in `frontend/i18n/nl.json` en `en.json` (zie 3); de Vue-componenten gebruiken ze via een kleine vertaalfunctie (of `vue-i18n`), en Flask levert dezelfde bestanden aan de Jinja-templates.
 
 ### 10.3 Look en feel
 
 - Zo dicht mogelijk bij Commons in Vector 2022: witte achtergrond, `--color-progressive` (#36c) voor acties, de lettertypen van de systeeminterface, rustige randen.
-- **Geen Commons-logo als eigen merk**: het Commons-logo is een merk van de Wikimedia Foundation. Wel de naam "Commons Uitsnijder", een eigen eenvoudig icoon (schaar of uitsnede) en de zin "werkt met Wikimedia Commons". **[Vraag]** Akkoord, of het logo vragen aan de WMF?
+- **Geen Commons-logo als eigen merk**: het Commons-logo is een merk van de Wikimedia Foundation. Wel de naam "Commons Cutter", een eigen eenvoudig icoon (schaar of uitsnede) en de zin "werkt met Wikimedia Commons". Besloten (3-11-2026): een **eigen icoon**.
 - Kleuren alleen via Codex-tokens; eigen toevoegingen (maskerkleuren, selectie) in `static/css/app.css` als variabelen.
 
 ### 10.4 Indeling
 
 Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 
-- **Header**: icoon, "Commons Uitsnijder", label *experiment*, rechts **Inloggen** of de gebruikersnaam met een menu (Mijn uploads, Uitloggen).
+- **Header**: icoon, "Commons Cutter", label *experiment*, rechts de taalkeuze (NL/EN) en **Inloggen** of de gebruikersnaam met een menu (Mijn uploads, Uitloggen).
 - **Invoerbalk**: Commons-URL of titel, knop **Openen**. Daaronder: titel, miniatuur, licentie (als Codex-*chip*), maker, datum, link naar de bestandspagina, en een uitklapbare **Metadata** (beschrijving, categorieën, SDC).
 - **Links**: bestand › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › objecten.
 - **Midden**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
@@ -465,23 +471,23 @@ Versieprefix `/api/v1`, OpenAPI op `/api/v1/openapi.json`, documentatie op `/doc
 | GET | `/api/v1/verbruik` | Verbruikslog |
 | GET | `/oauth/login`, `/oauth/callback`, POST `/oauth/logout` | Inloggen (geen deel van `/api/v1`) |
 
-API-gebruik zonder browser: met de sessiecookie na het inloggen. **[Vraag]** Ook een eigen API-sleutel per gebruiker voor scripts? Voorstel: later.
+API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-sleutel per gebruiker voor scripts komt **later, in fase 4** (besluit 3-11-2026).
 
 ## 12. Toolforge
 
 ### 12.1 Opzet
 
-- Een tool-account op Toolforge, bijvoorbeeld **`commons-uitsnijder`** (URL `https://commons-uitsnijder.toolforge.org/`). **[Vraag]** Naam, en wie zijn de beheerders (Olaf, een KB-collega)?
+- Een tool-account op Toolforge: **`commons-cutter`** (URL `https://commons-cutter.toolforge.org/`). De naam moet Engels zijn; de repo heet hetzelfde (besluit Olaf, 3-11-2026). Op 3-11-2026 nagekeken: de naam is vrij op Toolforge (toolsadmin) en Toolhub, en `KBNLwikimedia/commons-cutter` bestaat nog niet op GitHub. Ook `commonscutter`, `commons-cut`, `cutter` en `image-cutter` zijn vrij. **[Vraag]** Wie zijn naast Olaf de beheerders?
 - **Build Service** met een `Procfile` (`web: gunicorn --workers 2 --bind 0.0.0.0:$PORT wsgi:app`) en `requirements.txt`; deployen met `toolforge build start <git-url>` en `toolforge webservice buildservice restart`. Alternatief: de klassieke `webservice python3.11` met een venv. Voorstel: Build Service.
 - **De frontend bouwen** (Vite, zie 10.2). Op Toolforge draait alleen Python; Node.js is alleen nodig om `static/dist/` te maken. Twee routes, bij de bouw kiezen:
   1. **In de Build Service zelf**: als die naast Python ook een Node-stap kan draaien (`npm ci && npm run build`). Het eenvoudigst, als het kan.
   2. **In een GitHub Action** (terugvaloptie): bij elke push naar `main` bouwt de Action de frontend en zet het resultaat in een aparte branch (bijv. `deploy`), die de Build Service ophaalt. `static/dist/` komt dan nooit in `main`.
 - **Configuratie** met `toolforge envvars create …` (`MODEL_API_KEY`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `FLASK_SECRET_KEY`). Nooit in de repo.
-- **Opslag**: cache en uitvoer op de gedeelde schijf van de tool (`/data/project/<tool>/`), met een opruimtaak (bijv. originelen na 7 dagen weg, uitsneden na 30 dagen, tenzij geüpload). **[Vraag]** Bewaartermijnen?
+- **Opslag**: cache en uitvoer op de gedeelde schijf van de tool (`/data/project/<tool>/`), met een opruimtaak (originelen na 7 dagen weg, uitsneden na 30 dagen, tenzij geüpload). Niet beantwoord in ronde 2; dit is het voorstel.
 - **Sessies**: server-side, in Redis van Toolforge of in bestanden; tokens versleuteld.
 - **Lange taken** (Alles beschrijven, uploads van tientallen bestanden): pagina voor pagina vanuit de browser, zoals nu, of als `toolforge jobs`-taak. Voorstel: vanuit de browser, met de knop Stoppen.
 - **Werkgeheugen**: een webservice heeft standaard een beperkt geheugen; grote scans (5.4) kunnen dat overschrijden. Bij de bouw meten en zo nodig meer aanvragen.
-- **Broncode**: openbaar, met een open-sourcelicentie (verplicht op Toolforge). Licentie: **MIT** (besloten door Olaf, 3-11-2026). Let op: Codex (GPL-2.0-or-later), Vue (MIT) en `meta-sam-parser` (SAM License) houden hun eigen licentie; dat staat in de README, en Vite zet de licentieteksten bij de gebouwde bundel. **[Vraag]** GitHub onder `KBNLwikimedia` of onder `ookgezellig`?
+- **Broncode**: openbaar, met een open-sourcelicentie (verplicht op Toolforge). Licentie: **MIT** (besloten door Olaf, 3-11-2026). Let op: Codex (GPL-2.0-or-later), Vue (MIT) en `meta-sam-parser` (SAM License) houden hun eigen licentie; dat staat in de README, en Vite zet de licentieteksten bij de gebouwde bundel. De code komt op GitHub onder **`KBNLwikimedia/commons-cutter`** (besluit 3-11-2026).
 
 ### 12.2 Lokaal ontwikkelen
 
@@ -495,7 +501,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 ### 12.3 Regels van Toolforge en privacy
 
 - Volgens de gebruiksvoorwaarden van Toolforge mag een tool geen persoonsgegevens (zoals IP-adressen) naar derden lekken zonder dat de gebruiker dat weet. Daarom: geen externe CDN's, lettertypen of scripts (alles zit in de gebouwde bundel en komt van de tool zelf), en een **privacyverklaring** op `/privacy`.
-- **Meta Model API**: de server stuurt beelden van Commons (openbaar) en de context (beschrijving, categorieën) naar Meta, nooit gegevens van de gebruiker. De privacyverklaring zegt dat. **[Vraag]** Is een commerciële, betaalde API van Meta acceptabel voor een Toolforge-tool, en moet dat vooraf langs de Toolforge-beheerders? Bij de bouw de gebruiksvoorwaarden nalezen.
+- **Meta Model API**: de server stuurt beelden van Commons (openbaar) en de context (beschrijving, categorieën) naar Meta, nooit gegevens van de gebruiker. De privacyverklaring zegt dat. **[Vraag]** Is een commerciële, betaalde API van Meta acceptabel voor een Toolforge-tool, en moet dat vooraf langs de Toolforge-beheerders? Niet beantwoord in ronde 2; vóór de deploy de gebruiksvoorwaarden nalezen en zo nodig navragen.
 - Verbruikslog met gebruikersnamen: zie 8.3.
 
 ## 13. Fasering
@@ -506,36 +512,39 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 
 1. Skelet overnemen uit de Delpher Uitsnijder: detectie (`DummyDetector`), prompts, cache, verbruik, API-conventies, tests.
 2. Commons-adapter: invoer normaliseren, imageinfo, wikitekst, SDC, licentie- en rechtenlabels, meerpaginabestanden, caching.
-3. Frontend-opzet met Vite, Vue 3 en Codex 2.x; de viewer uit de Delpher Uitsnijder als JS-module; de koppeling Flask–Vite (10.2). Daarna de UI.
+3. Frontend-opzet met Vite, Vue 3 en Codex 2.x; de viewer uit de Delpher Uitsnijder als JS-module; de koppeling Flask–Vite (10.2); de vertaalbestanden voor Nederlands en Engels (3). Daarna de UI, meteen tweetalig.
 4. Uit Commons: de regio's uit de gestructureerde gegevens (P180 met P2677) als objecten, en de bestandsnotities.
 5. Opslaan, zip, `/objecten`.
 6. Commons-concept per object, keuzemenu, controle vooraf en proefweergave, zonder upload.
 
-**Fase 2: OAuth en upload naar een testwiki**
+**Fase 2: OAuth, upload naar een testwiki, categorieën**
 
 7. OAuth 2.0 server-side, met een owner-only consumer.
-8. Upload via de stash, SDC, `{{Image extracted}}` op het origineel; alles eerst op de testwiki.
+8. Upload via de stash, SDC, `{{Image extracted}}` op het origineel; alles eerst op de testwiki (welke, blijkt bij de bouw).
+9. Toegangslijst en daglimieten (100 per gebruiker; 500 aanroepen en $2 per dag in totaal).
+10. Een categorie als invoer: bladeren door de bestanden van `Category:…` (5.1).
 
 **Fase 3: live**
 
-9. Detectie en beschrijving live (`DETECTIE_MODUS=live`), alleen na een opdracht van Olaf. Kalibratie op Commons-materiaal (albums, prenten, kaarten).
-10. Deploy naar Toolforge, publieke consumer aanvragen, privacyverklaring, de projectpagina `Commons:Commons Uitsnijder` en de volgcategorie.
-11. De eerste echte uploads op Commons, door Olaf zelf.
+11. Detectie en beschrijving live (`DETECTIE_MODUS=live`), alleen na een opdracht van Olaf. Kalibratie op Commons-materiaal (albums, prenten, kaarten).
+12. Deploy naar Toolforge als `commons-cutter`, publieke consumer aanvragen, privacyverklaring. Olaf maakt de projectpagina `Commons:Commons Cutter` en de volgcategorie aan.
+13. De eerste echte uploads op Commons, door Olaf zelf.
 
 **Fase 4: verdieping**
 
-12. Een categorie als invoer; batch over meerdere bestanden.
-13. Regio's terugschrijven naar het origineel (P180 met P2677).
-14. Een link vanuit Commons: gadget of een item in het menu Hulpmiddelen ("Openen in de Commons Uitsnijder"), zoals CropTool.
-15. IIIF-annotaties exporteren.
-16. Engelse interface.
+14. Batch over meerdere bestanden (een hele categorie in één keer).
+15. Regio's terugschrijven naar het origineel (P180 met P2677).
+16. Een link vanuit Commons: gadget of een item in het menu Hulpmiddelen ("Openen in de Commons Cutter"), zoals CropTool.
+17. IIIF-annotaties exporteren.
+18. Eigen API-sleutel per gebruiker voor scripts.
+19. Meer talen in de interface.
 
 ## 14. Repo-structuur (doel)
 
 ```
-commons-uitsnijder/
+commons-cutter/
   app.py  wsgi.py  Procfile  requirements.txt  .env.example  .gitignore
-  uitsnijder/ (commons.py, regios.py, oauth.py, upload.py, wikitekst.py, sdc.py, rechten.py,
+  cutter/ (commons.py, regios.py, oauth.py, upload.py, wikitekst.py, sdc.py, rechten.py,
                detectie/{basis,dummy,meta_sam,maskers,dienst}.py, beschrijving.py,
                prompts.py, verbruik.py, cache.py, export.py, api.py, openapi.py, web.py)
   templates/                         (Jinja-pagina's met mountpunten voor Vue)
@@ -553,38 +562,40 @@ commons-uitsnijder/
 
 | Onderwerp | Besluit | Waar |
 | --- | --- | --- |
-| Repo | `commons-uitsnijder`, in `D:\KB-OPEN\github-repos\commons-uitsnijder` | – |
+| Naam | **Commons Cutter**; tool, repo en map heten `commons-cutter` (lokaal `D:\KB-OPEN\github-repos\commons-cutter`, op GitHub `KBNLwikimedia/commons-cutter`). De naam is vrij op Toolforge, Toolhub en GitHub | 12.1 |
 | Kosten | Eén API-sleutel van de KB voor de Meta-aanroepen | 3, 6.4 |
 | Codex | 2.x met Vue 3 | 10.1 |
 | Build-stap | Vite (Node.js alleen bij het ontwikkelen en bouwen); de viewer blijft een gewone JS-module; op Toolforge draait alleen Python | 10.2, 12.1 |
-| Wie mag betalen | Een toegangslijst, met 100 aanroepen per gebruiker per dag | 6.4, 8.3 |
+| Wie mag betalen | Een toegangslijst in `TOEGESTANE_GEBRUIKERS`, beheerd door Olaf; toegang via Olaf | 8.3 |
+| Daglimieten | 100 aanroepen per gebruiker; in totaal 500 aanroepen en $2 per dag | 6.4 |
 | OAuth | Server-side, als confidential client | 8.1 |
 | `{{Image extracted}}` | Standaard aan op het origineel, per upload uit te zetten | 9.3 |
 | `{{Extracted from}}` | Verplicht op elke uitsnede | 9.3 |
 | Bestandsnaam | Onderwerp voorop, in het Engels | 9.2 |
 | Licentie van de code | MIT | 12.1 |
 | Regio's uit de gestructureerde gegevens | De app vindt ze en snijdt elke regio als apart bestand uit | 7.5 |
+| Interface | Meteen tweetalig, Nederlands en Engels | 3 |
+| Categorie als invoer | Fase 2 | 5.1, 13 |
+| PDF en DjVu | De gerenderde pagina van Commons volstaat | 5.4 |
+| Contributor-model | Aan voor publiek domein, ook bij bestanden van anderen | 6.3 |
+| Volgcategorie en projectpagina | Beide; Olaf maakt ze aan | 9.3 |
+| Verbruikslog | Gebruikersnamen leesbaar, alleen zichtbaar voor de toegangslijst | 8.3 |
+| Logo | Eigen icoon | 10.3 |
+| Testwiki | Wat bij de bouw blijkt te werken | 9.6 |
+| Beeld naar SAM | Als data-URL | 6.1 |
+| API-sleutel per gebruiker | Later, fase 4 | 11, 13 |
+
+### Aangenomen (niet beantwoord, voorstel geldt tot Olaf anders zegt)
+
+- Grens voor grote bestanden: 100 megapixel (5.4).
+- Beschrijving en caption in het Nederlands én het Engels (6.2).
+- Bewaartermijnen op Toolforge: originelen 7 dagen, uitsneden 30 dagen, tenzij geüpload (12.1).
 
 ### Nog open
 
-**Belangrijkst**
-
-1. **Toegangslijst**: wie komen erop, en hoe vraagt iemand toegang aan? (8.3)
-2. **Toolforge**: toolnaam (voorstel `commons-uitsnijder`), beheerders, en of een betaalde API van Meta daar acceptabel is. GitHub onder `KBNLwikimedia` of `ookgezellig`? (12)
-3. **Algemene daglimiet** en dagbudget (voorstel 1000 aanroepen en $5 per dag). (6.4)
-
-**Verder**
-
-4. Een categorie als invoer al in fase 1, of pas in fase 4? (5.1)
-5. PDF/DjVu: de gerenderde pagina van Commons volstaat? Grens voor grote bestanden (voorstel 100 megapixel)? (5.4)
-6. Contributor-model voor publiek-domeinbestanden van anderen: aan of uit (voorstel uit)? (6.3)
-7. Beschrijving en caption altijd in het Nederlands én het Engels? Engelse interface later? (3, 6.2)
-8. Volgcategorie `Category:Uploaded with Commons Uitsnijder` en een projectpagina op Commons? (9.3)
-9. Gebruikersnamen in het verbruikslog: leesbaar of gehasht? Bewaartermijnen op Toolforge? (8.3, 12.1)
-10. Logo: eigen icoon (voorstel) of het Commons-logo met toestemming van de WMF? (10.3)
-11. Testwiki: test-commons of de bètacluster? (9.6)
-12. Beeld naar SAM als data-URL (voorstel) of als publieke thumbnail-URL? (6.1)
-13. Een eigen API-sleutel per gebruiker voor scripts, of later? (11)
+1. Wie zijn naast Olaf de beheerders van de tool op Toolforge? (12.1)
+2. Is een commerciële, betaalde API van Meta acceptabel voor een Toolforge-tool, en moet dat vooraf langs de Toolforge-beheerders? Vóór de deploy uitzoeken. (12.3)
+3. Wie komen er als eerste op de toegangslijst? (8.3)
 
 ## 16. Te verifiëren bij de bouw
 
