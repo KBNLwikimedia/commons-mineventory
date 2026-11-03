@@ -210,7 +210,7 @@ Limieten:
 - In live-modus vraagt de app vóór elke betaalde actie om bevestiging, met het bedrag (zoals nu).
 - Meta: 3000 verzoeken per minuut voor SAM; Contributor heeft lagere limieten.
 
-Wie betaalde aanroepen mag doen: zie 8.3 (een toegangslijst).
+Wie betaalde aanroepen mag doen: zie 8.3 (een toegangslijst). De limieten zijn aan te passen in het beheerpaneel (8.4).
 
 ## 7. Detectiemodi
 
@@ -302,9 +302,40 @@ Overgenomen uit de **IIIF Manifest Upload Workbench** (`src/api/oauth.js`, `docs
 | Uitsneden downloaden (zip) | ja | ja |
 | Uploaden naar Commons | nee | ja, op eigen naam |
 
-Besloten door Olaf (3-11-2026): betaalde aanroepen alleen voor een **toegangslijst** (`TOEGESTANE_GEBRUIKERS`, Commons-gebruikersnamen, komma-gescheiden), met een daglimiet van **100 aanroepen per gebruiker** (`DAGLIMIET_PER_GEBRUIKER=100`). Ingelogde gebruikers die niet op de lijst staan, zien de knoppen met kosten grijs, met de uitleg waarom. Uploaden mag iedere ingelogde gebruiker, want dat kost niets. De lijst staat in de omgevingsvariabele `TOEGESTANE_GEBRUIKERS`; Olaf beheert hem (besluit 3-11-2026). Toegang vraag je aan bij Olaf: de app noemt dat bij de grijze knoppen, met een link naar de overlegpagina van de projectpagina op Commons (9.3).
+Besloten door Olaf (3-11-2026): betaalde aanroepen alleen voor een **toegangslijst** (`TOEGESTANE_GEBRUIKERS`, Commons-gebruikersnamen, komma-gescheiden), met een daglimiet van **100 aanroepen per gebruiker** (`DAGLIMIET_PER_GEBRUIKER=100`). Ingelogde gebruikers die niet op de lijst staan, zien de knoppen met kosten grijs, met de uitleg waarom. Uploaden mag iedere ingelogde gebruiker, want dat kost niets. Olaf beheert de lijst (besluit 3-11-2026), in het **beheerpaneel** van de tool (8.4). In het begin staat alleen Olaf erop; anderen voegt hij toe in het paneel. Een beheerder staat altijd op de toegangslijst. Toegang vraag je aan met de knop **Toegang aanvragen** bij de grijze knoppen; de aanvraag komt in het beheerpaneel.
 
-In het verbruikslog staat per aanroep de Commons-gebruikersnaam, **leesbaar** (besluit Olaf, 3-11-2026). `/verbruik` is alleen zichtbaar voor gebruikers op de toegangslijst, en de privacyverklaring (12.3) noemt het.
+In het verbruikslog staat per aanroep de Commons-gebruikersnaam, **leesbaar** (besluit Olaf, 3-11-2026). `/verbruik` is alleen zichtbaar voor gebruikers op de toegangslijst en voor beheerders, en de privacyverklaring (12.3) noemt het.
+
+### 8.4 Beheerders en het beheerpaneel
+
+Eis van Olaf (3-11-2026): Olaf is nu de enige beheerder, maar wil andere beheerders kunnen toevoegen via hun Wikimedia-account, en de instellingen van de tool in een **beheerpaneel** kunnen invoeren.
+
+**Twee soorten beheer**, die los van elkaar staan:
+
+| | Beheerder in de app | Beheerder (maintainer) op Toolforge |
+| --- | --- | --- |
+| Wat je kunt | Het beheerpaneel: toegang, limieten, instellingen | De server: deployen, logs, omgevingsvariabelen, de API-sleutel |
+| Account | Wikimedia-account (SUL), ingelogd via OAuth | Wikimedia developer-account (LDAP), met SSH-sleutel |
+| Toevoegen | In het beheerpaneel, op Commons-gebruikersnaam | Op [toolsadmin.wikimedia.org](https://toolsadmin.wikimedia.org/), door een bestaande maintainer. Het beheerpaneel kan dat niet |
+| Nu | Olaf | Olaf |
+
+**Beheerpaneel** op `/beheer`, met Codex, alleen voor ingelogde beheerders:
+
+- **Beheerders**: toevoegen en verwijderen op Commons-gebruikersnaam. De app controleert of het account bestaat (`list=users`). De eerste beheerder komt uit de omgevingsvariabele `BEHEERDERS_START` (`OlafJanssen`); die blijft altijd beheerder en is niet uit het paneel te verwijderen, zodat niemand zichzelf of anderen buitensluit.
+- **Toegangslijst**: wie betaalde aanroepen mag doen, met per gebruiker optioneel een eigen daglimiet. Toevoegen, verwijderen, tijdelijk blokkeren.
+- **Aanvragen**: aanvragen voor toegang, met naam, datum en een korte reden van de aanvrager; goedkeuren of afwijzen.
+- **Limieten en kosten**: daglimiet per gebruiker, algemene daglimiet, dagbudget in dollars.
+- **Noodknoppen**: betaalde aanroepen pauzeren (alle SAM- en Muse-aanroepen uit, voor iedereen) en uploaden naar Commons pauzeren.
+- **Modellen**: Contributor aan of uit; redeneerinspanning (`low` enzovoort).
+- **Bewaartermijnen**: originelen, uitsneden, cache (12.1).
+- **Overzicht**: verbruik vandaag en deze maand, per gebruiker; ruimte op schijf.
+- **Logboek** van alle wijzigingen in het paneel: wie, wat, wanneer, oude en nieuwe waarde.
+
+**Wat niet in het paneel kan:** geheimen. `MODEL_API_KEY`, `OAUTH_CLIENT_SECRET` en `FLASK_SECRET_KEY` blijven omgevingsvariabelen op Toolforge (`toolforge envvars`), en zijn ook voor beheerders niet te zien of te wijzigen in de app.
+
+**Opslag:** de instellingen, lijsten, aanvragen en het logboek staan in een kleine database: lokaal SQLite, op Toolforge ToolsDB (MariaDB), achter één opslaglaag in de code. SQLite op de gedeelde NFS-schijf van Toolforge is af te raden vanwege de bestandsvergrendeling; bij de bouw verifiëren. De omgevingsvariabelen uit 6.4 en 12.1 (`DAGLIMIET_*`, `DAGBUDGET_USD`, `BEWAAR_*`, `BEELDMODEL_CONTRIBUTOR`) zijn alleen nog de **beginwaarden**; zodra een beheerder iets in het paneel wijzigt, geldt de waarde uit de database.
+
+**Beveiliging:** elke wijziging is een POST, PATCH of DELETE met een CSRF-token; alleen voor beheerders (anders 403); het paneel en de API eronder staan niet in de sitemap en hebben `noindex`.
 
 ## 9. Publiceren op Commons
 
@@ -478,6 +509,13 @@ Versieprefix `/api/v1`, OpenAPI op `/api/v1/openapi.json`, documentatie op `/doc
 | GET | `/api/v1/objecten` | Alle opgeslagen objecten, met filters |
 | GET | `/api/v1/status` | Versie, modus, ingelogde gebruiker, budgetten |
 | GET | `/api/v1/verbruik` | Verbruikslog |
+| GET, PATCH | `/api/v1/beheer/instellingen` | Limieten, noodknoppen, modellen, bewaartermijnen (alleen beheerders) |
+| GET, POST, DELETE | `/api/v1/beheer/beheerders[/{gebruiker}]` | Beheerders (alleen beheerders) |
+| GET, POST, PATCH, DELETE | `/api/v1/beheer/toegang[/{gebruiker}]` | Toegangslijst, met eigen daglimiet of blokkade (alleen beheerders) |
+| GET, PATCH | `/api/v1/beheer/aanvragen[/{id}]` | Aanvragen bekijken, goedkeuren of afwijzen (alleen beheerders) |
+| POST | `/api/v1/toegang/aanvragen` | Toegang aanvragen (iedere ingelogde gebruiker; één openstaande aanvraag per gebruiker) |
+| GET | `/api/v1/beheer/logboek` | Logboek van wijzigingen (alleen beheerders) |
+| GET | `/beheer` | Het beheerpaneel (UI) |
 | GET | `/oauth/login`, `/oauth/callback`, POST `/oauth/logout` | Inloggen (geen deel van `/api/v1`) |
 
 API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-sleutel per gebruiker voor scripts komt **later, in fase 4** (besluit 3-11-2026).
@@ -486,7 +524,7 @@ API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-s
 
 ### 12.1 Opzet
 
-- Een tool-account op Toolforge: **`commons-cutter`** (URL `https://commons-cutter.toolforge.org/`). De naam moet Engels zijn; de repo heet hetzelfde (besluit Olaf, 3-11-2026). Op 3-11-2026 nagekeken: de naam is vrij op Toolforge (toolsadmin) en Toolhub, en `KBNLwikimedia/commons-cutter` bestaat nog niet op GitHub. Ook `commonscutter`, `commons-cut`, `cutter` en `image-cutter` zijn vrij. **[Vraag]** Wie zijn naast Olaf de beheerders?
+- Een tool-account op Toolforge: **`commons-cutter`** (URL `https://commons-cutter.toolforge.org/`). De naam moet Engels zijn; de repo heet hetzelfde (besluit Olaf, 3-11-2026). Op 3-11-2026 nagekeken: de naam is vrij op Toolforge (toolsadmin) en Toolhub, en `KBNLwikimedia/commons-cutter` bestaat nog niet op GitHub. Ook `commonscutter`, `commons-cut`, `cutter` en `image-cutter` zijn vrij. Olaf is de enige maintainer; andere maintainers voegt hij toe op toolsadmin. Beheerders in de app staan los daarvan (8.4).
 - **Build Service** met een `Procfile` (`web: gunicorn --workers 2 --bind 0.0.0.0:$PORT wsgi:app`) en `requirements.txt`; deployen met `toolforge build start <git-url>` en `toolforge webservice buildservice restart`. Alternatief: de klassieke `webservice python3.11` met een venv. Voorstel: Build Service.
 - **De frontend bouwen** (Vite, zie 10.2). Op Toolforge draait alleen Python; Node.js is alleen nodig om `static/dist/` te maken. Twee routes, bij de bouw kiezen:
   1. **In de Build Service zelf**: als die naast Python ook een Node-stap kan draaien (`npm ci && npm run build`). Het eenvoudigst, als het kan.
@@ -519,7 +557,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 ### 12.3 Regels van Toolforge en privacy
 
 - Volgens de gebruiksvoorwaarden van Toolforge mag een tool geen persoonsgegevens (zoals IP-adressen) naar derden lekken zonder dat de gebruiker dat weet. Daarom: geen externe CDN's, lettertypen of scripts (alles zit in de gebouwde bundel en komt van de tool zelf), en een **privacyverklaring** op `/privacy`.
-- **Meta Model API**: de server stuurt beelden van Commons (openbaar) en de context (beschrijving, categorieën) naar Meta, nooit gegevens van de gebruiker. De privacyverklaring zegt dat. **[Vraag]** Is een commerciële, betaalde API van Meta acceptabel voor een Toolforge-tool, en moet dat vooraf langs de Toolforge-beheerders? Niet beantwoord in ronde 2; vóór de deploy de gebruiksvoorwaarden nalezen en zo nodig navragen.
+- **Meta Model API**: de server stuurt beelden van Commons (openbaar) en de context (beschrijving, categorieën) naar Meta, nooit gegevens van de gebruiker. De privacyverklaring zegt dat. Of een commerciële, betaalde API van Meta acceptabel is voor een Toolforge-tool, zoeken we uit vóór de deploy (besluit Olaf, 3-11-2026: "zien we te zijner tijd").
 - Verbruikslog met gebruikersnamen: zie 8.3.
 
 ## 13. Fasering
@@ -539,7 +577,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 
 7. OAuth 2.0 server-side, met een owner-only consumer.
 8. Upload via de stash, SDC, `{{Image extracted}}` op het origineel; alles eerst op de testwiki (welke, blijkt bij de bouw).
-9. Toegangslijst en daglimieten (100 per gebruiker; 500 aanroepen en $2 per dag in totaal).
+9. Beheerpaneel (8.4): beheerders, toegangslijst, aanvragen, limieten (100 per gebruiker; 500 aanroepen en $2 per dag in totaal), noodknoppen, logboek; opslag in SQLite (lokaal) en ToolsDB (Toolforge).
 10. Een categorie als invoer: bladeren door de bestanden van `Category:…` (5.1).
 
 **Fase 3: live**
@@ -562,7 +600,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 ```
 commons-cutter/
   app.py  wsgi.py  Procfile  requirements.txt  .env.example  .gitignore
-  cutter/ (commons.py, regios.py, oauth.py, upload.py, wikitekst.py, sdc.py, rechten.py,
+  cutter/ (beheer.py, opslag.py, commons.py, regios.py, oauth.py, upload.py, wikitekst.py, sdc.py, rechten.py,
                detectie/{basis,dummy,meta_sam,maskers,dienst}.py, beschrijving.py,
                prompts.py, verbruik.py, cache.py, export.py, api.py, openapi.py, web.py)
   templates/                         (Jinja-pagina's met mountpunten voor Vue)
@@ -584,7 +622,9 @@ commons-cutter/
 | Kosten | Eén API-sleutel van de KB voor de Meta-aanroepen | 3, 6.4 |
 | Codex | 2.x met Vue 3 | 10.1 |
 | Build-stap | Vite (Node.js alleen bij het ontwikkelen en bouwen); de viewer blijft een gewone JS-module; op Toolforge draait alleen Python | 10.2, 12.1 |
-| Wie mag betalen | Een toegangslijst in `TOEGESTANE_GEBRUIKERS`, beheerd door Olaf; toegang via Olaf | 8.3 |
+| Wie mag betalen | Een toegangslijst, beheerd in het beheerpaneel; in het begin alleen Olaf; toegang aanvragen in de app | 8.3, 8.4 |
+| Beheer | Olaf is de enige beheerder; andere beheerders voegt hij toe op Wikimedia-account in een beheerpaneel in de tool, waar ook de toegangslijst, limieten en instellingen staan. Maintainers op Toolforge gaan via toolsadmin | 8.4 |
+| Betaalde Meta-API op Toolforge | Later uitzoeken, vóór de deploy | 12.3 |
 | Daglimieten | 100 aanroepen per gebruiker; in totaal 500 aanroepen en $2 per dag | 6.4 |
 | OAuth | Server-side, als confidential client | 8.1 |
 | `{{Image extracted}}` | Standaard aan op het origineel, per upload uit te zetten | 9.3 |
@@ -597,7 +637,7 @@ commons-cutter/
 | PDF en DjVu | De gerenderde pagina van Commons volstaat | 5.4 |
 | Contributor-model | Aan voor publiek domein, ook bij bestanden van anderen | 6.3 |
 | Volgcategorie en projectpagina | Beide; Olaf maakt ze aan | 9.3 |
-| Verbruikslog | Gebruikersnamen leesbaar, alleen zichtbaar voor de toegangslijst | 8.3 |
+| Verbruikslog | Gebruikersnamen leesbaar, alleen zichtbaar voor de toegangslijst en beheerders | 8.3 |
 | Logo | Eigen icoon | 10.3 |
 | Testwiki | Wat bij de bouw blijkt te werken | 9.6 |
 | Beeld naar SAM | Als data-URL | 6.1 |
@@ -612,11 +652,13 @@ commons-cutter/
 
 ### Nog open
 
-1. Wie zijn naast Olaf de beheerders van de tool op Toolforge? (12.1)
-2. Is een commerciële, betaalde API van Meta acceptabel voor een Toolforge-tool, en moet dat vooraf langs de Toolforge-beheerders? Vóór de deploy uitzoeken. (12.3)
-3. Wie komen er als eerste op de toegangslijst? (8.3)
+Geen vragen die de bouw van fase 1 en 2 tegenhouden. Later:
+
+1. Is een commerciële, betaalde API van Meta acceptabel voor een Toolforge-tool? Vóór de deploy in fase 3 uitzoeken (besluit Olaf: "zien we te zijner tijd"). (12.3)
 
 ## 16. Te verifiëren bij de bouw
+
+- Of ToolsDB de juiste plek is voor de gegevens van het beheerpaneel, en hoe de tool erbij kan (8.4).
 
 - De thumbnailstappen die Commons nu toestaat (5.2).
 - Het formaat van de vooringevulde selectie in CropTool (2).

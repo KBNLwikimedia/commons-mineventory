@@ -8,7 +8,8 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 2. [ ] Antwoorden van Olaf op de open vragen (FO hoofdstuk 15) verwerken in het FO.
    - Gedaan (3-11-2026): Codex 2.x met Vue 3, gebouwd met Vite, toegangslijst met 100 aanroepen per gebruiker, OAuth server-side, `{{Image extracted}}` standaard aan, bestandsnaam met het onderwerp voorop in het Engels, MIT, regio's uit de gestructureerde gegevens.
    - Gedaan (3-11-2026, ronde 2): naam Commons Cutter (`commons-cutter`), GitHub KBNLwikimedia, daglimieten 500 aanroepen en $2, categorie als invoer in fase 2, gerenderde PDF-pagina's, Contributor aan voor publiek domein, meteen tweetalig, volgcategorie en projectpagina, leesbaar verbruikslog, eigen icoon, data-URL, API-sleutel in fase 4.
-   - Open: drie vragen onder "Nog open" (beheerders, betaalde API op Toolforge, eerste namen op de toegangslijst).
+   - Gedaan (3-11-2026, ronde 3): Olaf is de enige beheerder en staat als enige op de toegangslijst; beheerders, toegangslijst en instellingen gaan via een beheerpaneel in de tool (FO 8.4).
+   - Later: of de betaalde Meta-API op Toolforge mag (vóór de deploy).
 
 ## Fase 1: lokaal, zonder kosten
 
@@ -27,7 +28,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 
 13. [ ] OAuth 2.0 server-side, owner-only consumer voor ontwikkeling.
 14. [ ] Upload via de stash, waarschuwingen tonen, SDC, `{{Image extracted}}` op het origineel; eerst op een testwiki.
-15. [ ] Toegangslijst (`TOEGESTANE_GEBRUIKERS`) en daglimieten: 100 per gebruiker; 500 aanroepen en $2 per dag in totaal.
+15. [ ] Beheerpaneel `/beheer` (FO 8.4): beheerders (start: `BEHEERDERS_START`), toegangslijst met aanvragen, daglimieten (100 per gebruiker; 500 aanroepen en $2 per dag in totaal), noodknoppen, modellen, bewaartermijnen, logboek. Opslag: SQLite lokaal, ToolsDB op Toolforge.
 15a. [ ] Een categorie als invoer: bladeren door de bestanden van `Category:…`.
 
 ## Fase 3: live
