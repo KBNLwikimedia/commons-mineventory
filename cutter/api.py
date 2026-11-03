@@ -8,6 +8,7 @@ never costs money and never changes anything.
 
 import hashlib
 import re
+from urllib.parse import quote
 
 from flask import Blueprint, Response, current_app, jsonify, request, session
 
@@ -311,11 +312,25 @@ def _preview_width():
 
 
 def _image(data, mimetype, filename=None):
+    """An image response. With ?download=1 it is an attachment (the browser
+    saves it), otherwise it is shown (inline)."""
     response = Response(data, mimetype=mimetype)
     response.headers["Cache-Control"] = "private, max-age=300"
     if filename:
-        response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
+        disposition = "attachment" if request.args.get("download") in ("1", "true", "ja") else "inline"
+        # An ASCII fallback plus the full UTF-8 name (RFC 6266), e.g. with an en dash.
+        fallback = "".join(c if 32 <= ord(c) < 127 and c not in '"\\' else "_" for c in filename)
+        response.headers["Content-Disposition"] = f"{disposition}; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
     return response
+
+
+def _download_name(file, n, object_id, kind):
+    """The file name of a download: the name in the Commons concept, with the right extension."""
+    try:
+        name = concept.concept(file, _service()._find(file, n, object_id))["bestandsnaam"]
+    except DetectionError:
+        return f"{object_id}.{kind}"
+    return f"{name.rsplit('.', 1)[0]}.{kind}"
 
 
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/uitsnede.jpg")
@@ -325,14 +340,14 @@ def cutout_jpeg(mid, n, object_id):
     width = _preview_width()
     if width:
         return _image(_service().cutout_jpeg(file, n, object_id, width), "image/jpeg")
-    return _image(_service().saved_file(file, n, object_id, "jpg"), "image/jpeg", f"{object_id}.jpg")
+    return _image(_service().saved_file(file, n, object_id, "jpg"), "image/jpeg", _download_name(file, n, object_id, "jpg"))
 
 
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/uitsnede.png")
 def cutout_png(mid, n, object_id):
     """The shape of the object as transparent PNG, at full resolution."""
     file = _page_file(mid, n)
-    return _image(_service().saved_file(file, n, object_id, "png"), "image/png", f"{object_id}.png")
+    return _image(_service().saved_file(file, n, object_id, "png"), "image/png", _download_name(file, n, object_id, "png"))
 
 
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/masker.png")
@@ -360,6 +375,13 @@ def describe_object(mid, n, object_id):
     _require_paid_access(_descriptions().vision.betaald)
     file = _page_file(mid, n)
     return jsonify(_descriptions().describe(file, n, object_id, body.get("model"), again=bool(body.get("opnieuw")), user=_user()))
+
+
+@api.patch("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")
+def edit_description(mid, n, object_id):
+    """Change the texts of the description by hand (free). Body: any of
+    {"onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en"}."""
+    return jsonify(_descriptions().edit(_page_file(mid, n), n, object_id, _body()))
 
 
 @api.delete("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")
@@ -399,6 +421,8 @@ def _concept(file, n, obj):
             "bijschrift": (obj.get("bijschrift") or {}).get("tekst"),
             # What "Wat staat hierop?" said, so the UI can go back to it.
             "ai": _ai_texts(obj),
+            # Label and short description of every depicts item, from Wikidata.
+            "beeldt_af_info": _client().item_info([d["q"] for d in result["beeldt_af"]]) if result["beeldt_af"] else {},
         }
     )
     return result

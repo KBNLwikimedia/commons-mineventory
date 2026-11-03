@@ -62,6 +62,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-link { background: none; border: 0; padding: 0; color: var(--color-progressive, #36c); cursor: pointer; font: inherit; }
 .cc-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .cc-afkappen { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-knopgroep { display: inline-flex; align-items: center; gap: 0.35rem; margin-right: 0.75rem; }
+.cc-melding-acties { margin-left: 0.75rem; display: inline-flex; gap: 1rem; }
 .cc-meldingen { display: grid; gap: 0.5rem; margin: 0.5rem 0; }
 .cc-zoek { display: flex; gap: 0.4rem; align-items: flex-start; }
 .cc-zoek .cdx-text-input { flex: 1; min-width: 0; }
@@ -88,12 +90,17 @@ h2, h3, h4 { margin: 0.5rem 0; }
 
 /* -- Work area: left, middle, right ------------------------------------------ */
 .cc-werkblad {
-  display: grid; gap: 0.75rem; margin-top: 0.5rem;
-  grid-template-columns: var(--cc-links-breedte) minmax(0, 1fr) var(--cc-paneel-breedte);
+  display: grid; gap: 0; margin-top: 0.5rem;
+  grid-template-columns: var(--cc-links-breedte) 0.75rem minmax(0, 1fr) 0.75rem var(--cc-paneel-breedte);
   height: calc(100vh - 8rem); min-height: 32rem;
 }
 .cc-links, .cc-rechts { overflow-y: auto; min-height: 0; }
 .cc-midden { min-width: 0; min-height: 0; display: flex; }
+/* The draggable borders between the columns (ColumnSplitter.vue). */
+.cc-splitter { cursor: col-resize; position: relative; touch-action: none; }
+.cc-splitter::after { content: ""; position: absolute; top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; background: var(--cc-rand); transition: background 0.1s; }
+.cc-splitter:hover::after, .cc-splitter:focus-visible::after, .cc-splitter.actief::after { left: calc(50% - 2px); width: 4px; background: var(--color-progressive, #36c); }
+.cc-splitter:focus-visible { outline: none; }
 .cc-acties { display: grid; gap: 0.4rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--cc-rand); }
 .cc-telling { margin: 0; color: var(--cc-tekst-zacht); }
 .cc-modus { margin: 0 0 0.5rem; font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
@@ -119,6 +126,9 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-objecten ul { list-style: none; margin: 0; padding: 0; }
 .cc-objecten li { display: flex; align-items: flex-start; justify-content: space-between; padding: 0.15rem 0.25rem; border-left: 3px solid transparent; }
 .cc-objecten li.focus { background: var(--background-color-progressive-subtle, #eaf3ff); }
+/* Under the mouse, in the list or on the image. */
+.cc-objecten li:hover, .cc-objecten li.hover { background: var(--background-color-interactive-subtle--hover, #eaecf0); }
+.cc-objecten li.focus:hover, .cc-objecten li.focus.hover { background: var(--background-color-progressive-subtle--hover, #dce3f9); }
 .cc-objecten li.cc-bron-commons { border-left-color: var(--cc-commons); }
 .cc-objecten li.cc-object-uitgesloten { opacity: 0.6; }
 .cc-object-naam { cursor: pointer; }
@@ -130,6 +140,11 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-kosten { font-weight: normal; opacity: 0.85; margin-left: 0.35em; }
 .cc-waarschuwing { margin-top: 0.5rem; }
 .cc-object-knoppen { display: flex; flex-shrink: 0; }
+/* A small cut-out before each object; a click opens the magnifier. */
+.cc-objecten li { gap: 0.4rem; }
+.cc-object-duim { flex-shrink: 0; width: 3rem; height: 3rem; padding: 0; border: 1px solid var(--cc-rand); background: var(--background-color-interactive-subtle, #f8f9fa); cursor: zoom-in; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.cc-object-duim img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.cc-object-vinkje { flex: 1; min-width: 0; }
 
 /* -- Viewer ------------------------------------------------------------------- */
 .cc-viewer-kader { display: flex; flex-direction: column; flex: 1; min-width: 0; border: 1px solid var(--cc-rand); }
@@ -196,6 +211,12 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-gegevens .cc-info-tekst { grid-column: 1 / -1; }
 .cc-bijschrift { display: flex; gap: 0.4rem; }
 .cc-bijschrift .cdx-text-input { flex: 1; }
+/* A button inside a text field (e.g. the bin in Bijschrift). */
+.cc-invoer-met-knop { position: relative; flex: 1; display: flex; }
+.cc-invoer-met-knop .cdx-text-input__input { padding-right: 2.25rem; text-overflow: ellipsis; }
+.cc-invoer-met-knop.met-tekstknop .cdx-text-input__input { padding-right: 10rem; }
+.cc-invoer-knop-tekst.cdx-button { padding: 2px 8px; font-weight: bold; }
+.cc-invoer-knop.cdx-button { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); min-width: 0; min-height: 0; padding: 4px; }
 .cc-twee { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
 .cc-concept-kop { display: flex; gap: 1.5rem; align-items: flex-start; margin-top: 1rem; }
 .cc-concept-links { flex: 1; min-width: 0; }
@@ -204,6 +225,9 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-concept-voorbeeld img { display: block; margin: 0 auto; max-width: 14rem; max-height: 12rem; border: 1px solid var(--cc-rand); background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
 .cc-concept-voorbeeld figcaption { margin-top: 0.2rem; }
 .cc-qid { margin: 0 0.35rem; color: var(--cc-tekst-zacht); }
+.cc-beeldt-af li { margin-bottom: 0.35rem; }
+.cc-item-beschrijving { display: block; font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
+.cc-item-beschrijving.leeg { font-style: italic; }
 .cc-beeldt-af { list-style: none; padding: 0; margin: 0 0 0.5rem; }
 .cc-treffers { list-style: none; padding: 0; }
 .cc-concept .cdx-field { margin-top: 0.75rem; }
@@ -234,9 +258,13 @@ h2, h3, h4 { margin: 0.5rem 0; }
 /* -- Narrow screens (functional design 10.5): the columns stack ---------------------- */
 @media (max-width: 64rem) {
   .cc-concept-kop { flex-direction: column-reverse; }
-  .cc-werkblad { grid-template-columns: 1fr; height: auto; }
+  .cc-werkblad { grid-template-columns: 1fr; height: auto; gap: 0.75rem; }
+  .cc-splitter { display: none; }
   .cc-midden { height: 70vh; order: -1; }
   .cc-links, .cc-rechts { overflow: visible; }
   .cc-twee { grid-template-columns: 1fr; }
   .cc-werkt-met { display: none; }
 }
+.cc-tekst-bewerken { margin: 0.5em 0; display: flex; flex-direction: column; gap: 0.5em; }
+.cc-tekst-bewerken .cdx-field { margin: 0; }
+.cc-tekst-acties { align-items: center; }

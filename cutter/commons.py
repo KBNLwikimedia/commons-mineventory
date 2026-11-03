@@ -315,6 +315,26 @@ class CommonsClient:
                 result[qid] = {lang: (names.get(lang) or {}).get("value") for lang in ("nl", "en")}
         return result
 
+    def item_info(self, ids):
+        """{Q-id: {"label": {nl, en}, "beschrijving": {nl, en}}} from Wikidata
+        (50 per request, cached); items that cannot be fetched are left out."""
+        result = {}
+        ids = [i for i in dict.fromkeys(ids) if re.fullmatch(r"Q\d+", i or "")]
+        for start in range(0, len(ids), 50):
+            chunk = ids[start : start + 50]
+            params = {"action": "wbgetentities", "ids": "|".join(chunk), "props": "labels|descriptions", "languages": "nl|en"}
+            try:
+                data = self._json(params, api=self.wikidata_api)
+            except (FetchError, CommonsError):
+                continue
+            for qid, entity in (data.get("entities") or {}).items():
+                labels, descriptions = entity.get("labels") or {}, entity.get("descriptions") or {}
+                result[qid] = {
+                    "label": {lang: (labels.get(lang) or {}).get("value") for lang in ("nl", "en")},
+                    "beschrijving": {lang: (descriptions.get(lang) or {}).get("value") for lang in ("nl", "en")},
+                }
+        return result
+
     MAKER_PROPERTIES = ("P170", "P50", "P110")  # creator, author, illustrator
 
     def work(self, qid):

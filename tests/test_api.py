@@ -163,7 +163,16 @@ def test_description_with_dummy(http):
     assert plan["beschrijving"] is None and plan["betaald"] is False
     described = http.post(url, json={}).get_json()
     assert described["object"]["beschrijving"]["onderwerp_en"] == "Coat of arms"
+    ai_text = described["object"]["beschrijving"]["beschrijving_en"]
+    edited = http.patch(url, json={"beschrijving_en": " A coat of arms. ", "onderwerp": "Wapen"}).get_json()["beschrijving"]
+    assert edited["beschrijving_en"] == "A coat of arms." and edited["bewerkt"] is True
+    assert edited["ai_origineel"]["beschrijving_en"] == ai_text
+    # Back to the AI text: nothing is edited any more.
+    back = http.patch(url, json={"beschrijving_en": ai_text, "onderwerp": edited["ai_origineel"]["onderwerp"]}).get_json()["beschrijving"]
+    assert back["bewerkt"] is False and "ai_origineel" not in back
+    assert http.patch(url, json={"soort": "x"}).status_code == 400
     assert "beschrijving" not in http.delete(url).get_json()
+    assert http.patch(url, json={"beschrijving": "x"}).status_code == 409
     overview = http.post(PAGE + "/inventaris", json={}).get_json()
     assert overview["inventaris"]["zoektermen"]
 
@@ -299,3 +308,16 @@ def test_concept_carries_the_ai_texts(http):
     http.post(url + "/beschrijving", json={})
     ai = http.get(url + "/commons").get_json()["ai"]
     assert ai["caption"]["en"] == "Coat of arms" and ai["beschrijving"]["nl"].startswith("Voorbeeldbeschrijving")
+
+
+def test_cutout_view_or_download_with_the_concept_name(http):
+    obj = http.post(PAGE + "/detecties", json={"rechthoek": {"x": 0, "y": 0, "w": 200, "h": 100}}).get_json()["object"]
+    url = f"{PAGE}/object/{obj['id']}/uitsnede.jpg"
+    shown = http.get(url).headers["Content-Disposition"]
+    saved = http.get(url + "?download=1").headers["Content-Disposition"]
+    assert shown.startswith("inline;") and saved.startswith("attachment;")
+    # "Detail – extracted from …": an ASCII fallback and the full UTF-8 name.
+    assert 'filename="Detail _ extracted from Album amicorum' in saved
+    assert "filename*=UTF-8''Detail%20%E2%80%93%20extracted%20from%20Album" in saved and saved.endswith(".jpg")
+    png = http.get(f"{PAGE}/object/{obj['id']}/uitsnede.png?download=1").headers["Content-Disposition"]
+    assert png.endswith(".png")

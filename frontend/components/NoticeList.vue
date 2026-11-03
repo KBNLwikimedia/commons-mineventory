@@ -12,6 +12,12 @@
       @auto-dismissed="emit('dismiss', notice.id)"
     >
       {{ notice.text }}
+      <span v-if="notice.actions?.length || notice.link" class="cc-melding-acties">
+        <button v-for="action in notice.actions || []" :key="action.label" type="button" class="cc-link" @click="action.run(); emit('dismiss', notice.id)">
+          {{ action.label }}
+        </button>
+        <a v-if="notice.link" :href="notice.link.href">{{ notice.link.label }}</a>
+      </span>
     </cdx-message>
   </div>
 </template>

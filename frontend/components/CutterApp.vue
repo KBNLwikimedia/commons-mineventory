@@ -26,8 +26,11 @@
         </cdx-accordion>
         <page-list v-if="file.paginas > 1" :file="file" :current="pageN" @select="goToPage" />
         <object-list
+          :mid="file.mid"
+          :n="pageN"
           :objects="objects"
           :focused="focusedId"
+          :hovered="hoveredId"
           @toggle="toggleSelected"
           @select="setSelection"
           @focus="focusObject"
@@ -36,6 +39,7 @@
           @trash="trashObject"
         />
       </aside>
+      <column-splitter variable="--cc-links-breedte" side="left" storage-key="cc-breedte-links" :label="t('layout.resize_left')" />
 
       <section class="cc-midden">
         <viewer-pane
@@ -48,10 +52,12 @@
           :draw-mode="drawMode"
           @object-click="onObjectClick"
           @object-open="openMagnifier($event.id)"
+          @object-hover="hoveredId = $event"
           @point="onPoint"
           @rectangle="onRectangle"
         />
       </section>
+      <column-splitter variable="--cc-paneel-breedte" side="right" storage-key="cc-breedte-rechts" :label="t('layout.resize_right')" :max="800" />
 
       <aside class="cc-rechts" :aria-label="t('layout.right')">
         <detection-panel
@@ -106,6 +112,7 @@ import { cdxIconDownload, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import ColumnSplitter from "./ColumnSplitter.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { addToHistory, appUrl, clearHistory, readHistory, readStart, removeFromHistory } from "../state.js";
 import HistoryList from "./HistoryList.vue";
@@ -127,6 +134,8 @@ const objects = ref([]);
 const newIds = ref([]);
 const inventory = ref(null);
 const focusedId = ref(null);
+// The object under the mouse in the viewer, so the list can light it up too.
+const hoveredId = ref(null);
 const pointMode = ref(false);
 const drawMode = ref(false);
 
@@ -157,8 +166,8 @@ const magnified = computed(() => objects.value.find((o) => o.id === magnifiedId.
 // -- Notices --------------------------------------------------------------------------
 
 let noticeId = 0;
-function notify(type, text) {
-  notices.value = [...notices.value.slice(-3), { id: ++noticeId, type, text }];
+function notify(type, text, extra = {}) {
+  notices.value = [...notices.value.slice(-3), { id: ++noticeId, type, text, ...extra }];
 }
 function dismiss(id) {
   notices.value = notices.value.filter((n) => n.id !== id);
@@ -366,12 +375,38 @@ function hoverObject(id, on) {
   viewer.value?.setObjectHover(id, on);
 }
 
+// To the trash: first a confirmation that says where the trash is, afterwards
+// a notice with Undo and a link to the trash (/objecten, tab Prullenbak).
 async function trashObject(id) {
+  const ok = await askConfirm(t("objects.trash_confirm"), {
+    title: t("objects.trash"),
+    go: t("objects.trash"),
+    destructive: true,
+    links: {
+      objects: { href: "/objecten", label: t("objects.page_link") },
+      trash: { href: "/objecten?tab=prullenbak", label: t("objects.trash_link") },
+    },
+  });
+  if (!ok) return;
+  const n = pageN.value;
   try {
-    const result = await del(objectPath(file.value.mid, pageN.value, id));
+    const result = await del(objectPath(file.value.mid, n, id));
     objects.value = result.objecten;
     if (magnifiedId.value === id) magnifierOpen.value = false;
-    notify("notice", t("objects.trashed"));
+    notify("notice", t("objects.trashed"), {
+      actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreObject(id, n) }],
+      link: { href: "/objecten?tab=prullenbak", label: t("objects.to_trash") },
+    });
+  } catch (error) {
+    fail(error);
+  }
+}
+
+async function restoreObject(id, n) {
+  try {
+    await patch(objectPath(file.value.mid, n, id), { prullenbak: false });
+    if (n === pageN.value) objects.value = (await get(pagePath(file.value.mid, n))).objecten;
+    notify("success", t("objects.restored"));
   } catch (error) {
     fail(error);
   }

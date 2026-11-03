@@ -106,6 +106,10 @@ The image is {title} on Wikimedia Commons. Context from the file page (may be in
 - Caption of this cut-out (given by the user or a file note on Commons): {cutout_caption}"""
 
 
+# The texts of a description the user may change by hand, in both languages.
+EDITABLE = ("onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en")
+
+
 def price(model):
     return PRICES.get(model, PRICES["muse-spark-1.3"])
 
@@ -573,20 +577,49 @@ class DescriptionService:
         return self._store(file, n, object_id, description, user)
 
     def _store(self, file, n, object_id, description, user=None):
-        store = self.objects._load_store(file, n)
-        obj = self.objects._find_in(store, object_id)
-        obj["beschrijving"] = {k: v for k, v in description.items() if k != "uit_cache"}
-        self.objects._write_store(file, n, store)
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            obj["beschrijving"] = {k: v for k, v in description.items() if k != "uit_cache"}
+            self.objects._write_store(file, n, store)
         result = self.objects.public(file, n, obj)
         return {"object": result, "uit_cache": description["uit_cache"], "budget": self.objects.verbruik.status(user)}
+
+    def edit(self, file, n, object_id, changes):
+        """Change the texts of the stored description by hand. The first time
+        a field changes, its AI text is kept in "ai_origineel", so the UI can
+        go back to it. Free: never calls the model."""
+        unknown = set(changes) - set(EDITABLE)
+        if unknown or not all(isinstance(v, str) for v in changes.values()):
+            raise DetectionError(f"Alleen deze velden zijn te bewerken: {', '.join(EDITABLE)}.", status=400, code="invalid_body")
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            description = obj.get("beschrijving")
+            if not description:
+                raise DetectionError("Dit object heeft nog geen beschrijving.", status=409, code="no_description")
+            original = description.setdefault("ai_origineel", {})
+            for field, value in changes.items():
+                value = value.strip()
+                if field not in original:
+                    original[field] = description.get(field) or ""
+                description[field] = value
+                if value == original[field]:
+                    original.pop(field)
+            if not original:
+                description.pop("ai_origineel")
+            description["bewerkt"] = bool(original)
+            self.objects._write_store(file, n, store)
+        return self.objects.public(file, n, obj)
 
     def remove(self, file, n, object_id):
         """Forget the stored description (the cached answer stays, so asking
         again with the same model is free)."""
-        store = self.objects._load_store(file, n)
-        obj = self.objects._find_in(store, object_id)
-        obj.pop("beschrijving", None)
-        self.objects._write_store(file, n, store)
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            obj.pop("beschrijving", None)
+            self.objects._write_store(file, n, store)
         return self.objects.public(file, n, obj)
 
     # -- Page overview ("Wat staat op deze pagina?") ---------------------------
@@ -671,7 +704,8 @@ class DescriptionService:
         return self._store_inventory(file, n, overview, cached=False, user=user)
 
     def _store_inventory(self, file, n, overview, cached, user=None):
-        store = self.objects._load_store(file, n)
-        store["inventaris"] = overview
-        self.objects._write_store(file, n, store)
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            store["inventaris"] = overview
+            self.objects._write_store(file, n, store)
         return {"inventaris": overview, "uit_cache": cached, "budget": self.objects.verbruik.status(user)}

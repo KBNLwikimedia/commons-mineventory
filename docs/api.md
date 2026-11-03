@@ -60,6 +60,7 @@ Statussen: `kandidaat`, `geselecteerd`, `uitgesloten`. Bronnen: `sam`, `dummy`, 
 | --- | --- | --- |
 | GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De opgeslagen beschrijving en wat een nieuwe kost, met het model en de reden |
 | POST | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | Muse Spark vragen (gecachet). Body: `{"model": "auto" \| "standaard" \| "contributor", "opnieuw": false}` |
+| PATCH | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De teksten met de hand wijzigen (gratis). Body: een of meer van `onderwerp`, `onderwerp_en`, `beschrijving`, `beschrijving_en`. De eerste keer dat een veld verandert, blijft de AI-tekst bewaard in `ai_origineel`; `bewerkt` zegt of er nog iets afwijkt. 409 zonder beschrijving |
 | DELETE | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De beschrijving vergeten (het antwoord blijft in de cache) |
 | GET | `/wikidata/zoek?q=…&taal=nl\|en` | Wikidata-items zoeken voor *beeldt af* (gratis) |
 

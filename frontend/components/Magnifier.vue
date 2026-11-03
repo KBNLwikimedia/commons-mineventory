@@ -35,13 +35,49 @@
             <cdx-message type="notice" :inline="true">{{ t("magnifier.caption_help") }}</cdx-message>
           </dd>
           <dd class="cc-bijschrift">
-            <cdx-text-input v-model="caption" :aria-label="t('magnifier.caption')" />
+            <span class="cc-invoer-met-knop" :class="{ 'met-tekstknop': removedCaption && !caption }">
+              <cdx-text-input
+                v-model="caption"
+                :aria-label="t('magnifier.caption')"
+                :placeholder="removedCaption ? t('magnifier.caption_removed', { text: removedCaption }) : ''"
+              />
+              <cdx-button
+                v-if="removedCaption && !caption"
+                class="cc-invoer-knop cc-invoer-knop-tekst"
+                weight="quiet"
+                size="small"
+                action="progressive"
+                @click="undoRemoveCaption"
+              >
+                ↶ {{ t("magnifier.undo") }}
+              </cdx-button>
+              <cdx-button
+                v-else-if="caption || object.bijschrift?.tekst"
+                class="cc-invoer-knop"
+                weight="quiet"
+                size="small"
+                action="destructive"
+                :aria-label="t('magnifier.caption_remove')"
+                :title="t('magnifier.caption_remove')"
+                @click="removeCaption"
+              >
+                <cdx-icon :icon="cdxIconTrash" size="small" />
+              </cdx-button>
+            </span>
             <cdx-button size="small" :disabled="caption === (object.bijschrift?.tekst || '')" @click="saveCaption">{{ t("actions.save_short") }}</cdx-button>
           </dd>
         </dl>
         <div class="cc-knoppen">
-          <cdx-button @click="download('jpg')"><cdx-icon :icon="cdxIconDownload" /> JPG</cdx-button>
-          <cdx-button @click="download('png')"><cdx-icon :icon="cdxIconDownload" /> PNG</cdx-button>
+          <span class="cc-knopgroep" role="group" :aria-label="t('magnifier.download')">
+            <span class="cc-klein">{{ t("magnifier.download") }}</span>
+            <cdx-button @click="download('jpg')"><cdx-icon :icon="cdxIconDownload" /> JPG</cdx-button>
+            <cdx-button @click="download('png')"><cdx-icon :icon="cdxIconDownload" /> PNG</cdx-button>
+          </span>
+          <span class="cc-knopgroep" role="group" :aria-label="t('magnifier.view_full')">
+            <span class="cc-klein">{{ t("magnifier.view_full") }}</span>
+            <cdx-button weight="quiet" @click="viewFull('jpg')"><cdx-icon :icon="cdxIconLinkExternal" /> JPG</cdx-button>
+            <cdx-button weight="quiet" @click="viewFull('png')"><cdx-icon :icon="cdxIconLinkExternal" /> PNG</cdx-button>
+          </span>
           <cdx-button v-if="!object.masker" @click="emit('refine', object)">{{ t("magnifier.refine_mask") }}</cdx-button>
           <cdx-button action="destructive" @click="emit('trashed', object.id)"><cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}</cdx-button>
         </div>
@@ -54,15 +90,51 @@
             <template v-if="description">
               <dl class="cc-gegevens">
                 <dt>{{ t("describe.kind") }}</dt><dd>{{ description.soort }} · {{ t("describe.certainty") }}: {{ description.zekerheid }}</dd>
-                <dt>{{ t("describe.subject") }}</dt><dd>{{ description.onderwerp }}<br /><i>{{ description.onderwerp_en }}</i></dd>
+                <template v-if="!textDraft">
+                  <dt>{{ t("describe.subject") }}</dt><dd>{{ description.onderwerp }}<br /><i>{{ description.onderwerp_en }}</i></dd>
+                </template>
                 <template v-if="description.bedrijf_of_naam"><dt>{{ t("describe.name") }}</dt><dd>{{ description.bedrijf_of_naam }}</dd></template>
-                <dt>{{ t("describe.description") }}</dt><dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
+                <template v-if="!textDraft">
+                  <dt>{{ t("describe.description") }}</dt><dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
+                </template>
                 <template v-if="description.tekst_in_beeld"><dt>{{ t("describe.text_in") }}</dt><dd>{{ description.tekst_in_beeld }}</dd></template>
                 <template v-if="description.tekst_rond_beeld"><dt>{{ t("describe.text_around") }}</dt><dd>{{ description.tekst_rond_beeld }}</dd></template>
               </dl>
+
+              <!-- Editing the texts by hand, in both languages. -->
+              <div v-if="textDraft" class="cc-tekst-bewerken">
+                <p class="cc-klein">{{ t("describe.edit_help") }}</p>
+                <cdx-field v-for="field in EDITABLE" :key="field">
+                  <template #label>{{ t(`describe.field_${field}`) }}</template>
+                  <cdx-text-input v-if="field.startsWith('onderwerp')" v-model="textDraft[field]" />
+                  <cdx-text-area v-else v-model="textDraft[field]" :autosize="true" />
+                </cdx-field>
+                <div class="cc-knoppen">
+                  <cdx-button action="progressive" weight="primary" :disabled="!draftChanged" @click="saveTexts(textDraft)">{{ t("actions.save_short") }}</cdx-button>
+                  <cdx-button @click="textDraft = null">{{ t("actions.cancel") }}</cdx-button>
+                </div>
+              </div>
+              <div v-else class="cc-knoppen cc-tekst-acties">
+                <cdx-button size="small" @click="startEditing"><cdx-icon :icon="cdxIconEdit" size="small" /> {{ t("describe.edit") }}</cdx-button>
+                <template v-if="description.bewerkt">
+                  <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
+                  <button type="button" class="cc-link" @click="backToAi">{{ t("describe.back_to_ai") }}</button>
+                </template>
+                <span v-if="undoTexts" class="cc-klein">
+                  {{ t("describe.saved_edit") }}
+                  <button type="button" class="cc-link" @click="undoEdit">↶ {{ t("magnifier.undo") }}</button>
+                </span>
+              </div>
               <p class="cc-klein cc-waarschuwing">{{ t("describe.caution") }}</p>
             </template>
-            <p v-else class="cc-klein">{{ t("describe.none_yet") }}</p>
+            <template v-else>
+              <p class="cc-klein">{{ t("describe.none_yet") }}</p>
+              <!-- Without an AI description: the caption, which goes along as help when you ask. -->
+              <dl v-if="object.bijschrift?.tekst" class="cc-gegevens">
+                <dt>{{ t("magnifier.caption") }}</dt>
+                <dd>{{ object.bijschrift.tekst }}<br /><span class="cc-klein">{{ t("describe.caption_goes_along") }}</span></dd>
+              </dl>
+            </template>
 
             <!-- The actions, each with what it costs. -->
             <div class="cc-knoppen">
@@ -101,7 +173,7 @@
           <ul v-if="hits.length" class="cc-treffers">
             <li v-for="hit in hits" :key="hit.q">
               <cdx-button size="small" weight="quiet" action="progressive" @click="addDepicts(hit)">+ {{ hit.label }}</cdx-button>
-              <small>{{ hit.q }} · {{ hit.beschrijving }}</small>
+              <small><a :href="`https://www.wikidata.org/wiki/${hit.q}`" target="_blank" rel="noopener">{{ hit.q }}</a> · {{ hit.beschrijving }}</small>
             </li>
           </ul>
         </section>
@@ -129,8 +201,8 @@
 
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
-import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
-import { cdxIconDownload, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
+import { CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
+import { cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
@@ -201,7 +273,7 @@ watch(
 onBeforeUnmount(() => undoMovable?.());
 
 const base = computed(() => objectPath(props.file.mid, props.n, props.object.id));
-const name = computed(() => objectName(props.object, language));
+const name = computed(() => objectName(props.object, language, t));
 const subtitle = computed(() => `${t(`source.${props.object.bron}`)} · ${t(`status.${props.object.status}`)}`);
 const description = computed(() => props.object.beschrijving || null);
 // The cost on the buttons: an estimate in live mode, free with the dummy.
@@ -222,6 +294,9 @@ watch(
   () => {
     caption.value = props.object.bijschrift?.tekst || "";
     view.value = props.object.masker ? "png" : "jpg";
+    removedCaption.value = "";
+    textDraft.value = null;
+    undoTexts.value = null;
     hits.value = [];
     loadPlan();
   }
@@ -247,6 +322,8 @@ async function describe(again) {
   try {
     const result = await post(`${base.value}/beschrijving`, { opnieuw: again });
     emit("changed", result.object);
+    textDraft.value = null;
+    undoTexts.value = null;
     editor.value?.reload();
   } catch (e) {
     error.value = errorText(t, e);
@@ -261,11 +338,70 @@ async function removeDescription() {
   if (!(await askConfirm(t("describe.remove_confirm"), { go: t("describe.remove"), destructive: true }))) return;
   try {
     emit("changed", await del(`${base.value}/beschrijving`));
+    textDraft.value = null;
+    undoTexts.value = null;
     editor.value?.reload();
     loadPlan();
   } catch (e) {
     error.value = errorText(t, e);
   }
+}
+
+// Editing the AI texts by hand (subject and description, NL and EN). The
+// server keeps the original AI text, for "Terug naar de AI-tekst"; "Ongedaan
+// maken" puts back what was there before the last change.
+const EDITABLE = ["onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en"];
+const textDraft = ref(null);
+const undoTexts = ref(null);
+
+function currentTexts() {
+  return Object.fromEntries(EDITABLE.map((field) => [field, description.value?.[field] || ""]));
+}
+
+const draftChanged = computed(() => {
+  const now = currentTexts();
+  return !!textDraft.value && EDITABLE.some((field) => textDraft.value[field].trim() !== now[field]);
+});
+
+function startEditing() {
+  textDraft.value = currentTexts();
+}
+
+async function saveTexts(texts, { undoable = true } = {}) {
+  const before = currentTexts();
+  try {
+    emit("changed", await patch(`${base.value}/beschrijving`, texts));
+    textDraft.value = null;
+    undoTexts.value = undoable ? before : null;
+    editor.value?.reload();
+  } catch (e) {
+    error.value = errorText(t, e);
+  }
+}
+
+function backToAi() {
+  saveTexts({ ...currentTexts(), ...description.value.ai_origineel });
+}
+
+function undoEdit() {
+  saveTexts(undoTexts.value, { undoable: false });
+}
+
+// Empty the caption and remove it from the object at once (no Opslaan needed);
+// what was there can be put back with "Ongedaan maken".
+const removedCaption = ref("");
+
+async function removeCaption() {
+  const previous = (props.object.bijschrift?.tekst || caption.value).trim();
+  caption.value = "";
+  await saveCaption();
+  removedCaption.value = previous;
+}
+
+async function undoRemoveCaption() {
+  caption.value = removedCaption.value;
+  removedCaption.value = "";
+  await saveCaption();
 }
 
 async function saveCaption() {
@@ -291,7 +427,12 @@ async function addDepicts(hit) {
   tab.value = "commons";
 }
 
+// Download saves the file (named after the Commons concept); view opens it in a new tab.
 function download(kind) {
-  window.open(`${base.value}/uitsnede.${kind}`, "_blank");
+  window.location.href = `${base.value}/uitsnede.${kind}?download=1`;
+}
+
+function viewFull(kind) {
+  window.open(`${base.value}/uitsnede.${kind}`, "_blank", "noopener");
 }
 </script>

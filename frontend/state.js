@@ -67,12 +67,19 @@ export function appUrl(mid, n = 1, objectId) {
   return `/?${params.toString()}`;
 }
 
-// What the tooltip and lists call an object: the Dutch or English name, by language.
-export function objectName(obj, language = "nl") {
+// What the tooltip and lists call an object, by language: the subject from the
+// AI image description, else the caption (as the user or a file note wrote it),
+// else the label of the detection. The labels the app gives itself (a click, a
+// drawn rectangle, a region) are translated when `t` is given.
+const OWN_LABELS = ["klik", "rechthoek", "regio"];
+
+export function objectName(obj, language = "nl", t = null) {
   if (obj.beschrijving) {
     const subject = language === "en" ? obj.beschrijving.onderwerp_en : obj.beschrijving.onderwerp;
     if (subject) return subject;
   }
+  if (obj.bijschrift?.tekst) return obj.bijschrift.tekst;
+  if (t && OWN_LABELS.includes(obj.label) && !obj.label_en) return t(`object.label_${obj.label}`);
   if (language === "en") return obj.label_en || obj.label;
   return obj.label_nl || obj.label;
 }

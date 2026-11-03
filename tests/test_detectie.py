@@ -200,3 +200,19 @@ def test_usage_limits_per_user_and_budget(tmp_path):
     assert exc.value.code == "daily_budget"
     status = usage.status("A")
     assert status["gebruiker"]["resterend"] == 0 and status["kosten_vandaag_usd"] == pytest.approx(0.014)
+
+
+def test_simultaneous_changes_do_not_overwrite_each_other(service, album):
+    import threading
+
+    ids = [service.rectangle(album, 1, {"x": 10 + 60 * i, "y": 10, "w": 50, "h": 50})["object"]["id"] for i in range(8)]
+    threads = [
+        threading.Thread(target=service.set_caption, args=(album, 1, oid, {"tekst": f"bijschrift {i}"}))
+        for i, oid in enumerate(ids)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    stored = {o["id"]: (o.get("bijschrift") or {}).get("tekst") for o in service.page_objects(album, 1)}
+    assert [stored[oid] for oid in ids] == [f"bijschrift {i}" for i in range(8)]

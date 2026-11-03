@@ -32,7 +32,7 @@ const props = defineProps({
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
 });
-const emit = defineEmits(["object-click", "object-open", "point", "rectangle"]);
+const emit = defineEmits(["object-click", "object-open", "object-hover", "point", "rectangle"]);
 const t = useT();
 const language = inject("language", "nl");
 const host = ref(null);
@@ -48,9 +48,10 @@ function describe(obj) {
   if (obj.score != null) details.push(`${Math.round(obj.score * 100)}%`);
   if (obj.wikidata) details.push(obj.wikidata);
   // The caption (in quotes) and the description by the AI image description, when there are.
-  const caption = obj.bijschrift?.tekst ? `“${obj.bijschrift.tekst}”` : "";
+  const title = objectName(obj, language, t);
+  const caption = obj.bijschrift?.tekst && obj.bijschrift.tekst !== title ? `“${obj.bijschrift.tekst}”` : "";
   const text = [caption, obj.beschrijving?.beschrijving].filter(Boolean).join(" — ");
-  return { title: objectName(obj, language), details, text, hint: t("viewer.tooltip_hint") };
+  return { title, details, text, hint: t("viewer.tooltip_hint") };
 }
 
 function load() {
@@ -69,6 +70,7 @@ onMounted(() => {
   viewer.value = new PageViewer(host.value, { describe });
   viewer.value.on("object-click", (e) => emit("object-click", e));
   viewer.value.on("object-open", (obj) => emit("object-open", obj));
+  viewer.value.on("object-hover", (obj) => emit("object-hover", obj?.id || null));
   viewer.value.on("point", (e) => emit("point", e));
   viewer.value.on("rectangle", (rect) => emit("rectangle", rect));
   viewer.value.on("zoom", (s) => (scale.value = s));

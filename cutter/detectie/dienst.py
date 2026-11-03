@@ -13,9 +13,11 @@ the Delpher Uitsnijder without zones, ALTO, captions from OCR and hierarchy.
 - Paid calls are checked against the limits first and logged.
 """
 
+import functools
 import hashlib
 import io
 import json
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -100,6 +102,18 @@ def _contains(box, x, y):
     return box["x"] <= x <= box["x"] + box["w"] and box["y"] <= y <= box["y"] + box["h"]
 
 
+def _locked(method):
+    """Run a method that reads, changes and writes an object store as one step,
+    so two requests at the same time cannot overwrite each other's change."""
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self.lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
 def _now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -112,6 +126,8 @@ class DetectionService:
         self.output_dir = Path(output_dir)
         self.verbruik = verbruik
         self.masks = MaskCache(Path(cache_dir) / "maskers")
+        # One lock for all object stores (re-entrant: locked methods call each other).
+        self.lock = threading.RLock()
 
     # -- Terms and planning ----------------------------------------------------
 
@@ -149,6 +165,7 @@ class DetectionService:
 
     # -- Detection ---------------------------------------------------------------
 
+    @_locked
     def detect(self, file, n, prompt="", modus="prompt", categorie=None, minscore=0.0, dry_run=False, user=None):
         terms = self.terms(prompt, modus, categorie)
         page = self.client.load_page(file, n)
@@ -256,6 +273,7 @@ class DetectionService:
 
     # -- Click search, box prompt and manual rectangle ----------------------------
 
+    @_locked
     def point(self, file, n, x, y, user=None):
         """The smallest known object under (x, y); otherwise a point prompt."""
         objects = self.page_objects(file, n)
@@ -282,6 +300,7 @@ class DetectionService:
         result = next((o for o in objects if obj["id"] in _ids(o)), obj)
         return {"object": self.public(file, n, result), "nieuw": result["id"] == obj["id"], "budget": self.verbruik.status(user)}
 
+    @_locked
     def rectangle(self, file, n, box):
         """A manual rectangle (Shift-drag, 7.3): free, without a mask."""
         page = self.client.load_page(file, n)
@@ -302,6 +321,7 @@ class DetectionService:
         result = next((o for o in objects if obj["id"] in _ids(o)), obj)
         return {"object": self.public(file, n, result), "nieuw": result["id"] == obj["id"], "budget": self.verbruik.status()}
 
+    @_locked
     def refine_mask(self, file, n, object_id, user=None):
         """The shape of an object with a rectangle (a region from Commons or a
         manual rectangle) via one SAM box prompt (7.5): paid in live mode. The
@@ -406,6 +426,7 @@ class DetectionService:
         store["objecten"] = objects
         self._write_store(file, n, store)
 
+    @_locked
     def _merge_into_page(self, file, n, new_objects):
         """Add or update objects; objects in the trash stay there. What the user
         made or paid for (caption, description, Commons concept, a SAM mask on
@@ -456,6 +477,7 @@ class DetectionService:
             (self._store_path(file, n).parent / other["masker"]["bestand"]).unlink(missing_ok=True)
         return merged
 
+    @_locked
     def merge_duplicates(self, file, n):
         """Merge objects on a page that show the same picture ("Dubbelingen
         samenvoegen", 7.4). Returns how many objects were merged away."""
@@ -476,6 +498,7 @@ class DetectionService:
 
     # -- Changing objects ---------------------------------------------------------
 
+    @_locked
     def set_caption(self, file, n, object_id, value):
         """Change an object's caption: {"tekst": ...} sets it, None removes it."""
         store = self._load_store(file, n)
@@ -490,6 +513,7 @@ class DetectionService:
         self._write_store(file, n, store)
         return self.public(file, n, obj)
 
+    @_locked
     def set_field(self, file, n, object_id, key, value):
         """Store a field on an object (e.g. the Commons concept) and return it."""
         store = self._load_store(file, n)
@@ -498,6 +522,7 @@ class DetectionService:
         self._write_store(file, n, store)
         return self.public(file, n, obj)
 
+    @_locked
     def delete_object(self, file, n, object_id):
         """Move an object to the trash (it can be restored)."""
         store = self._load_store(file, n)
@@ -510,6 +535,7 @@ class DetectionService:
         self._write_store(file, n, store)
         return [self.public(file, n, o) for o in store["objecten"]]
 
+    @_locked
     def restore_object(self, file, n, object_id):
         """Put an object from the trash back on its page."""
         store = self._load_store(file, n)
@@ -526,6 +552,7 @@ class DetectionService:
         self._write_store(file, n, store)
         return [self.public(file, n, o) for o in store["objecten"]]
 
+    @_locked
     def purge_object(self, file, n, object_id):
         """Delete an object permanently, with its saved files."""
         store = self._load_store(file, n)
@@ -553,6 +580,7 @@ class DetectionService:
             except OSError:
                 pass
 
+    @_locked
     def set_selection(self, file, n, ids):
         """Exactly these objects are selected; other selected ones become candidates."""
         ids = set(ids or [])
@@ -568,6 +596,7 @@ class DetectionService:
         self._save(file, n, objects)
         return [self.public(file, n, o) for o in objects]
 
+    @_locked
     def set_statuses(self, file, n, changes):
         """Set the status of objects: [{"id", "status"}, ...]."""
         objects = self.page_objects(file, n)
@@ -598,6 +627,7 @@ class DetectionService:
         duplicates = {m["id"]: g[0]["id"] for g in groups for m in g[1:]}
         return [g[0] for g in groups], duplicates
 
+    @_locked
     def save_objects(self, file, n, ids=None):
         """Write cut-outs for the given objects (default: the selected ones),
         from the original at full resolution: a JPG (the rectangle, quality
@@ -651,6 +681,7 @@ class DetectionService:
             return export.crop_jpeg(image, obj["box"], scale)
         return export.cutout(image, obj["box"], scale, decode_raster(self._mask_data(file, n, obj)))[0]
 
+    @_locked
     def empty_trash(self, targets=None):
         """Permanently delete objects in the trash: all of them, or only the
         given {"mid", "pagina", "id"} entries. Returns how many were deleted."""

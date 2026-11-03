@@ -62,7 +62,8 @@ import { objectName } from "../state.js";
 
 const t = useT();
 const language = inject("language", "nl");
-const tab = ref("objecten");
+// ?tab=prullenbak opens the trash directly (the link after "Naar de prullenbak").
+const tab = ref(new URLSearchParams(window.location.search).get("tab") === "prullenbak" ? "prullenbak" : "objecten");
 const objects = ref([]);
 const trash = ref([]);
 const chosenSources = ref([]);
@@ -71,7 +72,7 @@ const error = ref("");
 
 const sources = computed(() => [...new Set(objects.value.map((o) => o.bron))].sort());
 const count = (source) => objects.value.filter((o) => o.bron === source).length;
-const name = (obj) => objectName(obj, language);
+const name = (obj) => objectName(obj, language, t);
 const shown = computed(() =>
   objects.value.filter((o) => (!chosenSources.value.length || chosenSources.value.includes(o.bron)) && (!onlySaved.value || o.opgeslagen))
 );

@@ -12,13 +12,18 @@
     @default="answerConfirm(false)"
     @update:open="(open) => !open && answerConfirm(false)"
   >
-    <p>{{ state.text }}</p>
+    <p>
+      <template v-for="(part, i) in textParts(state.text, state.links)" :key="i">
+        <a v-if="part.link" :href="part.link.href" target="_blank" rel="noopener">{{ part.link.label }}</a>
+        <template v-else>{{ part.text }}</template>
+      </template>
+    </p>
   </cdx-dialog>
 </template>
 
 <script setup>
 import { CdxDialog } from "@wikimedia/codex";
-import { answerConfirm, confirmState as state } from "../confirm.js";
+import { answerConfirm, confirmState as state, textParts } from "../confirm.js";
 import { useT } from "../i18n.js";
 
 const t = useT();

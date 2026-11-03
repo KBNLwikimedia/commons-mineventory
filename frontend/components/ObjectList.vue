@@ -16,11 +16,15 @@
       <li
         v-for="obj in sorted"
         :key="obj.id"
-        :class="[`cc-object-${obj.status}`, `cc-bron-${obj.bron}`, { focus: obj.id === focused }]"
+        :class="[`cc-object-${obj.status}`, `cc-bron-${obj.bron}`, { focus: obj.id === focused, hover: obj.id === hovered }]"
         @mouseenter="emit('hover', obj.id, true)"
         @mouseleave="emit('hover', obj.id, false)"
       >
+        <button type="button" class="cc-object-duim" :aria-label="t('objects.open')" :title="t('objects.open')" @click="emit('open', obj.id)">
+          <img :src="thumbnail(obj)" alt="" loading="lazy" />
+        </button>
         <cdx-checkbox
+          class="cc-object-vinkje"
           :model-value="obj.status === 'geselecteerd'"
           :disabled="obj.status === 'uitgesloten'"
           @update:model-value="emit('toggle', obj.id)"
@@ -30,7 +34,7 @@
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
             <template v-if="obj.opgeslagen"> · {{ t("objects.saved") }}</template>
             <template v-if="obj.al_uitgesneden"> · {{ t("objects.already_extracted") }}</template>
-            <span v-if="obj.bijschrift?.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
+            <span v-if="obj.bijschrift?.tekst && name(obj) !== obj.bijschrift.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
             <template v-if="obj.status === 'uitgesloten'"> · {{ t("status.uitgesloten") }}</template>
           </template>
         </cdx-checkbox>
@@ -51,14 +55,23 @@
 import { computed, inject } from "vue";
 import { CdxButton, CdxCheckbox, CdxIcon } from "@wikimedia/codex";
 import { cdxIconEye, cdxIconTrash } from "@wikimedia/codex-icons";
+import { objectPath } from "../api.js";
 import { useT } from "../i18n.js";
 import { objectName } from "../state.js";
 
-const props = defineProps({ objects: { type: Array, required: true }, focused: { type: String, default: null } });
+const props = defineProps({
+  objects: { type: Array, required: true },
+  focused: { type: String, default: null },
+  hovered: { type: String, default: null },
+  mid: { type: String, required: true },
+  n: { type: Number, required: true },
+});
 const emit = defineEmits(["toggle", "select", "focus", "open", "hover", "trash"]);
 const t = useT();
 const language = inject("language", "nl");
-const name = (obj) => objectName(obj, language);
+const name = (obj) => objectName(obj, language, t);
+// A small cut-out; the box in the URL makes a changed object load anew.
+const thumbnail = (obj) => `${objectPath(props.mid, props.n, obj.id)}/uitsnede.jpg?w=96&v=${obj.box.x}-${obj.box.y}-${obj.box.w}-${obj.box.h}`;
 // Regions from Commons first (in reading order), then the rest from top to bottom.
 const sorted = computed(() =>
   [...props.objects].sort((a, b) => (a.bron === "commons") === (b.bron === "commons") ? a.box.y - b.box.y || a.box.x - b.box.x : a.bron === "commons" ? -1 : 1)

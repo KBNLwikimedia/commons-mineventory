@@ -29,35 +29,37 @@
     <div class="cc-twee">
       <cdx-field>
         <template #label>{{ t("concept.caption") }} (nl)</template>
-        <template v-if="(concept.bijschrift && draft.caption.nl !== concept.bijschrift) || differsFromAi('caption', 'nl')" #help-text>
+        <template v-if="fieldActions('caption', 'nl').length" #help-text>
           <span class="cc-veldlinks">
-            <button v-if="concept.bijschrift && draft.caption.nl !== concept.bijschrift" type="button" class="cc-link" @click="draft.caption.nl = concept.bijschrift.slice(0, 250)">{{ t("concept.use_caption") }}</button>
-            <button v-if="differsFromAi('caption', 'nl')" type="button" class="cc-link" @click="backToAi('caption', 'nl')">↶ {{ t("concept.back_to_ai") }}</button>
+            <button v-for="action in fieldActions('caption', 'nl')" :key="action.key" type="button" class="cc-link" @click="action.run">{{ action.label }}</button>
           </span>
         </template>
         <cdx-text-input v-model="draft.caption.nl" />
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.caption") }} (en)</template>
-        <template v-if="differsFromAi('caption', 'en')" #help-text>
-          <button type="button" class="cc-link" @click="backToAi('caption', 'en')">↶ {{ t("concept.back_to_ai") }}</button>
+        <template v-if="fieldActions('caption', 'en').length" #help-text>
+          <span class="cc-veldlinks">
+            <button v-for="action in fieldActions('caption', 'en')" :key="action.key" type="button" class="cc-link" @click="action.run">{{ action.label }}</button>
+          </span>
         </template>
         <cdx-text-input v-model="draft.caption.en" />
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.description") }} (nl)</template>
-        <template v-if="(concept.bijschrift && !draft.beschrijving.nl.includes(concept.bijschrift)) || differsFromAi('beschrijving', 'nl')" #help-text>
+        <template v-if="fieldActions('beschrijving', 'nl').length" #help-text>
           <span class="cc-veldlinks">
-            <button v-if="concept.bijschrift && !draft.beschrijving.nl.includes(concept.bijschrift)" type="button" class="cc-link" @click="addCaptionToDescription">{{ t("concept.use_caption_description") }}</button>
-            <button v-if="differsFromAi('beschrijving', 'nl')" type="button" class="cc-link" @click="backToAi('beschrijving', 'nl')">↶ {{ t("concept.back_to_ai") }}</button>
+            <button v-for="action in fieldActions('beschrijving', 'nl')" :key="action.key" type="button" class="cc-link" @click="action.run">{{ action.label }}</button>
           </span>
         </template>
         <cdx-text-area v-model="draft.beschrijving.nl" :autosize="true" />
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.description") }} (en)</template>
-        <template v-if="differsFromAi('beschrijving', 'en')" #help-text>
-          <button type="button" class="cc-link" @click="backToAi('beschrijving', 'en')">↶ {{ t("concept.back_to_ai") }}</button>
+        <template v-if="fieldActions('beschrijving', 'en').length" #help-text>
+          <span class="cc-veldlinks">
+            <button v-for="action in fieldActions('beschrijving', 'en')" :key="action.key" type="button" class="cc-link" @click="action.run">{{ action.label }}</button>
+          </span>
         </template>
         <cdx-text-area v-model="draft.beschrijving.en" :autosize="true" />
       </cdx-field>
@@ -87,8 +89,11 @@
       <ul class="cc-beeldt-af">
         <li v-for="(item, i) in draft.beeldt_af" :key="item.q">
           <a :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.label || item.q }}</a>
-          <small class="cc-qid">{{ item.q }}</small>
+          <small class="cc-qid"><a :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.q }}</a></small>
           <cdx-button size="small" weight="quiet" action="destructive" :aria-label="t('actions.remove')" @click="draft.beeldt_af.splice(i, 1)">×</cdx-button>
+          <span v-if="itemDescription(item.q) !== null" class="cc-item-beschrijving" :class="{ leeg: !itemDescription(item.q) }">
+            {{ itemDescription(item.q) || t("concept.no_item_description") }}
+          </span>
         </li>
       </ul>
       <cdx-lookup
@@ -127,7 +132,7 @@
 </template>
 
 <script setup>
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, reactive, ref, watch } from "vue";
 import {
   CdxAccordion, CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxLookup, CdxMessage, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
 } from "@wikimedia/codex";
@@ -145,6 +150,9 @@ const t = useT();
 const language = inject("language", "nl");
 const concept = ref(null);
 const draft = ref(null);
+// Every action that fills a field remembers what was there, so "Ongedaan
+// maken" can put it back (also when the AI description is gone).
+const undoValues = reactive({});
 const saving = ref(false);
 const message = ref("");
 const messageType = ref("success");
@@ -211,7 +219,10 @@ async function reload() {
     messageType.value = "error";
   }
 }
-watch(path, reload, { immediate: true });
+watch(path, () => {
+  Object.keys(undoValues).forEach((key) => delete undoValues[key]);
+  reload();
+}, { immediate: true });
 
 async function send(body, { announce = false } = {}) {
   saving.value = true;
@@ -250,6 +261,7 @@ function save() {
 async function reset() {
   const ok = await askConfirm(t("concept.reset_confirm"), { title: t("concept.reset"), go: t("concept.reset_go"), destructive: true });
   if (ok) {
+    Object.keys(undoValues).forEach((key) => delete undoValues[key]);
     clearTimeout(saveTimer);
     return send({ herstel: true }, { announce: true });
   }
@@ -261,15 +273,60 @@ function differsFromAi(field, language) {
   return Boolean(ai) && draft.value[field][language].trim() !== ai.trim();
 }
 
+// (undoValues, declared at the top, keeps what a field held before an action.)
+
+function setValue(field, language, value) {
+  undoValues[`${field}.${language}`] = draft.value[field][language];
+  draft.value[field][language] = value;
+}
+
 function backToAi(field, language) {
-  draft.value[field][language] = concept.value.ai[field][language].slice(0, field === "caption" ? 250 : undefined);
+  setValue(field, language, concept.value.ai[field][language].slice(0, field === "caption" ? 250 : undefined));
 }
 
 // The caption (from the Cut-out tab) as an extra sentence under the description.
 function addCaptionToDescription() {
   const current = draft.value.beschrijving.nl.trim();
-  draft.value.beschrijving.nl = current ? `${current}
-${concept.value.bijschrift}` : concept.value.bijschrift;
+  setValue("beschrijving", "nl", current ? `${current}
+${concept.value.bijschrift}` : concept.value.bijschrift);
+}
+
+/* The links under a caption or description field: undo the last action,
+   take over the caption, go back to the AI image description. */
+function fieldActions(field, language) {
+  const actions = [];
+  const key = `${field}.${language}`;
+  const current = draft.value[field][language];
+  if (key in undoValues && undoValues[key] !== current) {
+    actions.push({
+      key: "undo",
+      label: `↶ ${t("magnifier.undo")}`,
+      run: () => {
+        draft.value[field][language] = undoValues[key];
+        delete undoValues[key];
+      },
+    });
+  }
+  const caption = concept.value?.bijschrift;
+  if (caption && language === "nl" && field === "caption" && current !== caption) {
+    actions.push({ key: "caption", label: t("concept.use_caption"), run: () => setValue("caption", "nl", caption.slice(0, 250)) });
+  }
+  if (caption && language === "nl" && field === "beschrijving" && !current.includes(caption)) {
+    actions.push({ key: "caption", label: t("concept.use_caption_description"), run: addCaptionToDescription });
+  }
+  if (differsFromAi(field, language)) {
+    actions.push({ key: "ai", label: `↶ ${t("concept.back_to_ai")}`, run: () => backToAi(field, language) });
+  }
+  return actions;
+}
+
+// The short Wikidata description of a depicts item: in the interface language,
+// else the other one; "" when Wikidata has neither, null when not (yet) known.
+function itemDescription(q) {
+  const info = concept.value?.beeldt_af_info?.[q];
+  if (!info) return null;
+  const other = language === "nl" ? "en" : "nl";
+  return info.beschrijving?.[language] || info.beschrijving?.[other] || "";
 }
 
 function addCategory() {
