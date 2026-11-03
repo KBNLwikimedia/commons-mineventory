@@ -45,6 +45,7 @@
           :objects="objects"
           :new-ids="newIds"
           :point-mode="pointMode"
+          :draw-mode="drawMode"
           @object-click="onObjectClick"
           @object-open="openMagnifier($event.id)"
           @point="onPoint"
@@ -64,7 +65,9 @@
           @inventory="askInventory"
           @merge="mergeDuplicates"
           @describe-all="describeAll"
-          @point-mode="pointMode = $event"
+          :draw-mode="drawMode"
+          @point-mode="setMode('point', $event)"
+          @draw-mode="setMode('draw', $event)"
         />
         <div class="cc-acties">
           <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }}</p>
@@ -125,6 +128,13 @@ const newIds = ref([]);
 const inventory = ref(null);
 const focusedId = ref(null);
 const pointMode = ref(false);
+const drawMode = ref(false);
+
+// Aanwijzen and Rechthoek tekenen exclude each other.
+function setMode(mode, on) {
+  pointMode.value = mode === "point" && on;
+  drawMode.value = mode === "draw" && on;
+}
 const loadingFile = ref(false);
 const busy = ref(false);
 const notices = ref([]);
@@ -308,6 +318,7 @@ async function onRectangle(rect) {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { rechthoek: rect });
     objects.value = [...objects.value.filter((o) => o.id !== result.object.id), result.object];
     newIds.value = [result.object.id];
+    focusedId.value = result.object.id;
     notify("success", t("detect.rectangle"));
   } catch (error) {
     fail(error);

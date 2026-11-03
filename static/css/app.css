@@ -122,6 +122,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-objecten li.cc-bron-commons { border-left-color: var(--cc-commons); }
 .cc-objecten li.cc-object-uitgesloten { opacity: 0.6; }
 .cc-object-naam { cursor: pointer; }
+.cc-object-bijschrift { display: block; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12rem; }
+.cc-waarschuwing { margin-top: 0.5rem; }
 .cc-object-knoppen { display: flex; flex-shrink: 0; }
 
 /* -- Viewer ------------------------------------------------------------------- */
@@ -131,7 +133,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-viewer-hint { margin-left: auto; font-size: 0.75rem; color: var(--cc-tekst-zacht); }
 .viewer { position: relative; overflow: hidden; flex: 1; background: #eaecf0; cursor: grab; touch-action: none; user-select: none; }
 .viewer.pannen { cursor: grabbing; }
-.viewer.aanwijzen { cursor: crosshair; }
+.viewer.aanwijzen, .viewer.tekenen { cursor: crosshair; }
 .viewer-podium { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .viewer-podium img { display: block; width: 100%; height: 100%; }
 .viewer-podium svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -180,16 +182,21 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-rand-se::after { content: ""; position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; border-right: 2px solid var(--cc-rand); border-bottom: 2px solid var(--cc-rand); }
 /* The tab bar of the magnifier stays in view while the content scrolls (the dialog body scrolls). */
 .cc-vergroter .cdx-tabs__header { position: sticky; top: -8px; z-index: 2; background-color: var(--background-color-base, #fff); }
+.cc-weergave { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; }
 .cc-vergroter-beeld { text-align: center; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; margin: 0.5rem 0; }
 .cc-vergroter-beeld img { max-width: 100%; max-height: 50vh; }
 .cc-bezig { margin: 0.75rem 0; }
 .cc-bezig p { margin: 0.35rem 0 0; }
+.cc-info-knop.cdx-button { min-width: 0; min-height: 0; padding: 0 2px; vertical-align: middle; }
+.cc-gegevens .cc-info-tekst { grid-column: 1 / -1; }
 .cc-bijschrift { display: flex; gap: 0.4rem; }
 .cc-bijschrift .cdx-text-input { flex: 1; }
 .cc-twee { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
-.cc-concept-kop { display: flex; gap: 1rem; align-items: flex-start; }
-.cc-concept-voorbeeld { margin: 0; flex-shrink: 0; max-width: 14rem; }
-.cc-concept-voorbeeld img { display: block; max-width: 14rem; max-height: 12rem; border: 1px solid var(--cc-rand); background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
+.cc-concept-kop { display: flex; gap: 1.5rem; align-items: flex-start; margin-top: 1rem; }
+.cc-concept-links { flex: 1; min-width: 0; }
+.cc-concept-links .cdx-field:first-of-type { margin-top: 0.5rem; }
+.cc-concept-voorbeeld { margin: 0; flex-shrink: 0; max-width: 14rem; text-align: center; }
+.cc-concept-voorbeeld img { display: block; margin: 0 auto; max-width: 14rem; max-height: 12rem; border: 1px solid var(--cc-rand); background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
 .cc-concept-voorbeeld figcaption { margin-top: 0.2rem; }
 .cc-qid { margin: 0 0.35rem; color: var(--cc-tekst-zacht); }
 .cc-beeldt-af { list-style: none; padding: 0; margin: 0 0 0.5rem; }
@@ -221,6 +228,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
 
 /* -- Narrow screens (functional design 10.5): the columns stack ---------------------- */
 @media (max-width: 64rem) {
+  .cc-concept-kop { flex-direction: column-reverse; }
   .cc-werkblad { grid-template-columns: 1fr; height: auto; }
   .cc-midden { height: 70vh; order: -1; }
   .cc-links, .cc-rechts { overflow: visible; }

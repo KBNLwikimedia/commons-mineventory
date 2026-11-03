@@ -81,6 +81,14 @@
       <p class="cc-klein">{{ t("panel.point_help") }} {{ cost(1) }}</p>
     </cdx-accordion>
 
+    <cdx-accordion v-model="open.draw">
+      <template #title>{{ t("panel.draw") }}</template>
+      <cdx-toggle-switch :model-value="drawMode" @update:model-value="emit('draw-mode', $event)">
+        {{ t("panel.draw_switch") }}
+      </cdx-toggle-switch>
+      <p class="cc-klein">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
+    </cdx-accordion>
+
     <cdx-accordion v-model="open.bulk">
       <template #title>{{ t("panel.bulk") }}</template>
       <div class="cc-knoppen cc-knoppen-rij">
@@ -108,12 +116,13 @@ const props = defineProps({
   busy: { type: Boolean, default: false },
   inventory: { type: Object, default: null },
   pointMode: { type: Boolean, default: false },
+  drawMode: { type: Boolean, default: false },
 });
-const emit = defineEmits(["detect", "smart", "inventory", "merge", "describe-all", "point-mode"]);
+const emit = defineEmits(["detect", "smart", "inventory", "merge", "describe-all", "point-mode", "draw-mode"]);
 const t = useT();
 const config = inject("config");
 const prompt = ref("");
-const open = reactive({ commons: true, search: true, quick: true, suggestions: false, point: false, bulk: false });
+const open = reactive({ commons: true, search: true, quick: true, suggestions: false, point: false, draw: true, bulk: false });
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 
 const SAM_PER_CALL = 0.0025;

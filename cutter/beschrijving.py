@@ -37,7 +37,7 @@ from .detectie.basis import DetectionError
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = 1  # Commons Cutter 0.1.0: Dutch and English, wikidata_suggesties
+PROMPT_VERSION = 2  # 1: Dutch and English, wikidata_suggesties (0.1.0); 2: the cut-out's own caption (0.4.0)
 MARGIN = 0.25  # share of the box added on every side, so text around the image comes along
 MAX_SIDE = 1024  # pixels of the image sent to the model
 CONTEXT_CHARS = 800  # at most this much of the Commons description in the question
@@ -102,7 +102,8 @@ The image is {title} on Wikimedia Commons. Context from the file page (may be in
 - Description: {description}
 - Caption: {caption}
 - Categories: {categories}
-- Already marked as depicted: {depicts}"""
+- Already marked as depicted: {depicts}
+- Caption of this cut-out (given by the user or a file note on Commons): {cutout_caption}"""
 
 
 def price(model):
@@ -265,11 +266,13 @@ def context(file):
     }
 
 
-def build_prompt(file):
+def build_prompt(file, caption=None):
+    caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
     return INSTRUCTIONS.format(
         kinds=", ".join(KINDS),
         max_suggestions=MAX_SUGGESTIONS,
         title=f'"{file.get("naam") or file.get("titel")}"',
+        cutout_caption=f'"{caption}"' if caption else "none",
         **context(file),
     )
 
@@ -494,8 +497,13 @@ class DescriptionService:
             "budget": self.objects.verbruik.status(user),
         }
 
+    @staticmethod
+    def _caption(obj):
+        return ((obj.get("bijschrift") or {}).get("tekst") or "").strip()
+
     def _cache_path(self, file, n, obj, model):
-        key = f"{file['sha1']}|{n}|{obj['box']}|{model}|{self._effort()}|{PROMPT_VERSION}"
+        # The caption is part of the question, so another caption is another (cached) answer.
+        key = f"{file['sha1']}|{n}|{obj['box']}|{self._caption(obj)}|{model}|{self._effort()}|{PROMPT_VERSION}"
         digest = hashlib.sha1(key.encode()).hexdigest()
         return self.cache_dir / digest[:2] / f"{digest}.json"
 
@@ -522,7 +530,7 @@ class DescriptionService:
             self.objects.verbruik.check(1, user=user, cost=estimate(choice["model"], effort))
         page = self.objects.client.load_page(file, n)
         data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"])
-        prompt = build_prompt(file)
+        prompt = build_prompt(file, self._caption(obj))
 
         body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
         tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)

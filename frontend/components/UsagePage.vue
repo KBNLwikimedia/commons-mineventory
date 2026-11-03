@@ -31,7 +31,7 @@
         <tbody>
           <tr v-for="(entry, i) in data.logboek" :key="i">
             <td>{{ entry.tijd.replace("T", " ") }}</td>
-            <td>{{ entry.soort || "sam" }}</td>
+            <td>{{ t(`usage.kind_${entry.soort || "sam"}`) }}</td>
             <td><a v-if="entry.bestand" :href="`/?mid=${entry.bestand}&pagina=${entry.pagina || 1}`">{{ entry.titel || entry.bestand }}</a></td>
             <td>{{ entry.term }}</td>
             <td>{{ entry.gebruiker || "—" }}</td>

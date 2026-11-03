@@ -10,9 +10,9 @@
       <cdx-button weight="quiet" :aria-label="t('viewer.zoom_in')" @click="viewer?.zoomStep(1)"><cdx-icon :icon="cdxIconZoomIn" /></cdx-button>
       <cdx-button weight="quiet" @click="viewer?.zoomTo(1)">100%</cdx-button>
       <cdx-button weight="quiet" @click="viewer?.fit()">{{ t("viewer.fit") }}</cdx-button>
-      <span class="cc-viewer-hint">{{ pointMode ? t("viewer.hint_point") : t("viewer.hint") }}</span>
+      <span class="cc-viewer-hint">{{ drawMode ? t("viewer.hint_draw") : pointMode ? t("viewer.hint_point") : t("viewer.hint") }}</span>
     </div>
-    <div ref="host" class="viewer" :class="{ aanwijzen: pointMode }"></div>
+    <div ref="host" class="viewer"></div>
   </div>
 </template>
 
@@ -30,6 +30,7 @@ const props = defineProps({
   objects: { type: Array, required: true },
   newIds: { type: Array, default: () => [] },
   pointMode: { type: Boolean, default: false },
+  drawMode: { type: Boolean, default: false },
 });
 const emit = defineEmits(["object-click", "object-open", "point", "rectangle"]);
 const t = useT();
@@ -46,7 +47,10 @@ function describe(obj) {
   const details = [t(`status.${obj.status}`), t(`source.${obj.bron}`)];
   if (obj.score != null) details.push(`${Math.round(obj.score * 100)}%`);
   if (obj.wikidata) details.push(obj.wikidata);
-  return { title: objectName(obj, language), details, text: obj.beschrijving?.beschrijving || "", hint: t("viewer.tooltip_hint") };
+  // The caption (in quotes) and the description by the AI image description, when there are.
+  const caption = obj.bijschrift?.tekst ? `“${obj.bijschrift.tekst}”` : "";
+  const text = [caption, obj.beschrijving?.beschrijving].filter(Boolean).join(" — ");
+  return { title: objectName(obj, language), details, text, hint: t("viewer.tooltip_hint") };
 }
 
 function load() {
@@ -70,6 +74,7 @@ onMounted(() => {
   viewer.value.on("zoom", (s) => (scale.value = s));
   load();
   viewer.value.setPointMode(props.pointMode);
+  viewer.value.setDrawMode(props.drawMode);
 });
 
 onBeforeUnmount(() => host.value?.replaceChildren());
@@ -77,6 +82,7 @@ onBeforeUnmount(() => host.value?.replaceChildren());
 watch(() => [props.page, props.mid], load);
 watch(() => [props.objects, props.newIds], () => viewer.value?.setObjects(props.objects, props.newIds));
 watch(() => props.pointMode, (on) => viewer.value?.setPointMode(on));
+watch(() => props.drawMode, (on) => viewer.value?.setDrawMode(on));
 
 defineExpose({
   zoomToBox: (box) => viewer.value?.zoomToBox(box),

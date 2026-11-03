@@ -7,28 +7,31 @@
 <template>
   <div v-if="concept" class="cc-concept">
     <cdx-message v-if="!concept.upload_toegestaan" type="warning" :inline="true">{{ t("concept.not_allowed") }}</cdx-message>
+    <!-- Left: rights label, file name and format; right: the cut-out as it goes to Commons. -->
     <div class="cc-concept-kop">
-      <figure class="cc-concept-voorbeeld">
-        <img :src="previewUrl" :alt="t('concept.preview_image')" />
-        <figcaption class="cc-klein">{{ draft.formaat.toUpperCase() }} · {{ t("concept.preview_image") }}</figcaption>
-      </figure>
-      <p class="cc-bestand-regel">
-        <rights-label v-for="label in concept.rechten.labels" :key="label" :label="label" />
-      </p>
+      <div class="cc-concept-links">
+        <p class="cc-bestand-regel">
+          <rights-label v-for="label in concept.rechten.labels" :key="label" :label="label" />
+        </p>
+        <cdx-field>
+          <template #label>{{ t("concept.filename") }}</template>
+          <template #help-text>{{ t("concept.filename_help") }}</template>
+          <cdx-text-input v-model="draft.bestandsnaam" />
+        </cdx-field>
+        <cdx-field :is-fieldset="true">
+          <template #label>{{ t("concept.format") }}</template>
+          <template #help-text>{{ t(`concept.format_${draft.formaat}`) }}</template>
+          <cdx-toggle-button-group v-model="draft.formaat" :buttons="formats" />
+        </cdx-field>
+      </div>
+      <cutout-preview :src="previewUrl" :caption="t('concept.preview_image')" />
     </div>
-
-    <cdx-field>
-      <template #label>{{ t("concept.filename") }}</template>
-      <template #help-text>{{ t("concept.filename_help") }}</template>
-      <cdx-text-input v-model="draft.bestandsnaam" />
-    </cdx-field>
-    <cdx-field>
-      <template #label>{{ t("concept.format") }}</template>
-      <cdx-select v-model:selected="draft.formaat" :menu-items="formats" />
-    </cdx-field>
     <div class="cc-twee">
       <cdx-field>
         <template #label>{{ t("concept.caption") }} (nl)</template>
+        <template v-if="concept.bijschrift && draft.caption.nl !== concept.bijschrift" #help-text>
+          <button type="button" class="cc-link" @click="draft.caption.nl = concept.bijschrift.slice(0, 250)">{{ t("concept.use_caption") }}</button>
+        </template>
         <cdx-text-input v-model="draft.caption.nl" />
       </cdx-field>
       <cdx-field>
@@ -37,6 +40,9 @@
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.description") }} (nl)</template>
+        <template v-if="concept.bijschrift && !draft.beschrijving.nl.includes(concept.bijschrift)" #help-text>
+          <button type="button" class="cc-link" @click="addCaptionToDescription">{{ t("concept.use_caption_description") }}</button>
+        </template>
         <cdx-text-area v-model="draft.beschrijving.nl" :autosize="true" />
       </cdx-field>
       <cdx-field>
@@ -111,12 +117,13 @@
 <script setup>
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import {
-  CdxAccordion, CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxLookup, CdxMessage, CdxSelect, CdxTextArea, CdxTextInput,
+  CdxAccordion, CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxLookup, CdxMessage, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
 } from "@wikimedia/codex";
 import { cdxIconCopy } from "@wikimedia/codex-icons";
 import { API, errorText, get, objectPath, patch, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
+import CutoutPreview from "./CutoutPreview.vue";
 import RightsLabel from "./RightsLabel.vue";
 import SourceNote from "./SourceNote.vue";
 
@@ -234,6 +241,13 @@ async function reset() {
     clearTimeout(saveTimer);
     return send({ herstel: true }, { announce: true });
   }
+}
+
+// The caption (from the Cut-out tab) as an extra sentence under the description.
+function addCaptionToDescription() {
+  const current = draft.value.beschrijving.nl.trim();
+  draft.value.beschrijving.nl = current ? `${current}
+${concept.value.bijschrift}` : concept.value.bijschrift;
 }
 
 function addCategory() {

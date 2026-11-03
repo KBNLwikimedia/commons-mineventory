@@ -244,3 +244,14 @@ describe("history of opened files", async () => {
     expect(addToHistory({ mid: "M9" }, null)).toHaveLength(1);
   });
 });
+
+describe("draw mode", () => {
+  it("lets a plain drag draw a rectangle and shows a crosshair", () => {
+    const { host, viewer } = viewerWithPage();
+    viewer.setDrawMode(true);
+    expect(host.classList.contains("tekenen")).toBe(true);
+    expect(viewer.drawMode).toBe(true);
+    viewer.setDrawMode(false);
+    expect(host.classList.contains("tekenen")).toBe(false);
+  });
+});

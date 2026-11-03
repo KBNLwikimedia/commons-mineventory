@@ -30,6 +30,7 @@
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
             <template v-if="obj.opgeslagen"> · {{ t("objects.saved") }}</template>
             <template v-if="obj.al_uitgesneden"> · {{ t("objects.already_extracted") }}</template>
+            <span v-if="obj.bijschrift?.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
             <template v-if="obj.status === 'uitgesloten'"> · {{ t("status.uitgesloten") }}</template>
           </template>
         </cdx-checkbox>

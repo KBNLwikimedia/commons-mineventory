@@ -7,14 +7,15 @@
  * Interface for the Vue wrapper (ViewerPane.vue):
  *   functions  load(page), setObjects(objects, newIds), setSelection(ids),
  *              zoomToBox(box), focusObject(id), setObjectHover(id, on),
- *              setPointMode(on), fit(), zoomStep(direction), zoomTo(scale)
+ *              setPointMode(on), setDrawMode(on), fit(), zoomStep(direction), zoomTo(scale)
  *   events     "object-click" {object, ctrl}, "object-open" object,
  *              "point" {x, y, ctrl}, "rectangle" {x, y, w, h},
  *              "object-hover" object|null, "zoom" scale, "imageload", "imageerror"
  *
  * Objects are drawn with a class per status (kandidaat, geselecteerd,
  * uitgesloten) and per source (object-commons: the yellow regions from Commons).
- * Shift-drag draws a manual rectangle; a click on an empty spot is a point.
+ * Shift-drag, or any drag in draw mode, draws a manual rectangle; a click on
+ * an empty spot is a point.
  */
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -75,6 +76,7 @@ export class PageViewer {
     this.handlers = {};
     this.objectElements = new Map();
     this.pointMode = false;
+    this.drawMode = false;
     this._bindEvents();
   }
 
@@ -228,6 +230,12 @@ export class PageViewer {
     this.el.classList.toggle("aanwijzen", on);
   }
 
+  /* Draw mode ("Rechthoek tekenen"): dragging draws a rectangle instead of panning. */
+  setDrawMode(on) {
+    this.drawMode = on;
+    this.el.classList.toggle("tekenen", on);
+  }
+
   /* Viewer coordinates of a pointer event, in native page pixels. */
   pagePoint(event) {
     const rect = this.el.getBoundingClientRect();
@@ -372,7 +380,7 @@ export class PageViewer {
         object: this.hoverObject,
         point: this.pagePoint(e),
         ctrl: e.ctrlKey || e.metaKey,
-        shift: e.shiftKey && e.button === 0,
+        shift: (e.shiftKey || this.drawMode) && e.button === 0,
       };
       this.el.setPointerCapture?.(e.pointerId);
     });
@@ -415,7 +423,7 @@ export class PageViewer {
         if (e.type !== "pointercancel" && rect.w >= 4 && rect.h >= 4) this._emit("rectangle", rect);
         return;
       }
-      if (wasPanning || e.type === "pointercancel" || !this.page) return;
+      if (wasPanning || e.type === "pointercancel" || !this.page || this.drawMode) return;
       if (click.object && !this.pointMode) {
         this._emit("object-click", { object: click.object, ctrl: click.ctrl });
       } else {

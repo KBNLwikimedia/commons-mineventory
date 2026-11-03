@@ -153,3 +153,28 @@ def test_dummy_description_and_inventory(objects, album, tmp_path):
     assert overview["zoektermen"][0] == {"en": "coat of arms", "nl": "wapen", "aantal": 2, "waar": "bovenaan"}
     assert service.inventory_plan(album, 1)["inventaris"]["paginasoort"]
     assert objects.verbruik.entries() == []  # dummy is free
+
+
+def test_caption_goes_into_the_question_and_the_cache_key(objects, album, tmp_path):
+    obj = objects.rectangle(album, 1, {"x": 0, "y": 0, "w": 300, "h": 300})["object"]
+    prompts = []
+
+    class Recording(FixtureVision):
+        def describe(self, model, prompt, data_url, o, effort=None, schema=beschrijving.SCHEMA):
+            prompts.append(prompt)
+            return super().describe(model, prompt, data_url, o, effort, schema)
+
+    service = DescriptionService(Recording(), objects, CONFIG, tmp_path / "cache")
+    service.describe(album, 1, obj["id"])
+    assert prompts[-1].endswith("Caption of this cut-out (given by the user or a file note on Commons): none")
+    objects.set_caption(album, 1, obj["id"], {"tekst": "Wapen van Bronckhorst"})
+    again = service.describe(album, 1, obj["id"])
+    assert not again["uit_cache"]  # another caption: a new question
+    assert '"Wapen van Bronckhorst"' in prompts[-1]
+
+
+def test_concept_api_includes_the_caption(http):
+    page = "/api/v1/bestand/M28830642/pagina/1"
+    obj = http.post(page + "/detecties", json={"rechthoek": {"x": 0, "y": 0, "w": 100, "h": 100}}).get_json()["object"]
+    http.patch(f"{page}/object/{obj['id']}", json={"bijschrift": {"tekst": "Spes mea Deus"}})
+    assert http.get(f"{page}/object/{obj['id']}/commons").get_json()["bijschrift"] == "Spes mea Deus"

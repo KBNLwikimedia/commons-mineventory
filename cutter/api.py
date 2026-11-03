@@ -381,7 +381,14 @@ def search_wikidata():
 
 def _concept(file, n, obj):
     result = concept.concept(file, obj)
-    result.update({"id": obj["id"], "pagina": n, "opgeslagen": bool(obj.get("opgeslagen"))})
+    result.update(
+        {
+            "id": obj["id"],
+            "pagina": n,
+            "opgeslagen": bool(obj.get("opgeslagen")),
+            "bijschrift": (obj.get("bijschrift") or {}).get("tekst"),
+        }
+    )
     return result
 
 
