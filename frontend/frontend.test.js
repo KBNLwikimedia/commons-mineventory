@@ -297,13 +297,16 @@ describe("ConceptEditor component", () => {
       global: { provide: { t: (key) => key, language: "nl" } },
     });
     await flushPromises();
-    const take = wrapper.findAll("button.cc-link").find((b) => b.text() === "concept.use_caption");
-    expect(take).toBeTruthy();
-    await take.trigger("click");
-    expect(wrapper.find("input").element.value).not.toBe("");
+    // The caption field's menu offers the caption; choosing it fills the field.
+    const menu = wrapper.findComponent({ name: "CdxMenuButton" });
+    expect(menu.props("menuItems").map((item) => item.value)).toEqual(["caption"]);
+    menu.vm.$emit("update:selected", "caption");
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find(".cc-twee input").element.value).toBe("Man met pijp");
     const undo = wrapper.findAll("button.cc-link").find((b) => b.text().includes("magnifier.undo"));
     expect(undo).toBeTruthy();
     await undo.trigger("click");
+    expect(wrapper.find(".cc-twee input").element.value).toBe("rechthoek");
     vi.unstubAllGlobals();
   });
 });

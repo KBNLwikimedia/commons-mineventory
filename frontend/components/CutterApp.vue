@@ -80,10 +80,10 @@
           <cdx-button action="progressive" weight="primary" :disabled="!selectedCount || busy" @click="saveSelection">
             {{ t("actions.save", { n: selectedCount }) }}
           </cdx-button>
-          <cdx-button :disabled="!savedCount" @click="downloadZip">
+          <cdx-button action="progressive" :disabled="!savedCount" @click="downloadZip">
             <cdx-icon :icon="cdxIconDownload" /> {{ t("actions.zip") }}
           </cdx-button>
-          <cdx-button :disabled="!savedCount" @click="toCommons">
+          <cdx-button action="progressive" :disabled="!savedCount" @click="toCommons">
             <cdx-icon :icon="cdxIconUpload" /> {{ t("actions.to_commons") }}
           </cdx-button>
         </div>

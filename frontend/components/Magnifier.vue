@@ -64,21 +64,21 @@
                 <cdx-icon :icon="cdxIconTrash" size="small" />
               </cdx-button>
             </span>
-            <cdx-button size="small" :disabled="caption === (object.bijschrift?.tekst || '')" @click="saveCaption">{{ t("actions.save_short") }}</cdx-button>
+            <cdx-button action="progressive" size="small" :disabled="caption === (object.bijschrift?.tekst || '')" @click="saveCaption">{{ t("actions.save_short") }}</cdx-button>
           </dd>
         </dl>
         <div class="cc-knoppen">
           <span class="cc-knopgroep" role="group" :aria-label="t('magnifier.download')">
             <span class="cc-klein">{{ t("magnifier.download") }}</span>
-            <cdx-button @click="download('jpg')"><cdx-icon :icon="cdxIconDownload" /> JPG</cdx-button>
-            <cdx-button @click="download('png')"><cdx-icon :icon="cdxIconDownload" /> PNG</cdx-button>
+            <cdx-button action="progressive" @click="download('jpg')"><cdx-icon :icon="cdxIconDownload" /> JPG</cdx-button>
+            <cdx-button action="progressive" @click="download('png')"><cdx-icon :icon="cdxIconDownload" /> PNG</cdx-button>
           </span>
           <span class="cc-knopgroep" role="group" :aria-label="t('magnifier.view_full')">
             <span class="cc-klein">{{ t("magnifier.view_full") }}</span>
-            <cdx-button weight="quiet" @click="viewFull('jpg')"><cdx-icon :icon="cdxIconLinkExternal" /> JPG</cdx-button>
-            <cdx-button weight="quiet" @click="viewFull('png')"><cdx-icon :icon="cdxIconLinkExternal" /> PNG</cdx-button>
+            <cdx-button action="progressive" weight="quiet" @click="viewFull('jpg')"><cdx-icon :icon="cdxIconLinkExternal" /> JPG</cdx-button>
+            <cdx-button action="progressive" weight="quiet" @click="viewFull('png')"><cdx-icon :icon="cdxIconLinkExternal" /> PNG</cdx-button>
           </span>
-          <cdx-button v-if="!object.masker" @click="emit('refine', object)">{{ t("magnifier.refine_mask") }}</cdx-button>
+          <cdx-button action="progressive" v-if="!object.masker" @click="emit('refine', object)">{{ t("magnifier.refine_mask") }}</cdx-button>
           <cdx-button action="destructive" @click="emit('trashed', object.id)"><cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}</cdx-button>
         </div>
       </cdx-tab>
@@ -111,11 +111,11 @@
                 </cdx-field>
                 <div class="cc-knoppen">
                   <cdx-button action="progressive" weight="primary" :disabled="!draftChanged" @click="saveTexts(textDraft)">{{ t("actions.save_short") }}</cdx-button>
-                  <cdx-button @click="textDraft = null">{{ t("actions.cancel") }}</cdx-button>
+                  <cdx-button action="progressive" @click="textDraft = null">{{ t("actions.cancel") }}</cdx-button>
                 </div>
               </div>
               <div v-else class="cc-knoppen cc-tekst-acties">
-                <cdx-button size="small" @click="startEditing"><cdx-icon :icon="cdxIconEdit" size="small" /> {{ t("describe.edit") }}</cdx-button>
+                <cdx-button action="progressive" size="small" @click="startEditing"><cdx-icon :icon="cdxIconEdit" size="small" /> {{ t("describe.edit") }}</cdx-button>
                 <template v-if="description.bewerkt">
                   <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
                   <button type="button" class="cc-link" @click="backToAi">{{ t("describe.back_to_ai") }}</button>
@@ -142,10 +142,7 @@
                 {{ t("describe.ask") }} <span class="cc-kosten">{{ costLabel }}</span>
               </cdx-button>
               <template v-else>
-                <cdx-button :disabled="busy" @click="describe(false)">
-                  {{ t("describe.again_cache") }} <span class="cc-kosten">{{ t("describe.free_short") }}</span>
-                </cdx-button>
-                <cdx-button :disabled="busy" @click="describe(true)">
+                <cdx-button action="progressive" :disabled="busy" @click="describe(true)">
                   {{ t("describe.again") }} <span class="cc-kosten">{{ costLabel }}</span>
                 </cdx-button>
                 <cdx-button :disabled="busy" action="destructive" weight="quiet" @click="removeDescription">
@@ -166,7 +163,7 @@
           <h3 class="cc-blok-kop">{{ t("describe.suggestions") }}</h3>
           <p class="cc-klein">{{ t("describe.suggestions_help") }}</p>
           <div class="cc-knoppen">
-            <cdx-button v-for="term in description.wikidata_suggesties" :key="term" size="small" @click="searchWikidata(term)">
+            <cdx-button action="progressive" v-for="term in description.wikidata_suggesties" :key="term" size="small" @click="searchWikidata(term)">
               <cdx-icon :icon="cdxIconSearch" /> {{ term }}
             </cdx-button>
           </div>
@@ -182,7 +179,11 @@
         <section v-if="plan || description" class="cc-blok cc-blok-zacht">
           <h3 class="cc-blok-kop">{{ t("describe.model_block") }}</h3>
           <p class="cc-klein">
-            {{ (description || plan).model }} — {{ description ? description.model_reden : plan.reden }}
+            {{ (description || plan).model }} —
+            <template v-for="(part, i) in textParts(modelReason, reasonLinks)" :key="i">
+              <a v-if="part.link" :href="part.link.href" target="_blank" rel="noopener">{{ part.link.label }}</a>
+              <template v-else>{{ part.text }}</template>
+            </template>
             <template v-if="description && description.kosten_usd != null">
               <br />{{ t("describe.paid", { amount: money(description.kosten_usd, language) }) }}
               <template v-if="description.tokens?.invoer != null"> · {{ t("describe.tokens", { input: description.tokens.invoer, output: description.tokens.uitvoer }) }}</template>
@@ -204,7 +205,7 @@ import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post, query } from "../api.js";
-import { askConfirm } from "../confirm.js";
+import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { forgetPlacement, makeMovable } from "../movable.js";
 import { objectName } from "../state.js";
@@ -276,6 +277,19 @@ const base = computed(() => objectPath(props.file.mid, props.n, props.object.id)
 const name = computed(() => objectName(props.object, language, t));
 const subtitle = computed(() => `${t(`source.${props.object.bron}`)} · ${t(`status.${props.object.status}`)}`);
 const description = computed(() => props.object.beschrijving || null);
+// Why this model, in plain words. Descriptions stored before the reason had a
+// code fall back to the current choice for the file (the same rules).
+const modelReason = computed(() => {
+  const d = description.value;
+  const code = d ? d.model_reden_code || plan.value?.reden_code : plan.value?.reden_code;
+  if (!code) return d?.model_reden || plan.value?.reden || "";
+  const labels = (d?.model_reden_labels || plan.value?.labels || []).map((label) => t(`rights.${label}`)).join(", ");
+  return t(`describe.reason_${code}`, { labels });
+});
+// "Contributor" links to Meta's explanation of that mode (cheaper; Meta may train on the input).
+const reasonLinks = {
+  contributor: { href: "https://dev.meta.ai/docs/pricing-rate-limits#contributor-mode", label: t("describe.contributor_link") },
+};
 // The cost on the buttons: an estimate in live mode, free with the dummy.
 const costLabel = computed(() => (plan.value?.betaald ? `± ${money(plan.value.kosten_schatting_usd, language)}` : t("describe.free_short")));
 // The small preview on the "Wat staat hierop?" tab: the rectangle, like the model sees it.
@@ -312,7 +326,8 @@ async function loadPlan() {
 loadPlan();
 
 async function describe(again) {
-  // "Opnieuw tonen" comes from the cache and is free; only a new question costs money.
+  // Asking again always costs money; a first question may still come from the
+  // cache (free), but the estimate is asked to confirm all the same.
   const paid = again || !description.value;
   if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) }), { title: t("confirm.cost_title") }))) return;
   busy.value = true;

@@ -67,6 +67,11 @@ def test_choose_model():
     assert blocked["model"] == "muse-spark-1.3" and "persoonlijkheidsrechten" in blocked["reden"]
     off = choose_model(file_with(["in_orde"], True), {**CONFIG, "BEELDMODEL_CONTRIBUTOR": False})
     assert off["model"] == "muse-spark-1.3" and "staat uit" in off["reden"]
+    # A code the interface translates, with the blocking labels.
+    assert choose_model(file_with(["in_orde"], True), CONFIG)["reden_code"] == "publiek_domein"
+    assert (blocked["reden_code"], blocked["labels"]) == ("rechtenlabel", ["persoonlijkheidsrechten"])
+    assert off["reden_code"] == "contributor_uit"
+    assert choose_model(file_with(["naamsvermelding"], False), CONFIG)["reden_code"] == "niet_vrij"
 
 
 def test_prompt_has_commons_context(book):

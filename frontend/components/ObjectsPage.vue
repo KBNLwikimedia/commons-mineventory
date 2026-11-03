@@ -37,7 +37,7 @@
               <strong>{{ name(obj) }}</strong>
               <small class="cc-afkappen">{{ obj.bestand_titel }}</small>
               <span class="cc-knoppen">
-                <cdx-button size="small" @click="restore(obj)"><cdx-icon :icon="cdxIconRestore" /> {{ t("objects.restore") }}</cdx-button>
+                <cdx-button action="progressive" size="small" @click="restore(obj)"><cdx-icon :icon="cdxIconRestore" /> {{ t("objects.restore") }}</cdx-button>
                 <cdx-button size="small" action="destructive" @click="purge(obj)">{{ t("objects.delete_forever") }}</cdx-button>
               </span>
             </li>

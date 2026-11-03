@@ -38,9 +38,9 @@
       </ul>
 
       <div v-if="menu.uitsneden.length" class="cc-upload-acties">
-        <cdx-button :disabled="busy || !chosen.length" @click="runCheck">{{ t("upload.check", { n: chosen.length }) }}</cdx-button>
+        <cdx-button action="progressive" :disabled="busy || !chosen.length" @click="runCheck">{{ t("upload.check", { n: chosen.length }) }}</cdx-button>
         <cdx-toggle-switch v-model="preview">{{ t("upload.preview") }}</cdx-toggle-switch>
-        <cdx-button @click="downloadZip"><cdx-icon :icon="cdxIconDownload" /> {{ t("actions.zip") }}</cdx-button>
+        <cdx-button action="progressive" @click="downloadZip"><cdx-icon :icon="cdxIconDownload" /> {{ t("actions.zip") }}</cdx-button>
         <cdx-checkbox v-model="confirmed">{{ t("upload.confirm") }}</cdx-checkbox>
         <cdx-button action="progressive" weight="primary" :disabled="!confirmed || !chosen.length || !menu.upload_aan || busy" @click="upload">
           <cdx-icon :icon="cdxIconUpload" /> {{ t("upload.upload", { n: chosen.length }) }}

@@ -5,11 +5,11 @@
 <template>
   <div class="cc-viewer-kader">
     <div class="cc-viewer-balk" role="toolbar" :aria-label="t('viewer.toolbar')">
-      <cdx-button weight="quiet" :aria-label="t('viewer.zoom_out')" @click="viewer?.zoomStep(-1)"><cdx-icon :icon="cdxIconZoomOut" /></cdx-button>
+      <cdx-button action="progressive" weight="quiet" :aria-label="t('viewer.zoom_out')" @click="viewer?.zoomStep(-1)"><cdx-icon :icon="cdxIconZoomOut" /></cdx-button>
       <span class="cc-zoom">{{ Math.round(scale * 100) }}%</span>
-      <cdx-button weight="quiet" :aria-label="t('viewer.zoom_in')" @click="viewer?.zoomStep(1)"><cdx-icon :icon="cdxIconZoomIn" /></cdx-button>
-      <cdx-button weight="quiet" @click="viewer?.zoomTo(1)">100%</cdx-button>
-      <cdx-button weight="quiet" @click="viewer?.fit()">{{ t("viewer.fit") }}</cdx-button>
+      <cdx-button action="progressive" weight="quiet" :aria-label="t('viewer.zoom_in')" @click="viewer?.zoomStep(1)"><cdx-icon :icon="cdxIconZoomIn" /></cdx-button>
+      <cdx-button action="progressive" weight="quiet" @click="viewer?.zoomTo(1)">100%</cdx-button>
+      <cdx-button action="progressive" weight="quiet" @click="viewer?.fit()">{{ t("viewer.fit") }}</cdx-button>
       <span class="cc-viewer-hint">{{ drawMode ? t("viewer.hint_draw") : pointMode ? t("viewer.hint_point") : t("viewer.hint") }}</span>
     </div>
     <div ref="host" class="viewer"></div>

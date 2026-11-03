@@ -28,7 +28,7 @@
       {% if gebruiker %}
       <span class="cc-gebruiker" title="{{ t('header.local_user') }}">{{ gebruiker }} ({{ t("header.local") }})</span>
       {% else %}
-      <button type="button" class="cdx-button" disabled title="{{ t('header.login_later') }}">{{ t("header.login") }}</button>
+      <button type="button" class="cdx-button cdx-button--action-progressive" disabled title="{{ t('header.login_later') }}">{{ t("header.login") }}</button>
       {% endif %}
     </nav>
   </header>

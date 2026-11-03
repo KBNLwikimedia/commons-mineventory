@@ -27,41 +27,28 @@
       <cutout-preview :src="previewUrl" :caption="t('concept.preview_image')" />
     </div>
     <div class="cc-twee">
-      <cdx-field>
-        <template #label>{{ t("concept.caption") }} (nl)</template>
-        <template v-if="fieldActions('caption', 'nl').length" #help-text>
-          <span class="cc-veldlinks">
-            <button v-for="action in fieldActions('caption', 'nl')" :key="action.key" type="button" class="cc-link" @click="action.run">{{ action.label }}</button>
-          </span>
+      <!-- Caption and description, NL and EN. Filling a field from the caption
+           or the AI description sits in one small menu beside it; "Ongedaan
+           maken" shows only right after such a fill. -->
+      <cdx-field v-for="[field, lang] in TEXT_FIELDS" :key="`${field}.${lang}`">
+        <template #label>{{ t(field === "caption" ? "concept.caption" : "concept.description") }} ({{ lang }})</template>
+        <template v-if="canUndo(field, lang)" #help-text>
+          <button type="button" class="cc-link" @click="undoFill(field, lang)">↶ {{ t("magnifier.undo") }}</button>
         </template>
-        <cdx-text-input v-model="draft.caption.nl" />
-      </cdx-field>
-      <cdx-field>
-        <template #label>{{ t("concept.caption") }} (en)</template>
-        <template v-if="fieldActions('caption', 'en').length" #help-text>
-          <span class="cc-veldlinks">
-            <button v-for="action in fieldActions('caption', 'en')" :key="action.key" type="button" class="cc-link" @click="action.run">{{ action.label }}</button>
-          </span>
-        </template>
-        <cdx-text-input v-model="draft.caption.en" />
-      </cdx-field>
-      <cdx-field>
-        <template #label>{{ t("concept.description") }} (nl)</template>
-        <template v-if="fieldActions('beschrijving', 'nl').length" #help-text>
-          <span class="cc-veldlinks">
-            <button v-for="action in fieldActions('beschrijving', 'nl')" :key="action.key" type="button" class="cc-link" @click="action.run">{{ action.label }}</button>
-          </span>
-        </template>
-        <cdx-text-area v-model="draft.beschrijving.nl" :autosize="true" />
-      </cdx-field>
-      <cdx-field>
-        <template #label>{{ t("concept.description") }} (en)</template>
-        <template v-if="fieldActions('beschrijving', 'en').length" #help-text>
-          <span class="cc-veldlinks">
-            <button v-for="action in fieldActions('beschrijving', 'en')" :key="action.key" type="button" class="cc-link" @click="action.run">{{ action.label }}</button>
-          </span>
-        </template>
-        <cdx-text-area v-model="draft.beschrijving.en" :autosize="true" />
+        <div class="cc-veld-met-menu">
+          <cdx-text-input v-if="field === 'caption'" v-model="draft.caption[lang]" />
+          <cdx-text-area v-else v-model="draft.beschrijving[lang]" :autosize="true" />
+          <cdx-menu-button
+            v-if="fillOptions(field, lang).length"
+            :selected="null"
+            :menu-items="fillOptions(field, lang)"
+            :aria-label="t('concept.fill_from')"
+            :title="t('concept.fill_from')"
+            @update:selected="(value) => fillField(field, lang, value)"
+          >
+            <cdx-icon :icon="cdxIconEllipsis" />
+          </cdx-menu-button>
+        </div>
       </cdx-field>
       <cdx-field>
         <template #label>{{ t("concept.date") }}</template>
@@ -80,7 +67,7 @@
       <cdx-checkbox v-for="(category, i) in draft.categorieen" :key="category.naam + i" v-model="category.gekozen">{{ category.naam }}</cdx-checkbox>
       <form class="cc-zoek" @submit.prevent="addCategory">
         <cdx-text-input v-model="newCategory" :placeholder="t('concept.category_add')" :aria-label="t('concept.category_add')" />
-        <cdx-button type="submit" :disabled="!newCategory.trim()">+</cdx-button>
+        <cdx-button action="progressive" type="submit" :disabled="!newCategory.trim()">+</cdx-button>
       </form>
     </cdx-field>
 
@@ -114,7 +101,7 @@
     </cdx-field>
 
     <div class="cc-knoppen">
-      <cdx-button :disabled="saving" @click="reset">{{ t("concept.reset") }}</cdx-button>
+      <cdx-button action="progressive" :disabled="saving" @click="reset">{{ t("concept.reset") }}</cdx-button>
     </div>
     <p class="cc-klein cc-opslagstatus" role="status">{{ saving ? t("concept.saving") : t("concept.autosave") }}</p>
     <cdx-message v-if="message" :type="messageType" :inline="true">{{ message }}</cdx-message>
@@ -123,7 +110,7 @@
       <template #title>{{ t("concept.preview") }}</template>
       <p class="cc-klein">{{ concept.samenvatting }}</p>
       <pre class="cc-wikitekst">{{ concept.wikitekst }}</pre>
-      <cdx-button size="small" @click="copy(concept.wikitekst)"><cdx-icon :icon="cdxIconCopy" /> {{ t("concept.copy") }}</cdx-button>
+      <cdx-button action="progressive" size="small" @click="copy(concept.wikitekst)"><cdx-icon :icon="cdxIconCopy" /> {{ t("concept.copy") }}</cdx-button>
       <h4>{{ t("concept.sdc") }}</h4>
       <pre class="cc-wikitekst">{{ JSON.stringify(concept.sdc, null, 2) }}</pre>
     </cdx-accordion>
@@ -134,9 +121,9 @@
 <script setup>
 import { computed, inject, onBeforeUnmount, reactive, ref, watch } from "vue";
 import {
-  CdxAccordion, CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxLookup, CdxMessage, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
+  CdxAccordion, CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxLookup, CdxMenuButton, CdxMessage, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
 } from "@wikimedia/codex";
-import { cdxIconCopy } from "@wikimedia/codex-icons";
+import { cdxIconCopy, cdxIconEllipsis } from "@wikimedia/codex-icons";
 import { API, errorText, get, objectPath, patch, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
@@ -276,7 +263,7 @@ function differsFromAi(field, language) {
 // (undoValues, declared at the top, keeps what a field held before an action.)
 
 function setValue(field, language, value) {
-  undoValues[`${field}.${language}`] = draft.value[field][language];
+  undoValues[`${field}.${language}`] = { before: draft.value[field][language], after: value };
   draft.value[field][language] = value;
 }
 
@@ -293,31 +280,40 @@ ${concept.value.bijschrift}` : concept.value.bijschrift);
 
 /* The links under a caption or description field: undo the last action,
    take over the caption, go back to the AI image description. */
-function fieldActions(field, language) {
-  const actions = [];
-  const key = `${field}.${language}`;
+const TEXT_FIELDS = [["caption", "nl"], ["caption", "en"], ["beschrijving", "nl"], ["beschrijving", "en"]];
+
+// What the menu beside a field can fill it with; only what would change it.
+function fillOptions(field, language) {
+  const options = [];
   const current = draft.value[field][language];
-  if (key in undoValues && undoValues[key] !== current) {
-    actions.push({
-      key: "undo",
-      label: `↶ ${t("magnifier.undo")}`,
-      run: () => {
-        draft.value[field][language] = undoValues[key];
-        delete undoValues[key];
-      },
-    });
-  }
   const caption = concept.value?.bijschrift;
   if (caption && language === "nl" && field === "caption" && current !== caption) {
-    actions.push({ key: "caption", label: t("concept.use_caption"), run: () => setValue("caption", "nl", caption.slice(0, 250)) });
+    options.push({ value: "caption", label: t("concept.use_caption") });
   }
   if (caption && language === "nl" && field === "beschrijving" && !current.includes(caption)) {
-    actions.push({ key: "caption", label: t("concept.use_caption_description"), run: addCaptionToDescription });
+    options.push({ value: "caption", label: t("concept.use_caption_description") });
   }
-  if (differsFromAi(field, language)) {
-    actions.push({ key: "ai", label: `↶ ${t("concept.back_to_ai")}`, run: () => backToAi(field, language) });
-  }
-  return actions;
+  if (differsFromAi(field, language)) options.push({ value: "ai", label: t("concept.back_to_ai") });
+  return options;
+}
+
+function fillField(field, language, value) {
+  if (value === "ai") backToAi(field, language);
+  else if (field === "caption") setValue("caption", "nl", concept.value.bijschrift.slice(0, 250));
+  else addCaptionToDescription();
+}
+
+// Undo only while the field still holds what the fill put there; typing
+// afterwards has the browser's own undo.
+function canUndo(field, language) {
+  const saved = undoValues[`${field}.${language}`];
+  return Boolean(saved) && draft.value[field][language] === saved.after;
+}
+
+function undoFill(field, language) {
+  const key = `${field}.${language}`;
+  draft.value[field][language] = undoValues[key].before;
+  delete undoValues[key];
 }
 
 // The short Wikidata description of a depicts item: in the interface language,

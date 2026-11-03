@@ -39,7 +39,7 @@
           </template>
         </cdx-checkbox>
         <span class="cc-object-knoppen">
-          <cdx-button weight="quiet" size="small" :aria-label="t('objects.open')" @click="emit('open', obj.id)">
+          <cdx-button action="progressive" weight="quiet" size="small" :aria-label="t('objects.open')" @click="emit('open', obj.id)">
             <cdx-icon :icon="cdxIconEye" />
           </cdx-button>
           <cdx-button weight="quiet" size="small" action="destructive" :aria-label="t('objects.trash')" @click="emit('trash', obj.id)">

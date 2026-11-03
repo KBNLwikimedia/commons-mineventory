@@ -4,6 +4,7 @@
 -->
 <template>
   <cdx-button
+    action="progressive"
     weight="quiet"
     size="small"
     class="cc-info-knop"

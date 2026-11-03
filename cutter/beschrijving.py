@@ -210,7 +210,9 @@ def choose_model(file, config):
     and none of the labels trademark, personality rights or under discussion
     apply. Anything else goes to Standard.
 
-    Returns {"model", "rechtenvrij", "reden"}."""
+    Returns {"model", "rechtenvrij", "reden", "reden_code", "labels"}: the
+    reason as Dutch text (for logs and usage) and as a code the interface
+    translates."""
     standard = config["BEELDMODEL"]
     rights = file.get("rechten") or {}
     blocking = BLOCKING_LABELS & set(rights.get("labels", []))
@@ -220,14 +222,16 @@ def choose_model(file, config):
             "model": config["BEELDMODEL_RECHTENVRIJ"],
             "rechtenvrij": True,
             "reden": "Publiek domein: auteursrechtstatus Q19652 en een PD-sjabloon, zonder rechtenlabels.",
+            "reden_code": "publiek_domein",
+            "labels": [],
         }
     if free:
-        reason = "Publiek domein, maar de goedkope Contributor-route staat uit (BEELDMODEL_CONTRIBUTOR)."
+        code, reason = "contributor_uit", "Publiek domein, maar de goedkope Contributor-route staat uit (BEELDMODEL_CONTRIBUTOR)."
     elif blocking:
-        reason = "Rechtenlabel op het origineel: " + ", ".join(sorted(blocking)) + "."
+        code, reason = "rechtenlabel", "Rechtenlabel op het origineel: " + ", ".join(sorted(blocking)) + "."
     else:
-        reason = "Niet (zeker) publiek domein: een licentie met voorwaarden, of geen auteursrechtstatus Q19652."
-    return {"model": standard, "rechtenvrij": False, "reden": reason}
+        code, reason = "niet_vrij", "Niet (zeker) publiek domein: een licentie met voorwaarden, of geen auteursrechtstatus Q19652."
+    return {"model": standard, "rechtenvrij": False, "reden": reason, "reden_code": code, "labels": sorted(blocking)}
 
 
 # ---------------------------------------------------------------------------
@@ -473,7 +477,7 @@ class DescriptionService:
         if wanted in (None, "", "auto"):
             return choice
         if wanted == "standaard":
-            return {"model": self.config["BEELDMODEL"], "rechtenvrij": choice["rechtenvrij"], "reden": "Standard gekozen."}
+            return {"model": self.config["BEELDMODEL"], "rechtenvrij": choice["rechtenvrij"], "reden": "Standard gekozen.", "reden_code": "standaard_gekozen", "labels": []}
         if wanted == "contributor":
             if choice["model"] != self.config["BEELDMODEL_RECHTENVRIJ"]:
                 raise DetectionError(f"Contributor is voor dit bestand niet toegestaan. {choice['reden']}", status=409, code="contributor_not_allowed")
@@ -493,6 +497,8 @@ class DescriptionService:
             "beschrijving": obj.get("beschrijving"),
             "model": choice["model"],
             "reden": choice["reden"],
+            "reden_code": choice["reden_code"],
+            "labels": choice["labels"],
             "rechtenvrij": choice["rechtenvrij"],
             "betaald": paid,
             "redeneren": self._effort(),
@@ -546,6 +552,8 @@ class DescriptionService:
             **parse_answer(output_text(body)),
             "model": choice["model"],
             "model_reden": choice["reden"],
+            "model_reden_code": choice["reden_code"],
+            "model_reden_labels": choice["labels"],
             "rechtenvrij": choice["rechtenvrij"],
             "redeneren": effort,
             "tokens": {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning},

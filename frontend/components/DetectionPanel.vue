@@ -20,7 +20,7 @@
     <cdx-accordion v-if="regionCount" v-model="open.commons">
       <template #title>{{ t("panel.from_commons") }}</template>
       <p class="cc-klein">{{ t("panel.from_commons_help") }}</p>
-      <cdx-button :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
+      <cdx-button action="progressive" :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
         {{ t("panel.regions_button", { n: regionCount }) }}
       </cdx-button>
       <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
@@ -40,6 +40,7 @@
       <template #title>{{ t("panel.quick") }}</template>
       <div class="cc-knoppen">
         <cdx-button
+          action="progressive"
           v-for="group in config.snel_zoeken"
           :key="group.sleutel"
           size="small"
@@ -59,6 +60,7 @@
         <p class="cc-klein">{{ inventory.paginasoort }} — {{ inventory.samenvatting }}</p>
         <div class="cc-knoppen">
           <cdx-button
+            action="progressive"
             v-for="term in inventory.zoektermen"
             :key="term.en"
             size="small"
@@ -99,12 +101,12 @@
     <cdx-accordion v-model="open.bulk">
       <template #title>{{ t("panel.bulk") }}</template>
       <div class="cc-knoppen cc-knoppen-rij">
-        <cdx-button :disabled="busy" :title="config.alles.map((a) => a.en).join(', ')" @click="act('bulk', 'detect', { modus: 'alles' })">
+        <cdx-button action="progressive" :disabled="busy" :title="config.alles.map((a) => a.en).join(', ')" @click="act('bulk', 'detect', { modus: 'alles' })">
           {{ t("panel.all") }} <small>{{ cost(config.alles.length) }}</small>
         </cdx-button>
-        <cdx-button :disabled="busy" @click="act('bulk', 'smart')">{{ t("panel.smart") }}</cdx-button>
-        <cdx-button :disabled="busy" @click="act('bulk', 'describe-all')">{{ t("panel.describe_all") }}</cdx-button>
-        <cdx-button :disabled="busy" @click="act('bulk', 'merge')">{{ t("panel.merge") }}</cdx-button>
+        <cdx-button action="progressive" :disabled="busy" @click="act('bulk', 'smart')">{{ t("panel.smart") }}</cdx-button>
+        <cdx-button action="progressive" :disabled="busy" @click="act('bulk', 'describe-all')">{{ t("panel.describe_all") }}</cdx-button>
+        <cdx-button action="progressive" :disabled="busy" @click="act('bulk', 'merge')">{{ t("panel.merge") }}</cdx-button>
       </div>
       <busy-note v-if="busy && where === 'bulk'" :message="t('busy.general')" />
     </cdx-accordion>
