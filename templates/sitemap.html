@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ titel }}</h1>
+<ul>
+{% for href, label in links %}<li><a href="{{ href }}">{{ label }}</a></li>{% endfor %}
+</ul>
+{% endblock %}

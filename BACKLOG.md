@@ -13,16 +13,17 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 
 ## Fase 1: lokaal, zonder kosten
 
-3. [ ] Skelet overnemen uit de Delpher Uitsnijder: Flask-app, config, cache, `DummyDetector`, `MetaSamDetector` (alleen fixtures), prompts, verbruik, API-conventies, tests.
-4. [ ] Commons-adapter: invoer normaliseren (URL, titel, M-id), imageinfo, origineel ophalen en cachen, wikitekst, SDC, categorieën, meerpaginabestanden.
-5. [ ] Licentie en rechtenlabels uit de wikitekst en de SDC (merk, persoonlijkheidsrechten, origineel ter discussie, naamsvermelding verplicht).
-6. [ ] Frontend-opzet: Vite, Vue 3, Codex 2.x via npm, koppeling Flask–Vite (manifest), Vitest, vertaalbestanden nl/en met taalkeuze. De viewer uit de Delpher Uitsnijder als JS-module. Daarna de UI: header, invoerbalk, viewer, detectiepaneel, vergroter.
-7. [ ] Detectiemodi: zoekterm, Snel zoeken (Commons-groepen), Aanwijzen, bulk, paginaoverzicht (dummy).
-8. [ ] Uit Commons: regio's uit de gestructureerde gegevens (P180 met P2677, `pct:` en pixels) als losse objecten, elk apart uit te snijden; optioneel een masker via een SAM-boxprompt; plus bestandsnotities (`{{ImageNote}}`). Testbestand: Book of Hours of Philip of Burgundy - KW76F - folio 283r (13 regio's).
-9. [ ] Opslaan in volledige resolutie (PNG en JPG), zip, `/objecten`, prullenbak.
-10. [ ] "Wat staat hierop?" met Commons-context en `wikidata_suggesties` (fixtures).
-11. [ ] Commons-concept per object, keuzemenu, controle vooraf, proefweergave; nog geen upload.
-12. [ ] REST-API, OpenAPI, `/docs`, sitemap.
+3. [x] Skelet overnemen uit de Delpher Uitsnijder: Flask-app, config, cache, `DummyDetector`, `MetaSamDetector` (alleen fixtures), prompts, verbruik, API-conventies, tests.
+4. [x] Commons-adapter: invoer normaliseren (URL, titel, M-id), imageinfo, origineel ophalen en cachen, wikitekst, SDC, categorieën, meerpaginabestanden.
+5. [x] Licentie en rechtenlabels uit de wikitekst en de SDC (merk, persoonlijkheidsrechten, origineel ter discussie, naamsvermelding verplicht).
+6. [x] Frontend-opzet: Vite, Vue 3, Codex 2.x via npm, koppeling Flask–Vite (manifest), Vitest, vertaalbestanden nl/en met taalkeuze. De viewer uit de Delpher Uitsnijder als JS-module. Daarna de UI: header, invoerbalk, viewer, detectiepaneel, vergroter.
+7. [x] Detectiemodi: zoekterm, Snel zoeken (Commons-groepen), Aanwijzen, bulk, paginaoverzicht (dummy).
+8. [x] Uit Commons: regio's uit de gestructureerde gegevens (P180 met P2677, `pct:` en pixels) als losse objecten, elk apart uit te snijden; optioneel een masker via een SAM-boxprompt; plus bestandsnotities (`{{ImageNote}}`). Testbestand: Book of Hours of Philip of Burgundy - KW76F - folio 283r (13 regio's).
+9. [x] Opslaan in volledige resolutie (PNG en JPG), zip, `/objecten`, prullenbak.
+10. [x] "Wat staat hierop?" met Commons-context en `wikidata_suggesties` (fixtures).
+11. [x] Commons-concept per object, keuzemenu, controle vooraf, proefweergave; nog geen upload.
+12. [x] REST-API, OpenAPI, `/docs`, sitemap.
+   - Open uit fase 1 (3-11-2026): mobiel als tabbladen (nu stapelen de kolommen), "Openen in CropTool", de opruimtaak voor de bewaartermijnen, `{{Artwork}}`-velden per sjabloon nalopen met Olaf, tegels voor bestanden boven 100 megapixel.
 
 ## Fase 2: OAuth, upload naar een testwiki, categorieën
 

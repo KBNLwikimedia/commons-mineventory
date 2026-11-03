@@ -8,7 +8,27 @@ De app is afgeleid van de [Delpher Uitsnijder](https://github.com/ookgezellig/de
 
 ## Status
 
-Ontwerpfase. Er is nog geen code. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md); de open vragen staan in hoofdstuk 15 daarvan.
+Fase 1 (versie 0.1.0): lokaal, met een nagebootste detector en zonder upload. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
+
+## Lokaal draaien
+
+Eenmalig (Python 3.11+ en Node.js):
+
+```
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+npm install
+copy .env.example .env
+```
+
+Daarna in twee terminals:
+
+```
+flask --app app run --debug
+npm run dev
+```
+
+en open http://localhost:5000. Zonder `npm run dev` gebruikt Flask de gebouwde bestanden (`npm run build`). Tests: `pytest` en `npm test`.
 
 ## Wat de app gaat doen
 

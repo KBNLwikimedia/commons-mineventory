@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ titel }}</h1>
+<div id="app"></div>
+{{ client_config("objecten") }}
+{% endblock %}
+{% block scripts %}{{ vite_tags("frontend/main-objecten.js") }}{% endblock %}

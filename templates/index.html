@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block main_class %} cc-hoofd-breed{% endblock %}
+{% block content %}
+<div id="app">
+  <noscript>{{ t("app.noscript") }}</noscript>
+</div>
+{{ client_config("index", start=start) }}
+{% endblock %}
+{% block scripts %}{{ vite_tags("frontend/main-index.js") }}{% endblock %}

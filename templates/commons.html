@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ titel }}</h1>
+<p class="cc-uitleg">{{ t("upload.intro") }}</p>
+<div id="app" data-mid="{{ mid }}"></div>
+{{ client_config("commons", mid=mid) }}
+{% endblock %}
+{% block scripts %}{{ vite_tags("frontend/main-commons.js") }}{% endblock %}

@@ -24,3 +24,7 @@ uitvoer/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local tooling
+.playwright-mcp/
+.claude/settings.local.json

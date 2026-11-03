@@ -1,0 +1,192 @@
+/*
+ * Commons Cutter: layout and own additions (functional design 10.3). Colours
+ * come from the Codex design tokens (CSS variables from
+ * @wikimedia/codex-design-tokens, loaded by main-base.js); the mask and
+ * selection colours below are the app's own, as variables.
+ */
+:root {
+  --cc-geselecteerd: #d73333;
+  --cc-kandidaat: #36c;
+  --cc-uitgesloten: #72777d;
+  --cc-commons: #fc3;
+  --cc-commons-rand: #ac6600;
+  --cc-handmatig: #14866d;
+  --cc-nieuw: #ff6d22;
+  --cc-paneel-breedte: 21rem;
+  --cc-links-breedte: 17rem;
+  --cc-rand: var(--border-color-subtle, #c8ccd1);
+  --cc-tekst-zacht: var(--color-subtle, #54595d);
+}
+
+* { box-sizing: border-box; }
+html { font-size: 100%; }
+body {
+  margin: 0;
+  font-family: -apple-system, "BlinkMacSystemFont", "Segoe UI", "Roboto", "Lato", "Helvetica", "Arial", sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-base, #202122);
+  background: var(--background-color-base, #fff);
+}
+a { color: var(--color-progressive, #36c); }
+code { font-size: 0.8125rem; background: var(--background-color-interactive-subtle, #f8f9fa); padding: 0 0.25em; border-radius: 2px; display: inline-block; margin: 0 0.25em 0.25em 0; }
+h1 { font-family: "Linux Libertine", "Georgia", "Times", serif; font-weight: normal; font-size: 1.75rem; margin: 0.5rem 0 1rem; }
+h2, h3, h4 { margin: 0.5rem 0; }
+
+/* -- Header and footer -------------------------------------------------- */
+.cc-kop {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.5rem 1rem; border-bottom: 1px solid var(--cc-rand);
+}
+.cc-merk { display: flex; align-items: center; gap: 0.5rem; color: inherit; text-decoration: none; }
+.cc-naam { font-size: 1.25rem; font-weight: bold; }
+.cc-experiment {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--color-warning, #ac6600); border: 1px solid currentColor; border-radius: 2px; padding: 0 0.35em;
+}
+.cc-werkt-met { color: var(--cc-tekst-zacht); font-size: 0.8125rem; }
+.cc-kop-rechts { margin-left: auto; display: flex; align-items: center; gap: 1rem; }
+.cc-talen { display: inline-flex; gap: 0.4rem; }
+.cc-modusbalk { margin: 0; padding: 0.25rem 1rem; background: var(--background-color-notice-subtle, #eaecf0); font-size: 0.8125rem; }
+.cc-hoofd { max-width: 75rem; margin: 0 auto; padding: 1rem; min-height: 60vh; }
+.cc-hoofd-breed { max-width: none; }
+.cc-voet { border-top: 1px solid var(--cc-rand); padding: 1rem; color: var(--cc-tekst-zacht); font-size: 0.8125rem; }
+.cc-voet p { margin: 0.25rem 0; max-width: 60rem; }
+
+/* -- Generic -------------------------------------------------------------- */
+.cc-klein { font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
+.cc-leeg { color: var(--cc-tekst-zacht); font-style: italic; }
+.cc-uitleg { color: var(--cc-tekst-zacht); max-width: 50rem; }
+.cc-knoppen { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
+.cc-link { background: none; border: 0; padding: 0; color: var(--color-progressive, #36c); cursor: pointer; font: inherit; }
+.cc-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.cc-afkappen { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-meldingen { display: grid; gap: 0.5rem; margin: 0.5rem 0; }
+.cc-zoek { display: flex; gap: 0.4rem; align-items: flex-start; }
+.cc-zoek .cdx-text-input { flex: 1; min-width: 0; }
+.cc-zoek .cdx-button { flex-shrink: 0; }
+.cc-wikitekst { white-space: pre-wrap; word-break: break-word; background: var(--background-color-interactive-subtle, #f8f9fa); border: 1px solid var(--cc-rand); padding: 0.5rem; font-size: 0.8125rem; max-height: 22rem; overflow: auto; }
+
+.cc-rechtenlabel { display: inline-block; font-size: 0.75rem; border-radius: 2px; padding: 0 0.4em; margin-right: 0.3em; border: 1px solid; }
+.cc-label-in_orde { color: #14866d; }
+.cc-label-naamsvermelding { color: #36c; }
+.cc-label-merk, .cc-label-persoonlijkheidsrechten, .cc-label-alleen_vs { color: #ac6600; }
+.cc-label-ter_discussie { color: #d73333; font-weight: bold; }
+
+/* -- Input bar and file ---------------------------------------------------- */
+.cc-invoer-form { display: flex; gap: 0.5rem; align-items: flex-start; max-width: 60rem; }
+.cc-invoer-form .cdx-field { flex: 1; margin: 0; }
+.cc-bestand { display: flex; gap: 1rem; margin: 0.75rem 0; align-items: flex-start; }
+.cc-bestand-miniatuur { width: 6rem; height: auto; border: 1px solid var(--cc-rand); }
+.cc-bestand-gegevens { flex: 1; min-width: 0; }
+.cc-bestand-titel { font-size: 1.125rem; margin: 0 0 0.25rem; }
+.cc-bestand-regel { margin: 0.25rem 0; }
+.cc-metadata dl, .cc-gegevens { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem; }
+.cc-metadata dt, .cc-gegevens dt { font-weight: bold; grid-column: 1; }
+.cc-metadata dd, .cc-gegevens dd { margin: 0; grid-column: 2; }
+.cc-depicts::after { content: " · "; }
+.cc-depicts:last-child::after { content: ""; }
+
+/* -- Work area: left, middle, right ------------------------------------------ */
+.cc-werkblad {
+  display: grid; gap: 0.75rem; margin-top: 0.5rem;
+  grid-template-columns: var(--cc-links-breedte) minmax(0, 1fr) var(--cc-paneel-breedte);
+  height: calc(100vh - 8rem); min-height: 32rem;
+}
+.cc-links, .cc-rechts { overflow-y: auto; min-height: 0; }
+.cc-midden { min-width: 0; min-height: 0; display: flex; }
+.cc-acties { display: grid; gap: 0.4rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--cc-rand); }
+.cc-telling { margin: 0; color: var(--cc-tekst-zacht); }
+.cc-modus { margin: 0 0 0.5rem; font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
+.cc-modus.betaald { color: var(--color-warning, #ac6600); }
+
+.cc-paginas ol { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; }
+.cc-paginas button { width: 100%; border: 2px solid transparent; background: none; padding: 2px; cursor: pointer; font: inherit; font-size: 0.75rem; }
+.cc-paginas button.actief { border-color: var(--color-progressive, #36c); }
+.cc-paginas img { width: 100%; display: block; }
+
+.cc-objecten-kop { display: flex; justify-content: space-between; align-items: baseline; }
+.cc-objecten ul { list-style: none; margin: 0; padding: 0; }
+.cc-objecten li { display: flex; align-items: flex-start; justify-content: space-between; padding: 0.15rem 0.25rem; border-left: 3px solid transparent; }
+.cc-objecten li.focus { background: var(--background-color-progressive-subtle, #eaf3ff); }
+.cc-objecten li.cc-bron-commons { border-left-color: var(--cc-commons); }
+.cc-objecten li.cc-object-uitgesloten { opacity: 0.6; }
+.cc-object-naam { cursor: pointer; }
+.cc-object-knoppen { display: flex; flex-shrink: 0; }
+
+/* -- Viewer ------------------------------------------------------------------- */
+.cc-viewer-kader { display: flex; flex-direction: column; flex: 1; min-width: 0; border: 1px solid var(--cc-rand); }
+.cc-viewer-balk { display: flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.35rem; border-bottom: 1px solid var(--cc-rand); flex-wrap: wrap; }
+.cc-zoom { min-width: 3.5rem; text-align: center; font-variant-numeric: tabular-nums; }
+.cc-viewer-hint { margin-left: auto; font-size: 0.75rem; color: var(--cc-tekst-zacht); }
+.viewer { position: relative; overflow: hidden; flex: 1; background: #eaecf0; cursor: grab; touch-action: none; user-select: none; }
+.viewer.pannen { cursor: grabbing; }
+.viewer.aanwijzen { cursor: crosshair; }
+.viewer-podium { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.viewer-podium img { display: block; width: 100%; height: 100%; }
+.viewer-podium svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.viewer .zone { fill: none; stroke: var(--cc-uitgesloten); stroke-dasharray: 6 4; stroke-width: var(--stroke, 2px); }
+.object-rand { fill: transparent; stroke: var(--cc-kandidaat); stroke-width: var(--stroke, 2px); cursor: pointer; }
+.object-masker { fill: var(--cc-kandidaat); opacity: 0.25; pointer-events: none; }
+.object-geselecteerd .object-rand { stroke: var(--cc-geselecteerd); }
+.object-geselecteerd .object-masker { fill: var(--cc-geselecteerd); opacity: 0.35; }
+.object-uitgesloten .object-rand { stroke: var(--cc-uitgesloten); stroke-dasharray: 4 4; }
+.object-commons .object-rand { stroke: var(--cc-commons-rand); fill: rgba(255, 204, 51, 0.12); }
+.object-commons.object-geselecteerd .object-rand { stroke: var(--cc-commons); stroke-width: calc(var(--stroke, 2px) * 1.6); }
+.object-handmatig .object-rand { stroke: var(--cc-handmatig); }
+.object-nieuw .object-rand { stroke: var(--cc-nieuw); }
+.object.hover .object-rand, .object.uitgelicht .object-rand { stroke-width: calc(var(--stroke, 2px) * 2.5); }
+.viewer.object-aangewezen .object:not(.hover) { opacity: 0.35; }
+.object-naam { font-size: var(--label-size, 13px); fill: #000; paint-order: stroke; stroke: var(--cc-commons); stroke-width: calc(var(--label-size, 13px) / 4); dominant-baseline: hanging; pointer-events: none; }
+.rechthoek-tekenen { fill: rgba(20, 134, 109, 0.15); stroke: var(--cc-handmatig); stroke-width: var(--stroke, 2px); stroke-dasharray: 6 3; }
+.viewer .tooltip {
+  position: absolute; z-index: 2; max-width: 22rem; pointer-events: none;
+  background: var(--background-color-base, #fff); border: 1px solid var(--cc-rand); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  padding: 0.35rem 0.5rem; font-size: 0.8125rem;
+}
+.viewer .tooltip strong, .viewer .tooltip small, .tooltip-beschrijving { display: block; }
+.tooltip-beschrijving { margin-top: 0.25rem; }
+.viewer .tooltip small { color: var(--cc-tekst-zacht); margin-top: 0.25rem; }
+
+/* -- Magnifier and concept ------------------------------------------------------ */
+.cc-vergroter.cdx-dialog { max-width: 56rem; width: 95vw; }
+.cc-vergroter-beeld { text-align: center; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; margin: 0.5rem 0; }
+.cc-vergroter-beeld img { max-width: 100%; max-height: 50vh; }
+.cc-bijschrift { display: flex; gap: 0.4rem; }
+.cc-bijschrift .cdx-text-input { flex: 1; }
+.cc-twee { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+.cc-beeldt-af { list-style: none; padding: 0; margin: 0 0 0.5rem; }
+.cc-treffers { list-style: none; padding: 0; }
+.cc-concept .cdx-field { margin-top: 0.75rem; }
+
+/* -- Objects page, upload menu, usage ---------------------------------------------- */
+.cc-facetten { display: flex; gap: 2rem; align-items: flex-end; flex-wrap: wrap; margin: 0.75rem 0; }
+.cc-raster { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1rem; }
+.cc-raster li { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.cc-raster img { width: 100%; height: 9rem; object-fit: contain; background: #f8f9fa; border: 1px solid var(--cc-rand); }
+.cc-uploadlijst { list-style: none; padding: 0; }
+.cc-uploadlijst > li { display: grid; grid-template-columns: auto 10rem 1fr; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--cc-rand); align-items: start; }
+.cc-uploadlijst > li.uit { opacity: 0.7; }
+.cc-uploadlijst img { width: 10rem; max-height: 10rem; object-fit: contain; background: #f8f9fa; }
+.cc-controle { margin: 0.25rem 0; padding-left: 1.2rem; }
+.cc-controle .goed { color: #14866d; }
+.cc-controle .fout { color: #d73333; }
+.cc-upload-acties { display: grid; gap: 0.6rem; justify-items: start; margin-top: 1rem; max-width: 50rem; }
+.cc-tegels { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.cc-tegel { border: 1px solid var(--cc-rand); padding: 0.5rem 0.75rem; min-width: 10rem; }
+.cc-tegel span { display: block; color: var(--cc-tekst-zacht); font-size: 0.8125rem; }
+.cc-tegel strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+.cc-tabel { border-collapse: collapse; width: 100%; }
+.cc-tabel th, .cc-tabel td { border-bottom: 1px solid var(--cc-rand); padding: 0.25rem 0.5rem; text-align: left; vertical-align: top; }
+.cc-tabel .getal { text-align: right; font-variant-numeric: tabular-nums; }
+.cc-tekst { max-width: 50rem; }
+.cc-tekst pre, .cc-tekst code { white-space: pre-wrap; }
+
+/* -- Narrow screens (functional design 10.5): the columns stack ---------------------- */
+@media (max-width: 64rem) {
+  .cc-werkblad { grid-template-columns: 1fr; height: auto; }
+  .cc-midden { height: 70vh; order: -1; }
+  .cc-links, .cc-rechts { overflow: visible; }
+  .cc-twee { grid-template-columns: 1fr; }
+  .cc-werkt-met { display: none; }
+}

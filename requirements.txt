@@ -1,0 +1,10 @@
+flask>=3.0,<4
+requests>=2.31,<3
+pillow>=10,<14
+numpy>=1.26,<3
+python-dotenv>=1.0,<2
+# Uses the OS certificate store (needed behind TLS-inspecting proxies).
+truststore>=0.9
+# Official SAM output parser and mask decoder by Meta (SAM License, no dependencies).
+meta-sam-parser==0.1.0
+pytest>=8,<10

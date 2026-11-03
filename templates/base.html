@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="{{ taal }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if titel %}{{ titel }} – {% endif %}Commons Cutter</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/icoon.svg') }}" type="image/svg+xml">
+  {{ vite_tags("frontend/main-base.js") }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ app_versie }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="cc-kop">
+    <a class="cc-merk" href="{{ url_for('web.index') }}">
+      <img src="{{ url_for('static', filename='img/icoon.svg') }}" alt="" width="32" height="32">
+      <span class="cc-naam">Commons Cutter</span>
+    </a>
+    <span class="cc-experiment">{{ t("header.experiment") }}</span>
+    <span class="cc-werkt-met">{{ t("header.works_with") }}</span>
+    <nav class="cc-kop-rechts" aria-label="{{ t('header.menu') }}">
+      <a href="{{ url_for('web.objects_overview') }}">{{ t("objects.title") }}</a>
+      <span class="cc-talen" role="group" aria-label="{{ t('header.language') }}">
+        {% for code in talen %}
+          {% if code == taal %}<strong aria-current="true">{{ code|upper }}</strong>
+          {% else %}<a href="{{ taal_url(code) }}" hreflang="{{ code }}" lang="{{ code }}">{{ code|upper }}</a>{% endif %}
+        {% endfor %}
+      </span>
+      <button type="button" class="cdx-button" disabled title="{{ t('header.login_later') }}">{{ t("header.login") }}</button>
+    </nav>
+  </header>
+  {% if detectie_modus != "live" %}
+  <p class="cc-modusbalk">{{ t("header.dummy_mode") }}</p>
+  {% endif %}
+
+  <main class="cc-hoofd{% block main_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="cc-voet">
+    <p>{{ t("footer.disclaimer") }}</p>
+    <p class="cc-voet-links">
+      <a href="{{ url_for('web.docs') }}">{{ t("footer.docs") }}</a> ·
+      <a href="{{ url_for('api.get_openapi') }}">{{ t("footer.api") }}</a> ·
+      <a href="{{ broncode_url }}">{{ t("footer.source") }}</a> ·
+      <a href="{{ url_for('web.privacy') }}">{{ t("footer.privacy") }}</a> ·
+      <a href="{{ url_for('web.changelog') }}">{{ t("footer.changelog") }}</a> ·
+      <a href="{{ url_for('web.usage') }}">{{ t("usage.title") }}</a> ·
+      <a href="{{ url_for('web.sitemap') }}">{{ t("footer.sitemap") }}</a> ·
+      <span>{{ t("footer.version", version=app_versie) }}</span>
+    </p>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

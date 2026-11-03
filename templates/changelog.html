@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<article class="cc-tekst cc-changelog">
+<h1>{{ titel }}</h1>
+<p class="cc-klein"><a href="{{ bron_url }}">CHANGELOG.md</a></p>
+{{ changelog.intro|safe }}
+{% for versie in changelog.versies %}
+<section class="cl-versie" id="v{{ versie.versie }}">
+  <h2>{{ versie.versie }}{% if versie.datum %} <small>{{ versie.datum }}</small>{% endif %}</h2>
+  {% for sectie in versie.secties %}
+  <h3>{{ sectie.soort }}</h3>
+  <div class="cl-items">{% for item in sectie["items"] %}{{ item.html|safe }}{% endfor %}</div>
+  {% endfor %}
+</section>
+{% endfor %}
+</article>
+{% endblock %}

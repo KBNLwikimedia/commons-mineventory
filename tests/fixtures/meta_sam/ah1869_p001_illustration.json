@@ -1,0 +1,74 @@
+{
+  "_toelichting": "Echt antwoord van de Meta Model API, eenmalig opgehaald met toestemming van Olaf.",
+  "verzoek": {
+    "endpoint": "https://api.meta.ai/v1/responses",
+    "model": "sam-3.1",
+    "prompt": "illustration",
+    "metadata": {
+      "mask_encoding": "lossless",
+      "include_confidence": "true"
+    },
+    "item": "ddd:010097458:mpeg21",
+    "pagina": 1,
+    "verstuurde_afmetingen": [
+      2000,
+      2430
+    ],
+    "datum": "2026-11-01T23:15:11+0100",
+    "duur_seconden": 2.16
+  },
+  "status": 200,
+  "antwoord": {
+    "metadata": {
+      "mask_encoding": "lossless",
+      "include_confidence": "true"
+    },
+    "top_logprobs": 0,
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "service_tier": "auto",
+    "model": "sam-3.1",
+    "background": false,
+    "tools": [],
+    "tool_choice": "auto",
+    "truncation": "disabled",
+    "id": "resp_6ae7b9ef9af04314c72d47d8",
+    "object": "response",
+    "status": "completed",
+    "created_at": 1793571310.0,
+    "completed_at": 1793571311.0,
+    "error": null,
+    "incomplete_details": null,
+    "output": [
+      {
+        "type": "message",
+        "id": "msg_c47ec8fe-e910-417f-9cef-748e6589a010",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "",
+            "annotations": [],
+            "logprobs": []
+          }
+        ],
+        "status": "completed"
+      }
+    ],
+    "instructions": null,
+    "usage": {
+      "input_tokens": 0,
+      "input_tokens_details": {
+        "cached_tokens": 0
+      },
+      "output_tokens": 0,
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "total_tokens": 0,
+      "images_processed": 1
+    },
+    "parallel_tool_calls": true,
+    "store": true
+  }
+}

@@ -1,0 +1,117 @@
+# API – Commons Cutter
+
+De Commons Cutter heeft een REST-API onder `/api/v1`. De interface in de browser is zelf een client van deze API. De machineleesbare beschrijving staat op [/api/v1/openapi.json](/api/v1/openapi.json); dit document is de uitleg erbij. Ontwerp: [functioneel ontwerp, hoofdstuk 11](functioneel-ontwerp.md).
+
+## Afspraken
+
+- Alle antwoorden zijn JSON (behalve afbeeldingen en de zip). Veldnamen zijn Nederlands, zoals in de Delpher Uitsnijder.
+- **Een GET kost nooit geld en verandert niets.** Detectie en beschrijving gaan alleen via POST, zodat linkvoorbeelden en crawlers nooit kosten maken. Voor elke betaalde actie is er een gratis raming.
+- Fouten: `{"fout": "<Nederlandse melding>", "code": "<vaste code>"}` met een passende HTTP-status. De interface vertaalt de `code` (zie `frontend/i18n/`). Bij detectiefouten komt ook `budget` mee.
+- `201` bij aanmaken (detecties, uitsneden), `202` bij een upload (fase 2).
+- Elke API-respons heeft `X-Robots-Tag: noindex, nofollow`.
+- `{mid}` is de M-id van het bestand op Commons (`M28830642`); `{n}` het paginanummer (1 bij een gewone afbeelding); `{object_id}` het id van een object (`obj-…`).
+- Inloggen (OAuth 2.0) komt in fase 2. Betaalde aanroepen vragen dan een login en een plek op de toegangslijst; in de proefmodus (`DETECTIE_MODUS=dummy`) is alles gratis en is geen login nodig.
+
+## Bestand en pagina's
+
+| Methode | Pad | Functie |
+| --- | --- | --- |
+| GET | `/bestand?url=…`, `?titel=…` of `?mid=…` | Invoer normaliseren (URL, titel, M-id, curid, upload.wikimedia.org) en het bestand teruggeven: titel, M-id, afmetingen, MIME, SHA-1, licentie, maker, datum, categorieën, SDC-samenvatting, rechtenlabels, paginalijst |
+| GET | `/bestand/{mid}` | Hetzelfde, op M-id |
+| GET | `/bestand/{mid}/pagina/{n}` | Afmetingen van de pagina (pixels van het origineel), objecten, aantal regio's en notities uit Commons |
+| GET | `/bestand/{mid}/pagina/{n}/afbeelding?w=` | Een verkleinde afbeelding: de dichtstbijzijnde thumbnailstap van Commons van minstens `w` pixels (20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840), gecachet |
+
+Voorbeeld:
+
+```
+GET /api/v1/bestand?url=https://commons.wikimedia.org/wiki/File:Album_amicorum_van_Jacob_van_Bronckhorst_van_Batenburg_(8077131573).jpg
+```
+
+## Detectie
+
+| Methode | Pad | Functie |
+| --- | --- | --- |
+| POST | `/bestand/{mid}/pagina/{n}/detecties` | Een detectie. Body: `{"prompt": "wapen en portret min tekst", "modus": "prompt"}`; of `"modus"`: `alles`, `categorie` (met `"categorie": "heraldiek"`) of `commons` (de regio's uit Commons, gratis). Of `{"punt": {"x", "y"}}` (Aanwijzen), `{"rechthoek": {"x", "y", "w", "h"}}` (met de hand, gratis) of `{"masker_voor": "<object-id>"}` (de vorm van een regio via een SAM-boxprompt). Antwoord 201 met alle objecten van de pagina en de nieuwe id's |
+| GET | `/bestand/{mid}/pagina/{n}/detecties/raming` | Wat een detectie zou kosten (zelfde parameters als query); voert niets uit |
+| GET | `/bestand/{mid}/pagina/{n}/inventaris` | Het opgeslagen paginaoverzicht ("Wat staat op deze pagina?") en de kosten van een nieuw |
+| POST | `/bestand/{mid}/pagina/{n}/inventaris` | Muse Spark vragen wat er op de pagina staat; zoektermen voor SAM. Body: `{"model": "auto", "opnieuw": false}` |
+
+Snel zoeken-groepen (`categorie`): `heraldiek`, `portretten`, `figuren`, `dieren`, `planten`, `gebouwen`, `kaarten`, `schepen`, `initialen`, `logos`, `tekst`, `albumfotos`.
+
+Regio's uit Commons (`modus: commons`) zijn de verklaringen *beeldt af* (P180) met *relatieve positie in afbeelding* (P2677, `pct:x,y,b,h` of pixels) en de bestandsnotities (`{{ImageNote}}`). Elke regio wordt een eigen object (`bron: commons`, `soort: regio` of `notitie`) met het Wikidata-item in `wikidata`; regio's worden nooit samengevoegd.
+
+## Objecten
+
+| Methode | Pad | Functie |
+| --- | --- | --- |
+| PATCH | `/bestand/{mid}/pagina/{n}/objecten` | `{"geselecteerd": [ids]}` (precies deze zijn geselecteerd), `{"objecten": [{"id", "status"}]}` of `{"samenvoegen": true}` (dubbelingen samenvoegen) |
+| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}` | Eén object, ook als het in de prullenbak ligt (`in_prullenbak`) |
+| PATCH | `/bestand/{mid}/pagina/{n}/object/{object_id}` | `{"bijschrift": {"tekst": …} \| null}`, `{"status": …}`, `{"prullenbak": true \| false}` |
+| DELETE | `/bestand/{mid}/pagina/{n}/object/{object_id}` | Naar de prullenbak |
+| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/uitsnede.jpg` | De rechthoek als JPG in volledige resolutie; met `?w=` een voorbeeld |
+| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/uitsnede.png` | De vorm van het object als transparante PNG, in volledige resolutie |
+| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/masker.png` | Het masker (wit is het object), op de resolutie van het masker |
+
+Statussen: `kandidaat`, `geselecteerd`, `uitgesloten`. Bronnen: `sam`, `dummy`, `commons`, `handmatig`.
+
+## Beschrijving ("Wat staat hierop?")
+
+| Methode | Pad | Functie |
+| --- | --- | --- |
+| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De opgeslagen beschrijving en wat een nieuwe kost, met het model en de reden |
+| POST | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | Muse Spark vragen (gecachet). Body: `{"model": "auto" \| "standaard" \| "contributor", "opnieuw": false}` |
+| DELETE | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De beschrijving vergeten (het antwoord blijft in de cache) |
+| GET | `/wikidata/zoek?q=…&taal=nl\|en` | Wikidata-items zoeken voor *beeldt af* (gratis) |
+
+Velden: `soort`, `onderwerp`, `onderwerp_en`, `bedrijf_of_naam`, `tekst_in_beeld`, `tekst_rond_beeld`, `beschrijving`, `beschrijving_en`, `zekerheid`, `wikidata_suggesties` (hooguit drie zoektermen; het model verzint geen Q-nummers). Contributor alleen bij publiek domein zonder rechtenlabels (FO 6.3).
+
+## Commons-concept en upload
+
+| Methode | Pad | Functie |
+| --- | --- | --- |
+| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/commons` | Het concept: bestandsnaam, formaat, caption en beschrijving (nl/en), datum, maker, licentiesjablonen, categorieën, *beeldt af*, rechtenlabel, wikitekst, SDC en uploadsamenvatting. Gratis |
+| PATCH | `/bestand/{mid}/pagina/{n}/object/{object_id}/commons` | Velden wijzigen (`bestandsnaam`, `formaat`, `beschrijving`, `caption`, `datum`, `maker`, `categorieen`, `beeldt_af`, `image_extracted`, `merk_bevestigd`, `gekozen`), of `{"herstel": true}` |
+| GET | `/bestand/{mid}/commons` | Het keuzemenu: alle opgeslagen uitsneden van het bestand met hun concept |
+| POST | `/bestand/{mid}/commons/controle` | Controle vooraf, alleen lezen op Commons: bestaat de naam, staat dezelfde afbeelding er al (SHA-1), bestaan de categorieën. Body: `{"objecten": [{"pagina", "id"}]}`; zonder body de aangevinkte |
+| POST | `/bestand/{mid}/commons/uploads` | Uploaden (fase 2). Vereist een login, `{"bevestigd": true}` en `COMMONS_UPLOAD=aan`; nu: 503 `upload_disabled` |
+| GET | `/uploads/{task}` | Voortgang van een upload (fase 2) |
+
+Bestandsnaam: `<Onderwerp> – extracted from <titel origineel zonder extensie>.<jpg|png>`, hooguit 240 bytes. De wikitekst heeft altijd `{{Extracted from|File:…}}`, de licentiesjablonen van het origineel letterlijk (zonder licentiecontrole) en `[[Category:Uploaded with Commons Cutter]]`.
+
+## Opslaan en exporteren
+
+| Methode | Pad | Functie |
+| --- | --- | --- |
+| POST | `/bestand/{mid}/pagina/{n}/uitsneden` | Uitsneden opslaan in volledige resolutie: JPG (de rechthoek, kwaliteit 95) en, bij een masker, een transparante PNG en het masker. Body: `{"ids": [...]}`; zonder ids de geselecteerde |
+| GET | `/bestand/{mid}/pagina/{n}/uitsneden` | De opgeslagen uitsneden van een pagina |
+| GET | `/bestand/{mid}/export?formaat=zip\|json` | Alles van een bestand: een zip (met `LEESMIJ.txt`, `bestand.json`, de uitsneden en de wikitekst per uitsnede) of JSON |
+
+Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{objecten.json, jpg/, png/, maskers/}`.
+
+## Prullenbak en overzichten
+
+| Methode | Pad | Functie |
+| --- | --- | --- |
+| GET | `/objecten?bron=…&mid=…&opgeslagen=1` | Alle objecten over alle bestanden |
+| GET | `/prullenbak` | De prullenbak |
+| DELETE | `/prullenbak` | Alles definitief verwijderen, of alleen `{"objecten": [{"mid", "pagina", "id"}]}` |
+| DELETE | `/prullenbak/{mid}/{n}/{object_id}` | Eén object definitief verwijderen, met de bestanden |
+| GET | `/verbruik?van=&tot=` | Het verbruikslog: aanroepen en kosten per dag, en de laatste regels van het log |
+| GET | `/verbruik/{datum}` | Het verbruik van één dag |
+| GET | `/status` | Versie, modus, ingelogde gebruiker, budgetten |
+| GET | `/openapi.json` | De OpenAPI-beschrijving |
+
+## Foutcodes
+
+| Code | Betekenis |
+| --- | --- |
+| `empty_input`, `bad_input`, `bad_mid` | De invoer is leeg of geen bruikbare URL, titel of M-id |
+| `not_commons`, `not_a_file` | Het bestand staat niet op Commons, of het is geen bestand |
+| `not_found` | Bestand, pagina, object of pad bestaat niet |
+| `commons_unreachable`, `commons_error` | Commons is traag, onbereikbaar of gaf een fout |
+| `too_large`, `unsupported` | Te groot om in volledige resolutie uit te snijden, of een bestandstype dat niet kan (SVG, GIF, video) |
+| `empty_prompt`, `too_small`, `nothing_selected`, `nothing_saved`, `invalid_concept` | Ongeldige of lege opdracht |
+| `daily_limit`, `user_limit`, `daily_budget` | Een limiet is bereikt (429) |
+| `login_required`, `not_on_access_list` | Betaalde aanroepen vragen een login en de toegangslijst |
+| `upload_disabled`, `not_confirmed`, `not_implemented` | Uploaden staat uit, is niet bevestigd, of komt in fase 2 |
+| `contributor_not_allowed`, `no_api_key`, `no_mask` | Modelkeuze, configuratie of SAM vond niets |

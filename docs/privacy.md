@@ -1,0 +1,21 @@
+# Privacy – Commons Cutter
+
+*Concept, fase 1. De definitieve verklaring komt vóór de deploy naar Toolforge (fase 3).*
+
+De Commons Cutter is een experiment. Het is geen officiële dienst van de KB, nationale bibliotheek, of van de Wikimedia Foundation.
+
+## Wat de app van jou verwerkt
+
+- **Zonder login**: niets dat naar jou te herleiden is. De app gebruikt een sessiecookie om je taalkeuze (Nederlands of Engels) te onthouden.
+- **Met login (fase 2)**: je Commons-gebruikersnaam en een toegangstoken van Wikimedia (OAuth 2.0). Het token staat alleen op de server, in een server-side sessie, en nooit in je browser.
+- **Verbruikslog**: bij elke betaalde aanroep (SAM of Muse Spark) legt de app vast wanneer, voor welk bestand en door welke Commons-gebruiker. Dit log is alleen zichtbaar voor gebruikers op de toegangslijst en voor beheerders.
+
+## Wat naar derden gaat
+
+- **Wikimedia Commons en Wikidata**: de server haalt bestanden en gegevens op; jouw browser laadt alleen bestanden van de tool zelf.
+- **Meta Model API** (alleen in live-modus): de server stuurt een verkleinde versie van het openbare Commons-bestand en de context van de bestandspagina (beschrijving, categorieën) naar Meta. Nooit gegevens over jou.
+- **Geen externe scripts, lettertypen of CDN's**: alles wat je browser laadt, komt van de tool zelf. Zo lekt je IP-adres niet naar derden, zoals de gebruiksvoorwaarden van Toolforge vragen.
+
+## Bewaren
+
+Originelen 7 dagen, uitsneden die nog niet zijn geüpload 30 dagen, detecties en beschrijvingen 1 jaar, telkens vanaf het laatste gebruik (functioneel ontwerp 12.1).

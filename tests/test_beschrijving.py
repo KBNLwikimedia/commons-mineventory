@@ -1,0 +1,155 @@
+"""Description with Muse Spark (6.2, 6.3) on constructed answers; no live calls."""
+
+import json
+from pathlib import Path
+
+import pytest
+
+from cutter import beschrijving
+from cutter.beschrijving import DescriptionService, DummyVision, MetaVision, choose_model, parse_answer
+from cutter.detectie.basis import DetectionError
+from cutter.detectie.dienst import DetectionService
+from cutter.detectie.dummy import DummyDetector
+from cutter.verbruik import Verbruik
+
+FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "muse" / "beschrijving_wapen.json").read_text(encoding="utf-8"))
+
+CONFIG = {
+    "BEELDMODEL": "muse-spark-1.3",
+    "BEELDMODEL_RECHTENVRIJ": "muse-spark-1.3-contributor",
+    "BEELDMODEL_CONTRIBUTOR": True,
+    "BEELDMODEL_REDENEREN": "low",
+}
+
+
+class FakeResponse:
+    def __init__(self, status_code, body):
+        self.status_code = status_code
+        self._body = body
+
+    def json(self):
+        return self._body
+
+
+class FakeSession:
+    def __init__(self, response):
+        self.response = response
+        self.calls = []
+
+    def post(self, url, json, headers, timeout):
+        self.calls.append({"url": url, "json": json, "headers": headers})
+        return self.response
+
+
+def test_parse_answer_with_suggestions():
+    answer = parse_answer(beschrijving.output_text(FIXTURE))
+    assert answer["soort"] == "wapen"
+    assert answer["onderwerp_en"] == "Coat of arms of Jacob van Bronckhorst van Batenburg"
+    assert answer["beschrijving_en"].startswith("A crowned shield")
+    # Q-ids are dropped, duplicates removed, at most three.
+    assert answer["wikidata_suggesties"] == ["coat of arms", "Jacob van Bronckhorst van Batenburg", "heraldry"]
+
+
+def test_parse_answer_unreadable():
+    answer = parse_answer("Ik zie een wapen.")
+    assert answer["soort"] == "anders" and answer["zekerheid"] == "laag"
+    assert answer["beschrijving"] == "Ik zie een wapen." and answer["wikidata_suggesties"] == []
+
+
+def file_with(labels, public_domain):
+    return {"rechten": {"labels": labels, "publiek_domein": public_domain}}
+
+
+def test_choose_model():
+    assert choose_model(file_with(["in_orde"], True), CONFIG)["model"] == "muse-spark-1.3-contributor"
+    assert choose_model(file_with(["naamsvermelding"], False), CONFIG)["model"] == "muse-spark-1.3"
+    blocked = choose_model(file_with(["persoonlijkheidsrechten"], True), CONFIG)
+    assert blocked["model"] == "muse-spark-1.3" and "persoonlijkheidsrechten" in blocked["reden"]
+    off = choose_model(file_with(["in_orde"], True), {**CONFIG, "BEELDMODEL_CONTRIBUTOR": False})
+    assert off["model"] == "muse-spark-1.3" and "staat uit" in off["reden"]
+
+
+def test_prompt_has_commons_context(book):
+    prompt = beschrijving.build_prompt(book)
+    assert "Book of Hours of Philip of Burgundy" in prompt
+    assert "Catherine of Alexandria" in prompt  # existing depicts
+    assert "never Q-ids" in prompt
+
+
+def test_meta_vision_request():
+    session = FakeSession(FakeResponse(200, FIXTURE))
+    vision = MetaVision("test-key", session=session)
+    body = vision.describe("muse-spark-1.3", "vraag", "data:image/jpeg;base64,xx", {}, effort="low")
+    sent = session.calls[0]
+    assert sent["url"].endswith("/responses") and sent["headers"]["Authorization"] == "Bearer test-key"
+    assert sent["json"]["reasoning"] == {"effort": "low"}
+    assert sent["json"]["text"]["format"]["schema"]["properties"]["wikidata_suggesties"]["maxItems"] == 3
+    assert body is FIXTURE
+
+
+@pytest.mark.parametrize("status, code", [(429, 429), (401, 503), (404, 503), (400, 400)])
+def test_meta_vision_errors(status, code):
+    vision = MetaVision("k", session=FakeSession(FakeResponse(status, {"error": {"message": "nee"}})))
+    with pytest.raises(DetectionError) as exc:
+        vision.describe("m", "p", "d", {})
+    assert exc.value.status == code
+
+
+def test_meta_vision_without_key():
+    with pytest.raises(DetectionError) as exc:
+        MetaVision(None).describe("m", "p", "d", {})
+    assert exc.value.code == "no_api_key"
+
+
+class FixtureVision:
+    betaald = True
+
+    def __init__(self):
+        self.calls = 0
+
+    def describe(self, model, prompt, data_url, obj, effort=None, schema=beschrijving.SCHEMA):
+        self.calls += 1
+        return FIXTURE
+
+
+@pytest.fixture
+def objects(client, tmp_path):
+    return DetectionService(DummyDetector(), client, tmp_path / "cache", tmp_path / "uitvoer", Verbruik(tmp_path / "verbruik", 500))
+
+
+def test_describe_is_stored_cached_and_logged(objects, book, tmp_path):
+    region = objects.detect(book, 1, modus="commons")["objecten"][0]
+    vision = FixtureVision()
+    service = DescriptionService(vision, objects, CONFIG, tmp_path / "cache")
+    plan = service.plan(book, 1, region["id"])
+    assert plan["betaald"] and plan["kosten_schatting_usd"] > 0
+    result = service.describe(book, 1, region["id"], user="OlafJanssen")
+    assert result["object"]["beschrijving"]["soort"] == "wapen"
+    assert result["object"]["beschrijving"]["tokens"]["invoer"] == 1400
+    assert not result["uit_cache"]
+    again = service.describe(book, 1, region["id"])
+    assert again["uit_cache"] and vision.calls == 1
+    [entry] = objects.verbruik.entries()
+    assert entry["soort"] == "beschrijving" and entry["bestand"] == book["mid"] and entry["gebruiker"] == "OlafJanssen"
+    service.remove(book, 1, region["id"])
+    assert "beschrijving" not in objects._find(book, 1, region["id"])
+
+
+def test_contributor_refused_when_not_allowed(objects, client, tmp_path):
+    pdf = client.load_file("File:Heritage Album Paperwork - Polk Co SO - COMPLETE.pdf")
+    obj = objects.rectangle(pdf, 1, {"x": 0, "y": 0, "w": 100, "h": 100})["object"]
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    with pytest.raises(DetectionError) as exc:
+        service.describe(pdf, 1, obj["id"], model="contributor")
+    assert exc.value.status == 409
+
+
+def test_dummy_description_and_inventory(objects, album, tmp_path):
+    obj = objects.detect(album, 1, "wapen")["objecten"][0]
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    described = service.describe(album, 1, obj["id"])["object"]["beschrijving"]
+    assert described["onderwerp_en"] == "Coat of arms" and described["kosten_usd"] == 0.0
+    overview = service.inventory(album, 1)["inventaris"]
+    assert overview["zoektermen"][0] == {"en": "coat of arms", "nl": "wapen", "aantal": 2, "waar": "bovenaan"}
+    assert service.inventory_plan(album, 1)["inventaris"]["paginasoort"]
+    assert objects.verbruik.entries() == []  # dummy is free
