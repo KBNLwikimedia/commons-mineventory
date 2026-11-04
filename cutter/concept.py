@@ -19,16 +19,56 @@ UPLOAD_SUMMARY = (
     "Uitsnede uit [[{original}]] met de [[Commons:Commons Cutter|Commons Cutter]]; beschrijving deels "
     "opgesteld met een taalmodel en gecontroleerd door de uploader."
 )
-# Fields of {{Artwork}}, {{Photograph}} and {{Book}} that also hold for a cut-out (9.3).
+# Fields of {{Artwork}}, {{Photograph}}, {{Book}} and {{Map}} in the concept of a
+# cut-out (9.3; decided with Olaf 4-11-2026, docs/artwork-velden.md). A cut-out is
+# a detail of the same physical object: what is said about the object as a whole
+# is kept; what is said about what is visible, or its size, is filled in anew or left out.
 KEPT_FIELDS = (
-    "artist", "author", "photographer", "illustrator", "date", "medium", "institution",
-    "accession number", "credit line", "object history", "references", "permission",
+    "artist", "author", "photographer", "illustrator", "medium", "institution", "department",
+    "accession number", "credit line", "object history", "references", "object type",
+    "place of creation", "place of discovery", "notes",
+    # Not in the documentation of {{Artwork}}, but used by the KB for prints.
+    "publisher", "place of publication", "printer",
 )
-# Extra fields of {{Book}} that also hold for a page or detail of the book.
-BOOK_FIELDS = (
-    "translator", "editor", "subtitle", "series title", "volume", "edition", "publisher", "printer",
-    "city", "language", "isbn", "lccn", "oclc",
+TEMPLATE_FIELDS = {
+    "photograph": ("camera coord",),
+    # The book stays the book: its title and data are those of the original.
+    "book": (
+        "translator", "editor", "title", "subtitle", "series title", "volume", "edition", "city",
+        "language", "isbn", "lccn", "oclc", "wikisource",
+    ),
+    # A detail of a map has the same map date, sheet and scale; not its centre (latitude/longitude).
+    "map": ("map date", "print date", "location", "wikidata location", "set", "sheet", "scale", "projection", "heading", "language"),
+}
+# Aliases from the template documentation (after "_" → " "), per template.
+ALIASES = {
+    "year": "date", "publication date": "date", "technique": "medium", "material": "medium",
+    "size": "dimensions", "gallery": "institution", "museum": "institution", "id": "accession number",
+    "other fields": "other_fields", "other versions": "other_versions",
+}
+ARTWORK_ALIASES = {"location": "department"}  # in {{Map}}, location is the depicted place
+# The order of the fields in the new template, as in the templates' documentation.
+FIELD_ORDER = (
+    "artist", "author", "photographer", "illustrator", "translator", "editor", "title", "subtitle",
+    "series title", "volume", "edition", "object type", "description", "depicted part", "date", "map date",
+    "print date", "medium", "institution", "department", "accession number", "place of creation",
+    "place of discovery", "publisher", "place of publication", "printer", "city", "language", "location",
+    "wikidata location", "set", "sheet", "scale", "projection", "heading", "camera coord", "object history",
+    "credit line", "inscriptions", "notes", "references", "isbn", "lccn", "oclc", "wikisource", "source",
+    "permission", "other_versions", "wikidata", "other_fields",
 )
+# {{Information field}} rows in other_fields that are about the whole picture, not the object.
+PICTURE_FIELD_NAMES = ("depicted", "persons related")
+# A cut-out of a file in one of these categories goes into its own category (Olaf, 4-11-2026);
+# the original's category itself is not taken over. The partner's source template comes
+# along in |source=, with category= pointing to the cut-out category: the credit stays,
+# the template itself is not changed.
+PARTNERS = {
+    "Media contributed by Koninklijke Bibliotheek": ("Koninklijke Bibliotheek", "Cut-outs from media contributed by Koninklijke Bibliotheek"),
+    "Media from Delpher": ("Delpher", "Cut-outs from media from Delpher"),
+}
+CUTOUT_CATEGORIES = {partner: category for partner, (_template, category) in PARTNERS.items()}
+PARTNER_TEMPLATES = {category: template for _partner, (template, category) in PARTNERS.items()}
 # Statements copied from the original (9.4).
 COPIED_PROPERTIES = ("P6216", "P275", "P170", "P571", "P195")
 FORMATS = ("jpg", "png")
@@ -122,11 +162,22 @@ def date_and_maker(file, params):
     return date, maker, sources
 
 
+def categories_of(file):
+    """The original's categories, chosen; a partner category such as *Media
+    contributed by Koninklijke Bibliotheek* (often hidden) becomes the category
+    for cut-outs of that partner instead. Other categories: the user adds them."""
+    shown = file.get("categorieen", [])
+    hidden = file.get("verborgen_categorieen", [])
+    names = [c for c in shown if c not in CUTOUT_CATEGORIES]
+    names += [CUTOUT_CATEGORIES[c] for c in (*shown, *hidden) if c in CUTOUT_CATEGORIES]
+    return [{"naam": c, "gekozen": True} for c in dict.fromkeys(names)]
+
+
 def default_concept(file, obj):
     """The proposal for an object, from the original and the object (free)."""
     text = file.get("_wikitekst") or ""
     info = wikitekst.info_template(text)
-    params = info.params if info else {}
+    params = canonical_fields(info)[0] if info else {}  # |year=, |Publication date= … count as the date
     description = obj.get("beschrijving") or {}
     label_nl = obj.get("label_nl") or obj.get("label")
     caption = obj.get("bijschrift") or {}
@@ -150,7 +201,9 @@ def default_concept(file, obj):
         "herkomst": sources,
         "permissie": params.get("permission", ""),
         "licentie": wikitekst.license_templates(text),
-        "categorieen": [{"naam": c, "gekozen": True} for c in file.get("categorieen", [])],
+        "categorieen": categories_of(file),
+        # The text in the cut-out itself, for |inscriptions= (AI; Olaf, 4-11-2026: always).
+        "inscripties": (description.get("tekst_in_beeld") or "").strip(),
         "beeldt_af": depicts,
         "image_extracted": True,
         "merk_bevestigd": None,
@@ -236,41 +289,88 @@ def _languages(texts):
     return "".join(f"{{{{{lang}|1={text.strip()}}}}}" for lang, text in texts.items() if text and text.strip())
 
 
+def canonical_fields(info):
+    """The template's fields under one name per field (aliases resolved, "_" as a
+    space), and per name the original's own spelling. The first one wins."""
+    aliases = {**ALIASES, **(ARTWORK_ALIASES if info.name in ("artwork", "photograph") else {})}
+    params, spelling = {}, {}
+    for raw, value in info.params.items():
+        if raw.isdigit():
+            continue
+        name = " ".join(raw.replace("_", " ").split())
+        name = aliases.get(name, name)
+        name = {"other fields": "other_fields", "other versions": "other_versions"}.get(name, name)
+        if name not in params or (value and not params[name]):
+            params[name] = value
+            spelling[name] = info.keys.get(raw, raw)
+    return params, spelling
+
+
+def object_fields(text):
+    """The {{Information field}} rows of other_fields that are about the object
+    (e.g. Binder/bindery), not about the whole picture (Depicted locations)."""
+    kept = []
+    for call in wikitekst.templates(text or ""):
+        if call.name != "information field":
+            continue
+        field_name = (call.params.get("name") or "").lower()
+        if not any(word in field_name for word in PICTURE_FIELD_NAMES):
+            kept.append(call.raw)
+    return "".join(kept)
+
+
 def wikitext(file, c):
     """The wikitext of the new file page. {{Extracted from}} is always there
     and cannot be removed (Olaf, 3-11-2026)."""
     original = file["titel"]
     info = wikitekst.info_template(file.get("_wikitekst") or "")
     description = _languages({"nl": c["beschrijving"].get("nl", ""), "en": c["beschrijving"].get("en", "")})
-    source = f"{{{{Extracted from|{original}}}}}"
-    if info and info.name in ("artwork", "photograph", "book"):
-        name = {"artwork": "Artwork", "photograph": "Photograph", "book": "Book"}[info.name]
+    chosen = [cat["naam"].removeprefix("Category:") for cat in c["categorieen"] if cat.get("gekozen") and cat.get("naam")]
+    partner_categories = [name for name in dict.fromkeys(chosen) if name in PARTNER_TEMPLATES]
+    source = f"{{{{Extracted from|{original}}}}}" + "".join(
+        f" {{{{{PARTNER_TEMPLATES[name]}|category=[[Category:{name}]]}}}}" for name in partner_categories
+    )
+    if info and info.name in ("artwork", "photograph", "book", "map"):
+        name = {"artwork": "Artwork", "photograph": "Photograph", "book": "Book", "map": "Map"}[info.name]
+        params, spelling = canonical_fields(info)
         capitals = any(k[:1].isupper() for k in info.keys.values())
 
         def key(field):
             """The template's own spelling ({{Book}}: |Date=, {{Artwork}}: |date=)."""
-            return info.keys.get(field) or (field[:1].upper() + field[1:] if capitals else field)
+            return spelling.get(field) or (field[:1].upper() + field[1:] if capitals else field)
 
+        caption = _languages({"nl": c["caption"].get("nl", ""), "en": c["caption"].get("en", "")})
         default_maker = {"book": "author", "photograph": "photographer"}.get(info.name, "artist")
-        maker_field = next((f for f in MAKER_FIELDS if f in info.keys), default_maker)
-        written = {"date", "permission", "description", "source", "other versions", "other_versions", "title", "wikidata", maker_field}
-        fields = [f"|{key(k)}={info.params[k]}" for k in KEPT_FIELDS if info.params.get(k) and k not in written]
-        if info.name == "book":
-            # The book stays the book: its title and data are those of the original.
-            fields += [f"|{key(k)}={info.params[k]}" for k in BOOK_FIELDS if info.params.get(k)]
-            if info.params.get("title"):
-                fields.append(f"|{key('title')}={info.params['title']}")
-        else:
-            fields.append(f"|{key('title')}={_languages({'nl': c['caption'].get('nl', ''), 'en': c['caption'].get('en', '')})}")
-        if info.params.get("wikidata"):
-            fields.append(f"|{key('wikidata')}={info.params['wikidata']}")
-        fields += [
-            f"|{key(maker_field)}={c['maker']}",
-            f"|{key('description')}={description}",
-            f"|{key('date')}={c['datum']}",
-            f"|{key('source')}={source}",
-            f"|{key('permission')}={c.get('permissie', '')}",
-            f"|{info.keys.get('other_versions') or key('other versions')}=",
+        maker_field = next((f for f in MAKER_FIELDS if f in params), default_maker)
+        kept = [k for k in (*KEPT_FIELDS, *TEMPLATE_FIELDS.get(info.name, ())) if k != maker_field]
+        values = {k: params[k] for k in kept if params.get(k)}
+        if info.name != "book":
+            # The detail's own title; with a |wikidata= of the whole work (kept) the page
+            # would otherwise show the title of the whole work (Olaf, 4-11-2026).
+            values["title"] = caption
+        if info.name == "artwork" and caption:
+            values["depicted part"] = caption
+        if info.name != "book" and c.get("inscripties"):
+            # The text read in the cut-out itself (AI, editable in the magnifier).
+            values["inscriptions"] = c["inscripties"]
+        other = object_fields(params.get("other_fields", ""))
+        if other:
+            values["other_fields"] = other
+        if params.get("wikidata"):
+            values["wikidata"] = params["wikidata"]
+        values.update({
+            maker_field: c["maker"],
+            "description": description,
+            "date": c["datum"],
+            "source": source,
+            "permission": c.get("permissie", ""),
+            "other_versions": "",
+        })
+        # In the order of the templates' documentation; each in the original's own spelling.
+        order = {field_name: i for i, field_name in enumerate(FIELD_ORDER)}
+        fields = [
+            f"|{spelling.get(k) or (key('other versions') if k == 'other_versions' else key(k))}={v}"
+            for k, v in sorted(values.items(), key=lambda kv: order.get(kv[0], len(order)))
         ]
         info_text = "{{" + name + "\n" + "\n".join(fields) + "\n}}"
     else:
@@ -289,7 +389,8 @@ def wikitext(file, c):
     licence = "\n".join(c["licentie"]) or "<!-- Geen licentiesjabloon gevonden op het origineel: vul dit aan. -->"
     if any(n in (file.get("_wikitekst") or "").lower() for n in ("{{flickrreview", "{{licensereview")):
         licence += f"\n<!-- De licentiecontrole van het origineel geldt ook hier; zie [[:{original}]]. -->"
-    categories = [cat["naam"] for cat in c["categorieen"] if cat.get("gekozen") and cat.get("naam")]
+    # A partner's cut-out category comes from its template in |source=, not as a separate line.
+    categories = [name for name in chosen if name not in PARTNER_TEMPLATES]
     lines = [
         "=={{int:filedesc}}==",
         info_text,

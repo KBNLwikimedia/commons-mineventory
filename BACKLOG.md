@@ -23,8 +23,8 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 10. [x] "Wat staat hierop?" met Commons-context en `wikidata_suggesties` (fixtures).
 11. [x] Commons-concept per object, keuzemenu, controle vooraf, proefweergave; nog geen upload.
 12. [x] REST-API, OpenAPI, `/docs`, sitemap.
-   - Open uit fase 1 (3-11-2026): `{{Artwork}}`-velden per sjabloon nalopen met Olaf, tegels voor bestanden boven 100 megapixel.
-   - Gedaan (4-11-2026): "Bijsnijden in CropTool" als uitklapblok in het detectiepaneel (0.18.0; een vooringevuld kader nam CropTool niet over); de opruimtaak voor de bewaartermijnen, `flask --app app opruimen [--echt]` (0.18.0); mobiel als tabbladen Objecten, Beeld, Detectie (0.19.0). Nog niet: bij elke uitsnede tonen wanneer die verloopt.
+   - Open uit fase 1 (3-11-2026): tegels voor bestanden boven 100 megapixel.
+   - Gedaan (4-11-2026): "Bijsnijden in CropTool" als uitklapblok in het detectiepaneel (0.18.0; een vooringevuld kader nam CropTool niet over); de opruimtaak voor de bewaartermijnen, `flask --app app opruimen [--echt]` (0.18.0); mobiel als tabbladen Objecten, Beeld, Detectie (0.19.0); de velden van `{{Artwork}}`, `{{Photograph}}`, `{{Book}}` en `{{Map}}` per sjabloon, besloten met Olaf (0.20.0, docs/artwork-velden.md). Nog niet: bij elke uitsnede tonen wanneer die verloopt.
 12a. [x] Verfijning op aanwijzing van Olaf (3 en 4-11-2026, versies 0.2.0 tot en met 0.9.0; details in CHANGELOG.md):
    - Live-modus lokaal getest door Olaf, met zijn eigen sleutel.
    - AI-teksten: onderwerp en beschrijving met de hand aan te passen (Ongedaan maken, Terug naar de AI-tekst); AI-merkjes met uitleg (model, score, wat te controleren); soort, zekerheid en paginaoverzicht in beide talen; de modelkeuze in gewone woorden.
@@ -49,7 +49,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 
 16. [ ] SAM en Muse Spark live, alleen na een opdracht van Olaf; kalibratie op albums, prenten en kaarten.
 17. [ ] Deploy naar Toolforge (Build Service; de frontend bouwen in de Build Service of in een GitHub Action), publieke OAuth-consumer, privacyverklaring, projectpagina en volgcategorie op Commons.
-18. [ ] Eerste echte uploads, door Olaf.
+18. [ ] Eerste echte uploads, door Olaf. Daarvoor aanmaken (Olaf): Category:Uploaded with Commons Cutter, Category:Cut-outs from media contributed by Koninklijke Bibliotheek, Category:Cut-outs from media from Delpher.
 
 ## Fase 4: verdieping
 

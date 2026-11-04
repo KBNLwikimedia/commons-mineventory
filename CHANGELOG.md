@@ -3,6 +3,19 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.20.0] - 2026-11-04
+
+### Gewijzigd
+
+- Commons-concept, sjabloon van het origineel (besluiten van Olaf, `docs/artwork-velden.md`): een uitsnede is een detail van hetzelfde object. Wat over het object gaat, gaat mee: ook `object type`, `department`, `place of creation`, `place of discovery`, `notes`, en bij KB-prenten `publisher` en `place of publication`. Wat over het hele beeld of de maten gaat, niet: `dimensions`, `depicted people`, `depicted place`, `exhibition history`. Nieuw voor de uitsnede: `depicted part` (nl/en) en `inscriptions` (de tekst in beeld). Uit `other_fields` gaan de rijen over het object mee (bijv. *Binder/bindery*), die over het beeld niet. De velden staan in de volgorde van de documentatie.
+- Aliassen uit de documentatie worden herkend (`year`, `publication date`, `technique`, `material`, `size`, `gallery`, `museum`, `id`, en bij `{{Artwork}}` en `{{Photograph}}` `location`), in de spelling van het origineel.
+- `{{Map}}` wordt overgenomen zoals `{{Artwork}}`: kaartdatum, drukdatum, plaats, blad en schaal gaan mee, het middelpunt (`latitude`, `longitude`) en de legenda niet. `{{Photograph}}` houdt ook `camera coord`, `{{Book}}` ook `wikisource`.
+- Categorieën: een uitsnede van een bestand uit *Media contributed by Koninklijke Bibliotheek* komt in *Cut-outs from media contributed by Koninklijke Bibliotheek*, een uitsnede uit *Media from Delpher* in *Cut-outs from media from Delpher*; de partnercategorie zelf gaat niet mee. Dat loopt via het partnersjabloon in `source`, met de bestaande parameter `category=`: `{{Koninklijke Bibliotheek|category=[[Category:Cut-outs from media contributed by Koninklijke Bibliotheek]]}}` (en zo ook `{{Delpher}}`). De vermelding van de partner blijft dus staan.
+
+### Documentatie
+
+- `docs/artwork-velden.md`: per veld van `{{Artwork}}`, `{{Photograph}}` en `{{Book}}` wat het Commons-concept nu doet en een voorstel (overnemen, opnieuw invullen of weglaten), met een steekproef van 596 KB-bestanden op Commons en de besluiten van Olaf.
+
 ## [0.19.0] - 2026-11-04
 
 ### Toegevoegd

@@ -228,3 +228,96 @@ def test_sdc_drops_subject_has_role_from_the_collection():
     c = {"caption": {}, "beeldt_af": [], "formaat": "jpg"}
     [claim] = [x for x in structured_data(file, c)["claims"] if x["mainsnak"]["property"] == "P195"]
     assert "qualifiers" not in claim
+
+
+# A KB print in {{Artwork}} as GWToolset uploads it: aliases, KB-only fields, other_fields.
+KB_ARTWORK = """=={{int:filedesc}}==
+{{Artwork
+ |artist             =
+ |author             = {{Creator:Jan Kops}}
+ |title              = Band van beschilderd blank perkament
+ |object type        = Book binding
+ |year               = 1751-1760
+ |technique          = {{nl|Blank perkament}}
+ |size               = {{Size|mm|110|57|31}}
+ |gallery            = {{Institution:Koninklijke Bibliotheek}}
+ |location           = Bijzondere collecties
+ |id                 = Shelfmark 1748 G 10
+ |place of creation  = Duitsland(?)
+ |publisher          = Luchtmans
+ |place of publication = Leiden
+ |exhibition history = {{Temporary Exhibition|name=Boekbanden}}
+ |depicted people    = Willem I
+ |inscriptions       = Ex libris
+ |notes              = This object is part of the collection of bookbindings
+ |wikidata           = Q123
+ |other_fields       = {{Information field|name=Binder/bindery|value=Unknown}}{{Information field|name=Depicted locations|value=Leiden}}
+ |source             = Geheugen van Nederland {{Koninklijke Bibliotheek}}
+}}
+=={{int:license-header}}==
+{{PD-art|PD-old-70-1923}}
+"""
+
+
+def kb_file(text=KB_ARTWORK, hidden=("Media contributed by Koninklijke Bibliotheek",)):
+    return {
+        "titel": "File:Band.jpeg",
+        "categorieen": ["Bookbindings"],
+        "verborgen_categorieen": list(hidden),
+        "rechten": {"labels": ["in_orde"], "upload_toegestaan": True},
+        "_wikitekst": text,
+    }
+
+
+def test_kb_artwork_keeps_object_fields_and_drops_picture_fields():
+    obj = {"id": "o", "label": "wapen", "beschrijving": {"onderwerp": "wapen", "onderwerp_en": "coat of arms", "tekst_in_beeld": "SPES MEA DEUS"}}
+    text = concept.concept(kb_file(), obj)["wikitekst"]
+    # Object: kept in the original's own spelling (aliases included).
+    for line in ("|object type=Book binding", "|technique={{nl|Blank perkament}}", "|gallery={{Institution:Koninklijke Bibliotheek}}",
+                 "|location=Bijzondere collecties", "|id=Shelfmark 1748 G 10", "|place of creation=Duitsland(?)",
+                 "|publisher=Luchtmans", "|place of publication=Leiden", "|notes=This object is part of the collection of bookbindings",
+                 "|wikidata=Q123", "|year=1751-1760", "|author={{Creator:Jan Kops}}"):
+        assert line in text, line
+    # Picture and size: not taken over; exhibition history left out (Olaf, 4-11-2026).
+    for gone in ("{{Size|mm|110|57|31}}", "Willem I", "Ex libris", "Temporary Exhibition", "Depicted locations", "Band van beschilderd"):
+        assert gone not in text, gone
+    # New for the detail: own title, depicted part (both languages) and the text in the cut-out.
+    assert "|title={{nl|1=wapen}}{{en|1=coat of arms}}" in text
+    assert "|depicted part={{nl|1=wapen}}{{en|1=coat of arms}}" in text
+    assert "|inscriptions=SPES MEA DEUS" in text
+    assert "{{Information field|name=Binder/bindery|value=Unknown}}" in text
+    assert "|source={{Extracted from|File:Band.jpeg}}" in text and "{{Koninklijke Bibliotheek}}" not in text
+
+
+def test_partner_categories_become_cutout_categories():
+    names = [c["naam"] for c in concept.concept(kb_file(), {"id": "o", "label": "x"})["categorieen"]]
+    assert names == ["Bookbindings", "Cut-outs from media contributed by Koninklijke Bibliotheek"]
+    delpher = kb_file(hidden=("Media from Delpher",))
+    assert "Cut-outs from media from Delpher" in [c["naam"] for c in concept.concept(delpher, {"id": "o", "label": "x"})["categorieen"]]
+    other = kb_file(hidden=())
+    assert [c["naam"] for c in concept.concept(other, {"id": "o", "label": "x"})["categorieen"]] == ["Bookbindings"]
+
+
+def test_map_keeps_map_data_but_not_its_centre():
+    text = ("{{Map\n|title=Kaart van Zeeland\n|map date=1750\n|print date=1752\n|location=Zeeland\n|latitude=51.5\n|longitude=3.8\n"
+            "|scale=1:100000\n|legend=Wegen\n|author={{Creator:Hattinga}}\n|source=KB\n}}\n== {{int:license-header}} ==\n{{PD-old}}")
+    out = concept.concept(kb_file(text), {"id": "o", "label": "kerk", "beschrijving": {"onderwerp": "kerk", "onderwerp_en": "church"}})["wikitekst"]
+    assert out.startswith("=={{int:filedesc}}==\n{{Map\n")
+    assert "|map date=1750" in out and "|print date=1752" in out and "|location=Zeeland" in out and "|scale=1:100000" in out
+    assert "latitude" not in out and "longitude" not in out and "Wegen" not in out and "Kaart van Zeeland" not in out
+    assert "|title={{nl|1=kerk}}{{en|1=church}}" in out and "|author={{Creator:Hattinga}}" in out
+
+
+def test_partner_template_with_cutout_category_in_source():
+    c = concept.concept(kb_file(), {"id": "o", "label": "x"})
+    text = c["wikitekst"]
+    assert ("|source={{Extracted from|File:Band.jpeg}} {{Koninklijke Bibliotheek|category="
+            "[[Category:Cut-outs from media contributed by Koninklijke Bibliotheek]]}}") in text
+    # Not twice: the template puts the page in the category, no separate line.
+    assert text.count("Cut-outs from media contributed by Koninklijke Bibliotheek") == 1
+    assert "[[Category:Bookbindings]]" in text and "[[Category:Uploaded with Commons Cutter]]" in text
+    # Unticked by the user: no partner template either (it would add the KB's own category).
+    c["categorieen"] = [{**cat, "gekozen": cat["naam"] == "Bookbindings"} for cat in c["categorieen"]]
+    assert "Koninklijke Bibliotheek" not in concept.wikitext(kb_file(), c).split("[[Category:Bookbindings]]")[0].split("|gallery=")[0]
+    delpher = kb_file(hidden=("Media from Delpher",))
+    assert "{{Delpher|category=[[Category:Cut-outs from media from Delpher]]}}" in concept.concept(delpher, {"id": "o", "label": "x"})["wikitekst"]
