@@ -5,6 +5,15 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-04
+
+### Gewijzigd
+
+- *Wat staat hierop?* opnieuw ingedeeld, met één vaste volgorde voor de eerste en elke volgende vraag:
+  1. rechts bovenaan de uitsnede zoals de AI hem ziet (rood kader, met de gekozen ruimte; ook vóór de eerste vraag); links het antwoord (of vooraf een korte uitleg wat je krijgt, met het bijschrift dat meegaat), met de acties voor dat antwoord op één regel: *Tekst aanpassen*, *Terug naar de AI-tekst*, *Ongedaan maken*, en rechts *Beschrijving wissen*;
+  2. één knop om de AI te vragen, met de kosten: de eerste keer de hoofdknop *Beschrijf deze afbeelding*, daarna *Beschrijf deze afbeelding opnieuw*; ernaast staat welke bijsturing meegaat (bijv. "met ruimte 0% · aanwijzing …");
+  3. ingeklapt: *AI-bijsturing* (aanwijzing, ruimte, wat de AI ziet; de kop toont de huidige keuze), *Eerdere beschrijvingen*, en *Model, kosten en kwaliteit*. Daartussen de suggesties voor *beeldt af*.
+
 ## [0.12.0] - 2026-11-04
 
 ### Toegevoegd

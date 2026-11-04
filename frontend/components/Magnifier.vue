@@ -84,83 +84,111 @@
       </cdx-tab>
 
       <cdx-tab name="beschrijving" :label="t('describe.title')">
-        <!-- The answer, with the cut-out beside it. -->
+        <!--
+          One flow for the first and every later question:
+          1. the answer (or, before the first one, what you get), with its own actions;
+          2. the button that asks the AI, with the cost;
+          3. folded away: AI modifiers, earlier descriptions, model and cost.
+        -->
+
+        <!-- Step 1 on the left; on the right the cut-out as the AI sees it (red frame, chosen space). -->
         <div class="cc-concept-kop">
-          <div class="cc-concept-links">
-            <template v-if="description">
-              <dl class="cc-gegevens">
-                <dt>{{ t("describe.kind") }} <ai-badge kind="soort" :model="description.model" /></dt><dd>{{ fixedValue("kind", description.soort) }} · {{ t("describe.certainty") }}: {{ fixedValue("certainty", description.zekerheid) }}</dd>
-                <template v-if="!textDraft">
-                  <dt>{{ t("describe.subject") }} <ai-badge :model="description.model" :edited="aiEdited('onderwerp')" /></dt><dd>{{ description.onderwerp }}<br /><i>{{ description.onderwerp_en }}</i></dd>
-                </template>
-                <template v-if="description.bedrijf_of_naam"><dt>{{ t("describe.name") }}</dt><dd>{{ description.bedrijf_of_naam }}</dd></template>
-                <template v-if="!textDraft">
-                  <dt>{{ t("describe.description") }} <ai-badge :model="description.model" :edited="aiEdited('beschrijving')" /></dt><dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
-                </template>
-                <!-- Legible text read by the AI: editable with the rest, or removed with the bin. -->
-                <template v-for="field in READ_TEXTS" :key="field">
-                  <template v-if="!textDraft && description[field]">
-                    <dt>{{ t(`describe.field_${field}`) }}</dt>
-                    <dd class="cc-gelezen-tekst">
-                      {{ description[field] }}
-                      <cdx-button
-                        weight="quiet"
-                        size="small"
-                        action="destructive"
-                        :disabled="busy"
-                        :aria-label="t('describe.remove_text')"
-                        :title="t('describe.remove_text')"
-                        @click="saveTexts({ ...currentTexts(), [field]: '' })"
-                      >
-                        <cdx-icon :icon="cdxIconTrash" size="small" />
-                      </cdx-button>
-                    </dd>
-                  </template>
-                </template>
-              </dl>
+        <div class="cc-concept-links">
+        <!-- 1a. Before the first answer: what the AI will do, and the caption that goes along. -->
+        <section v-if="!description" class="cc-uitleg-vooraf">
+          <p>{{ t("describe.intro") }}</p>
+          <p v-if="object.bijschrift?.tekst" class="cc-klein">
+            {{ t("magnifier.caption") }}: <strong>{{ object.bijschrift.tekst }}</strong> — {{ t("describe.caption_goes_along") }}
+          </p>
+        </section>
 
-              <!-- Editing the texts by hand, in both languages. -->
-              <div v-if="textDraft" class="cc-tekst-bewerken">
-                <p class="cc-klein">{{ t("describe.edit_help") }}</p>
-                <cdx-field v-for="field in EDITABLE" :key="field">
-                  <template #label>{{ t(`describe.field_${field}`) }}</template>
-                  <cdx-text-input v-if="field.startsWith('onderwerp') || field.startsWith('tekst_')" v-model="textDraft[field]" />
-                  <cdx-text-area v-else v-model="textDraft[field]" :autosize="true" />
-                </cdx-field>
-                <div class="cc-knoppen">
-                  <cdx-button action="progressive" weight="primary" :disabled="!draftChanged" @click="saveTexts(textDraft)">{{ t("actions.save_short") }}</cdx-button>
-                  <cdx-button action="progressive" @click="textDraft = null">{{ t("actions.cancel") }}</cdx-button>
-                </div>
-              </div>
-              <div v-else class="cc-knoppen cc-tekst-acties">
-                <cdx-button action="progressive" size="small" @click="startEditing"><cdx-icon :icon="cdxIconEdit" size="small" /> {{ t("describe.edit") }}</cdx-button>
-                <template v-if="description.bewerkt">
-                  <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
-                  <button type="button" class="cc-link" @click="backToAi">{{ t("describe.back_to_ai") }}</button>
-                </template>
-                <span v-if="undoTexts" class="cc-klein">
-                  {{ t("describe.saved_edit") }}
-                  <button type="button" class="cc-link" @click="undoEdit">↶ {{ t("magnifier.undo") }}</button>
-                </span>
-              </div>
+        <!-- 1b. The answer. -->
+        <section v-else class="cc-antwoord">
+          <dl class="cc-gegevens">
+            <dt>{{ t("describe.kind") }} <ai-badge kind="soort" :model="description.model" /></dt>
+            <dd>{{ fixedValue("kind", description.soort) }} · {{ t("describe.certainty") }}: {{ fixedValue("certainty", description.zekerheid) }}</dd>
+            <template v-if="!textDraft">
+              <dt>{{ t("describe.subject") }} <ai-badge :model="description.model" :edited="aiEdited('onderwerp')" /></dt>
+              <dd>{{ description.onderwerp }}<br /><i>{{ description.onderwerp_en }}</i></dd>
             </template>
-            <template v-else>
-              <p class="cc-klein">{{ t("describe.none_yet") }}</p>
-              <!-- Without an AI description: the caption, which goes along as help when you ask. -->
-              <dl v-if="object.bijschrift?.tekst" class="cc-gegevens">
-                <dt>{{ t("magnifier.caption") }}</dt>
-                <dd>{{ object.bijschrift.tekst }}<br /><span class="cc-klein">{{ t("describe.caption_goes_along") }}</span></dd>
-              </dl>
+            <template v-if="description.bedrijf_of_naam"><dt>{{ t("describe.name") }}</dt><dd>{{ description.bedrijf_of_naam }}</dd></template>
+            <template v-if="!textDraft">
+              <dt>{{ t("describe.description") }} <ai-badge :model="description.model" :edited="aiEdited('beschrijving')" /></dt>
+              <dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
             </template>
+            <!-- Legible text read by the AI: editable with the rest, or removed with the bin. -->
+            <template v-for="field in READ_TEXTS" :key="field">
+              <template v-if="!textDraft && description[field]">
+                <dt>{{ t(`describe.field_${field}`) }}</dt>
+                <dd class="cc-gelezen-tekst">
+                  {{ description[field] }}
+                  <cdx-button
+                    weight="quiet"
+                    size="small"
+                    action="destructive"
+                    :disabled="busy"
+                    :aria-label="t('describe.remove_text')"
+                    :title="t('describe.remove_text')"
+                    @click="saveTexts({ ...currentTexts(), [field]: '' })"
+                  >
+                    <cdx-icon :icon="cdxIconTrash" size="small" />
+                  </cdx-button>
+                </dd>
+              </template>
+            </template>
+          </dl>
 
+          <!-- Editing the texts by hand, in both languages. -->
+          <div v-if="textDraft" class="cc-tekst-bewerken">
+            <p class="cc-klein">{{ t("describe.edit_help") }}</p>
+            <cdx-field v-for="field in EDITABLE" :key="field">
+              <template #label>{{ t(`describe.field_${field}`) }}</template>
+              <cdx-text-input v-if="field.startsWith('onderwerp') || field.startsWith('tekst_')" v-model="textDraft[field]" />
+              <cdx-text-area v-else v-model="textDraft[field]" :autosize="true" />
+            </cdx-field>
+            <div class="cc-knoppen">
+              <cdx-button action="progressive" weight="primary" :disabled="!draftChanged" @click="saveTexts(textDraft)">{{ t("actions.save_short") }}</cdx-button>
+              <cdx-button action="progressive" @click="textDraft = null">{{ t("actions.cancel") }}</cdx-button>
+            </div>
           </div>
+          <!-- What you can do with this answer: edit, undo, go back to the AI text, or remove it. -->
+          <div v-else class="cc-knoppen cc-tekst-acties">
+            <cdx-button action="progressive" size="small" @click="startEditing"><cdx-icon :icon="cdxIconEdit" size="small" /> {{ t("describe.edit") }}</cdx-button>
+            <template v-if="description.bewerkt">
+              <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
+              <button type="button" class="cc-link" @click="backToAi">{{ t("describe.back_to_ai") }}</button>
+            </template>
+            <span v-if="undoTexts" class="cc-klein">
+              {{ t("describe.saved_edit") }}
+              <button type="button" class="cc-link" @click="undoEdit">↶ {{ t("magnifier.undo") }}</button>
+            </span>
+            <cdx-button class="cc-rechts-uitlijnen" size="small" weight="quiet" action="destructive" :disabled="busy" @click="removeDescription">
+              <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("describe.remove") }}
+            </cdx-button>
+          </div>
+        </section>
+        </div>
+        <cutout-preview :src="modelInputUrl" :caption="t('describe.model_sees')" />
         </div>
 
-        <!-- AI modifiers: what steers the next question (hint and space around the cut-out). -->
-        <section class="cc-blok cc-ai-sturing">
-          <h3 class="cc-blok-kop">{{ t("describe.modifiers") }}</h3>
+        <!-- 2. Ask the AI: always the same place; the first time it is the main action. -->
+        <div class="cc-vraag-knop">
+          <cdx-button action="progressive" :weight="description ? 'normal' : 'primary'" :disabled="busy" @click="describe(Boolean(description))">
+            {{ description ? t("describe.again") : t("describe.ask") }} <span class="cc-kosten">{{ costLabel }}</span>
+          </cdx-button>
+          <span v-if="modifiersSummary" class="cc-klein">{{ t("describe.with_modifiers", { what: modifiersSummary }) }}</span>
+        </div>
+        <div v-if="busy" class="cc-bezig" role="status">
+          <cdx-progress-bar :inline="true" :aria-label="t('describe.busy', { seconds })" />
+          <p class="cc-klein">{{ t("describe.busy", { seconds }) }}</p>
+        </div>
+
+        <!-- 3a. AI modifiers: steer the next question (hint, and the space around the cut-out). -->
+        <cdx-accordion v-model="openModifiers" class="cc-beschrijving-blok">
+          <template #title>{{ t("describe.modifiers") }}</template>
+          <template #description>{{ modifiersSummary || t("describe.modifiers_default") }}</template>
           <p class="cc-klein">{{ t("describe.modifiers_help") }}</p>
-          <div class="cc-concept-kop">
+          <div class="cc-concept-kop cc-ai-sturing">
             <div class="cc-concept-links">
               <!-- An optional hint, e.g. "only the boy"; not the caption, not for Commons. -->
               <cdx-field class="cc-aanwijzing">
@@ -174,34 +202,13 @@
                 <span class="cc-klein">{{ t("describe.margin_help") }}</span>
               </label>
             </div>
-            <!-- What the AI sees: the cut-out (red frame) with the chosen space around it. -->
-            <cutout-preview :src="modelInputUrl" :caption="t('describe.model_sees')" />
           </div>
+        </cdx-accordion>
 
-          <!-- The actions, each with what it costs. -->
-          <div class="cc-knoppen">
-            <cdx-button v-if="!description" action="progressive" weight="primary" :disabled="busy" @click="describe(false)">
-              {{ t("describe.ask") }} <span class="cc-kosten">{{ costLabel }}</span>
-            </cdx-button>
-            <template v-else>
-              <cdx-button action="progressive" :disabled="busy" @click="describe(true)">
-                {{ t("describe.again") }} <span class="cc-kosten">{{ costLabel }}</span>
-              </cdx-button>
-              <cdx-button :disabled="busy" action="destructive" weight="quiet" @click="removeDescription">
-                <cdx-icon :icon="cdxIconTrash" /> {{ t("describe.remove") }}
-              </cdx-button>
-            </template>
-          </div>
-          <div v-if="busy" class="cc-bezig" role="status">
-            <cdx-progress-bar :inline="true" :aria-label="t('describe.busy', { seconds })" />
-            <p class="cc-klein">{{ t("describe.busy", { seconds }) }}</p>
-          </div>
-        </section>
-
-        <!-- Earlier descriptions of this object, to choose from again (free). -->
-        <section v-if="history.length" class="cc-blok">
-          <h3 class="cc-blok-kop">{{ t("describe.history", { n: history.length }) }}</h3>
-          <p class="cc-klein">{{ t("describe.history_help") }}</p>
+        <!-- 3b. Earlier descriptions of this object, to choose from again (free). -->
+        <cdx-accordion v-if="history.length" v-model="openHistory" class="cc-beschrijving-blok">
+          <template #title>{{ t("describe.history", { n: history.length }) }}</template>
+          <template #description>{{ t("describe.history_short") }}</template>
           <ul class="cc-geschiedenis-lijst">
             <li v-for="entry in history" :key="entry.tijdstempel + (entry.bewerkt ? 'b' : '')">
               <div>
@@ -212,9 +219,9 @@
               <cdx-button action="progressive" size="small" :disabled="busy" @click="restoreDescription(entry)">{{ t("describe.history_use") }}</cdx-button>
             </li>
           </ul>
-        </section>
+        </cdx-accordion>
 
-        <!-- Suggestions for depicts: a block of its own. -->
+        <!-- Suggestions for depicts: the next step after a description. -->
         <section v-if="description?.wikidata_suggesties?.length" class="cc-blok">
           <h3 class="cc-blok-kop">{{ t("describe.suggestions") }}</h3>
           <p class="cc-klein">{{ t("describe.suggestions_help") }}</p>
@@ -231,11 +238,11 @@
           </ul>
         </section>
 
-        <!-- Secondary: which model, why, what this answer cost, and how far to trust it. -->
-        <section v-if="plan || description" class="cc-blok cc-blok-zacht">
-          <h3 class="cc-blok-kop">{{ t("describe.model_block") }}</h3>
+        <!-- 3c. Secondary: which model, why, what this answer cost, and how far to trust it. -->
+        <cdx-accordion v-if="plan || description" class="cc-beschrijving-blok">
+          <template #title>{{ t("describe.model_block") }}</template>
+          <template #description>{{ (description || plan).model }}</template>
           <p class="cc-klein">
-            {{ (description || plan).model }} —
             <template v-for="(part, i) in textParts(modelReason, reasonLinks)" :key="i">
               <a v-if="part.link" :href="part.link.href" target="_blank" rel="noopener">{{ part.link.label }}</a>
               <template v-else>{{ part.text }}</template>
@@ -246,8 +253,8 @@
               <template v-if="description.tokens?.invoer != null"> · {{ t("describe.tokens", { input: description.tokens.invoer, output: description.tokens.uitvoer }) }}</template>
             </template>
           </p>
-          <p v-if="description" class="cc-klein cc-waarschuwing">{{ t("describe.caution") }}</p>
-        </section>
+          <p class="cc-klein cc-waarschuwing">{{ t("describe.caution") }}</p>
+        </cdx-accordion>
       </cdx-tab>
 
       <cdx-tab name="commons" :label="t('concept.tab')">
@@ -260,7 +267,7 @@
 
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
-import { CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post, query } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
@@ -292,10 +299,21 @@ let ticker = null;
 const error = ref("");
 // The hint for the next "Ask again" (sent once, then cleared).
 const hint = ref("");
+// Folded away until wanted: the AI modifiers and the earlier descriptions.
+const openModifiers = ref(false);
+const openHistory = ref(false);
 // How much of the surroundings the AI sees, as a share of the box on every
 // side (0-1): what the last description used, else 25 %.
 const DEFAULT_MARGIN = 0.25;
 const margin = ref(props.object.beschrijving?.marge ?? DEFAULT_MARGIN);
+// What the next question will use besides the defaults, in a few words
+// (shown beside the button and on the folded AI modifiers).
+const modifiersSummary = computed(() => {
+  const parts = [];
+  if (Math.round(margin.value * 100) !== Math.round(DEFAULT_MARGIN * 100)) parts.push(t("describe.history_margin", { pct: Math.round(margin.value * 100) }));
+  if (hint.value.trim()) parts.push(t("describe.history_hint", { hint: hint.value.trim() }));
+  return parts.join(" · ");
+});
 // The preview follows the slider a moment after it stops moving.
 const shownMargin = ref(margin.value);
 let marginTimer = null;

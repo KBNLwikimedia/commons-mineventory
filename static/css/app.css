@@ -334,3 +334,10 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-geschiedenis-lijst li > div { display: flex; flex-direction: column; min-width: 0; }
 .cc-geschiedenis-beschrijving { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-geschiedenis-meta { color: var(--cc-tekst-zacht); }
+/* "Wat staat hierop?": answer, ask button, then folded blocks. */
+.cc-uitleg-vooraf p { margin: 0 0 0.5rem; }
+.cc-antwoord .cc-tekst-acties { align-items: center; }
+.cc-tekst-acties .cc-rechts-uitlijnen.cdx-button { margin-left: auto; }
+.cc-vraag-knop { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0 0.75rem; }
+.cc-beschrijving-blok { margin-top: 0.25rem; }
+.cc-beschrijving-blok .cc-ai-sturing { margin: 0; }
