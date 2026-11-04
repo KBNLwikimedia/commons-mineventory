@@ -140,29 +140,53 @@
           <dl class="cc-gegevens">
             <dt>{{ t("describe.kind") }} <ai-badge kind="soort" :model="description.model" /></dt>
             <dd>{{ fixedValue("kind", description.soort) }} · {{ t("describe.certainty") }}: {{ fixedValue("certainty", description.zekerheid) }}</dd>
-            <template v-if="!textDraft">
-              <dt>{{ t("describe.subject") }} <ai-badge :model="description.model" :edited="aiEdited('onderwerp')" /></dt>
-              <dd>{{ description.onderwerp }}<br /><i>{{ description.onderwerp_en }}</i></dd>
-            </template>
-            <template v-if="description.bedrijf_of_naam"><dt>{{ t("describe.name") }}</dt><dd>{{ description.bedrijf_of_naam }}</dd></template>
-            <template v-if="!textDraft">
-              <dt>{{ t("describe.description") }} <ai-badge :model="description.model" :edited="aiEdited('beschrijving')" /></dt>
-              <dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
-            </template>
-            <!-- Legible text read by the AI: editable with the rest, or removed with the bin. -->
-            <template v-for="field in READ_TEXTS" :key="field">
-              <template v-if="!textDraft && description[field]">
-                <dt>{{ t(`describe.field_${field}`) }}</dt>
-                <dd class="cc-gelezen-tekst">
-                  {{ description[field] }}
+            <!-- Each text has its own pencil: edit it in place, with Opslaan and Annuleren. -->
+            <template v-for="group in TEXT_GROUPS" :key="group.key">
+              <template v-if="group.always || group.fields.some((f) => description[f]) || editingGroup === group.key">
+                <dt>
+                  {{ t(group.label) }}
+                  <ai-badge v-if="group.ai" :model="description.model" :edited="group.fields.some((f) => aiEdited(f))" />
+                </dt>
+                <dd v-if="editingGroup === group.key" ref="editBox" class="cc-veld-bewerken">
+                  <template v-for="field in group.fields" :key="field">
+                    <!-- A label only for the NL/EN pairs; a single field has its label on the left. -->
+                    <cdx-field :hide-label="group.fields.length === 1">
+                      <template #label>{{ t(`describe.field_${field}`) }}</template>
+                      <cdx-text-area v-if="group.long" v-model="fieldDraft[field]" :autosize="true" @keydown.esc.stop.prevent="cancelEditing" />
+                      <cdx-text-input v-else v-model="fieldDraft[field]" @keydown.esc.stop.prevent="cancelEditing" @keydown.enter="saveEditing" />
+                    </cdx-field>
+                  </template>
+                  <div class="cc-knoppen">
+                    <cdx-button action="progressive" weight="primary" :disabled="!fieldChanged" @click="saveEditing">{{ t("actions.save_short") }}</cdx-button>
+                    <cdx-button @click="cancelEditing">{{ t("actions.cancel") }}</cdx-button>
+                  </div>
+                </dd>
+                <dd v-else :class="{ 'cc-gelezen-tekst': group.read }">
+                  <template v-if="group.fields.length === 2">{{ description[group.fields[0]] }}<br /><i>{{ description[group.fields[1]] }}</i></template>
+                  <template v-else>{{ description[group.fields[0]] }}</template>
+                  <!-- The pencil after the text: edit this field in place. -->
                   <cdx-button
+                    class="cc-veld-potlood"
+                    weight="quiet"
+                    action="progressive"
+                    size="small"
+                    :disabled="busy"
+                    :aria-label="`${t('lightbox.edit')}: ${t(group.label)}`"
+                    :title="`${t('lightbox.edit')}: ${t(group.label)}`"
+                    @click="startEditing(group)"
+                  >
+                    <cdx-icon :icon="cdxIconEdit" size="small" />
+                  </cdx-button>
+                  <!-- Legible text read by the AI can also be removed with the bin. -->
+                  <cdx-button
+                    v-if="group.read"
                     weight="quiet"
                     size="small"
                     action="destructive"
                     :disabled="busy"
                     :aria-label="t('describe.remove_text')"
                     :title="t('describe.remove_text')"
-                    @click="saveTexts({ ...currentTexts(), [field]: '' })"
+                    @click="saveTexts({ [group.fields[0]]: '' })"
                   >
                     <cdx-icon :icon="cdxIconTrash" size="small" />
                   </cdx-button>
@@ -171,22 +195,8 @@
             </template>
           </dl>
 
-          <!-- Editing the texts by hand, in both languages. -->
-          <div v-if="textDraft" class="cc-tekst-bewerken">
-            <p class="cc-klein">{{ t("describe.edit_help") }}</p>
-            <cdx-field v-for="field in EDITABLE" :key="field">
-              <template #label>{{ t(`describe.field_${field}`) }}</template>
-              <cdx-text-input v-if="field.startsWith('onderwerp') || field.startsWith('tekst_')" v-model="textDraft[field]" />
-              <cdx-text-area v-else v-model="textDraft[field]" :autosize="true" />
-            </cdx-field>
-            <div class="cc-knoppen">
-              <cdx-button action="progressive" weight="primary" :disabled="!draftChanged" @click="saveTexts(textDraft)">{{ t("actions.save_short") }}</cdx-button>
-              <cdx-button action="progressive" @click="textDraft = null">{{ t("actions.cancel") }}</cdx-button>
-            </div>
-          </div>
-          <!-- What you can do with this answer: edit, undo, go back to the AI text, or remove it. -->
-          <div v-else class="cc-knoppen cc-tekst-acties">
-            <cdx-button action="progressive" size="small" @click="startEditing"><cdx-icon :icon="cdxIconEdit" size="small" /> {{ t("describe.edit") }}</cdx-button>
+          <!-- What you can do with this answer: undo, go back to the AI text, or remove it. -->
+          <div class="cc-knoppen cc-tekst-acties">
             <template v-if="description.bewerkt">
               <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
               <button type="button" class="cc-link" @click="backToAi">{{ t("describe.back_to_ai") }}</button>
@@ -257,14 +267,23 @@
         </cdx-accordion>
 
         <!-- Suggestions for depicts: the next step after a description. -->
-        <section v-if="description?.wikidata_suggesties?.length" class="cc-blok">
-          <h3 class="cc-blok-kop">{{ t("describe.suggestions") }}</h3>
-          <p class="cc-klein">{{ t("describe.suggestions_help") }}</p>
-          <div class="cc-knoppen">
+        <section class="cc-blok">
+          <h3 class="cc-blok-kop">
+            {{ t("describe.suggestions") }}
+            (<a href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">P180</a>)
+          </h3>
+          <p v-if="description?.wikidata_suggesties?.length" class="cc-klein">{{ t("describe.suggestions_help") }}</p>
+          <!-- Search Wikidata yourself (free, only reading). -->
+          <form class="cc-zoek cc-wikidata-zoek" @submit.prevent="searchWikidata(ownTerm)">
+            <cdx-text-input v-model="ownTerm" :start-icon="cdxIconSearch" :placeholder="t('describe.search_placeholder')" :aria-label="t('describe.search_label')" clearable />
+            <cdx-button type="submit" action="progressive" :disabled="!ownTerm.trim()">{{ t("describe.search_button") }}</cdx-button>
+          </form>
+          <div v-if="description?.wikidata_suggesties?.length" class="cc-knoppen">
             <cdx-button action="progressive" v-for="term in description.wikidata_suggesties" :key="term" size="small" @click="searchWikidata(term)">
               <cdx-icon :icon="cdxIconSearch" /> {{ term }}
             </cdx-button>
           </div>
+          <p v-if="searched && !hits.length" class="cc-klein">{{ t("describe.search_none", { term: searched }) }}</p>
           <ul v-if="hits.length" class="cc-treffers">
             <li v-for="hit in hits" :key="hit.q">
               <cdx-button size="small" weight="quiet" action="progressive" @click="addDepicts(hit)">+ {{ hit.label }}</cdx-button>
@@ -512,7 +531,7 @@ watch(
     margin.value = props.object.beschrijving?.marge ?? DEFAULT_MARGIN;
     shownMargin.value = margin.value;
     loadHistory();
-    textDraft.value = null;
+    cancelEditing();
     undoTexts.value = null;
     hits.value = [];
     loadPlan();
@@ -543,7 +562,7 @@ async function describe(again) {
     const result = await post(`${base.value}/beschrijving`, body);
     emit("changed", result.object);
     hint.value = "";
-    textDraft.value = null;
+    cancelEditing();
     undoTexts.value = null;
     editor.value?.reload();
     loadHistory();
@@ -582,7 +601,7 @@ async function restoreDescription(entry) {
   try {
     const changed = await post(`${base.value}/beschrijving/terugzetten`, { tijdstempel: entry.tijdstempel, bewerkt: Boolean(entry.bewerkt) });
     emit("changed", changed);
-    textDraft.value = null;
+    cancelEditing();
     undoTexts.value = null;
     margin.value = changed.beschrijving?.marge ?? DEFAULT_MARGIN;
     editor.value?.reload();
@@ -597,7 +616,7 @@ async function removeDescription() {
   if (!(await askConfirm(t("describe.remove_confirm"), { go: t("describe.remove"), destructive: true }))) return;
   try {
     emit("changed", await del(`${base.value}/beschrijving`));
-    textDraft.value = null;
+    cancelEditing();
     undoTexts.value = null;
     editor.value?.reload();
     loadPlan();
@@ -607,32 +626,56 @@ async function removeDescription() {
   }
 }
 
-// Editing the AI texts by hand (subject and description, NL and EN). The
-// server keeps the original AI text, for "Terug naar de AI-tekst"; "Ongedaan
-// maken" puts back what was there before the last change.
+// Editing the AI texts by hand, one field (or NL/EN pair) at a time with its own
+// pencil. The server keeps the original AI text, for "Terug naar de AI-tekst";
+// "Ongedaan maken" puts back what was there before the last change.
 const READ_TEXTS = ["tekst_in_beeld", "tekst_rond_beeld"];
-const EDITABLE = ["onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en", ...READ_TEXTS];
-const textDraft = ref(null);
+const EDITABLE = ["onderwerp", "onderwerp_en", "bedrijf_of_naam", "beschrijving", "beschrijving_en", ...READ_TEXTS];
+const TEXT_GROUPS = [
+  { key: "onderwerp", label: "describe.subject", fields: ["onderwerp", "onderwerp_en"], ai: true, always: true },
+  { key: "naam", label: "describe.name", fields: ["bedrijf_of_naam"] },
+  { key: "beschrijving", label: "describe.description", fields: ["beschrijving", "beschrijving_en"], ai: true, always: true, long: true },
+  { key: "tekst_in_beeld", label: "describe.field_tekst_in_beeld", fields: ["tekst_in_beeld"], read: true, long: true },
+  { key: "tekst_rond_beeld", label: "describe.field_tekst_rond_beeld", fields: ["tekst_rond_beeld"], read: true, long: true },
+];
+const editingGroup = ref(null);
+const fieldDraft = ref({});
 const undoTexts = ref(null);
 
 function currentTexts() {
   return Object.fromEntries(EDITABLE.map((field) => [field, description.value?.[field] || ""]));
 }
 
-const draftChanged = computed(() => {
-  const now = currentTexts();
-  return !!textDraft.value && EDITABLE.some((field) => textDraft.value[field].trim() !== now[field]);
-});
+const fieldChanged = computed(() => Object.entries(fieldDraft.value).some(([field, value]) => value.trim() !== (description.value?.[field] || "")));
 
-function startEditing() {
-  textDraft.value = currentTexts();
+const editBox = ref(null);
+async function startEditing(group) {
+  editingGroup.value = group.key;
+  fieldDraft.value = Object.fromEntries(group.fields.map((field) => [field, description.value?.[field] || ""]));
+  // As high as the text itself right away (autosize only reacts once you type).
+  await nextTick();
+  const box = Array.isArray(editBox.value) ? editBox.value[0] : editBox.value;
+  box?.querySelectorAll("textarea").forEach((area) => {
+    area.style.height = "auto";
+    area.style.height = `${area.scrollHeight + 2}px`;
+  });
+  box?.querySelector("textarea, input")?.focus();
+}
+
+function cancelEditing() {
+  editingGroup.value = null;
+  fieldDraft.value = {};
+}
+
+function saveEditing() {
+  if (fieldChanged.value) saveTexts({ ...fieldDraft.value });
 }
 
 async function saveTexts(texts, { undoable = true } = {}) {
   const before = currentTexts();
   try {
     emit("changed", await patch(`${base.value}/beschrijving`, texts));
-    textDraft.value = null;
+    cancelEditing();
     undoTexts.value = undoable ? before : null;
     editor.value?.reload();
   } catch (e) {
@@ -675,9 +718,14 @@ async function saveCaption() {
   }
 }
 
+const ownTerm = ref("");
+const searched = ref("");
 async function searchWikidata(term) {
+  term = (term || "").trim();
+  if (!term) return;
   try {
     hits.value = (await get(`${API}/wikidata/zoek${query({ q: term, taal: language })}`)).resultaten;
+    searched.value = term;
   } catch (e) {
     error.value = errorText(t, e);
   }

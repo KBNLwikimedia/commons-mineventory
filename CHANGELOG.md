@@ -3,6 +3,14 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.22.1] - 2026-11-04
+
+### Gewijzigd
+
+- *Wat staat hierop?*: in plaats van één knop *Tekst aanpassen* heeft elk veld een eigen potloodje, achter de tekst: Onderwerp (nl en en samen), Naam, Beschrijving (nl en en samen), Tekst in het beeld en Tekst rond het beeld. Het veld wordt ter plekke bewerkbaar, met *Opslaan* en *Annuleren* (Esc). *Naam* is nu ook met de hand aan te passen (ook via de API). Het tekstvak is meteen even hoog als de tekst, en heeft bij één veld geen extra label. *Ongedaan maken*, *Terug naar de AI-tekst* en *Beschrijving wissen* blijven.
+- Het linkje onder het voorbeeld heet nu *groot bekijken, tekst controleren en aanpassen*.
+- *Voorstellen voor 'beeldt af' (P180)*: de kop linkt naar P180 op Wikidata, en er is een zoekveld om zelf naar Wikidata-items te zoeken (gratis, alleen lezen). Een gevonden item voeg je met + toe aan *beeldt af* in het Commons-concept. Het blok staat er nu ook als de AI geen voorstellen gaf.
+
 ## [0.22.0] - 2026-11-04
 
 ### Toegevoegd

@@ -129,7 +129,7 @@ Instruction from the user for this question (follow it; it overrides the context
 MAX_HISTORY = 30
 
 # The texts of a description the user may change by hand, in both languages.
-EDITABLE = ("onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en", "tekst_in_beeld", "tekst_rond_beeld")
+EDITABLE = ("onderwerp", "onderwerp_en", "bedrijf_of_naam", "beschrijving", "beschrijving_en", "tekst_in_beeld", "tekst_rond_beeld")
 
 
 def price(model):

@@ -444,3 +444,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-vergroter .cdx-dialog__header { display: flex; align-items: flex-start; gap: 0.5rem; }
 .cc-vergroter .cdx-dialog__header__title-group { flex: 1; min-width: 0; }
 .cc-vergroter .cdx-dialog__header__subtitle a { color: var(--color-progressive, #36c); }
+.cc-veld-potlood.cdx-button { margin-left: 0.15rem; vertical-align: middle; }
+.cc-veld-bewerken .cdx-field { margin: 0 0 0.5rem; }
+.cc-veld-bewerken .cc-knoppen { margin-top: 0.25rem; }
+.cc-wikidata-zoek { margin: 0.5rem 0; max-width: 32rem; }
