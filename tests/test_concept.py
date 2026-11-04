@@ -284,7 +284,7 @@ def test_kb_artwork_keeps_object_fields_and_drops_picture_fields():
     # New for the detail: own title, depicted part (both languages) and the text in the cut-out.
     assert "|title={{nl|1=wapen}}{{en|1=coat of arms}}" in text
     assert "|depicted part={{nl|1=wapen}}{{en|1=coat of arms}}" in text
-    assert "|inscriptions=SPES MEA DEUS" in text
+    assert "|inscriptions={{Inscription|1=SPES MEA DEUS|type=text|linebreaks=1}}" in text
     assert "{{Information field|name=Binder/bindery|value=Unknown}}" in text
     assert "|source={{Extracted from|File:Band.jpeg}}" in text and "{{Koninklijke Bibliotheek}}" not in text
 
@@ -321,3 +321,20 @@ def test_partner_template_with_cutout_category_in_source():
     assert "Koninklijke Bibliotheek" not in concept.wikitext(kb_file(), c).split("[[Category:Bookbindings]]")[0].split("|gallery=")[0]
     delpher = kb_file(hidden=("Media from Delpher",))
     assert "{{Delpher|category=[[Category:Cut-outs from media from Delpher]]}}" in concept.concept(delpher, {"id": "o", "label": "x"})["wikitekst"]
+
+
+
+def test_text_in_and_around_the_cutout_become_inscriptions():
+    obj = {"id": "o", "label": "x", "beschrijving": {"onderwerp": "akte", "tekst_in_beeld": "Deze Hoffstede\nis | groot", "tekst_rond_beeld": "Den Inhoud van de Plaats"}}
+    text = concept.concept(kb_file(), obj)["wikitekst"]
+    assert ("|inscriptions={{Inscription|1=Deze Hoffstede\nis {{!}} groot|type=text|linebreaks=1}}"
+            "{{Inscription|1=Den Inhoud van de Plaats|type=caption|linebreaks=1|comment=outside the cut-out, on the original}}") in text
+    # {{Information}} and {{Book}} have no inscriptions field: an extra row in other fields.
+    plain = kb_file("== {{int:license-header}} ==\n{{PD-old}}")
+    info = concept.concept(plain, obj)["wikitekst"]
+    assert "|other fields={{Information field|name={{int:wm-license-artwork-inscriptions}}|value={{Inscription|1=Deze" in info
+    book = kb_file("{{Book\n|Author=X\n|Title=Boek\n|Source=KB\n}}\n== {{int:license-header}} ==\n{{PD-old}}")
+    out = concept.concept(book, obj)["wikitekst"]
+    assert "={{Information field|name={{int:wm-license-artwork-inscriptions}}" in out and "Other" in out
+    # Nothing read: no inscriptions at all.
+    assert "Inscription" not in concept.concept(kb_file(), {"id": "o", "label": "x"})["wikitekst"]

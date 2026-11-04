@@ -115,7 +115,7 @@ Na je antwoorden bouw ik de ✱-punten, met een test per sjabloon.
 1. `wikidata`: **overnemen, met een eigen `title`** (de caption van de uitsnede).
 2. `depicted part`: **tweetalig** nl/en, zoals `title`.
 3. `exhibition history`: **weglaten**.
-4. `inscriptions`: **altijd** de tekst in beeld van de uitsnede, als die er is.
+4. `inscriptions`: **altijd** de tekst in beeld van de uitsnede, als die er is. Sinds 0.22.0 met `{{Inscription|…|type=text}}`, en ook de tekst rond het beeld (`type=caption`, met de opmerking dat die buiten de uitsnede op het origineel staat). Bij `{{Information}}` en `{{Book}}`, die geen inscriptions-veld hebben, als rij *Inscripties* in `other fields` (besluit Olaf, 4-11-2026).
 5. `notes`: **overnemen**.
 6. Categorieën: staat het origineel in *Media contributed by Koninklijke Bibliotheek*, dan krijgt de uitsnede **Category:Cut-outs from media contributed by Koninklijke Bibliotheek**; staat het in *Media from Delpher*, dan **Category:Cut-outs from media from Delpher**. De categorie van het origineel zelf gaat niet mee. Altijd ook de volgcategorie *Uploaded with Commons Cutter*. Komt een beeld niet van de KB of Delpher, dan kiest de gebruiker zelf een categorie. Beide nieuwe categorieën bestaan nog niet op Commons; Olaf maakt ze aan, vóór de eerste echte upload.
 

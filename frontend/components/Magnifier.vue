@@ -7,11 +7,33 @@
     :open="open"
     class="cc-vergroter"
     :title="name"
-    :subtitle="subtitle"
     :use-close-button="true"
     :close-button-label="t('actions.close')"
     @update:open="emit('update:open', $event)"
   >
+    <!-- Own header (the Codex classes), so the subtitle can link to the original on Commons, on every tab. -->
+    <template #header>
+      <div class="cdx-dialog__header__title-group">
+        <h2 class="cdx-dialog__header__title">{{ name }}</h2>
+        <p class="cdx-dialog__header__subtitle">
+          {{ subtitle }}
+          <template v-if="file.url">
+            · {{ t("objects.source_file") }}
+            <a :href="file.url" target="_blank" rel="noopener">{{ file.naam || String(file.titel || "").replace(/^File:/, "") }}</a>
+            <cdx-icon :icon="cdxIconLinkExternal" size="x-small" />
+          </template>
+        </p>
+      </div>
+      <cdx-button
+        class="cdx-dialog__header__close-button"
+        weight="quiet"
+        type="button"
+        :aria-label="t('actions.close')"
+        @click="emit('update:open', false)"
+      >
+        <cdx-icon :icon="cdxIconClose" />
+      </cdx-button>
+    </template>
     <cdx-tabs v-model:active="tab" :framed="true">
       <cdx-tab name="uitsnede" :label="t('magnifier.cutout')">
         <div v-if="object.masker" class="cc-weergave">
@@ -180,7 +202,7 @@
         </section>
         </div>
         <!-- The image moves to the AI modifiers while they are open, beside the slider (see glidePreview). -->
-        <cutout-preview v-if="!previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
+        <cutout-preview v-if="!previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" :large="largeInputUrl" :lightbox-title="name" :texts="readTexts" @save-text="saveTexts({ [$event.key]: $event.value })" />
         </div>
 
         <!-- 2. AI modifiers: steer the next question (hint, and the space around the cut-out). -->
@@ -202,7 +224,7 @@
                 <span class="cc-klein">{{ t("describe.margin_help") }}</span>
               </label>
             </div>
-            <cutout-preview v-if="previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
+            <cutout-preview v-if="previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" :large="largeInputUrl" :lightbox-title="name" :texts="readTexts" @save-text="saveTexts({ [$event.key]: $event.value })" />
           </div>
         </cdx-accordion>
 
@@ -281,7 +303,7 @@
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
-import { cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
+import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post, query } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
@@ -449,6 +471,23 @@ const reasonLinks = {
 const costLabel = computed(() => (plan.value?.betaald ? `± ${money(plan.value.kosten_schatting_usd, language)}` : t("describe.free_short")));
 // What the image description would see with the chosen margin (free; nothing goes to the model).
 const modelInputUrl = computed(() => `${base.value}/beschrijving/invoer.jpg?marge=${shownMargin.value}`);
+// The same, large (up to 3000 px), for the lightbox: to read and check the text in the image.
+const largeInputUrl = computed(() => `${modelInputUrl.value}&max=3000`);
+// The texts the AI read, beside the large image in the lightbox, to compare.
+const readTexts = computed(() =>
+  description.value
+    ? [
+        ...READ_TEXTS.map((key) => ({
+          key,
+          label: t(`describe.field_${key}`),
+          text: description.value[key],
+          ai: true,
+          model: description.value.model,
+          edited: key in (description.value.ai_origineel || {}),
+        })),
+      ]
+    : []
+);
 // View on the Cut-out tab: the shape (PNG, transparent) or the rectangle (JPG).
 // Only a view; what goes to Commons is the format in the Commons concept.
 const views = [

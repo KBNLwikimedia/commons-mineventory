@@ -42,6 +42,7 @@ PROMPT_VERSION = 2  # 1: Dutch and English, wikidata_suggesties (0.1.0); 2: the 
 MARGIN = 0.25  # share of the box added on every side, so text around the image comes along
 MAX_MARGIN = 1.0  # the user may choose 0 to 100 % (in steps of 5 %)
 MAX_SIDE = 1024  # pixels of the image sent to the model
+MAX_PREVIEW_SIDE = 4000  # the larger preview in the lightbox, to read the text (never sent)
 CONTEXT_CHARS = 800  # at most this much of the Commons description in the question
 MAX_SUGGESTIONS = 3
 BLOCKING_LABELS = {"merk", "persoonlijkheidsrechten", "ter_discussie"}  # no Contributor (6.3)
@@ -610,12 +611,14 @@ class DescriptionService:
             return client.original_image(file, n)
         return Image.open(io.BytesIO(client.page_image(file, n, 3840)))
 
-    def model_preview(self, file, n, object_id, margin=None):
+    def model_preview(self, file, n, object_id, margin=None, max_side=None):
         """JPEG of what the model would see with this margin, the box outlined
-        in red. Free: nothing is sent to the model."""
+        in red. `max_side` (up to MAX_PREVIEW_SIDE) gives a larger version, to
+        read and check the text in the image. Free: nothing is sent to the model."""
         obj = self.objects._find(file, n, object_id)
         page = self.objects.client.load_page(file, n)
-        data, _size = model_input(self._source_image(file, n), page["breedte"], obj["box"], clean_margin(margin), outline=True)
+        side = max(MAX_SIDE, min(int(max_side or MAX_SIDE), MAX_PREVIEW_SIDE))
+        data, _size = model_input(self._source_image(file, n), page["breedte"], obj["box"], clean_margin(margin), side, outline=True)
         return data
 
     def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None):

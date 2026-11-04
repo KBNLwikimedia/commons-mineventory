@@ -173,6 +173,13 @@ def test_description_with_dummy(http):
     assert http.post(url + "/terugzetten", json={"tijdstempel": "nooit"}).status_code == 404
     preview = http.get(url + "/invoer.jpg?marge=0.5")
     assert preview.status_code == 200 and preview.mimetype == "image/jpeg"
+    # A larger version for the lightbox (never larger than the original piece; at most 4000 px).
+    from PIL import Image as PILImage
+
+    small = PILImage.open(io.BytesIO(preview.data)).size
+    large = PILImage.open(io.BytesIO(http.get(url + "/invoer.jpg?marge=0.5&max=3000").data)).size
+    assert max(large) >= max(small) and max(large) <= 3000
+    assert http.get(url + "/invoer.jpg?max=veel").status_code == 400
     wide = http.post(url, json={"opnieuw": True, "marge": 0.5}).get_json()
     assert wide["object"]["beschrijving"]["marge"] == 0.5
     hinted = http.post(url, json={"opnieuw": True, "aanwijzing": "alleen het wapen"}).get_json()

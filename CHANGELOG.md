@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.22.0] - 2026-11-04
+
+### Toegevoegd
+
+- Commons-concept: *Tekst in het beeld* en *Tekst rond het beeld* gaan mee naar Commons in `inscriptions`, met het sjabloon `{{Inscription}}` (type `text` voor de tekst in de uitsnede, `caption` voor de tekst eromheen op het origineel), regelovergangen behouden. `{{Information}}` en `{{Book}}` hebben geen inscriptions-veld; daar wordt het een extra rij *Inscripties* in `other fields`.
+- Lightbox: bij *Aanpassen* is het tekstvak bijna zo hoog als het venster en blijft het beeld even groot, zodat je de tekst ernaast kunt blijven lezen. Komt het grote beeld niet binnen, dan staat er een melding met *Opnieuw proberen* in plaats van een gebroken afbeelding.
+- Vergroter: in de kop, op alle drie de tabbladen, "Uitsnede uit" met de naam van het origineel als link naar de bestandspagina op Commons.
+- Hoofdviewer: een zoomschuif naast de knoppen − en +, van 2 tot 300%. De schuif is logaritmisch, zodat elke stap even groot voelt, ook bij een klein percentage.
+- *Wat staat hierop?*: klik op het voorbeeld *wat de AI ziet* (of op *groot bekijken*) voor een lightbox met dat beeld in een veel grotere resolutie (tot 3000 pixels), passend in het venster, op 100%, of met een zoomschuif van 10 tot 400%. Net als in de hoofdviewer zoomt het scrollwiel rond de muis en verplaats je het beeld door te slepen. Beide teksten zijn daar ook met de hand aan te passen (*Aanpassen*, dan *Opslaan* of *Annuleren*), terwijl je naar het beeld kijkt; dat werkt als *Tekst aanpassen* in de vergroter, met *Ongedaan maken* en *Terug naar de AI-tekst*. Ernaast staan *Tekst in het beeld* en *Tekst rond het beeld* die de AI las, zodat je ze op het beeld kunt controleren. De API geeft de grotere versie met `invoer.jpg?max=` (tot 4000 pixels); het model zelf krijgt altijd 1024.
+
 ## [0.21.2] - 2026-11-04
 
 ### Gewijzigd

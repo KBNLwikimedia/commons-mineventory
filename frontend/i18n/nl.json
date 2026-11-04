@@ -254,6 +254,16 @@
   "legend.nieuw_kort": "nieuw",
   "legend.title": "Kleurenlegenda",
   "legend.uitgesloten": "uitgesloten",
+  "lightbox.edit": "Aanpassen",
+  "lightbox.error": "Het grote beeld kon niet worden geladen.",
+  "lightbox.fit": "Passend",
+  "lightbox.loading": "Het beeld wordt in een grotere resolutie gemaakt…",
+  "lightbox.no_text": "De AI las hier geen tekst. Met Aanpassen kun je hem zelf invullen.",
+  "lightbox.open": "Groot bekijken, om de tekst in het beeld te lezen",
+  "lightbox.open_short": "groot bekijken",
+  "lightbox.retry": "Opnieuw proberen",
+  "lightbox.zoom": "Zoomen",
+  "lightbox.zoom_help": "Scrol op het beeld om in en uit te zoomen, sleep om te verplaatsen, of gebruik de schuif. Klik voor 100% of weer passend.",
   "magnifier.box": "Positie",
   "magnifier.caption": "Bijschrift",
   "magnifier.caption_help": "Het bijschrift is een korte tekst bij deze uitsnede, bijvoorbeeld een opschrift onder de afbeelding. Bij een bestandsnotitie van Commons is het de tekst van die notitie. Je ziet het terug in de objectenlijst en in de tooltip op de afbeelding, en het komt mee in de export. 'Wat staat hierop?' krijgt het als hulp mee (een ander bijschrift is een nieuwe vraag). In het Commons-concept kun je het met één klik overnemen als caption of toevoegen aan de beschrijving; zolang er nog geen beschrijving is, dient het daar als Nederlandse beschrijving. Het gaat niet als apart veld naar Commons.",
@@ -448,5 +458,6 @@
   "viewer.toolbar": "Zoomen",
   "viewer.tooltip_hint": "Dubbelklik: vergroten",
   "viewer.zoom_in": "Inzoomen",
-  "viewer.zoom_out": "Uitzoomen"
+  "viewer.zoom_out": "Uitzoomen",
+  "viewer.zoom_slider": "Zoomen (schuif)"
 }

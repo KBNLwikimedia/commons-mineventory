@@ -411,8 +411,13 @@ def restore_description(mid, n, object_id):
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/invoer.jpg")
 def description_input(mid, n, object_id):
     """What the image description would see: the box with ?marge= (0-1,
-    default 0.25) around it, the box outlined in red. Free."""
-    data = _descriptions().model_preview(_page_file(mid, n), n, object_id, request.args.get("marge"))
+    default 0.25) around it, the box outlined in red. ?max= (up to 4000
+    pixels) gives a larger version, to read the text in it. Free."""
+    try:
+        max_side = int(request.args.get("max") or 0) or None
+    except ValueError:
+        raise DetectionError("'max' is een aantal pixels.", status=400) from None
+    data = _descriptions().model_preview(_page_file(mid, n), n, object_id, request.args.get("marge"), max_side)
     return _image(data, "image/jpeg")
 
 

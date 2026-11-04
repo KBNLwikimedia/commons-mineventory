@@ -204,6 +204,8 @@ def default_concept(file, obj):
         "categorieen": categories_of(file),
         # The text in the cut-out itself, for |inscriptions= (AI; Olaf, 4-11-2026: always).
         "inscripties": (description.get("tekst_in_beeld") or "").strip(),
+        # The text just outside the cut-out on the original (a caption, a title), for |inscriptions=.
+        "tekst_rond": (description.get("tekst_rond_beeld") or "").strip(),
         "beeldt_af": depicts,
         "image_extracted": True,
         "merk_bevestigd": None,
@@ -306,6 +308,28 @@ def canonical_fields(info):
     return params, spelling
 
 
+# The read texts as {{Inscription}} (the Commons template for text on an object): the
+# text in the cut-out as type "text", the text around it on the original as "caption".
+INSCRIPTION_FIELD = "{{{{Information field|name={{{{int:wm-license-artwork-inscriptions}}}}|value={value}}}}}"
+
+
+def _inscription(text, kind, comment=""):
+    text = text.replace("|", "{{!}}").replace("=", "{{=}}")
+    extra = f"|comment={comment}" if comment else ""
+    return f"{{{{Inscription|1={text}|type={kind}|linebreaks=1{extra}}}}}"
+
+
+def inscriptions(c):
+    """|inscriptions= of the cut-out: what was read in it, and what is written just
+    around it on the original. Empty when nothing was read."""
+    parts = []
+    if c.get("inscripties"):
+        parts.append(_inscription(c["inscripties"], "text"))
+    if c.get("tekst_rond"):
+        parts.append(_inscription(c["tekst_rond"], "caption", "outside the cut-out, on the original"))
+    return "".join(parts)
+
+
 def object_fields(text):
     """The {{Information field}} rows of other_fields that are about the object
     (e.g. Binder/bindery), not about the whole picture (Depicted locations)."""
@@ -350,10 +374,13 @@ def wikitext(file, c):
             values["title"] = caption
         if info.name == "artwork" and caption:
             values["depicted part"] = caption
-        if info.name != "book" and c.get("inscripties"):
-            # The text read in the cut-out itself (AI, editable in the magnifier).
-            values["inscriptions"] = c["inscripties"]
+        read = inscriptions(c)
+        if info.name != "book" and read:
+            # The text read in and around the cut-out (AI, editable in the magnifier).
+            values["inscriptions"] = read
         other = object_fields(params.get("other_fields", ""))
+        if info.name == "book" and read:
+            other += INSCRIPTION_FIELD.format(value=read)  # {{Book}} has no inscriptions field
         if other:
             values["other_fields"] = other
         if params.get("wikidata"):
@@ -374,6 +401,7 @@ def wikitext(file, c):
         ]
         info_text = "{{" + name + "\n" + "\n".join(fields) + "\n}}"
     else:
+        read = inscriptions(c)
         info_text = "\n".join(
             [
                 "{{Information",
@@ -383,6 +411,8 @@ def wikitext(file, c):
                 f"|author={c['maker']}",
                 f"|permission={c.get('permissie', '')}",
                 "|other versions=",
+                # {{Information}} has no inscriptions field: an extra row.
+                *([f"|other fields={INSCRIPTION_FIELD.format(value=read)}"] if read else []),
                 "}}",
             ]
         )

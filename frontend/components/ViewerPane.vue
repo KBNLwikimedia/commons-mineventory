@@ -8,6 +8,19 @@
       <cdx-button action="progressive" weight="quiet" :aria-label="t('viewer.zoom_out')" @click="viewer?.zoomStep(-1)"><cdx-icon :icon="cdxIconZoomOut" /></cdx-button>
       <span class="cc-zoom">{{ Math.round(scale * 100) }}%</span>
       <cdx-button action="progressive" weight="quiet" :aria-label="t('viewer.zoom_in')" @click="viewer?.zoomStep(1)"><cdx-icon :icon="cdxIconZoomIn" /></cdx-button>
+      <!-- Zoom slider, logarithmic: from 2% to 300%, each step the same factor. -->
+      <input
+        class="cc-zoom-schuif"
+        type="range"
+        :min="ZOOM_MIN_LOG"
+        :max="ZOOM_MAX_LOG"
+        step="0.05"
+        :value="Math.log2(scale)"
+        :aria-label="t('viewer.zoom_slider')"
+        :aria-valuetext="`${Math.round(scale * 100)}%`"
+        :title="t('viewer.zoom_slider')"
+        @input="viewer?.zoomTo(2 ** Number($event.target.value))"
+      />
       <cdx-button action="progressive" weight="quiet" @click="viewer?.zoomTo(1)">100%</cdx-button>
       <cdx-button action="progressive" weight="quiet" @click="viewer?.fit()">{{ t("viewer.fit") }}</cdx-button>
       <!-- What to draw on the image, as in the Delpher Uitsnijder; remembered in this browser. -->
@@ -51,6 +64,8 @@ const language = inject("language", "nl");
 const host = ref(null);
 const viewer = shallowRef(null);
 const scale = ref(1);
+const ZOOM_MIN_LOG = Math.log2(0.02);
+const ZOOM_MAX_LOG = Math.log2(3); // MAX_SCALE in viewer.js
 const LEGEND = ["geselecteerd", "kandidaat", "nieuw", "commons", "handmatig", "uitgesloten", "dik"];
 // Only the colours that occur on this page (plus "thicker", which always can).
 const legend = computed(() => {
