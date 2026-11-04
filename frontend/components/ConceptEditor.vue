@@ -184,6 +184,11 @@
             </div>
           </cdx-field>
         </template>
+        <!-- The texts read in and around the cut-out (they belong to the description of the object). -->
+        <cdx-field v-else-if="field === 'tekst_in_beeld' || field === 'tekst_rond_beeld'">
+          <template #label>{{ t(`describe.field_${field}`) }} <code>type={{ field === "tekst_in_beeld" ? "text" : "caption" }}</code></template>
+          <cdx-text-area v-model="editDraft[field]" :autosize="true" class="cc-inscriptie-veld" />
+        </cdx-field>
         <cdx-field v-else>
           <template #label>{{ t(field === "datum" ? "concept.date" : "concept.maker") }}</template>
           <template v-if="concept.herkomst?.[field]" #help-text><source-note :source="concept.herkomst[field]" /></template>
@@ -192,7 +197,7 @@
       </template>
       <p v-if="editField === 'samenvatting'" class="cc-klein">
         {{ t("concept.summary_edit_note") }}
-        <button type="button" class="cc-link" @click="editOpen = false; emit('edit-texts')">{{ t("concept.edit_teksten") }}</button>
+        <button type="button" class="cc-link" @click="openEdit('teksten')">{{ t("concept.edit_teksten") }}</button>
       </p>
     </cdx-dialog>
   </div>
@@ -215,7 +220,7 @@ import SdcPreview from "./SdcPreview.vue";
 import SourceNote from "./SourceNote.vue";
 
 const props = defineProps({ mid: { type: String, required: true }, n: { type: Number, required: true }, objectId: { type: String, required: true } });
-const emit = defineEmits(["saved", "edit-texts"]);
+const emit = defineEmits(["saved", "edit-texts", "texts-changed"]);
 const t = useT();
 const language = inject("language", "nl");
 const concept = ref(null);
@@ -319,8 +324,7 @@ function onRenderedClick(event) {
   const button = event.target.closest(".cc-weergave-potlood, .cc-weergave-potlood-tekst");
   if (!button) return;
   event.preventDefault();
-  if (button.dataset.veld === "teksten") emit("edit-texts");
-  else openEdit(button.dataset.veld);
+  openEdit(button.dataset.veld);
 }
 
 // The small window for one row: a copy of those fields, back into the draft on Opslaan.
@@ -329,14 +333,41 @@ const editField = ref("");
 const editDraft = ref(null);
 const editTitle = computed(() => (editField.value ? t(`concept.edit_${editField.value}`) : ""));
 // What each edit link or pencil opens; Summary [edit] opens all its fields at once.
-const EDIT_GROUPS = { caption: ["caption"], beschrijving: ["beschrijving"], datum: ["datum"], maker: ["maker"], samenvatting: ["beschrijving", "datum", "maker"] };
+const EDIT_GROUPS = {
+  caption: ["caption"],
+  beschrijving: ["beschrijving"],
+  datum: ["datum"],
+  maker: ["maker"],
+  samenvatting: ["beschrijving", "datum", "maker"],
+  teksten: ["tekst_in_beeld", "tekst_rond_beeld"],
+};
+// The inscriptions are the texts of the object's description, not fields of the concept.
+const TEXT_SOURCE = { tekst_in_beeld: "inscripties", tekst_rond_beeld: "tekst_rond" };
 const editFields = computed(() => EDIT_GROUPS[editField.value] || []);
 function openEdit(group) {
   editField.value = group;
-  editDraft.value = JSON.parse(JSON.stringify(Object.fromEntries(EDIT_GROUPS[group].map((field) => [field, draft.value[field]]))));
+  editDraft.value = JSON.parse(
+    JSON.stringify(Object.fromEntries(EDIT_GROUPS[group].map((field) => [field, field in TEXT_SOURCE ? concept.value[TEXT_SOURCE[field]] || "" : draft.value[field]])))
+  );
   editOpen.value = true;
 }
-function saveEdit() {
+async function saveEdit() {
+  if (editField.value === "teksten") {
+    // Saved on the description (as in "Wat staat hierop?"), so both tabs show the same text.
+    editOpen.value = false;
+    try {
+      const result = await patch(`${objectPath(props.mid, props.n, props.objectId)}/beschrijving`, {
+        tekst_in_beeld: editDraft.value.tekst_in_beeld.trim(),
+        tekst_rond_beeld: editDraft.value.tekst_rond_beeld.trim(),
+      });
+      emit("texts-changed", result);
+      await reload();
+    } catch (e) {
+      message.value = errorText(t, e);
+      messageType.value = "error";
+    }
+    return;
+  }
   for (const field of editFields.value) draft.value[field] = JSON.parse(JSON.stringify(editDraft.value[field]));
   editOpen.value = false;
   save();

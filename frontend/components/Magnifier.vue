@@ -326,7 +326,7 @@
       </cdx-tab>
 
       <cdx-tab name="commons" :label="t('concept.tab')">
-        <concept-editor ref="editor" :mid="file.mid" :n="n" :object-id="object.id" @edit-texts="tab = 'beschrijving'" />
+        <concept-editor ref="editor" :mid="file.mid" :n="n" :object-id="object.id" @edit-texts="tab = 'beschrijving'" @texts-changed="emit('changed', $event)" />
       </cdx-tab>
     </cdx-tabs>
     <cdx-message v-if="error" type="error" :inline="true">{{ error }}</cdx-message>

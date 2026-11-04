@@ -497,3 +497,4 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-naam-formaat .cc-naam-veld { flex: 1 1 24rem; min-width: 0; margin-top: 0; }
 .cc-naam-formaat .cc-formaat-veld { flex: none; margin-top: 0; }
 .cc-naam-formaat .cc-formaat-veld .cdx-toggle-button-group { display: inline-flex; flex-wrap: nowrap; }
+.cc-inscriptie-veld textarea { min-height: 8rem; font-size: 0.9375rem; line-height: 1.5; }
