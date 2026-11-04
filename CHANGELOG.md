@@ -7,14 +7,6 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [0.11.0] - 2026-11-04
 
-### Verwijderd
-
-- Het blok *Snel zoeken* (vaste groepen zoals wapens, portretten, schepen) is weg uit het detectiepaneel: op Commons staan duizenden soorten objecten, dus een vaste lijst klopt voor veel afbeeldingen niet. De *AI-suggesties voor deze afbeelding* (nu standaard open) doen dit per afbeelding. De API-modus `categorie` en *Alles detecteren* blijven bestaan.
-
-### Opgelost
-
-- De tooltip in het beeld toont de AI-beschrijving nu in de taal van de interface (was altijd Nederlands).
-
 ### Toegevoegd
 
 - *AI-suggesties voor deze afbeelding*: elke zoekterm toont hoeveel objecten ermee op de afbeelding staan, en een regel eronder telt het op ("12 objecten gevonden met 6 van de 11 zoektermen"), met hoeveel er in de prullenbak staan. De tooltip van een zoekterm noemt verwacht, gevonden en in de prullenbak. De pagina-API geeft daarvoor `prullenbak_termen`.
@@ -25,6 +17,14 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 - *Prullenbak legen*: de knop in de bevestiging heet nu *Definitief verwijderen* / *Delete permanently*; bij één object staat er geen "1 objecten" meer.
 - De bron *met de hand getekend* heet nu *met de hand getekende rechthoek* / *hand-drawn rectangle* (facet, objectenlijst, vergroter).
 - Pagina *Objecten*: de facetten (bron, bestand, alleen opgeslagen) staan in een kolom links, onder elkaar; de knop *Naar de prullenbak* onder elk object is een klein prullenbakje.
+
+### Verwijderd
+
+- Het blok *Snel zoeken* (vaste groepen zoals wapens, portretten, schepen) is weg uit het detectiepaneel: op Commons staan duizenden soorten objecten, dus een vaste lijst klopt voor veel afbeeldingen niet. De *AI-suggesties voor deze afbeelding* (nu standaard open) doen dit per afbeelding. De API-modus `categorie` en *Alles detecteren* blijven bestaan.
+
+### Opgelost
+
+- De tooltip in het beeld toont de AI-beschrijving nu in de taal van de interface (was altijd Nederlands).
 
 ## [0.10.0] - 2026-11-04
 
