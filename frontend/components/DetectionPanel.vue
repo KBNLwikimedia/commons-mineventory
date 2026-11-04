@@ -55,7 +55,7 @@
     </cdx-accordion>
 
     <cdx-accordion v-model="open.suggestions">
-      <template #title>{{ t("panel.suggestions") }}</template>
+      <template #title>{{ t("panel.suggestions") }} <ai-badge v-if="inventory" kind="pagina" :model="inventory.model" /></template>
       <template v-if="inventory">
         <p class="cc-klein">{{ inventory.paginasoort }} — {{ inventory.samenvatting }}</p>
         <div class="cc-knoppen">
@@ -118,6 +118,7 @@ import { computed, inject, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
 import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import AiBadge from "./AiBadge.vue";
 import BusyNote from "./BusyNote.vue";
 
 const props = defineProps({

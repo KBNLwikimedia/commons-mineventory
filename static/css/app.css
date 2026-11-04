@@ -183,7 +183,12 @@ h2, h3, h4 { margin: 0.5rem 0; }
 
 /* -- Magnifier and concept ------------------------------------------------------ */
 /* A confirmation always lies on top of other dialogs (e.g. the magnifier). */
-.cdx-dialog-backdrop:has(.cc-bevestig) { z-index: 401; }
+.cdx-dialog-backdrop:has(.cc-bevestig), .cdx-dialog-backdrop:has(.cc-ai-uitleg) { z-index: 401; }
+.cc-ai-uitleg.cdx-dialog { max-width: 34rem; }
+/* A dialog opened from inside another (the AI explanation in the magnifier) is placed
+   by Codex inside the outer backdrop, before the outer dialog: lift it above it. */
+.cdx-dialog-backdrop .cdx-dialog-backdrop { z-index: 10; }
+.cc-ai-merk.cdx-button { min-height: 0; padding: 0 4px; font-size: 0.75rem; vertical-align: middle; gap: 2px; }
 .cc-bevestig.cdx-dialog { max-width: 32rem; }
 .cc-vergroter.cdx-dialog { max-width: 56rem; width: 95vw; }
 /* Movable and resizable dialog (frontend/movable.js). */

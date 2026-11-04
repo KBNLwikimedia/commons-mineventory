@@ -5,6 +5,17 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-04
+
+### Toegevoegd
+
+- *Wat staat hierop?*: een AI-merkje (robot, "AI") bij onderwerp en beschrijving. Een klik opent een venster dat uitlegt dat een taalmodel de tekst schreef, wat er mis kan gaan en wat je moet controleren; ook of de tekst met de hand is aangepast. Hetzelfde merkje staat bij *AI-suggesties voor deze afbeelding* zodra er een AI-paginaoverzicht is, en bij *Bron: AI-beelddetectie* op het tabblad *Uitsnede* (met uitleg over de detectie: vorm, label, de score van dit object, wat je controleert).
+
+### Gewijzigd
+
+- *Wat staat hierop?*: soort en zekerheid (bijv. *tekening*, *hoog*) staan nu in de taal van de interface (*drawing*, *high*). De waarschuwing zegt nu wat je moet controleren: het onderwerp en de beschrijving.
+- *Wat staat hierop?*: het blok *Model en kosten* heet nu *Model, kosten en kwaliteit* en bevat de waarschuwing dat een taalmodel zich kan vergissen (stond onder de beschrijving).
+
 ## [0.7.0] - 2026-11-04
 
 ### Toegevoegd

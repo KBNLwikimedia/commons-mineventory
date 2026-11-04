@@ -23,7 +23,7 @@
         </div>
         <dl class="cc-gegevens">
           <dt>{{ t("magnifier.source") }}</dt>
-          <dd>{{ t(`source.${object.bron}`) }}<template v-if="object.wikidata"> · <a :href="`https://www.wikidata.org/wiki/${object.wikidata}`" target="_blank" rel="noopener">{{ object.wikidata }}</a></template></dd>
+          <dd>{{ t(`source.${object.bron}`) }} <ai-badge v-if="object.bron === 'sam'" kind="detectie" :model="object.herkomst?.model || config.sam_model" :score="object.score" /><template v-if="object.wikidata"> · <a :href="`https://www.wikidata.org/wiki/${object.wikidata}`" target="_blank" rel="noopener">{{ object.wikidata }}</a></template></dd>
           <dt>{{ t("magnifier.box") }}</dt>
           <dd>{{ object.box.x }}, {{ object.box.y }} · {{ object.box.w }} × {{ object.box.h }} px</dd>
           <template v-if="object.herkomst?.p2677"><dt>P2677</dt><dd><code>{{ object.herkomst.p2677 }}</code></dd></template>
@@ -89,13 +89,13 @@
           <div class="cc-concept-links">
             <template v-if="description">
               <dl class="cc-gegevens">
-                <dt>{{ t("describe.kind") }}</dt><dd>{{ description.soort }} · {{ t("describe.certainty") }}: {{ description.zekerheid }}</dd>
+                <dt>{{ t("describe.kind") }}</dt><dd>{{ fixedValue("kind", description.soort) }} · {{ t("describe.certainty") }}: {{ fixedValue("certainty", description.zekerheid) }}</dd>
                 <template v-if="!textDraft">
-                  <dt>{{ t("describe.subject") }}</dt><dd>{{ description.onderwerp }}<br /><i>{{ description.onderwerp_en }}</i></dd>
+                  <dt>{{ t("describe.subject") }} <ai-badge :model="description.model" :edited="aiEdited('onderwerp')" /></dt><dd>{{ description.onderwerp }}<br /><i>{{ description.onderwerp_en }}</i></dd>
                 </template>
                 <template v-if="description.bedrijf_of_naam"><dt>{{ t("describe.name") }}</dt><dd>{{ description.bedrijf_of_naam }}</dd></template>
                 <template v-if="!textDraft">
-                  <dt>{{ t("describe.description") }}</dt><dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
+                  <dt>{{ t("describe.description") }} <ai-badge :model="description.model" :edited="aiEdited('beschrijving')" /></dt><dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
                 </template>
                 <template v-if="description.tekst_in_beeld"><dt>{{ t("describe.text_in") }}</dt><dd>{{ description.tekst_in_beeld }}</dd></template>
                 <template v-if="description.tekst_rond_beeld"><dt>{{ t("describe.text_around") }}</dt><dd>{{ description.tekst_rond_beeld }}</dd></template>
@@ -125,7 +125,6 @@
                   <button type="button" class="cc-link" @click="undoEdit">↶ {{ t("magnifier.undo") }}</button>
                 </span>
               </div>
-              <p class="cc-klein cc-waarschuwing">{{ t("describe.caution") }}</p>
             </template>
             <template v-else>
               <p class="cc-klein">{{ t("describe.none_yet") }}</p>
@@ -175,7 +174,7 @@
           </ul>
         </section>
 
-        <!-- Secondary: which model, why, and what this answer cost. -->
+        <!-- Secondary: which model, why, what this answer cost, and how far to trust it. -->
         <section v-if="plan || description" class="cc-blok cc-blok-zacht">
           <h3 class="cc-blok-kop">{{ t("describe.model_block") }}</h3>
           <p class="cc-klein">
@@ -189,6 +188,7 @@
               <template v-if="description.tokens?.invoer != null"> · {{ t("describe.tokens", { input: description.tokens.invoer, output: description.tokens.uitvoer }) }}</template>
             </template>
           </p>
+          <p v-if="description" class="cc-klein cc-waarschuwing">{{ t("describe.caution") }}</p>
         </section>
       </cdx-tab>
 
@@ -209,6 +209,7 @@ import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { forgetPlacement, makeMovable } from "../movable.js";
 import { objectName } from "../state.js";
+import AiBadge from "./AiBadge.vue";
 import ConceptEditor from "./ConceptEditor.vue";
 import CutoutPreview from "./CutoutPreview.vue";
 import InfoButton from "./InfoButton.vue";
@@ -277,6 +278,18 @@ const base = computed(() => objectPath(props.file.mid, props.n, props.object.id)
 const name = computed(() => objectName(props.object, language, t));
 const subtitle = computed(() => `${t(`source.${props.object.bron}`)} · ${t(`status.${props.object.status}`)}`);
 const description = computed(() => props.object.beschrijving || null);
+// Whether the user changed this AI text (NL or EN) by hand.
+function aiEdited(field) {
+  const original = description.value?.ai_origineel || {};
+  return field in original || `${field}_en` in original;
+}
+
+// Kind and certainty come from a fixed Dutch list (the model's answer schema);
+// shown in the interface language, or as given when not in the list.
+function fixedValue(group, value) {
+  const text = t(`${group}.${value}`);
+  return text === `${group}.${value}` ? value : text;
+}
 // Why this model, in plain words. Descriptions stored before the reason had a
 // code fall back to the current choice for the file (the same rules).
 const modelReason = computed(() => {
