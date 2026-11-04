@@ -222,9 +222,17 @@ const visibleTexts = computed(() => props.texts.filter((item) => item.key || (it
 // Editing one text at a time.
 const editing = ref(null);
 const draft = ref("");
-function startEdit(item) {
+async function startEdit(item) {
   editing.value = item.key;
   draft.value = item.text || "";
+  // As high as the text in it (autosize only reacts once you type); long texts scroll.
+  await nextTick();
+  const area = document.querySelector(".cc-lightbox-bewerk textarea");
+  if (area) {
+    area.style.height = "auto";
+    area.style.height = `${area.scrollHeight + 2}px`;
+    area.focus();
+  }
 }
 function cancelEdit() {
   editing.value = null;

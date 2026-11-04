@@ -439,8 +439,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-zoom-schuif { width: 8rem; accent-color: var(--color-progressive, #36c); vertical-align: middle; }
 @media (max-width: 48rem) { .cc-zoom-schuif { width: 5rem; } }
 .cc-lightbox-teksten h3 { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
-/* Editing: the box takes the height of the window, the image stays as large as it was. */
-.cc-lightbox-bewerk textarea { font-size: 1rem; line-height: 1.5; min-height: calc(94vh - 20rem); }
+/* Editing: the box is as high as its text (at most the height of the window); the image stays as large as it was. */
+.cc-lightbox-bewerk textarea { font-size: 1rem; line-height: 1.5; min-height: 3rem; max-height: calc(94vh - 16rem); overflow-y: auto; }
 .cc-vergroter .cdx-dialog__header { display: flex; align-items: flex-start; gap: 0.5rem; }
 .cc-vergroter .cdx-dialog__header__title-group { flex: 1; min-width: 0; }
 .cc-vergroter .cdx-dialog__header__subtitle a { color: var(--color-progressive, #36c); }

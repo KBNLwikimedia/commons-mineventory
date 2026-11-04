@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.24.2] - 2026-11-04
+
+### Gewijzigd
+
+- Lightbox: het tekstvak bij *Aanpassen* is zo hoog als de tekst die erin staat (een korte tekst geeft een laag vak), en hooguit zo hoog als het venster; een lange tekst scrolt.
+
 ## [0.24.1] - 2026-11-04
 
 ### Gewijzigd
