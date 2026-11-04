@@ -5,6 +5,19 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-04
+
+### Toegevoegd
+
+- De objectenlijst staat op alfabet (bij gelijke naam van boven naar beneden). Namen die vaker voorkomen krijgen in de lijst een nummer (*house 1*, *house 2*); dat nummer staat alleen in de lijst, niet in de vergroter en niet in het Commons-concept.
+- *AI-suggesties voor deze afbeelding*: knop **Alle objecten detecteren (n)** zoekt alle voorgestelde termen in één keer met de AI-beelddetectie (één aanroep per term, met de kosten op de knop en een bevestiging vooraf). Dat is nu de hoofdknop; *Opnieuw vragen* staat ernaast.
+- Pagina *Objecten*: elk object heeft een knop *Naar de prullenbak*; een nieuw facet *Bestand*; en een knop die alles wat de filters tonen in één keer naar de prullenbak verplaatst (*Getoonde objecten naar de prullenbak (n)*, met bevestiging). Daarna een melding met *Ongedaan maken*.
+- De melding *Naar de prullenbak verplaatst* toont welke uitsnede het was: een miniatuur, de naam en de beschrijving (of het bijschrift).
+
+### Opgelost
+
+- *Opnieuw vragen* bij de AI-suggesties stelde de vraag niet opnieuw: de app kreeg steeds het opgeslagen antwoord terug (gratis, maar zonder nieuwe suggesties). Nu stuurt de knop `opnieuw: true` en vraagt hij het model echt opnieuw, na de bevestiging van de kosten. De uitleg eronder zegt dat dat weer geld kost en dat het antwoord op het vorige kan lijken.
+
 ## [0.9.1] - 2026-11-04
 
 ### Documentatie

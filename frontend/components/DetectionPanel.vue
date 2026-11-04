@@ -77,13 +77,28 @@
           </cdx-button>
         </div>
       </template>
-      <!-- The action itself: blue and full size, apart from the suggested labels above. -->
-      <cdx-button class="cc-inventaris-knop" action="progressive" weight="primary" :disabled="busy" @click="act('inventory', 'inventory')">
-        {{ inventory ? t("panel.inventory_again") : t("panel.inventory") }}
-      </cdx-button>
+      <!-- The actions, full size, apart from the suggested labels above. With an
+           overview, detecting all its terms in one go is the main action. -->
+      <div class="cc-knoppen cc-inventaris-knop">
+        <cdx-button
+          v-if="inventory?.zoektermen?.length"
+          action="progressive"
+          weight="primary"
+          :disabled="busy"
+          @click="act('suggestions', 'detect', { modus: 'prompt', prompt: inventory.zoektermen.map((term) => term.en).join(', ') })"
+        >
+          {{ t("panel.detect_suggestions", { n: inventory.zoektermen.length }) }} <span class="cc-kosten">{{ cost(inventory.zoektermen.length) }}</span>
+        </cdx-button>
+        <cdx-button action="progressive" :weight="inventory?.zoektermen?.length ? 'normal' : 'primary'" :disabled="busy" @click="act('inventory', 'inventory')">
+          {{ inventory ? t("panel.inventory_again") : t("panel.inventory") }}
+        </cdx-button>
+      </div>
       <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
       <busy-note v-if="busy && where === 'inventory'" :message="t('busy.muse_page')" />
-      <p class="cc-klein">{{ t("panel.inventory_help") }} {{ museCost(config.muse.pagina_usd) }}</p>
+      <p class="cc-klein">
+        {{ t("panel.inventory_help") }} {{ museCost(config.muse.pagina_usd) }}
+        <template v-if="inventory">{{ t("panel.inventory_again_help") }}</template>
+      </p>
     </cdx-accordion>
 
     <cdx-accordion v-model="open.point">

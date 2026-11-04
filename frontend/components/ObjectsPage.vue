@@ -1,6 +1,7 @@
 <!--
   /objecten (functional design 10.4): all detected and saved objects over all
-  files, with facets (source, saved) and the trash.
+  files, with facets (source, file, saved) and the trash. Each object can go to
+  the trash, and so can everything the facets show, in one go; both with Undo.
 -->
 <template>
   <div class="cc-pagina-objecten">
@@ -13,8 +14,25 @@
               {{ t(`source.${source}`) }} ({{ count(source) }})
             </cdx-checkbox>
           </cdx-field>
+          <cdx-field v-if="files.length > 1" :is-fieldset="true">
+            <template #label>{{ t("objects.facet_file") }}</template>
+            <cdx-checkbox v-for="f in files" :key="f.mid" v-model="chosenFiles" :input-value="f.mid" :inline="true">
+              <span class="cc-afkappen cc-facet-bestand" :title="f.titel">{{ f.titel }}</span> ({{ f.n }})
+            </cdx-checkbox>
+          </cdx-field>
           <cdx-toggle-switch v-model="onlySaved">{{ t("objects.only_saved") }}</cdx-toggle-switch>
         </div>
+        <!-- Bulk: everything the facets show now. -->
+        <div v-if="shown.length" class="cc-knoppen cc-bulk">
+          <cdx-button action="destructive" :disabled="busy" @click="trashShown">
+            <cdx-icon :icon="cdxIconTrash" /> {{ t(filtered ? "objects.trash_shown" : "objects.trash_all", { n: shown.length }) }}
+          </cdx-button>
+        </div>
+        <cdx-message v-if="undo" type="notice" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" @user-dismissed="undo = null">
+          {{ t("objects.trashed_n", { n: undo.length }) }}
+          <button type="button" class="cc-link" :disabled="busy" @click="restoreMany(undo)">↶ {{ t("magnifier.undo") }}</button>
+          <button type="button" class="cc-link" @click="tab = 'prullenbak'">{{ t("objects.to_trash") }}</button>
+        </cdx-message>
         <p v-if="!shown.length" class="cc-leeg">{{ t("objects.none_found") }}</p>
         <ul class="cc-raster">
           <li v-for="obj in shown" :key="obj.mid + obj.id">
@@ -24,6 +42,11 @@
             <strong>{{ name(obj) }}</strong>
             <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · {{ t("objects.saved") }}</template></small>
             <small class="cc-afkappen" :title="obj.bestand_titel">{{ obj.bestand_titel }}</small>
+            <span class="cc-knoppen">
+              <cdx-button action="destructive" weight="quiet" size="small" :disabled="busy" :aria-label="t('objects.trash')" :title="t('objects.trash')" @click="trashMany([obj])">
+                <cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}
+              </cdx-button>
+            </span>
           </li>
         </ul>
       </cdx-tab>
@@ -53,7 +76,7 @@
 <script setup>
 import { computed, inject, onMounted, ref } from "vue";
 import { CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxMessage, CdxTab, CdxTabs, CdxToggleSwitch } from "@wikimedia/codex";
-import { cdxIconRestore } from "@wikimedia/codex-icons";
+import { cdxIconRestore, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
@@ -67,15 +90,37 @@ const tab = ref(new URLSearchParams(window.location.search).get("tab") === "prul
 const objects = ref([]);
 const trash = ref([]);
 const chosenSources = ref([]);
+const chosenFiles = ref([]);
 const onlySaved = ref(false);
 const error = ref("");
+const busy = ref(false);
+// The objects of the last move to the trash, for Undo.
+const undo = ref(null);
 
 const sources = computed(() => [...new Set(objects.value.map((o) => o.bron))].sort());
 const count = (source) => objects.value.filter((o) => o.bron === source).length;
 const name = (obj) => objectName(obj, language, t);
+// The files with objects, for the file facet.
+const files = computed(() => {
+  const byMid = new Map();
+  for (const o of objects.value) {
+    const entry = byMid.get(o.mid) || { mid: o.mid, titel: "", n: 0 };
+    // Not every object carries the file title; take the first one that does.
+    entry.titel ||= (o.bestand_titel || "").replace(/^File:/, "");
+    entry.n += 1;
+    byMid.set(o.mid, entry);
+  }
+  return [...byMid.values()].map((f) => ({ ...f, titel: f.titel || f.mid })).sort((a, b) => a.titel.localeCompare(b.titel));
+});
 const shown = computed(() =>
-  objects.value.filter((o) => (!chosenSources.value.length || chosenSources.value.includes(o.bron)) && (!onlySaved.value || o.opgeslagen))
+  objects.value.filter(
+    (o) =>
+      (!chosenSources.value.length || chosenSources.value.includes(o.bron)) &&
+      (!chosenFiles.value.length || chosenFiles.value.includes(o.mid)) &&
+      (!onlySaved.value || o.opgeslagen)
+  )
 );
+const filtered = computed(() => shown.value.length !== objects.value.length);
 
 async function load() {
   try {
@@ -83,6 +128,45 @@ async function load() {
     trash.value = (await get(`${API}/prullenbak`)).objecten;
   } catch (e) {
     error.value = errorText(t, e);
+  }
+}
+
+// To the trash, one by one on the server (each is a small, locked change).
+async function trashMany(list) {
+  busy.value = true;
+  error.value = "";
+  const done = [];
+  try {
+    for (const obj of list) {
+      await del(objectPath(obj.mid, obj.pagina, obj.id));
+      done.push(obj);
+    }
+  } catch (e) {
+    error.value = errorText(t, e);
+  } finally {
+    undo.value = done.length ? done : null;
+    busy.value = false;
+    await load();
+  }
+}
+
+async function trashShown() {
+  const n = shown.value.length;
+  const text = t(filtered.value ? "objects.trash_shown_confirm" : "objects.trash_all_confirm", { n });
+  if (!(await askConfirm(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true }))) return;
+  await trashMany([...shown.value]);
+}
+
+async function restoreMany(list) {
+  busy.value = true;
+  try {
+    for (const obj of list) await patch(objectPath(obj.mid, obj.pagina, obj.id), { prullenbak: false });
+    undo.value = null;
+  } catch (e) {
+    error.value = errorText(t, e);
+  } finally {
+    busy.value = false;
+    await load();
   }
 }
 

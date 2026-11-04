@@ -29,7 +29,7 @@
           :disabled="obj.status === 'uitgesloten'"
           @update:model-value="emit('toggle', obj.id)"
         >
-          <span class="cc-object-naam" @click.prevent="emit('focus', obj.id)">{{ name(obj) }}</span>
+          <span class="cc-object-naam" @click.prevent="emit('focus', obj.id)">{{ listName(obj) }}</span>
           <template #description>
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
             <template v-if="obj.opgeslagen"> · {{ t("objects.saved") }}</template>
@@ -72,8 +72,22 @@ const language = inject("language", "nl");
 const name = (obj) => objectName(obj, language, t);
 // A small cut-out; the box in the URL makes a changed object load anew.
 const thumbnail = (obj) => `${objectPath(props.mid, props.n, obj.id)}/uitsnede.jpg?w=96&v=${obj.box.x}-${obj.box.y}-${obj.box.w}-${obj.box.h}`;
-// Regions from Commons first (in reading order), then the rest from top to bottom.
+// Alphabetically by name; the same name in reading order (top to bottom, left to right).
 const sorted = computed(() =>
-  [...props.objects].sort((a, b) => (a.bron === "commons") === (b.bron === "commons") ? a.box.y - b.box.y || a.box.x - b.box.x : a.bron === "commons" ? -1 : 1)
+  [...props.objects].sort((a, b) => name(a).localeCompare(name(b), language, { sensitivity: "base" }) || a.box.y - b.box.y || a.box.x - b.box.x)
 );
+// Names that occur more than once get a number in this list only ("house 1",
+// "house 2"), so they can be told apart; the magnifier and Commons keep the name.
+const numbers = computed(() => {
+  const counts = {};
+  const result = {};
+  for (const obj of sorted.value) {
+    const key = name(obj).toLocaleLowerCase(language);
+    counts[key] = (counts[key] || 0) + 1;
+    result[obj.id] = counts[key];
+  }
+  for (const obj of sorted.value) if (counts[name(obj).toLocaleLowerCase(language)] === 1) delete result[obj.id];
+  return result;
+});
+const listName = (obj) => (numbers.value[obj.id] ? `${name(obj)} ${numbers.value[obj.id]}` : name(obj));
 </script>

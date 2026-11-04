@@ -161,13 +161,16 @@ describe("PageViewer", () => {
 });
 
 describe("ObjectList component", () => {
-  it("lists regions from Commons first and emits the toggle", async () => {
+  it("lists objects alphabetically, numbers equal names, and emits the toggle", async () => {
     const wrapper = mount(ObjectList, {
       props: { mid: "M1", n: 1, objects: structuredClone(objects).map((o) => ({ ...o, status: o.id === "a" ? "geselecteerd" : "kandidaat" })) },
       global: { provide: { t: (key) => key, language: "nl" } },
     });
     const names = wrapper.findAll(".cc-object-naam").map((n) => n.text());
     expect(names).toEqual(["Catharina", "wapen"]);
+    const twice = [...objects, { id: "c", label: "wapen", status: "kandidaat", bron: "dummy", box: { x: 0, y: 500, w: 10, h: 10 }, masker: null }];
+    const numbered = mount(ObjectList, { props: { mid: "M1", n: 1, objects: twice }, global: { provide: { t: (key) => key, language: "nl" } } });
+    expect(numbered.findAll(".cc-object-naam").map((n) => n.text())).toEqual(["Catharina", "wapen 1", "wapen 2"]);
     expect(wrapper.find(".cc-object-duim img").attributes("src")).toContain("/object/b/uitsnede.jpg?w=96");
     await wrapper.findAll('input[type="checkbox"]')[0].setValue(true);
     expect(wrapper.emitted("toggle")[0]).toEqual(["b"]);

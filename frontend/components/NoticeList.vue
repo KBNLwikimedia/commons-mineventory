@@ -11,6 +11,14 @@
       @user-dismissed="emit('dismiss', notice.id)"
       @auto-dismissed="emit('dismiss', notice.id)"
     >
+      <!-- Optionally the object it is about: a small cut-out, its name and description. -->
+      <span v-if="notice.object" class="cc-melding-object">
+        <img :src="notice.object.image" alt="" />
+        <span>
+          <strong>{{ notice.object.name }}</strong>
+          <span v-if="notice.object.description && notice.object.description !== notice.object.name" class="cc-klein cc-melding-beschrijving">{{ notice.object.description }}</span>
+        </span>
+      </span>
       {{ notice.text }}
       <span v-if="notice.actions?.length || notice.link" class="cc-melding-acties">
         <button v-for="action in notice.actions || []" :key="action.label" type="button" class="cc-link" @click="action.run(); emit('dismiss', notice.id)">

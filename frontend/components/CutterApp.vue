@@ -68,7 +68,7 @@
           :point-mode="pointMode"
           @detect="detect"
           @smart="smartDetect"
-          @inventory="askInventory"
+          @inventory="askInventory(Boolean(inventory))"
           @merge="mergeDuplicates"
           @describe-all="describeAll"
           :draw-mode="drawMode"
@@ -114,7 +114,7 @@ import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import ColumnSplitter from "./ColumnSplitter.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { addToHistory, appUrl, clearHistory, readHistory, readStart, removeFromHistory } from "../state.js";
+import { addToHistory, appUrl, clearHistory, objectName, readHistory, readStart, removeFromHistory } from "../state.js";
 import HistoryList from "./HistoryList.vue";
 import DetectionPanel from "./DetectionPanel.vue";
 import FileBar from "./FileBar.vue";
@@ -253,13 +253,15 @@ async function detect(request) {
   }
 }
 
-async function askInventory() {
+// The page overview. With `again` the model is really asked anew (paid);
+// otherwise a stored answer for this page and model comes from the cache, free.
+async function askInventory(again = false) {
   const base = pagePath(file.value.mid, pageN.value);
   busy.value = true;
   try {
     const plan = await get(`${base}/inventaris`);
     if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd))) return;
-    const result = await post(`${base}/inventaris`, {});
+    const result = await post(`${base}/inventaris`, { opnieuw: again });
     inventory.value = result.inventaris;
   } catch (error) {
     fail(error);
@@ -389,11 +391,19 @@ async function trashObject(id) {
   });
   if (!ok) return;
   const n = pageN.value;
+  // What the notice shows of the object: taken before it leaves the list.
+  const obj = objects.value.find((o) => o.id === id);
+  const shown = obj && {
+    image: `${objectPath(file.value.mid, n, id)}/uitsnede.jpg?w=96`,
+    name: objectName(obj, props.config.taal, t),
+    description: (props.config.taal === "en" ? obj.beschrijving?.beschrijving_en : obj.beschrijving?.beschrijving) || obj.beschrijving?.beschrijving || obj.bijschrift?.tekst || "",
+  };
   try {
     const result = await del(objectPath(file.value.mid, n, id));
     objects.value = result.objecten;
     if (magnifiedId.value === id) magnifierOpen.value = false;
     notify("notice", t("objects.trashed"), {
+      object: shown,
       actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreObject(id, n) }],
       link: { href: "/objecten?tab=prullenbak", label: t("objects.to_trash") },
     });
