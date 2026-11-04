@@ -6,6 +6,10 @@ Dit FO beschrijft een variant van de [Delpher Uitsnijder](https://github.com/ook
 
 Punten met **[Vraag]** wachten op een keuze van Olaf; ze staan ook in hoofdstuk 15. Wat Olaf heeft besloten, staat bij het onderwerp en in de tabel in hoofdstuk 15.
 
+## Begrippen
+
+**Object en uitsnede.** Een *object* is wat er op de afbeelding gevonden is: een kader (soms met de vorm, het masker), een naam, een status en eventueel een beschrijving en een Commons-concept. Het is alleen gegevens, en het wordt bewaard tot de pagina een jaar niet geopend is. Een *uitsnede* is het beeldbestand dat je van een object maakt met *Selectie opslaan*: een JPG van het kader en een PNG van de vorm, in de volledige resolutie van het origineel. Uitsneden worden 30 dagen na het laatste gebruik verwijderd (tenzij ze op Commons staan); het object blijft dan, en opnieuw opslaan maakt de uitsnede opnieuw. Elke uitsnede hoort bij een object; een object heeft pas een uitsnede als je het opslaat. De miniaturen in de lijsten zijn geen uitsneden: die maakt de app telkens even voor het tonen. In de interface staat dit ook bij *Wat je vond*, de bewaartermijnen, de prullenbak en de lijst *Bekeken* (sinds 0.29.0).
+
 ## 1. Doel
 
 Een experimentele webapp waarmee je een bestand op Wikimedia Commons opent, er objecten in detecteert (met box en masker), ze uitsnijdt als transparante PNG of als JPG, ze laat beschrijven, en de uitsneden na controle **weer op Commons publiceert**, met een nette koppeling naar het origineel.
@@ -270,7 +274,9 @@ De opvolger van "Uit Delpher": regio's die op Commons al bestaan. Eis van Olaf (
 
 ### 7.6 Paginaoverzicht
 
-"Wat staat op deze pagina?" met zoektermen als chips in het blok *AI-suggesties voor deze afbeelding*, met per term hoeveel objecten op de afbeelding staan (en in de prullenbak), en een knop *Alle objecten detecteren*.
+"Wat staat op deze pagina?" met zoektermen als chips in het blok *AI-suggesties voor deze afbeelding*, met per term hoeveel objecten op de afbeelding staan (en in de prullenbak), en een knop *Alle objecten detecteren* (sinds 0.29.0 alleen voor de aangevinkte termen).
+
+Sinds 0.29.0 (besluit Olaf, 5-11-2026): de eerste vraag is één aanroep voor beschrijving én zoektermen (het goedkoopst: het beeld gaat één keer mee). Daarna kan elk deel apart opnieuw (*Beschrijving opnieuw*, *Zoektermen opnieuw*: één aanroep met een vraag voor alleen dat deel, het andere deel blijft) of apart verwijderd worden (gratis). Twee aparte aanroepen vanaf het begin zouden ongeveer anderhalf keer zo veel kosten.
 
 ## 8. Inloggen en rechten (OAuth)
 
@@ -591,9 +597,12 @@ Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 
 - **Header**: icoon, "Commons Cutter", label *experiment*, rechts de taalkeuze (NL/EN) en **Inloggen** of de gebruikersnaam met een menu (Mijn uploads, Uitloggen).
 - **Invoerbalk**: Commons-URL of titel, knop **Openen**. Daaronder: titel, miniatuur, licentie (als Codex-*chip*), maker, datum, link naar de bestandspagina, en een uitklapbare **Metadata** (beschrijving, categorieën, SDC).
-- **Links**: bestand › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › objecten.
-- **Midden**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
-- **Rechts**: het detectiepaneel in uitklapbare blokken (Codex *Accordion*), sinds 0.14.0 in deze volgorde: AI-suggesties voor deze afbeelding, Uit Commons, Zoeken, Aanwijzen of tekenen, Bulk-operaties, Bijsnijden in CropTool (0.18.0). Daaronder de resultatenlijst met vinkjes, en de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
+Sinds 0.29.0 van links naar rechts in de volgorde van het werk, zoals in de Delpher Uitsnijder (besluit Olaf, 4-11-2026): beeld, objecten zoeken, wat je vond.
+
+- **Links**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
+- **Midden**: *Objecten zoeken*, het detectiepaneel in uitklapbare blokken (Codex *Accordion*), sinds 0.14.0 in deze volgorde: AI-suggesties voor deze afbeelding, Uit Commons, Zoeken, Aanwijzen of tekenen, Bulk-operaties, Bijsnijden in CropTool (0.18.0).
+- **Rechts**: *Wat je vond*: laatst bezocht › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › de objecten met vinkjes, en onderaan (blijft in beeld) de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
+- Elke kolom heeft een kop met één regel uitleg en een (i)-venster (0.28.0).
 - **Vergroter**: de uitsnede, "Wat staat hierop?", het bijschrift en het Commons-concept (tab).
 - **Gebouwd in fase 1 (stand 0.9.0)**: de randen tussen de drie kolommen zijn versleepbaar (ook met de pijltjestoetsen; breedte per browser onthouden); de objectenlijst toont een miniatuur per object, en een regel licht op als de muis erboven of boven die uitsnede in het beeld staat; alle knoppen zijn Codex-blauw (*progressive*), verwijderen blijft rood; in het Commons-concept zitten de invulacties per veld in een klein menu (⋯) met *Ongedaan maken* direct erna; de namen die de app zelf geeft (klik, rechthoek, regio) en soort en zekerheid volgen de taal van de interface.
 - **Pagina's**: `/objecten` (alle uitsneden, met het facet "Op Commons"), `/commons` (het keuzemenu), `/verbruik`, `/docs`, `/changelog`.

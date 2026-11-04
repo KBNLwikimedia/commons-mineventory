@@ -56,7 +56,7 @@
 import { computed, inject, onMounted, ref } from "vue";
 import { CdxButton, CdxCheckbox, CdxIcon, CdxMessage, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconUpload } from "@wikimedia/codex-icons";
-import { errorText, filePath, get, objectPath, patch, post } from "../api.js";
+import { errorText, filePath, get, objectPath, patch, post, query } from "../api.js";
 import { useT } from "../i18n.js";
 import RightsLabel from "./RightsLabel.vue";
 
@@ -92,8 +92,8 @@ async function runCheck() {
   busy.value = true;
   error.value = "";
   try {
-    const body = { objecten: chosen.value.map((item) => ({ pagina: item.pagina, id: item.id })) };
-    check.value = (await post(`${filePath(props.mid)}/commons/controle`, body)).controle;
+    const objecten = chosen.value.map((item) => `${item.pagina}:${item.id}`).join(",");
+    check.value = (await get(`${filePath(props.mid)}/commons/controle${query({ objecten })}`)).controle;
   } catch (e) {
     error.value = errorText(t, e);
   } finally {

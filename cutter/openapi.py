@@ -14,7 +14,10 @@ def _q(name, description, kind="string"):
 
 
 PAGE = "/bestand/{mid}/pagina/{n}"
-OBJECT = PAGE + "/object/{object_id}"
+OBJECT = PAGE + "/objecten/{object_id}"
+OLD_OBJECT = PAGE + "/object/{object_id}"  # deprecated since 0.29.0, gone in 0.30.0
+VERSIE = {"name": "versie", "in": "path", "required": True, "schema": {"type": "string"}, "description": "De versie uit de geschiedenis (een tijd, bijv. 2026-11-04T10:12:03.123+00:00)"}
+DEEL = {"name": "deel", "in": "path", "required": True, "schema": {"type": "string", "enum": ["beschrijving", "zoektermen"]}, "description": "Het deel van het paginaoverzicht"}
 
 # (method, path, summary, parameters, request body description, success status, kost geld?)
 ENDPOINTS = [
@@ -28,12 +31,16 @@ ENDPOINTS = [
     ("get", PAGE + "/detecties/raming", "Kostenraming van een detectie; voert niets uit",
      [MID, N, _q("prompt", "Zoekterm"), _q("modus", "prompt, alles of commons"), _q("minscore", "Laagste score, 0-1")], None, 200, False),
     ("get", PAGE + "/inventaris", "Paginaoverzicht (opgeslagen) en de kosten van een nieuw", [MID, N], None, 200, False),
+    ("delete", PAGE + "/inventaris", "Het hele paginaoverzicht verwijderen (gratis)", [MID, N], None, 200, False),
     ("post", PAGE + "/inventaris", "Wat staat op deze pagina? (Muse Spark)", [MID, N], '{"model": "auto|standaard|contributor", "opnieuw": false}', 200, True),
+    ("delete", PAGE + "/inventaris/{deel}", "Eén deel van het paginaoverzicht verwijderen (gratis)", [MID, N, DEEL], None, 200, False),
+    ("post", PAGE + "/inventaris/{deel}", "Eén deel van het paginaoverzicht opnieuw vragen (Muse Spark; altijd een nieuw antwoord)", [MID, N, DEEL], '{"model": "auto|standaard|contributor"}', 200, True),
+    ("post", PAGE + "/samenvoegingen", "Dubbelingen samenvoegen (gratis)", [MID, N], None, 200, False),
     ("get", OBJECT + "/beschrijving/geschiedenis", "Eerdere beschrijvingen van het object, nieuwste eerst", [MID, N, OID], None, 200, False),
-    ("delete", OBJECT + "/beschrijving/geschiedenis", "Eén eerdere versie verwijderen (gratis)", [MID, N, OID, _q("versie", "De versie uit de geschiedenis")], None, 200, False),
-    ("post", OBJECT + "/beschrijving/terugzetten", "Een eerdere versie (AI of met de hand) weer de huidige maken (gratis)", [MID, N, OID], '{"versie": "…"} | {"tijdstempel": "…", "bewerkt": false}', 200, False),
+    ("delete", OBJECT + "/beschrijving/geschiedenis/{versie}", "Eén eerdere versie verwijderen (gratis)", [MID, N, OID, VERSIE], None, 200, False),
+    ("put", OBJECT + "/beschrijving", "Een eerdere versie (AI of met de hand) weer de huidige beschrijving maken (gratis)", [MID, N, OID], '{"versie": "…"}', 200, False),
     ("get", OBJECT + "/beschrijving/invoer.jpg", "Wat de AI-beeldbeschrijving zou zien, met ?marge= (0-1), het kader in rood; ?max= (tot 4000 px) voor een grotere versie", [MID, N, OID, _q("marge", "Ruimte rond het kader, 0-1"), _q("max", "Langste zijde in pixels, 1024-4000")], None, 200, False),
-    ("patch", PAGE + "/objecten", "Selectie of status wijzigen, of dubbelingen samenvoegen", [MID, N], '{"geselecteerd": [ids]} | {"objecten": [{id, status}]} | {"samenvoegen": true}', 200, False),
+    ("patch", PAGE + "/objecten", "Selectie of status wijzigen", [MID, N], '{"geselecteerd": [ids]} | {"objecten": [{id, status}]} ({"samenvoegen": true} is verouderd: POST …/samenvoegingen)', 200, False),
     ("get", OBJECT, "Eén object (ook in de prullenbak)", [MID, N, OID], None, 200, False),
     ("patch", OBJECT, "Object wijzigen: bijschrift, status, prullenbak", [MID, N, OID], '{"bijschrift": {"tekst"} | null, "status", "prullenbak": bool}', 200, False),
     ("delete", OBJECT, "Object naar de prullenbak", [MID, N, OID], None, 200, False),
@@ -50,7 +57,7 @@ ENDPOINTS = [
     ("get", PAGE + "/uitsneden", "Opgeslagen uitsneden van een pagina", [MID, N], None, 200, False),
     ("post", PAGE + "/uitsneden", "Uitsneden opslaan (volledige resolutie)", [MID, N], '{"ids": [...]} (standaard: de geselecteerde)', 201, False),
     ("get", "/bestand/{mid}/commons", "Het keuzemenu voor Commons", [MID], None, 200, False),
-    ("post", "/bestand/{mid}/commons/controle", "Controle vooraf (alleen lezen op Commons)", [MID], '{"objecten": [{pagina, id}]}', 200, False),
+    ("get", "/bestand/{mid}/commons/controle", "Controle vooraf (alleen lezen op Commons)", [MID, _q("objecten", "pagina:id, gescheiden door komma's; zonder: de aangevinkte")], None, 200, False),
     ("post", "/bestand/{mid}/commons/uploads", "Uploaden (fase 2); vereist login, bevestiging en COMMONS_UPLOAD=aan", [MID], '{"bevestigd": true, "objecten": [...]}', 202, False),
     ("get", "/uploads/{task}", "Voortgang van een upload (fase 2)", [{"name": "task", "in": "path", "required": True, "schema": {"type": "string"}}], None, 200, False),
     ("get", "/bestand/{mid}/export", "Exporteren: zip (met wikitekst per uitsnede) of json", [MID, _q("formaat", "zip of json")], None, 200, False),
@@ -65,6 +72,16 @@ ENDPOINTS = [
     ("get", "/openapi.json", "Deze beschrijving", [], None, 200, False),
 ]
 
+# Old paths that still work until 0.30.0 (Deprecation header, Link to the successor).
+DEPRECATED = [
+    *[(method, OLD_OBJECT + path[len(OBJECT):], summary, parameters, body, status, paid)
+      for method, path, summary, parameters, body, status, paid in ENDPOINTS
+      if path.startswith(OBJECT) and (method, path) not in {("put", OBJECT + "/beschrijving"), ("delete", OBJECT + "/beschrijving/geschiedenis/{versie}")}],
+    ("post", OLD_OBJECT + "/beschrijving/terugzetten", "Verouderd: PUT …/objecten/{object_id}/beschrijving", [MID, N, OID], '{"versie": "…"} | {"tijdstempel": "…", "bewerkt": false}', 200, False),
+    ("delete", OLD_OBJECT + "/beschrijving/geschiedenis", "Verouderd: DELETE …/objecten/{object_id}/beschrijving/geschiedenis/{versie}", [MID, N, OID, _q("versie", "De versie uit de geschiedenis")], None, 200, False),
+    ("post", "/bestand/{mid}/commons/controle", "Verouderd: GET …/commons/controle?objecten=", [MID], '{"objecten": [{pagina, id}]}', 200, False),
+]
+
 ERROR = {
     "type": "object",
     "properties": {"fout": {"type": "string", "description": "Melding in het Nederlands"}, "code": {"type": "string", "description": "Vaste code, door de UI vertaald"}},
@@ -74,7 +91,7 @@ ERROR = {
 
 def openapi_spec():
     paths = {}
-    for method, path, summary, parameters, body, status, paid in ENDPOINTS:
+    for deprecated, (method, path, summary, parameters, body, status, paid) in [(False, e) for e in ENDPOINTS] + [(True, e) for e in DEPRECATED]:
         operation = {
             "summary": summary,
             "parameters": parameters,
@@ -87,6 +104,9 @@ def openapi_spec():
             operation["requestBody"] = {"description": body, "content": {"application/json": {"schema": {"type": "object"}}}}
         if paid:
             operation["description"] = "Kost geld in live-modus (SAM of Muse Spark); vraag eerst de raming op. Gratis met de dummydetector."
+        if deprecated:
+            operation["deprecated"] = True
+            operation["description"] = (operation.get("description", "") + " Verouderd sinds 0.29.0, vervalt in 0.30.0.").strip()
         paths.setdefault(path, {})[method] = operation
     return {
         "openapi": "3.1.0",

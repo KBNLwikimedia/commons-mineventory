@@ -11,7 +11,7 @@
 
     <section v-if="!file && !loadingFile && visited.length" class="cc-start-geschiedenis">
       <h2>{{ t("history.title") }}</h2>
-      <history-list :entries="visited" @remove="forget" @clear="forgetAll" />
+      <viewed-panel :entries="visited" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" />
     </section>
 
     <!-- On a phone (functional design 10.5) the three columns are tabs; on larger screens this bar is hidden. -->
@@ -37,13 +37,73 @@
       <cdx-message type="warning">{{ file.niet_ondersteund }}</cdx-message>
     </div>
 
-    <div v-else-if="file && page" class="cc-werkblad" :class="`cc-mobiel-${mobileTab}`">
-      <aside id="cc-kolom-links" class="cc-links" role="tabpanel" aria-labelledby="cc-tab-links" :aria-label="t('layout.left')">
-        <column-header column="left" />
-        <cdx-accordion v-if="visited.length > 1" class="cc-geschiedenis-blok">
-          <template #title>{{ t("history.title") }} <small>({{ visited.length }})</small></template>
-          <history-list :entries="visited" :current="file.mid" @remove="forget" @clear="forgetAll" />
-        </cdx-accordion>
+    <div v-else-if="file && page" class="cc-werkblad" :class="`cc-mobiel-${mobileTab}`" :style="{ '--cc-kolommen': gridColumns }">
+      <!-- The images viewed in this browser, with thumbnails. Every column folds away
+           to a narrow strip (closed.*, remembered in this browser); on narrow screens not. -->
+      <aside class="cc-historie cc-kolom" :class="{ dicht: closed.historie }" :aria-label="t('layout.history_title')">
+        <div class="cc-kolom-inhoud">
+          <column-header column="history" closable side="left" @close="setClosed('historie', true)" />
+          <viewed-panel :entries="visited" :current="file.mid" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" />
+        </div>
+        <column-strip v-if="closed.historie" :name="t('layout.history_title')" :count="visited.length" side="left" @open="setClosed('historie', false)" />
+      </aside>
+      <column-splitter variable="--cc-historie-breedte" side="left" storage-key="cc-breedte-historie" :label="t('layout.resize_history')" :min="140" :max="420" :class="['cc-historie-rand', { 'cc-splitter-uit': !resizable('historie') }]" />
+      <!-- Workflow from left to right, as in the Delpher Uitsnijder: the image, finding
+           objects (detection), then what you found, with the buttons to save it.
+           (The class names cc-links/cc-rechts are historical: the objects column is cc-links.) -->
+      <section id="cc-kolom-midden" class="cc-midden cc-kolom" :class="{ dicht: closed.beeld }" role="tabpanel" aria-labelledby="cc-tab-midden">
+        <div class="cc-kolom-inhoud">
+        <viewer-pane
+          ref="viewer"
+          :mid="file.mid"
+          :page="page"
+          :objects="objects"
+          :new-ids="newIds"
+          :point-mode="pointMode"
+          :draw-mode="drawMode"
+          @object-click="onObjectClick"
+          @object-open="openMagnifier($event.id)"
+          @object-hover="hoveredId = $event"
+          @point="onPoint"
+          @rectangle="onRectangle"
+        >
+          <template #balk>
+            <cdx-button weight="quiet" size="small" class="cc-kolom-dicht-knop" :aria-label="t('layout.column_close', { name: t('layout.tab_midden') })" :title="t('layout.column_close', { name: t('layout.tab_midden') })" @click="setClosed('beeld', true)">
+              <cdx-icon :icon="cdxIconPrevious" size="small" />
+            </cdx-button>
+          </template>
+        </viewer-pane>
+        </div>
+        <column-strip v-if="closed.beeld" :name="t('layout.tab_midden')" side="left" @open="setClosed('beeld', false)" />
+      </section>
+      <column-splitter variable="--cc-paneel-breedte" side="right" storage-key="cc-breedte-rechts" :label="t('layout.resize_right')" :max="800" :class="{ 'cc-splitter-uit': !resizable('zoeken') }" />
+      <aside id="cc-kolom-rechts" class="cc-rechts cc-kolom" :class="{ dicht: closed.zoeken }" role="tabpanel" aria-labelledby="cc-tab-rechts" :aria-label="t('layout.right')">
+        <div class="cc-kolom-inhoud">
+        <column-header column="right" closable side="right" @close="setClosed('zoeken', true)" />
+        <detection-panel
+          :file="file"
+          :page="page"
+          :busy="busy"
+          :inventory="inventory"
+          :objects="objects"
+          :trash-terms="trashTerms"
+          :point-mode="pointMode"
+          @detect="detect"
+          @inventory="askInventory(Boolean(inventory), $event?.deel || null)"
+          @forget-inventory="forgetInventory($event?.deel || null)"
+          @merge="mergeDuplicates"
+          @describe-all="describeAll"
+          :draw-mode="drawMode"
+          @point-mode="setMode('point', $event)"
+          @draw-mode="setMode('draw', $event)"
+        />
+        </div>
+        <column-strip v-if="closed.zoeken" :name="t('layout.right_title')" side="right" @open="setClosed('zoeken', false)" />
+      </aside>
+      <column-splitter variable="--cc-links-breedte" side="right" storage-key="cc-breedte-links" :label="t('layout.resize_objects')" :class="{ 'cc-splitter-uit': !resizable('objecten') }" />
+      <aside id="cc-kolom-links" class="cc-links cc-kolom" :class="{ dicht: closed.objecten }" role="tabpanel" aria-labelledby="cc-tab-links" :aria-label="t('layout.left')">
+        <div class="cc-kolom-inhoud">
+        <column-header column="left" closable side="right" @close="setClosed('objecten', true)" />
         <page-list v-if="file.paginas > 1" :file="file" :current="pageN" @select="goToPage" />
         <object-list
           :mid="file.mid"
@@ -59,45 +119,6 @@
           @hover="hoverObject"
           @trash="trashObject"
         />
-      </aside>
-      <column-splitter variable="--cc-links-breedte" side="left" storage-key="cc-breedte-links" :label="t('layout.resize_left')" />
-
-      <section id="cc-kolom-midden" class="cc-midden" role="tabpanel" aria-labelledby="cc-tab-midden">
-        <viewer-pane
-          ref="viewer"
-          :mid="file.mid"
-          :page="page"
-          :objects="objects"
-          :new-ids="newIds"
-          :point-mode="pointMode"
-          :draw-mode="drawMode"
-          @object-click="onObjectClick"
-          @object-open="openMagnifier($event.id)"
-          @object-hover="hoveredId = $event"
-          @point="onPoint"
-          @rectangle="onRectangle"
-        />
-      </section>
-      <column-splitter variable="--cc-paneel-breedte" side="right" storage-key="cc-breedte-rechts" :label="t('layout.resize_right')" :max="800" />
-
-      <aside id="cc-kolom-rechts" class="cc-rechts" role="tabpanel" aria-labelledby="cc-tab-rechts" :aria-label="t('layout.right')">
-        <column-header column="right" />
-        <detection-panel
-          :file="file"
-          :page="page"
-          :busy="busy"
-          :inventory="inventory"
-          :objects="objects"
-          :trash-terms="trashTerms"
-          :point-mode="pointMode"
-          @detect="detect"
-          @inventory="askInventory(Boolean(inventory))"
-          @merge="mergeDuplicates"
-          @describe-all="describeAll"
-          :draw-mode="drawMode"
-          @point-mode="setMode('point', $event)"
-          @draw-mode="setMode('draw', $event)"
-        />
         <div class="cc-acties">
           <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }} <retention-info /></p>
           <cdx-button action="progressive" weight="primary" :disabled="!selectedCount || busy" @click="saveSelection">
@@ -110,6 +131,8 @@
             <cdx-icon :icon="cdxIconUpload" /> {{ t("actions.to_commons") }}
           </cdx-button>
         </div>
+        </div>
+        <column-strip v-if="closed.objecten" :name="t('layout.left_title')" :count="objects.length" side="right" @open="setClosed('objecten', false)" />
       </aside>
     </div>
 
@@ -129,17 +152,18 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from "vue";
-import { CdxAccordion, CdxButton, CdxIcon, CdxMessage } from "@wikimedia/codex";
-import { cdxIconDownload, cdxIconUpload } from "@wikimedia/codex-icons";
+import { computed, nextTick, onMounted, reactive, ref } from "vue";
+import { CdxButton, CdxIcon, CdxMessage } from "@wikimedia/codex";
+import { cdxIconDownload, cdxIconPrevious, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import ColumnHeader from "./ColumnHeader.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
+import ColumnStrip from "./ColumnStrip.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { addToHistory, appUrl, clearHistory, objectName, readHistory, readStart, removeFromHistory } from "../state.js";
-import HistoryList from "./HistoryList.vue";
+import { addToHistory, appUrl, clearHistory, objectName, readHistory, readStart, removeFromHistory, setAside } from "../state.js";
+import ViewedPanel from "./ViewedPanel.vue";
 import DetectionPanel from "./DetectionPanel.vue";
 import FileBar from "./FileBar.vue";
 import Magnifier from "./Magnifier.vue";
@@ -160,7 +184,7 @@ const trashTerms = ref({});
 const objects = ref([]);
 const newIds = ref([]);
 // Phone: which column shows (objects, image, detection); the image first.
-const MOBILE_TABS = ["links", "midden", "rechts"];
+const MOBILE_TABS = ["midden", "rechts", "links"]; // the order of the columns
 const mobileTab = ref("midden");
 // Arrow keys, Home and End move between the tabs, as in every tab list.
 function onTabKey(event) {
@@ -191,6 +215,34 @@ const magnifierOpen = ref(false);
 const magnifiedId = ref(null);
 const start = readStart(window.location.search);
 const visited = ref(readHistory());
+// The four columns, left to right; each can be folded away to a narrow strip,
+// remembered in this browser. The image column takes the room that is left; when
+// it is folded away, the first open column of the others does.
+const COLUMNS = ["historie", "beeld", "zoeken", "objecten"];
+const WIDTHS = { historie: "var(--cc-historie-breedte)", zoeken: "var(--cc-paneel-breedte)", objecten: "var(--cc-links-breedte)" };
+function readClosed(column) {
+  try {
+    return window.localStorage.getItem(`cc-kolom-dicht-${column}`) === "1";
+  } catch {
+    return false; // blocked storage: every column starts open
+  }
+}
+const closed = reactive(Object.fromEntries(COLUMNS.map((column) => [column, readClosed(column)])));
+function setClosed(column, value) {
+  closed[column] = value;
+  try {
+    window.localStorage.setItem(`cc-kolom-dicht-${column}`, value ? "1" : "0");
+  } catch {
+    // Blocked storage: the choice holds until the page is reloaded.
+  }
+}
+const flexibleColumn = computed(() => (closed.beeld ? ["zoeken", "objecten", "historie"].find((c) => !closed[c]) : "beeld"));
+// A border can be dragged when the column it sizes is open and not the flexible one.
+const resizable = (column) => !closed[column] && flexibleColumn.value !== column;
+const gridColumns = computed(() => {
+  const width = (column) => (closed[column] ? "2.25rem" : column === flexibleColumn.value ? "minmax(0, 1fr)" : WIDTHS[column]);
+  return COLUMNS.map(width).join(" 0.75rem ");
+});
 // A bare start page (e.g. back from /objecten) reopens the file that was open last.
 if (!start.url && !start.titel && !start.mid && visited.value.length) {
   start.mid = visited.value[0].mid;
@@ -298,15 +350,29 @@ async function detect(request) {
   }
 }
 
+// Remove the page overview, or one part of it ("beschrijving" or "zoektermen"), after a confirmation.
+async function forgetInventory(part = null) {
+  const key = part || "alles";
+  if (!(await askConfirm(t(`panel.part_forget_confirm_${key}`), { title: t(`panel.part_forget_title_${key}`), go: t("panel.part_forget"), destructive: true }))) return;
+  try {
+    const result = await del(`${pagePath(file.value.mid, pageN.value)}/inventaris${part ? `/${part}` : ""}`);
+    inventory.value = result.inventaris;
+    notify("success", t(`panel.part_forgotten_${key}`));
+  } catch (error) {
+    fail(error);
+  }
+}
+
 // The page overview. With `again` the model is really asked anew (paid);
 // otherwise a stored answer for this page and model comes from the cache, free.
-async function askInventory(again = false) {
+// With `part` ("beschrijving" or "zoektermen") only that part is asked anew.
+async function askInventory(again = false, part = null) {
   const base = pagePath(file.value.mid, pageN.value);
   busy.value = true;
   try {
     const plan = await get(`${base}/inventaris`);
     if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd))) return;
-    const result = await post(`${base}/inventaris`, { opnieuw: again });
+    const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? {} : { opnieuw: again });
     inventory.value = result.inventaris;
   } catch (error) {
     fail(error);
@@ -317,7 +383,7 @@ async function askInventory(again = false) {
 
 async function mergeDuplicates() {
   try {
-    const result = await patch(`${pagePath(file.value.mid, pageN.value)}/objecten`, { samenvoegen: true });
+    const result = await post(`${pagePath(file.value.mid, pageN.value)}/samenvoegingen`, {});
     replaceObjects(result.objecten);
     notify("success", t("detect.merged", { n: result.samengevoegd }));
   } catch (error) {
@@ -422,10 +488,7 @@ async function trashObject(id) {
     title: t("objects.trash"),
     go: t("objects.trash"),
     destructive: true,
-    links: {
-      objects: { href: "/objecten", label: t("objects.page_link") },
-      trash: { href: "/objecten?tab=prullenbak", label: t("objects.trash_link") },
-    },
+    links: objectsLinks(),
   });
   if (!ok) return;
   const n = pageN.value;
@@ -477,12 +540,34 @@ function refreshTrashTerms(n) {
 
 // -- History ("Laatst bezocht") ----------------------------------------------------------
 
-function forget(mid) {
-  visited.value = removeFromHistory(mid);
+// Set an image aside ("Opzij gezet") or bring it back: no confirmation, nothing is lost.
+function setAsideEntry(mid, aside) {
+  visited.value = setAside(mid, aside);
+}
+
+// Taking an image off the "Viewed" list removes only the entry, after a confirmation
+// that says so: the image, its objects and saved cut-outs stay.
+// The pages to go to from a confirmation: Objects and its Trash tab.
+const objectsLinks = () => ({
+  objects: { href: "/objecten", label: t("objects.page_link") },
+  trash: { href: "/objecten?tab=prullenbak", label: t("objects.trash_link") },
+});
+
+async function forget(mid) {
+  const entry = visited.value.find((e) => e.mid === mid);
+  const name = entry?.naam || mid;
+  const links = {
+    ...objectsLinks(),
+    // The M-id opens the image again (in the input bar, and back in the active list).
+    mid: { href: appUrl(mid, entry?.pagina || 1), label: mid, sameTab: true, class: "cc-mid-link" },
+  };
+  if (await askConfirm(t("history.remove_confirm", { name }), { title: t("history.remove"), go: t("history.remove"), destructive: true, links })) {
+    visited.value = removeFromHistory(mid);
+  }
 }
 
 async function forgetAll() {
-  if (await askConfirm(t("history.clear_confirm"), { go: t("history.clear"), destructive: true })) visited.value = clearHistory();
+  if (await askConfirm(t("history.clear_confirm"), { title: t("history.clear"), go: t("history.clear"), destructive: true, links: objectsLinks() })) visited.value = clearHistory();
 }
 
 function openMagnifier(id) {

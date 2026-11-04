@@ -11,7 +11,7 @@ import math
 import re
 from urllib.parse import quote
 
-from flask import Blueprint, Response, current_app, jsonify, request, session
+from flask import Blueprint, Response, current_app, g, jsonify, request, session
 
 from . import __version__, concept, export, weergave
 from .cache import FetchError
@@ -26,8 +26,16 @@ IMAGE_DEFAULT_WIDTH = 1280
 
 @api.after_request
 def _no_indexing(response):
-    """Search engines and crawlers have no business in the API."""
+    """Search engines and crawlers have no business in the API. An old path
+    (deprecated since 0.29.0, gone in 0.30.0) says so, with its successor."""
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    successor = g.get("successor")
+    rule = request.url_rule.rule if request.url_rule else ""
+    if successor is None and "/object/<object_id>" in rule:
+        successor = request.path.replace("/object/", "/objecten/", 1)
+    if successor:
+        response.headers["Deprecation"] = "true"
+        response.headers["Link"] = f'<{successor}>; rel="successor-version"'
     return response
 
 
@@ -290,6 +298,27 @@ def inventory_plan(mid, n):
     return jsonify(_descriptions().inventory_plan(_page_file(mid, n), n, user=_user()))
 
 
+@api.delete("/bestand/<mid>/pagina/<int:n>/inventaris")
+def forget_inventory(mid, n):
+    """Remove the whole page overview from the page. Free."""
+    return jsonify(_descriptions().forget_inventory(_page_file(mid, n), n))
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>")
+def forget_inventory_part(mid, n, deel):
+    """Remove one part of the overview: beschrijving or zoektermen. Free."""
+    return jsonify(_descriptions().forget_inventory(_page_file(mid, n), n, deel))
+
+
+@api.post("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>")
+def inventory_part(mid, n, deel):
+    """Ask one part of the overview anew (beschrijving or zoektermen); always
+    a new answer, paid in live mode. The other part stays."""
+    body = _body()
+    _require_paid_access(_descriptions().vision.betaald)
+    return jsonify(_descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=True, user=_user(), part=deel))
+
+
 @api.post("/bestand/<mid>/pagina/<int:n>/inventaris")
 def inventory(mid, n):
     """Ask Muse Spark what is on the page (paid in live mode, cached)."""
@@ -301,6 +330,15 @@ def inventory(mid, n):
 # -- Objects ------------------------------------------------------------------------------
 
 
+@api.post("/bestand/<mid>/pagina/<int:n>/samenvoegingen")
+def merge_duplicates(mid, n):
+    """Merge the objects of the page that show the same picture (7.4). Free."""
+    file = _page_file(mid, n)
+    service = _service()
+    merged = service.merge_duplicates(file, n)
+    return jsonify({"objecten": [service.public(file, n, o) for o in service.page_objects(file, n)], "samengevoegd": merged})
+
+
 @api.patch("/bestand/<mid>/pagina/<int:n>/objecten")
 def patch_objects(mid, n):
     """{"geselecteerd": [ids]} (exactly these are selected) or {"objecten":
@@ -309,7 +347,8 @@ def patch_objects(mid, n):
     body = _body()
     service = _service()
     merged = 0
-    if body.get("samenvoegen"):
+    if body.get("samenvoegen"):  # deprecated (0.29.0): POST …/samenvoegingen
+        g.successor = f"{request.script_root}/api/v1/bestand/{mid}/pagina/{n}/samenvoegingen"
         merged = service.merge_duplicates(file, n)
         objects = [service.public(file, n, o) for o in service.page_objects(file, n)]
     elif "geselecteerd" in body:
@@ -321,11 +360,13 @@ def patch_objects(mid, n):
     return jsonify({"objecten": objects, "samengevoegd": merged})
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>")
 def get_object(mid, n, object_id):
     return jsonify(_service().get_object(_page_file(mid, n), n, object_id))
 
 
+@api.patch("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>")
 @api.patch("/bestand/<mid>/pagina/<int:n>/object/<object_id>")
 def patch_object(mid, n, object_id):
     """{"bijschrift": {"tekst"} | null}, {"status": …} and/or {"prullenbak": true | false}."""
@@ -347,6 +388,7 @@ def patch_object(mid, n, object_id):
     return jsonify(service.get_object(file, n, object_id))
 
 
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>")
 @api.delete("/bestand/<mid>/pagina/<int:n>/object/<object_id>")
 def delete_object(mid, n, object_id):
     """To the trash (it can be restored)."""
@@ -387,6 +429,7 @@ def _download_name(file, n, object_id, kind):
     return f"{name.rsplit('.', 1)[0]}.{kind}"
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/uitsnede.jpg")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/uitsnede.jpg")
 def cutout_jpeg(mid, n, object_id):
     """The rectangle as JPG: at full resolution, or a preview with w=…."""
@@ -397,6 +440,7 @@ def cutout_jpeg(mid, n, object_id):
     return _image(_service().saved_file(file, n, object_id, "jpg"), "image/jpeg", _download_name(file, n, object_id, "jpg"))
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/uitsnede.png")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/uitsnede.png")
 def cutout_png(mid, n, object_id):
     """The shape of the object as transparent PNG, at full resolution."""
@@ -404,6 +448,7 @@ def cutout_png(mid, n, object_id):
     return _image(_service().saved_file(file, n, object_id, "png"), "image/png", _download_name(file, n, object_id, "png"))
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/masker.png")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/masker.png")
 def mask_image(mid, n, object_id):
     data = _service().mask_png(_page_file(mid, n), n, object_id)
@@ -415,12 +460,14 @@ def mask_image(mid, n, object_id):
 # -- Description ----------------------------------------------------------------------------
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")
 def description_plan(mid, n, object_id):
     """The stored description (or null) and what a new one would cost. Free."""
     return jsonify(_descriptions().plan(_page_file(mid, n), n, object_id, user=_user()))
 
 
+@api.post("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving")
 @api.post("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")
 def describe_object(mid, n, object_id):
     """"Wat staat hierop?" (paid in live mode, cached). Body: {"model": "auto" |
@@ -440,31 +487,51 @@ def describe_object(mid, n, object_id):
     )
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/geschiedenis")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/geschiedenis")
 def description_history(mid, n, object_id):
     """Earlier descriptions of the object, newest first (free)."""
     return jsonify({"geschiedenis": _descriptions().history(_page_file(mid, n), n, object_id)})
 
 
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/geschiedenis/<versie>")
+def delete_description_version(mid, n, object_id, versie):
+    """Delete one earlier version (its "versie" from the history). Free."""
+    return jsonify({"geschiedenis": _descriptions().forget_version(_page_file(mid, n), n, object_id, versie)})
+
+
 @api.delete("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/geschiedenis")
 def forget_description_version(mid, n, object_id):
-    """Delete one earlier version: ?versie=… (from the history). Free."""
+    """Deprecated (0.29.0): DELETE …/objecten/<id>/beschrijving/geschiedenis/<versie>. Free."""
     version = request.args.get("versie", "")
     if not version:
         raise DetectionError("Geef de 'versie' die weg moet.", status=400, code="invalid_body")
+    g.successor = f"{request.script_root}/api/v1/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving/geschiedenis/{quote(version, safe='')}"
     return jsonify({"geschiedenis": _descriptions().forget_version(_page_file(mid, n), n, object_id, version)})
+
+
+@api.put("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving")
+def put_description(mid, n, object_id):
+    """Make an earlier version from the history the current description:
+    {"versie": …}. The current one goes into the history. Free."""
+    body = _body()
+    if not isinstance(body.get("versie"), str) or not body["versie"]:
+        raise DetectionError("Geef de 'versie' uit de geschiedenis.", status=400, code="invalid_body")
+    return jsonify(_descriptions().restore(_page_file(mid, n), n, object_id, version=body["versie"]))
 
 
 @api.post("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/terugzetten")
 def restore_description(mid, n, object_id):
-    """Make an earlier version current again. Body: {"versie": …} (from the history),
+    """Deprecated (0.29.0): PUT …/objecten/<id>/beschrijving. Body: {"versie": …},
     or the older {"tijdstempel": …, "bewerkt": true|false}. Free."""
+    g.successor = f"{request.script_root}/api/v1/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving"
     body = _body()
     if not isinstance(body.get("versie"), str) and not isinstance(body.get("tijdstempel"), str):
         raise DetectionError("Geef de 'versie' van de eerdere beschrijving.", status=400, code="invalid_body")
     return jsonify(_descriptions().restore(_page_file(mid, n), n, object_id, body.get("tijdstempel"), body.get("bewerkt"), body.get("versie")))
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/invoer.jpg")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/invoer.jpg")
 def description_input(mid, n, object_id):
     """What the image description would see: the box with ?marge= (0-1,
@@ -478,6 +545,7 @@ def description_input(mid, n, object_id):
     return _image(data, "image/jpeg")
 
 
+@api.patch("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving")
 @api.patch("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")
 def edit_description(mid, n, object_id):
     """Change the texts of the description by hand (free). Body: any of
@@ -486,6 +554,7 @@ def edit_description(mid, n, object_id):
     return jsonify(_descriptions().edit(_page_file(mid, n), n, object_id, _body()))
 
 
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving")
 @api.delete("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")
 def delete_description(mid, n, object_id):
     return jsonify(_descriptions().remove(_page_file(mid, n), n, object_id))
@@ -542,6 +611,7 @@ def _concept(file, n, obj):
     return result
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/commons/weergave")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/commons/weergave")
 def render_concept(mid, n, object_id):
     """The wikitext of the concept as Commons would render it (action=parse,
@@ -552,6 +622,7 @@ def render_concept(mid, n, object_id):
     return jsonify({"html": weergave.clean_html(html)})
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/commons")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/commons")
 def get_concept(mid, n, object_id):
     """The Commons concept of an object: name, texts, licence, categories,
@@ -560,6 +631,7 @@ def get_concept(mid, n, object_id):
     return jsonify(_concept(file, n, _service()._find(file, n, object_id)))
 
 
+@api.patch("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/commons")
 @api.patch("/bestand/<mid>/pagina/<int:n>/object/<object_id>/commons")
 def patch_concept(mid, n, object_id):
     """Change the concept; {"herstel": true} goes back to the proposal."""
@@ -602,13 +674,32 @@ def upload_menu(mid):
     )
 
 
-@api.post("/bestand/<mid>/commons/controle")
+@api.get("/bestand/<mid>/commons/controle")
 def check_before_upload(mid):
     """Check before upload (free, read-only on Commons): does the name exist,
     does the same image exist (SHA-1), do the categories exist.
-    Body: {"objecten": [{"pagina", "id"}]}; default: the chosen ones."""
+    ?objecten=1:obj-a,2:obj-b (page:id); default: the chosen ones."""
+    raw = request.args.get("objecten")
+    wanted = None
+    if raw is not None:
+        wanted = []
+        for item in filter(None, raw.split(",")):
+            page, _, object_id = item.partition(":")
+            if not object_id:
+                raise DetectionError("'objecten' is een lijst pagina:id, gescheiden door komma's.", status=400, code="invalid_parameter")
+            wanted.append({"pagina": page, "id": object_id})
+    return jsonify({"controle": _check(mid, wanted)})
+
+
+@api.post("/bestand/<mid>/commons/controle")
+def check_before_upload_post(mid):
+    """Deprecated (0.29.0): GET …/commons/controle?objecten=pagina:id,…"""
+    g.successor = f"{request.script_root}/api/v1/bestand/{mid}/commons/controle"
+    return jsonify({"controle": _check(mid, _body().get("objecten"))})
+
+
+def _check(mid, wanted):
     file = _file(mid)
-    wanted = _body().get("objecten")
     saved = _saved_objects(file)
     if wanted is not None:
         if not isinstance(wanted, list):
@@ -625,7 +716,7 @@ def check_before_upload(mid):
         sha1s[obj["id"]] = hashlib.sha1(data).hexdigest()
     if not concepts:
         raise DetectionError("Er is niets om te controleren: sla eerst uitsneden op en vink ze aan.", status=400, code="nothing_selected")
-    return jsonify({"controle": concept.check(_client(), concepts, sha1s)})
+    return concept.check(_client(), concepts, sha1s)
 
 
 @api.post("/bestand/<mid>/commons/uploads")

@@ -6,7 +6,8 @@
   <div class="cc-viewer-kader">
     <div class="cc-viewer-balk" role="toolbar" :aria-label="t('viewer.toolbar')">
       <cdx-button action="progressive" weight="quiet" :aria-label="t('viewer.zoom_out')" @click="viewer?.zoomStep(-1)"><cdx-icon :icon="cdxIconZoomOut" /></cdx-button>
-      <span class="cc-zoom">{{ Math.round(scale * 100) }}%</span>
+      <!-- The current zoom; the button "Actual size" further on goes to 100%. -->
+      <span class="cc-zoom" :title="t('viewer.zoom_now')">{{ Math.round(scale * 100) }}%</span>
       <cdx-button action="progressive" weight="quiet" :aria-label="t('viewer.zoom_in')" @click="viewer?.zoomStep(1)"><cdx-icon :icon="cdxIconZoomIn" /></cdx-button>
       <!-- Zoom slider, logarithmic: from 2% to 300%, each step the same factor. -->
       <input
@@ -21,15 +22,17 @@
         :title="t('viewer.zoom_slider')"
         @input="viewer?.zoomTo(2 ** Number($event.target.value))"
       />
-      <cdx-button action="progressive" weight="quiet" @click="viewer?.zoomTo(1)">100%</cdx-button>
+      <cdx-button action="progressive" weight="quiet" :title="t('viewer.actual_size_help')" @click="viewer?.zoomTo(1)">{{ t("viewer.actual_size") }}</cdx-button>
       <cdx-button action="progressive" weight="quiet" @click="viewer?.fit()">{{ t("viewer.fit") }}</cdx-button>
       <!-- What to draw on the image, as in the Delpher Uitsnijder; remembered in this browser. -->
       <span class="cc-weergave-keuze" role="group" :aria-label="t('viewer.show')">
-        <cdx-checkbox v-model="show.maskers" :inline="true">{{ t("viewer.masks") }}</cdx-checkbox>
-        <cdx-checkbox v-model="show.boxen" :inline="true">{{ t("viewer.boxes") }}</cdx-checkbox>
-        <cdx-checkbox v-model="show.namen" :inline="true">{{ t("viewer.labels") }}</cdx-checkbox>
+        <!-- Nothing to show without objects: then the choices are disabled. -->
+        <cdx-checkbox v-model="show.maskers" :inline="true" :disabled="!objects.length" :title="objects.length ? '' : t('viewer.show_nothing')">{{ t("viewer.masks") }}</cdx-checkbox>
+        <cdx-checkbox v-model="show.boxen" :inline="true" :disabled="!objects.length" :title="objects.length ? '' : t('viewer.show_nothing')">{{ t("viewer.boxes") }}</cdx-checkbox>
+        <cdx-checkbox v-model="show.namen" :inline="true" :disabled="!objects.length" :title="objects.length ? '' : t('viewer.show_nothing')">{{ t("viewer.labels") }}</cdx-checkbox>
       </span>
       <span class="cc-viewer-hint">{{ drawMode ? t("viewer.hint_draw") : pointMode ? t("viewer.hint_point") : t("viewer.hint") }}</span>
+      <slot name="balk" />
     </div>
     <!-- What the colours of the frames mean: only with the boxes shown, folded away by default. -->
     <cdx-accordion v-if="show.boxen && legend.length" class="cc-legenda-blok">

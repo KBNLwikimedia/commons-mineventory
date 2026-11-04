@@ -47,7 +47,7 @@ def test_sdc_entity_ids_from_claims_and_qualifiers():
 
 def test_rendered_wikitext_and_sdc_labels(http):
     obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
-    url = f"{PAGE}/object/{obj['id']}/commons"
+    url = f"{PAGE}/objecten/{obj['id']}/commons"
     concept = http.get(url).get_json()
     assert "sdc_labels" in concept
     rendered = http.get(url + "/weergave").get_json()["html"]

@@ -188,6 +188,49 @@ def test_dummy_description_and_inventory(objects, album, tmp_path):
     assert objects.verbruik.entries() == []  # dummy is free
 
 
+def test_the_page_overview_can_be_removed(objects, album, tmp_path):
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    service.inventory(album, 1)
+    assert service.forget_inventory(album, 1) == {"verwijderd": True, "inventaris": None}
+    assert service.inventory_plan(album, 1)["inventaris"] is None
+    assert service.forget_inventory(album, 1) == {"verwijderd": False, "inventaris": None}
+    # Asking again without "opnieuw" brings the cached answer back, free.
+    again = service.inventory(album, 1)
+    assert again["uit_cache"] and again["inventaris"]["zoektermen"]
+
+
+def test_one_part_of_the_overview_is_asked_again_or_removed_on_its_own(objects, album, tmp_path):
+    prompts = []
+
+    class Recording(DummyVision):
+        def describe(self, model, prompt, data_url, obj, effort=None, schema=beschrijving.SCHEMA):
+            prompts.append((prompt, sorted(schema["properties"])))
+            return super().describe(model, prompt, data_url, obj, effort, schema)
+
+    service = DescriptionService(Recording(), objects, CONFIG, tmp_path / "cache")
+    first = service.inventory(album, 1)["inventaris"]
+    # Only the search terms anew: one call that asks only for terms; the description stays.
+    service.forget_inventory(album, 1, "zoektermen")
+    kept = service.inventory_plan(album, 1)["inventaris"]
+    assert kept["zoektermen"] == [] and kept["samenvatting"] == first["samenvatting"]
+    again = service.inventory(album, 1, part="zoektermen")["inventaris"]
+    assert prompts[-1][1] == ["zoektermen"] and "samenvatting" not in prompts[-1][0]
+    assert again["zoektermen"] == first["zoektermen"] and again["samenvatting"] == first["samenvatting"]
+    assert again["delen"]["zoektermen"]["tijdstempel"]
+    # Only the description anew: the terms stay.
+    again = service.inventory(album, 1, part="beschrijving")["inventaris"]
+    assert prompts[-1][1] == ["paginasoort", "paginasoort_en", "samenvatting", "samenvatting_en", "tekst"]
+    assert "zoektermen" not in prompts[-1][0] and again["zoektermen"] == first["zoektermen"]
+    # A part is always asked anew (no cache), and removing both parts removes the overview.
+    calls = len(prompts)
+    service.inventory(album, 1, part="beschrijving")
+    assert len(prompts) == calls + 1
+    service.forget_inventory(album, 1, "beschrijving")
+    assert service.forget_inventory(album, 1, "zoektermen") == {"verwijderd": True, "inventaris": None}
+    with pytest.raises(DetectionError):
+        service.inventory(album, 1, part="alles")
+
+
 def test_caption_goes_into_the_question_and_the_cache_key(objects, album, tmp_path):
     obj = objects.rectangle(album, 1, {"x": 0, "y": 0, "w": 300, "h": 300})["object"]
     prompts = []
@@ -213,7 +256,7 @@ def test_page_text_goes_into_the_question_and_the_cache_key(objects, album, tmp_
     class Recording(FixtureVision):
         def describe(self, model, prompt, data_url, o, effort=None, schema=beschrijving.SCHEMA):
             prompts.append(prompt)
-            if schema is beschrijving.INVENTORY_SCHEMA:
+            if "zoektermen" in schema.get("properties", {}):
                 return DummyVision().describe(model, prompt, data_url, o, effort, schema)
             return super().describe(model, prompt, data_url, o, effort, schema)
 
@@ -231,8 +274,8 @@ def test_page_text_goes_into_the_question_and_the_cache_key(objects, album, tmp_
 def test_concept_api_includes_the_caption(http):
     page = "/api/v1/bestand/M28830642/pagina/1"
     obj = http.post(page + "/detecties", json={"rechthoek": {"x": 0, "y": 0, "w": 100, "h": 100}}).get_json()["object"]
-    http.patch(f"{page}/object/{obj['id']}", json={"bijschrift": {"tekst": "Spes mea Deus"}})
-    assert http.get(f"{page}/object/{obj['id']}/commons").get_json()["bijschrift"] == "Spes mea Deus"
+    http.patch(f"{page}/objecten/{obj['id']}", json={"bijschrift": {"tekst": "Spes mea Deus"}})
+    assert http.get(f"{page}/objecten/{obj['id']}/commons").get_json()["bijschrift"] == "Spes mea Deus"
 
 
 def test_inventory_keeps_text_lines():

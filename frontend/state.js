@@ -11,7 +11,9 @@ export function readStart(search) {
 // it can move to the server, per user. The first entry is the file the
 // start page and the "back" link return to.
 export const HISTORY_KEY = "cc-geschiedenis";
-export const MAX_HISTORY = 30;
+export const MAX_HISTORY = 50;
+// A row of "Bekeken" being dragged carries its M-id under this type.
+export const DRAG_TYPE = "application/x-commons-cutter-mid";
 
 function storage() {
   try {
@@ -44,6 +46,12 @@ export function addToHistory(entry, store = storage(), now = new Date()) {
   const list = readHistory(store).filter((e) => e.mid !== entry.mid);
   list.unshift({ ...entry, tijd: now.toISOString() });
   return writeHistory(list.slice(0, MAX_HISTORY), store);
+}
+
+/* Set an entry aside ("Opzij gezet") or bring it back to the active list. Opening
+   the file again (addToHistory) also brings it back. */
+export function setAside(mid, aside, store = storage()) {
+  return writeHistory(readHistory(store).map((e) => (e.mid === mid ? { ...e, opzij: aside ? true : undefined } : e)), store);
 }
 
 export function removeFromHistory(mid, store = storage()) {

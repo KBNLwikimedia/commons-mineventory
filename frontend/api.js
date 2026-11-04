@@ -26,6 +26,7 @@ export async function request(method, path, body, { fetchImpl = fetch } = {}) {
 export const get = (path, options) => request("GET", path, undefined, options);
 export const post = (path, body = {}, options) => request("POST", path, body, options);
 export const patch = (path, body = {}, options) => request("PATCH", path, body, options);
+export const put = (path, body = {}, options) => request("PUT", path, body, options);
 export const del = (path, body, options) => request("DELETE", path, body, options);
 
 export function query(params) {
@@ -36,7 +37,7 @@ export function query(params) {
 // Paths of a file, a page and an object.
 export const filePath = (mid) => `${API}/bestand/${encodeURIComponent(mid)}`;
 export const pagePath = (mid, n) => `${filePath(mid)}/pagina/${n}`;
-export const objectPath = (mid, n, id) => `${pagePath(mid, n)}/object/${encodeURIComponent(id)}`;
+export const objectPath = (mid, n, id) => `${pagePath(mid, n)}/objecten/${encodeURIComponent(id)}`;
 
 // A translated message for an error: the code's text when there is one,
 // otherwise the API's own (Dutch) message.

@@ -20,65 +20,111 @@
     <!-- The AI suggestions come first: they fit this image, unlike a fixed list. -->
     <cdx-accordion v-model="open.suggestions">
       <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /></template>
-      <template v-if="inventory">
-        <!-- Dutch, and English below it in italics, as in the magnifier (overviews from before 0.8 have only Dutch). -->
-        <p class="cc-klein">
-          {{ inventory.paginasoort }} — {{ inventory.samenvatting }}
-          <template v-if="inventory.samenvatting_en"><br /><i>{{ inventory.paginasoort_en }} — {{ inventory.samenvatting_en }}</i></template>
-          <ai-badge kind="pagina" :model="inventory.model" />
-        </p>
-        <!-- The text the model read in and under the image (overviews since 0.16 only). -->
-        <div v-if="inventory.tekst" class="cc-klein cc-inventaris-tekst">
-          <strong>{{ t("panel.inventory_text") }}</strong>
-          <blockquote>{{ inventory.tekst }}</blockquote>
-        </div>
+      <!-- In the order of the work: (1) ask the AI what is on the image (one call), (2) its
+           description, (3) the search terms: find where those things are, and what was found.
+           Each part can be asked again (a call for that part only) or removed on its own.
+           Explanations (cc-uitleg) look different from what the AI said (cc-ai-resultaat). -->
+      <template v-if="!inventory">
+        <p class="cc-uitleg">{{ t("panel.inventory_help") }} {{ museCost(config.muse.pagina_usd) }}</p>
         <div class="cc-knoppen">
-          <cdx-button
-            action="progressive"
-            v-for="term in inventory.zoektermen"
-            :key="term.en"
-            size="small"
-            :disabled="busy"
-            :title="termTitle(term)"
-            @click="act('suggestions', 'detect', { modus: 'prompt', prompt: term.en })"
-          >
-            {{ config.taal === "nl" ? term.nl : term.en }}
-            <span v-if="termCount(term.en)" class="cc-term-aantal">{{ termCount(term.en) }}</span>
+          <cdx-button action="progressive" weight="primary" :disabled="busy" @click="act('inventory', 'inventory')">{{ t("panel.inventory") }}</cdx-button>
+        </div>
+        <busy-note v-if="busy && where === 'inventory'" :message="t('busy.muse_page')" />
+      </template>
+      <template v-else>
+        <!-- (2) The AI's description: Dutch, and English below it in italics, as in the magnifier. -->
+        <div v-if="hasDescription" class="cc-ai-resultaat">
+          <p>
+            {{ inventory.paginasoort }} — {{ inventory.samenvatting }}
+            <template v-if="inventory.samenvatting_en"><br /><i>{{ inventory.paginasoort_en }} — {{ inventory.samenvatting_en }}</i></template>
+            <ai-badge kind="pagina" :model="inventory.model" />
+          </p>
+          <!-- The text the model read in and under the image (overviews since 0.16 only). -->
+          <div v-if="inventory.tekst" class="cc-inventaris-tekst">
+            <strong>{{ t("panel.inventory_text") }}</strong>
+            <blockquote>{{ inventory.tekst }}</blockquote>
+          </div>
+        </div>
+        <p v-else class="cc-uitleg">{{ t("panel.part_none_beschrijving") }}</p>
+        <div class="cc-deel-acties">
+          <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="t('panel.part_again_help_beschrijving')" @click="act('beschrijving', 'inventory', { deel: 'beschrijving' })">
+            {{ t(hasDescription ? "panel.part_again_beschrijving" : "panel.part_ask_beschrijving") }} <span class="cc-kosten">{{ museCost(config.muse.pagina_usd) }}</span>
+          </cdx-button>
+          <cdx-button v-if="hasDescription" action="destructive" weight="quiet" size="small" :disabled="busy" @click="act('beschrijving', 'forget-inventory', { deel: 'beschrijving' })">
+            <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget") }}
           </cdx-button>
         </div>
-        <!-- What of these suggestions is on the image now, and what went to the trash. -->
-        <p class="cc-klein">
-          {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: inventory.zoektermen.length }) }}
-          <template v-if="suggestionTotals.trashed">{{ suggestionTotals.trashed === 1 ? t("panel.suggestions_trashed_one") : t("panel.suggestions_trashed", { n: suggestionTotals.trashed }) }}</template>
-        </p>
+        <busy-note v-if="busy && where === 'beschrijving'" :message="t('busy.muse_page')" />
+
+        <!-- (3) The search terms. -->
+        <h4 class="cc-deel-kop">{{ t("panel.part_title_zoektermen") }}</h4>
+        <template v-if="inventory.zoektermen?.length">
+          <!-- What the terms are for: finding where on the image each thing is. -->
+          <p class="cc-uitleg cc-termen-uitleg">
+            {{ t("panel.terms_help") }} {{ cost(1) }} {{ t("panel.terms_choose") }}
+            <button type="button" class="cc-link" :disabled="busy" @click="setExcluded([])">{{ t("panel.terms_all") }}</button>
+            ·
+            <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en))">{{ t("panel.terms_none") }}</button>
+          </p>
+          <div class="cc-knoppen">
+            <!-- Each term: a tick (does it go along with "Detect all"?) and the term itself (detect only this one). -->
+            <span v-for="term in inventory.zoektermen" :key="term.en" class="cc-term" :class="{ 'cc-term-uit': excluded.includes(term.en) }">
+              <input
+                type="checkbox"
+                class="cc-term-mee"
+                :checked="!excluded.includes(term.en)"
+                :disabled="busy"
+                :aria-label="t('panel.term_include', { term: termLabel(term) })"
+                :title="t('panel.term_include', { term: termLabel(term) })"
+                @change="toggleTerm(term.en)"
+              />
+              <cdx-button
+                action="progressive"
+                size="small"
+                :disabled="busy"
+                :title="termTitle(term)"
+                @click="act('suggestions', 'detect', { modus: 'prompt', prompt: term.en })"
+              >
+                {{ termLabel(term) }}
+                <span v-if="termCount(term.en)" class="cc-term-aantal">{{ termCount(term.en) }}</span>
+              </cdx-button>
+            </span>
+            <!-- The ticked terms in one go, right behind the terms themselves: the main action here. -->
+            <cdx-button
+              action="progressive"
+              weight="primary"
+              size="small"
+              :disabled="busy || !includedTerms.length"
+              @click="act('suggestions', 'detect', { modus: 'prompt', prompt: includedTerms.map((term) => term.en).join(', ') })"
+            >
+              {{ t(includedTerms.length === inventory.zoektermen.length ? "panel.detect_suggestions" : "panel.detect_chosen", { n: includedTerms.length }) }}
+              <span class="cc-kosten">{{ cost(includedTerms.length) }}</span>
+            </cdx-button>
+          </div>
+          <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
+          <!-- What of these suggestions is on the image now, and what went to the trash. -->
+          <p class="cc-status">
+            {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: inventory.zoektermen.length }) }}
+            <template v-if="suggestionTotals.trashed">{{ suggestionTotals.trashed === 1 ? t("panel.suggestions_trashed_one") : t("panel.suggestions_trashed", { n: suggestionTotals.trashed }) }}</template>
+          </p>
+        </template>
+        <p v-else class="cc-uitleg">{{ t("panel.part_none_zoektermen") }}</p>
+        <div class="cc-deel-acties">
+          <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="t('panel.part_again_help_zoektermen')" @click="act('zoektermen', 'inventory', { deel: 'zoektermen' })">
+            {{ t(inventory.zoektermen?.length ? "panel.part_again_zoektermen" : "panel.part_ask_zoektermen") }} <span class="cc-kosten">{{ museCost(config.muse.pagina_usd) }}</span>
+          </cdx-button>
+          <cdx-button v-if="inventory.zoektermen?.length" action="destructive" weight="quiet" size="small" :disabled="busy" @click="act('zoektermen', 'forget-inventory', { deel: 'zoektermen' })">
+            <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget") }}
+          </cdx-button>
+        </div>
+        <busy-note v-if="busy && where === 'zoektermen'" :message="t('busy.muse_page')" />
+        <p class="cc-uitleg">{{ t("panel.parts_help") }}</p>
       </template>
-      <!-- The actions, full size, apart from the suggested labels above. With an
-           overview, detecting all its terms in one go is the main action. -->
-      <div class="cc-knoppen cc-inventaris-knop">
-        <cdx-button
-          v-if="inventory?.zoektermen?.length"
-          action="progressive"
-          weight="primary"
-          :disabled="busy"
-          @click="act('suggestions', 'detect', { modus: 'prompt', prompt: inventory.zoektermen.map((term) => term.en).join(', ') })"
-        >
-          {{ t("panel.detect_suggestions", { n: inventory.zoektermen.length }) }} <span class="cc-kosten">{{ cost(inventory.zoektermen.length) }}</span>
-        </cdx-button>
-        <cdx-button action="progressive" :weight="inventory?.zoektermen?.length ? 'normal' : 'primary'" :disabled="busy" @click="act('inventory', 'inventory')">
-          {{ inventory ? t("panel.inventory_again") : t("panel.inventory") }}
-        </cdx-button>
-      </div>
-      <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
-      <busy-note v-if="busy && where === 'inventory'" :message="t('busy.muse_page')" />
-      <p class="cc-klein">
-        {{ t("panel.inventory_help") }} {{ museCost(config.muse.pagina_usd) }}
-        <template v-if="inventory">{{ t("panel.inventory_again_help") }}</template>
-      </p>
     </cdx-accordion>
 
     <cdx-accordion v-if="regionCount" v-model="open.commons">
       <template #title>{{ t("panel.from_commons") }} <info-dialog v-bind="info('commons', 'panel.from_commons')" /></template>
-      <p class="cc-klein">{{ t("panel.from_commons_help") }}</p>
+      <p class="cc-uitleg">{{ t("panel.from_commons_help") }}</p>
       <cdx-button action="progressive" :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
         {{ t("panel.regions_button", { n: regionCount }) }}
       </cdx-button>
@@ -92,7 +138,7 @@
         <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
       </form>
       <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
-      <p class="cc-klein">{{ t("panel.search_help") }} {{ cost(1) }}</p>
+      <p class="cc-uitleg">{{ t("panel.search_help") }} {{ cost(1) }}</p>
     </cdx-accordion>
 
     <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
@@ -102,14 +148,14 @@
         <cdx-toggle-switch :model-value="pointMode" @update:model-value="emit('point-mode', $event)">
           {{ t("panel.point_switch") }}
         </cdx-toggle-switch>
-        <p class="cc-klein">{{ t("panel.point_help") }} {{ cost(1) }}</p>
+        <p class="cc-uitleg">{{ t("panel.point_help") }} {{ cost(1) }}</p>
         <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
       </div>
       <div class="cc-modus-keuze">
         <cdx-toggle-switch :model-value="drawMode" @update:model-value="emit('draw-mode', $event)">
           {{ t("panel.draw_switch") }}
         </cdx-toggle-switch>
-        <p class="cc-klein">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
+        <p class="cc-uitleg">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
       </div>
     </cdx-accordion>
 
@@ -122,7 +168,7 @@
         </cdx-button>
         <cdx-button action="progressive" :disabled="busy || objects.length < 2" @click="act('bulk', 'merge')">{{ t("panel.merge") }}</cdx-button>
       </div>
-      <p v-if="!toDescribe || objects.length < 2" class="cc-klein">
+      <p v-if="!toDescribe || objects.length < 2" class="cc-uitleg">
         {{ objects.length < 2 ? t("panel.bulk_hint_objects") : t("panel.bulk_hint_select") }}
       </p>
       <busy-note v-if="busy && where === 'bulk'" :message="t('busy.general')" />
@@ -132,7 +178,7 @@
     <cdx-accordion v-if="cropTool" v-model="open.croptool">
       <!-- The CropTool2 logo is the Codex "cut" icon, so it is the same here. -->
       <template #title><cdx-icon :icon="cdxIconCut" size="small" class="cc-croptool-logo" /> {{ t("panel.croptool") }} <info-dialog v-bind="info('croptool', 'panel.croptool')" /></template>
-      <p class="cc-klein">{{ t("panel.croptool_help") }}</p>
+      <p class="cc-uitleg">{{ t("panel.croptool_help") }}</p>
       <a
         class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--action-progressive"
         :href="cropTool"
@@ -146,7 +192,7 @@
 <script setup>
 import { computed, inject, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
-import { cdxIconCut, cdxIconLinkExternal } from "@wikimedia/codex-icons";
+import { cdxIconCut, cdxIconLinkExternal, cdxIconTrash } from "@wikimedia/codex-icons";
 import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { cropToolLink } from "../state.js";
@@ -165,7 +211,7 @@ const props = defineProps({
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
 });
-const emit = defineEmits(["detect", "inventory", "merge", "describe-all", "point-mode", "draw-mode"]);
+const emit = defineEmits(["detect", "inventory", "forget-inventory", "merge", "describe-all", "point-mode", "draw-mode"]);
 // Ticked objects that have no description yet: what "Describe selection" would describe.
 const toDescribe = computed(() => props.objects.filter((o) => o.status === "geselecteerd" && !o.beschrijving).length);
 const t = useT();
@@ -200,6 +246,41 @@ let clicked = { section: "top", at: 0 };
 function termCount(term) {
   return props.objects.filter((o) => o.zoekterm === term).length;
 }
+
+const termLabel = (term) => (config.taal === "nl" ? term.nl : term.en);
+// The description part of the overview (kind, summary, text read); it can be removed on its own.
+const hasDescription = computed(() => {
+  const o = props.inventory || {};
+  return Boolean(o.paginasoort || o.samenvatting || o.samenvatting_en || o.tekst);
+});
+
+// Terms left out of "Detect all" (by their English term), per file and page,
+// remembered in this browser only (a convenience; nothing is stored on the server).
+const excluded = ref([]);
+const storageKey = computed(() => `cc-termen-uit:${props.file.mid}:${props.page.n}`);
+watch(
+  storageKey,
+  (key) => {
+    try {
+      excluded.value = JSON.parse(window.localStorage.getItem(key) || "[]");
+    } catch {
+      excluded.value = [];
+    }
+  },
+  { immediate: true }
+);
+function setExcluded(terms) {
+  excluded.value = [...new Set(terms)];
+  try {
+    window.localStorage.setItem(storageKey.value, JSON.stringify(excluded.value));
+  } catch {
+    // Blocked storage: the choice holds until the page is reloaded.
+  }
+}
+function toggleTerm(term) {
+  setExcluded(excluded.value.includes(term) ? excluded.value.filter((t2) => t2 !== term) : [...excluded.value, term]);
+}
+const includedTerms = computed(() => (props.inventory?.zoektermen || []).filter((term) => !excluded.value.includes(term.en)));
 
 function termTitle(term) {
   const parts = [t("panel.term_expected", { n: term.aantal, where: term.waar }), t("panel.term_found", { n: termCount(term.en) })];

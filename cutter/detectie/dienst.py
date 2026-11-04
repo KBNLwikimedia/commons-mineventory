@@ -841,7 +841,7 @@ class DetectionService:
         public["masker"] = (
             {"breedte": mask["width"], "hoogte": mask["height"], "codering": mask["encoding"]} if mask else None
         )
-        base = f"/api/v1/bestand/{file['mid']}/pagina/{n}/object/{obj['id']}"
+        base = f"/api/v1/bestand/{file['mid']}/pagina/{n}/objecten/{obj['id']}"
         public["bronnen"] = _sources(obj)
         public["label_nl"] = obj.get("label_nl") or (obj["label"] if obj.get("bron") == "commons" else prompts.dutch(obj.get("label")))
         public["masker_url"] = f"{base}/masker.png"

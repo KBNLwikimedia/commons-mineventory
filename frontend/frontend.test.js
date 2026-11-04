@@ -47,7 +47,7 @@ describe("i18n", () => {
 
 describe("api", () => {
   it("builds paths and query strings", () => {
-    expect(objectPath("M1", 2, "obj-a b")).toBe("/api/v1/bestand/M1/pagina/2/object/obj-a%20b");
+    expect(objectPath("M1", 2, "obj-a b")).toBe("/api/v1/bestand/M1/pagina/2/objecten/obj-a%20b");
     expect(query({ a: 1, b: "", c: null, d: "x y" })).toBe("?a=1&d=x+y");
     expect(query({})).toBe("");
   });
@@ -192,7 +192,7 @@ describe("ObjectList component", () => {
     const twice = [...objects, { id: "c", label: "wapen", status: "kandidaat", bron: "dummy", box: { x: 0, y: 500, w: 10, h: 10 }, masker: null }];
     const numbered = mount(ObjectList, { props: { mid: "M1", n: 1, objects: twice }, global: { provide: { t: (key) => key, language: "nl" } } });
     expect(numbered.findAll(".cc-object-naam").map((n) => n.text())).toEqual(["Catharina", "wapen 1", "wapen 2"]);
-    expect(wrapper.find(".cc-object-duim img").attributes("src")).toContain("/object/b/uitsnede.jpg?w=96");
+    expect(wrapper.find(".cc-object-duim img").attributes("src")).toContain("/objecten/b/uitsnede.jpg?w=96");
     await wrapper.findAll('input[type="checkbox"]')[0].setValue(true);
     expect(wrapper.emitted("toggle")[0]).toEqual(["b"]);
   });
@@ -244,7 +244,7 @@ describe("moving and resizing the magnifier", async () => {
 });
 
 describe("history of opened files", async () => {
-  const { addToHistory, clearHistory, lastFileUrl, readHistory, removeFromHistory, MAX_HISTORY } = await import("./state.js");
+  const { addToHistory, clearHistory, lastFileUrl, readHistory, removeFromHistory, setAside, MAX_HISTORY } = await import("./state.js");
   const memory = () => {
     const data = {};
     return { getItem: (k) => data[k] ?? null, setItem: (k, v) => (data[k] = String(v)) };
@@ -272,6 +272,20 @@ describe("history of opened files", async () => {
     expect(readHistory(store)).toEqual([]);
     expect(readHistory(null)).toEqual([]);
     expect(addToHistory({ mid: "M9" }, null)).toHaveLength(1);
+  });
+
+  it("sets an entry aside and back; opening it again brings it back too", () => {
+    const store = memory();
+    addToHistory({ mid: "M1", naam: "a.jpg", pagina: 1 }, store);
+    addToHistory({ mid: "M2", naam: "b.jpg", pagina: 1 }, store);
+    setAside("M1", true, store);
+    expect(readHistory(store).find((e) => e.mid === "M1").opzij).toBe(true);
+    setAside("M1", false, store);
+    expect(readHistory(store).find((e) => e.mid === "M1").opzij).toBeUndefined();
+    setAside("M2", true, store);
+    addToHistory({ mid: "M2", naam: "b.jpg", pagina: 1 }, store);
+    expect(readHistory(store)[0]).toMatchObject({ mid: "M2" });
+    expect(readHistory(store)[0].opzij).toBeUndefined();
   });
 });
 

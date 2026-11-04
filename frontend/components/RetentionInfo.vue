@@ -17,6 +17,7 @@ const paragraphs = computed(() => {
   const days = config.bewaren || { originelen: 7, uitsneden: 30, cache: 365 };
   return [
     t("retention.intro"),
+    t("terms.objects_cutouts"),
     t("retention.cutouts", { n: days.uitsneden }),
     t("retention.cache", { n: days.cache }),
     t("retention.originals", { n: days.originelen }),

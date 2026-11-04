@@ -7,6 +7,10 @@
   <div class="cc-pagina-objecten">
     <!-- Not everything is kept forever: say so where the saved cut-outs are. -->
     <p class="cc-klein cc-bewaren">{{ t("retention.short", { n: config.bewaren?.uitsneden ?? 30 }) }} <retention-info /></p>
+    <!-- What an object is and what a cut-out is: both are on this page. -->
+    <p class="cc-uitleg cc-begrippen">
+      <template v-for="(part, j) in t('terms.objects_cutouts').split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
+    </p>
     <cdx-tabs v-model:active="tab" :framed="true">
       <cdx-tab name="objecten" :label="t('objects.tab_objects', { n: objects.length })">
         <!-- Facets on the left, stacked; the objects on the right. -->

@@ -3,6 +3,7 @@
 import io
 import json
 import re
+from urllib.parse import quote
 import zipfile
 
 import pytest
@@ -77,11 +78,11 @@ def test_detect_select_save_and_export(http):
     listed = http.get(PAGE + "/uitsneden").get_json()
     assert listed["aantal"] == 1
 
-    jpg = http.get(f"{PAGE}/object/{ids[0]}/uitsnede.jpg")
-    png = http.get(f"{PAGE}/object/{ids[0]}/uitsnede.png")
+    jpg = http.get(f"{PAGE}/objecten/{ids[0]}/uitsnede.jpg")
+    png = http.get(f"{PAGE}/objecten/{ids[0]}/uitsnede.png")
     assert jpg.mimetype == "image/jpeg" and png.mimetype == "image/png"
-    assert http.get(f"{PAGE}/object/{ids[0]}/uitsnede.jpg?w=100").status_code == 200
-    assert http.get(f"{PAGE}/object/{ids[0]}/masker.png").mimetype == "image/png"
+    assert http.get(f"{PAGE}/objecten/{ids[0]}/uitsnede.jpg?w=100").status_code == 200
+    assert http.get(f"{PAGE}/objecten/{ids[0]}/masker.png").mimetype == "image/png"
 
     archive = zipfile.ZipFile(io.BytesIO(http.get(f"/api/v1/bestand/{ALBUM_MID}/export").data))
     names = archive.namelist()
@@ -116,14 +117,14 @@ def test_regions_from_commons_and_their_concept(http):
     regions = [o for o in result["objecten"] if o["bron"] == "commons"]
     assert len(regions) == 13
     catherine = next(o for o in regions if o["wikidata"] == "Q179718")
-    concept = http.get(f"{BOOK}/object/{catherine['id']}/commons").get_json()
+    concept = http.get(f"{BOOK}/objecten/{catherine['id']}/commons").get_json()
     assert concept["bestandsnaam"].startswith("Catherine of Alexandria – extracted from Book of Hours")
     assert concept["beeldt_af"][0]["q"] == "Q179718"
 
-    changed = http.patch(f"{BOOK}/object/{catherine['id']}/commons", json={"formaat": "png", "caption": {"nl": "Catharina", "en": "Catherine"}}).get_json()
+    changed = http.patch(f"{BOOK}/objecten/{catherine['id']}/commons", json={"formaat": "png", "caption": {"nl": "Catharina", "en": "Catherine"}}).get_json()
     assert changed["bestandsnaam"].endswith(".png") and changed["caption"]["nl"] == "Catharina"
-    assert http.patch(f"{BOOK}/object/{catherine['id']}/commons", json={"formaat": "gif"}).get_json()["code"] == "invalid_concept"
-    reset = http.patch(f"{BOOK}/object/{catherine['id']}/commons", json={"herstel": True}).get_json()
+    assert http.patch(f"{BOOK}/objecten/{catherine['id']}/commons", json={"formaat": "gif"}).get_json()["code"] == "invalid_concept"
+    reset = http.patch(f"{BOOK}/objecten/{catherine['id']}/commons", json={"herstel": True}).get_json()
     assert reset["formaat"] == "jpg"
 
 
@@ -135,8 +136,9 @@ def test_upload_menu_check_and_no_upload(http):
     assert menu["aantal"] == 2 and menu["upload_aan"] is False
     assert all(item["gekozen"] for item in menu["uitsneden"])
     # The check only reads from Commons; unrecorded titles count as unreachable.
-    check = http.post(f"/api/v1/bestand/{BOOK_OF_HOURS_MID}/commons/controle", json={})
+    check = http.get(f"/api/v1/bestand/{BOOK_OF_HOURS_MID}/commons/controle")
     assert check.status_code in (200, 502)
+    assert http.get(f"/api/v1/bestand/{BOOK_OF_HOURS_MID}/commons/controle?objecten=geen-pagina").get_json()["code"] == "invalid_parameter"
     upload = http.post(f"/api/v1/bestand/{BOOK_OF_HOURS_MID}/commons/uploads", json={})
     assert upload.get_json()["code"] == "not_confirmed"
     upload = http.post(f"/api/v1/bestand/{BOOK_OF_HOURS_MID}/commons/uploads", json={"bevestigd": True})
@@ -145,7 +147,7 @@ def test_upload_menu_check_and_no_upload(http):
 
 def test_object_patch_trash_and_restore(http):
     obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
-    url = f"{PAGE}/object/{obj['id']}"
+    url = f"{PAGE}/objecten/{obj['id']}"
     assert http.patch(url, json={"bijschrift": {"tekst": "  Een   wapen "}}).get_json()["bijschrift"]["tekst"] == "Een wapen"
     assert http.patch(url, json={"onbekend": 1}).status_code == 400
     assert http.delete(url).get_json()["verwijderd"] == obj["id"]
@@ -158,7 +160,7 @@ def test_object_patch_trash_and_restore(http):
 
 def test_description_with_dummy(http):
     obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
-    url = f"{PAGE}/object/{obj['id']}/beschrijving"
+    url = f"{PAGE}/objecten/{obj['id']}/beschrijving"
     plan = http.get(url).get_json()
     assert plan["beschrijving"] is None and plan["betaald"] is False
     described = http.post(url, json={}).get_json()
@@ -167,10 +169,15 @@ def test_description_with_dummy(http):
     other = http.post(url, json={"opnieuw": True, "aanwijzing": "alleen de rand"}).get_json()["object"]["beschrijving"]
     history = http.get(url + "/geschiedenis").get_json()["geschiedenis"]
     assert history[0]["tijdstempel"] == first["tijdstempel"] and other["aanwijzing"] == "alleen de rand"
-    back = http.post(url + "/terugzetten", json={"tijdstempel": first["tijdstempel"]}).get_json()["beschrijving"]
+    back = http.put(url, json={"versie": history[0]["versie"]}).get_json()["beschrijving"]
     assert back["tijdstempel"] == first["tijdstempel"] and back.get("aanwijzing") is None
-    assert any(h.get("aanwijzing") == "alleen de rand" for h in http.get(url + "/geschiedenis").get_json()["geschiedenis"])
-    assert http.post(url + "/terugzetten", json={"tijdstempel": "nooit"}).status_code == 404
+    history = http.get(url + "/geschiedenis").get_json()["geschiedenis"]
+    assert any(h.get("aanwijzing") == "alleen de rand" for h in history)
+    assert http.put(url, json={"versie": "nooit"}).status_code == 404
+    assert http.put(url, json={}).status_code == 400
+    # One version of the history has a path of its own.
+    gone = http.delete(f"{url}/geschiedenis/{quote(history[0]['versie'], safe='')}").get_json()["geschiedenis"]
+    assert len(gone) == len(history) - 1
     preview = http.get(url + "/invoer.jpg?marge=0.5")
     assert preview.status_code == 200 and preview.mimetype == "image/jpeg"
     # A larger version for the lightbox (never larger than the original piece; at most 4000 px).
@@ -203,11 +210,15 @@ def test_description_with_dummy(http):
     assert http.patch(url, json={"beschrijving": "x"}).status_code == 409
     overview = http.post(PAGE + "/inventaris", json={}).get_json()
     assert overview["inventaris"]["zoektermen"]
+    # One part of the overview: its own path.
+    assert http.delete(PAGE + "/inventaris/zoektermen").get_json()["inventaris"]["zoektermen"] == []
+    assert http.post(PAGE + "/inventaris/zoektermen", json={}).get_json()["inventaris"]["zoektermen"]
+    assert http.delete(PAGE + "/inventaris/alles").status_code == 404
 
 
 def test_merge_duplicates_and_overviews(http):
     http.post(PAGE + "/detecties", json={"modus": "alles"})
-    merged = http.patch(PAGE + "/objecten", json={"samenvoegen": True}).get_json()
+    merged = http.post(PAGE + "/samenvoegingen", json={}).get_json()
     assert merged["samengevoegd"] >= 0
     all_objects = http.get("/api/v1/objecten?bron=dummy").get_json()
     assert all_objects["aantal"] == len(merged["objecten"])
@@ -338,7 +349,7 @@ def test_back_link_on_every_page_but_the_start(http):
 
 def test_concept_carries_the_ai_texts(http):
     obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
-    url = f"{PAGE}/object/{obj['id']}"
+    url = f"{PAGE}/objecten/{obj['id']}"
     assert http.get(url + "/commons").get_json()["ai"] is None
     http.post(url + "/beschrijving", json={})
     ai = http.get(url + "/commons").get_json()["ai"]
@@ -347,14 +358,14 @@ def test_concept_carries_the_ai_texts(http):
 
 def test_cutout_view_or_download_with_the_concept_name(http):
     obj = http.post(PAGE + "/detecties", json={"rechthoek": {"x": 0, "y": 0, "w": 200, "h": 100}}).get_json()["object"]
-    url = f"{PAGE}/object/{obj['id']}/uitsnede.jpg"
+    url = f"{PAGE}/objecten/{obj['id']}/uitsnede.jpg"
     shown = http.get(url).headers["Content-Disposition"]
     saved = http.get(url + "?download=1").headers["Content-Disposition"]
     assert shown.startswith("inline;") and saved.startswith("attachment;")
     # "Detail – extracted from …": an ASCII fallback and the full UTF-8 name.
     assert 'filename="Detail _ extracted from Album amicorum' in saved
     assert "filename*=UTF-8''Detail%20%E2%80%93%20extracted%20from%20Album" in saved and saved.endswith(".jpg")
-    png = http.get(f"{PAGE}/object/{obj['id']}/uitsnede.png?download=1").headers["Content-Disposition"]
+    png = http.get(f"{PAGE}/objecten/{obj['id']}/uitsnede.png?download=1").headers["Content-Disposition"]
     assert png.endswith(".png")
 
 
@@ -403,3 +414,20 @@ def test_usage_and_emptying_the_trash_need_the_access_list_on_a_server(app, http
         assert http.get("/api/v1/verbruik").status_code == 200
     finally:
         app.debug, app.testing = False, testing
+
+
+def test_old_paths_still_work_and_say_they_are_deprecated(http):
+    """Until 0.30.0 the paths from before 0.29.0 work, with Deprecation and a Link to the new path."""
+    obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
+    old = http.get(f"{PAGE}/object/{obj['id']}")
+    assert old.status_code == 200 and old.headers["Deprecation"] == "true"
+    assert f"{PAGE}/objecten/{obj['id']}" in old.headers["Link"] and 'rel="successor-version"' in old.headers["Link"]
+    new = http.get(f"{PAGE}/objecten/{obj['id']}")
+    assert new.status_code == 200 and "Deprecation" not in new.headers
+    url = f"{PAGE}/object/{obj['id']}/beschrijving"
+    first = http.post(url, json={}).get_json()["object"]["beschrijving"]
+    http.post(url, json={"opnieuw": True, "aanwijzing": "x"})
+    back = http.post(url + "/terugzetten", json={"tijdstempel": first["tijdstempel"]})
+    assert back.status_code == 200 and back.headers["Deprecation"] == "true"
+    merged = http.patch(PAGE + "/objecten", json={"samenvoegen": True})
+    assert merged.status_code == 200 and "/samenvoegingen" in merged.headers["Link"]

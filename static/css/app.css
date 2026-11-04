@@ -14,6 +14,7 @@
   --cc-nieuw: #ff6d22;
   --cc-paneel-breedte: 21rem;
   --cc-links-breedte: 17rem;
+  --cc-historie-breedte: 13rem;
   --cc-rand: var(--border-color-subtle, #c8ccd1);
   --cc-tekst-zacht: var(--color-subtle, #54595d);
 }
@@ -65,9 +66,23 @@ h2, h3, h4 { margin: 0.5rem 0; }
 
 /* -- Generic -------------------------------------------------------------- */
 .cc-klein { font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
+/* Explanations (how something works, what it costs): small and grey, apart from results. */
+.cc-uitleg { font-size: 0.75rem; line-height: 1.4; color: var(--cc-tekst-zacht); margin: 0.4rem 0; }
+/* What the AI said: a card with a coloured edge, in the normal text colour. */
+.cc-ai-resultaat { margin: 0.5rem 0 0.75rem; padding: 0.5rem 0.75rem; background: var(--background-color-interactive-subtle, #f8f9fa); border-left: 3px solid var(--border-color-progressive, #36c); border-radius: 2px; font-size: 0.875rem; color: var(--color-base, #202122); }
+.cc-ai-resultaat p { margin: 0; }
+.cc-ai-resultaat .cc-inventaris-tekst { margin-top: 0.5rem; }
+/* A result of the work so far (how many found): normal colour, small. */
+.cc-status { font-size: 0.8125rem; margin: 0.25rem 0 0.5rem; }
+/* Ask a part of the overview again, or remove it: small, right under that part. */
+.cc-deel-acties { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: -0.25rem 0 0.5rem; }
+.cc-deel-kop { margin: 0.75rem 0 0; padding-top: 0.5rem; border-top: 1px solid var(--cc-rand); font-size: 0.875rem; }
 .cc-leeg { color: var(--cc-tekst-zacht); font-style: italic; }
 .cc-uitleg { color: var(--cc-tekst-zacht); max-width: 50rem; }
 .cc-knoppen { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
+/* A button wider than a narrow column wraps its text instead of being cut off on both sides. */
+.cc-knoppen .cdx-button { max-width: 100%; white-space: normal; height: auto; min-height: 32px; text-align: left; }
+.cc-knoppen .cdx-button--size-small { min-height: 24px; }
 .cc-link { background: none; border: 0; padding: 0; color: var(--color-progressive, #36c); cursor: pointer; font: inherit; }
 .cc-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .cc-afkappen { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -108,13 +123,33 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-depicts::after { content: " · "; }
 .cc-depicts:last-child::after { content: ""; }
 
-/* -- Work area: left, middle, right ------------------------------------------ */
+/* -- Work area: image, detection, objects ----------------------------------- */
 .cc-werkblad {
   display: grid; gap: 0; margin-top: 0.5rem;
-  grid-template-columns: var(--cc-links-breedte) 0.75rem minmax(0, 1fr) 0.75rem var(--cc-paneel-breedte);
+  /* image | detection | objects (cc-links), as in the Delpher Uitsnijder */
+  /* history | image | finding objects | what you found; set by CutterApp (gridColumns) as columns fold away */
+  grid-template-columns: var(--cc-kolommen, var(--cc-historie-breedte) 0.75rem minmax(0, 1fr) 0.75rem var(--cc-paneel-breedte) 0.75rem var(--cc-links-breedte));
   height: calc(100vh - 8rem); min-height: 32rem;
 }
-.cc-links, .cc-rechts { overflow-y: auto; min-height: 0; }
+.cc-links, .cc-rechts, .cc-historie { overflow-y: auto; min-height: 0; }
+/* A column folded away: only a narrow strip with its name and an arrow (ColumnStrip.vue). */
+.cc-kolom-inhoud { display: contents; }
+.cc-kolom.dicht > .cc-kolom-inhoud { display: none; }
+.cc-kolom.dicht { overflow: hidden; }
+.cc-kolom-dicht-knop { margin-left: auto; }
+.cc-viewer-balk .cc-kolom-dicht-knop { margin-left: 0.25rem; }
+.cc-kolom-strook { height: auto; min-height: 6rem; width: 2.25rem; min-width: 0; padding: 0.4rem 0; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+.cc-kolom-strook-tekst { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.8125rem; white-space: nowrap; }
+.cc-splitter-uit { pointer-events: none; visibility: hidden; }
+.cc-historie .cc-geschiedenis img { width: 2.75rem; height: 2.75rem; }
+/* "Bekeken": the active list and "Opzij gezet" below it; both are drop areas for a dragged row. */
+.cc-geschiedenis li[draggable="true"] { cursor: grab; }
+.cc-sleepvak { border: 2px dashed transparent; border-radius: 2px; transition: border-color 0.1s, background 0.1s; }
+.cc-sleepvak.erboven { border-color: var(--border-color-progressive, #36c); background: var(--background-color-progressive-subtle, #eaf3ff); }
+.cc-opzij { margin: 0.5rem 0; }
+.cc-opzij .cdx-accordion > summary { padding: 0.25rem 0 !important; min-height: 0 !important; }
+.cc-opzij .cc-geschiedenis img { opacity: 0.7; }
+.cc-geschiedenis .cc-geschiedenis-knoppen { display: flex; flex-direction: column; flex: none; }
 .cc-midden { min-width: 0; min-height: 0; display: flex; }
 /* The draggable borders between the columns (ColumnSplitter.vue). */
 .cc-splitter { cursor: col-resize; position: relative; touch-action: none; }
@@ -122,6 +157,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-splitter:hover::after, .cc-splitter:focus-visible::after, .cc-splitter.actief::after { left: calc(50% - 2px); width: 4px; background: var(--color-progressive, #36c); }
 .cc-splitter:focus-visible { outline: none; }
 .cc-acties { display: grid; gap: 0.4rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--cc-rand); }
+/* Under the objects the buttons stay in view while the list scrolls. */
+.cc-links .cc-acties { position: sticky; bottom: 0; background: var(--background-color-base, #fff); padding-bottom: 0.5rem; }
 .cc-telling { margin: 0; color: var(--cc-tekst-zacht); }
 .cc-modus { margin: 0 0 0.5rem; font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
 .cc-modus.betaald { color: var(--color-warning, #ac6600); }
@@ -288,12 +325,24 @@ h2, h3, h4 { margin: 0.5rem 0; }
   .cc-concept-kop { flex-direction: column-reverse; }
   .cc-werkblad { grid-template-columns: 1fr; height: auto; gap: 0.75rem; }
   .cc-splitter { display: none; }
-  .cc-midden { height: 70vh; order: -1; }
+  .cc-midden { height: 70vh; }
   .cc-links, .cc-rechts { overflow: visible; }
+  .cc-historie, .cc-historie-rand { display: none; }
+  /* Narrow screens stack the columns: folding away does not apply there. */
+  .cc-kolom.dicht > .cc-kolom-inhoud { display: contents; }
+  .cc-kolom-strook { display: none; }
   .cc-werkt-met, .cc-tagline { display: none; }
 }
 .cc-tekst-acties { align-items: center; }
-.cc-inventaris-knop { margin-top: 0.75rem; }
+.cc-termen-uitleg { margin-bottom: 0.25rem; }
+/* A suggested term: a tick (along with "Detect all"?) and the term button; left out, it fades. */
+/* One framed chip: the tick inside, then the term button (a tick cannot sit inside a button). */
+.cc-term { display: inline-flex; align-items: stretch; border: 1px solid var(--border-color-progressive, #36c); border-radius: 2px; background: var(--background-color-interactive-subtle, #f8f9fa); }
+.cc-term-mee { margin: 0 0 0 0.35rem; align-self: center; accent-color: var(--color-progressive, #36c); cursor: pointer; }
+.cc-term .cdx-button { border: 0; border-radius: 0 2px 2px 0; padding-left: 0.3rem; }
+.cc-term:focus-within { box-shadow: 0 0 0 1px var(--border-color-progressive, #36c); }
+.cc-term-uit { border-style: dashed; }
+.cc-term-uit .cdx-button { opacity: 0.55; text-decoration: line-through; }
 
 /* Preview of the Commons page: wikitext as Commons renders it, and the structured data. */
 .cc-voorbeeld-kop { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; }
@@ -496,3 +545,10 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-naam-formaat .cc-formaat-veld { flex: none; margin-top: 0; }
 .cc-naam-formaat .cc-formaat-veld .cdx-toggle-button-group { display: inline-flex; flex-wrap: nowrap; }
 .cc-inscriptie-veld textarea { min-height: 8rem; font-size: 0.9375rem; line-height: 1.5; }
+
+/* Confirmations with sections (ConfirmDialog.vue): a short heading, then text or a list. */
+.cc-bevestig-blok + .cc-bevestig-blok { margin-top: 0.75rem; }
+.cc-bevestig-kop { display: block; margin-bottom: 0.15rem; }
+.cc-bevestig-blok p { margin: 0; }
+.cc-bevestig-blok ul { margin: 0; padding-left: 1.25rem; }
+.cc-mid-link { font-weight: bold; }

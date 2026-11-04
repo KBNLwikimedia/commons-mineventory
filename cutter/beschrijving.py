@@ -200,6 +200,56 @@ List the visual objects in this image (not text), so that an open-vocabulary obj
 Only list what you can actually see; do not guess. In zoektermen, skip plain text and borders."""
 
 
+# The two parts of the overview that can be asked again (or removed) on their own
+# (since 0.29.0): the description of the image, and the search terms for SAM.
+INVENTORY_PARTS = {
+    "beschrijving": ("paginasoort", "paginasoort_en", "samenvatting", "samenvatting_en", "tekst"),
+    "zoektermen": ("zoektermen",),
+}
+PART_INTRO = {
+    "beschrijving": "Describe this image. Answer in JSON:",
+    "zoektermen": "List the visual objects in this image (not text), so that an open-vocabulary object detector (SAM) can find them. Answer in JSON:",
+}
+
+
+PART_LOG = {"beschrijving": " – beschrijving opnieuw", "zoektermen": " – zoektermen opnieuw"}
+
+
+def inventory_schema(part=None):
+    """The answer format for the whole overview, or for one part of it."""
+    if part is None:
+        return INVENTORY_SCHEMA
+    keys = INVENTORY_PARTS[part]
+    return {
+        "type": "object",
+        "properties": {k: v for k, v in INVENTORY_SCHEMA["properties"].items() if k in keys},
+        "required": list(keys),
+        "additionalProperties": False,
+    }
+
+
+def inventory_instructions(publication, part=None):
+    """The question for the whole overview, or for one part: the same field
+    descriptions as the whole question, so both parts stay alike."""
+    if part is None:
+        return INVENTORY_INSTRUCTIONS.format(publication=publication, max_terms=MAX_TERMS)
+    keys, kept, keep = INVENTORY_PARTS[part], [], False
+    for line in INVENTORY_INSTRUCTIONS.splitlines():
+        field = re.match(r"- (\w+):", line)
+        if field:
+            keep = field.group(1) in keys
+        elif not line.startswith("  "):
+            keep = False
+        if keep:
+            kept.append(line)
+    end = {
+        "beschrijving": "Only describe what you can actually see; do not guess.",
+        "zoektermen": "Only list what you can actually see; do not guess. In zoektermen, skip plain text and borders.",
+    }[part]
+    text = f"You look at one whole image on Wikimedia Commons: {{publication}}.\n\n{PART_INTRO[part]}\n" + "\n".join(kept) + "\n" + end
+    return text.format(publication=publication, max_terms=MAX_TERMS)
+
+
 def parse_inventory(text):
     """The overview from the answer; terms are cleaned, de-duplicated and capped."""
     match = re.search(r"\{.*\}", text or "", re.S)
@@ -448,7 +498,7 @@ class DummyVision:
     betaald = False
 
     def describe(self, model, prompt, data_url, obj, effort=None, schema=SCHEMA):
-        if schema is INVENTORY_SCHEMA:
+        if "zoektermen" in schema.get("properties", {}) or "paginasoort" in schema.get("properties", {}):
             answer = {
                 "paginasoort": "voorbeeldafbeelding (dummy)",
                 "paginasoort_en": "example image (dummy)",
@@ -889,17 +939,21 @@ class DescriptionService:
             "budget": self.objects.verbruik.status(user),
         }
 
-    def _inventory_cache_path(self, file, n, model):
-        key = f"pagina|{file['sha1']}|{n}|{model}|{self._effort()}|{INVENTORY_VERSION}"
+    def _inventory_cache_path(self, file, n, model, part=None):
+        key = f"pagina|{file['sha1']}|{n}|{model}|{self._effort()}|{INVENTORY_VERSION}" + (f"|{part}" if part else "")
         digest = hashlib.sha1(key.encode()).hexdigest()
         return self.cache_dir / digest[:2] / f"{digest}.json"
 
-    def inventory(self, file, n, model=None, again=False, user=None):
+    def inventory(self, file, n, model=None, again=False, user=None, part=None):
         """Ask the model what is on the whole page (paid in live mode, cached)
-        and keep the overview in the page's store ("inventaris")."""
+        and keep the overview in the page's store ("inventaris"). With `part`
+        ("beschrijving" or "zoektermen") only that part is asked anew, always a
+        new answer; the other part of the stored overview stays as it is."""
+        if part is not None and part not in INVENTORY_PARTS:
+            raise DetectionError(f"Onbekend deel '{part}'; kies uit {', '.join(INVENTORY_PARTS)}.", status=404, code="not_found")
         choice = self._model(file, model)
-        path = self._inventory_cache_path(file, n, choice["model"])
-        if path.exists() and not again:
+        path = self._inventory_cache_path(file, n, choice["model"], part)
+        if path.exists() and not again and part is None:
             mark_used(path)
             overview = json.loads(path.read_text(encoding="utf-8"))
             return self._store_inventory(file, n, overview, cached=True, user=user)
@@ -916,16 +970,19 @@ class DescriptionService:
             image.save(buffer, format="JPEG", quality=85)
             data_url = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
             publication = f'"{file.get("naam")}"' + (f", page {n}" if file.get("paginas", 1) > 1 else "")
-            prompt = INVENTORY_INSTRUCTIONS.format(publication=publication, max_terms=MAX_TERMS)
+            prompt = inventory_instructions(publication, part)
 
-            body = self.vision.describe(choice["model"], prompt, data_url, None, effort, schema=INVENTORY_SCHEMA)
+            body = self.vision.describe(choice["model"], prompt, data_url, None, effort, schema=inventory_schema(part))
             tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
             if self.vision.betaald:
                 amount = cost(choice["model"], tokens_in, tokens_out) if tokens_in is not None else estimate(choice["model"], effort, ESTIMATE_PAGE_INPUT)
             else:
                 amount = 0.0
+            parsed = parse_inventory(output_text(body))
+            if part is not None:
+                parsed = {k: parsed[k] for k in INVENTORY_PARTS[part]}
             overview = {
-                **parse_inventory(output_text(body)),
+                **parsed,
                 "model": choice["model"],
                 "model_reden": choice["reden"],
                 "redeneren": effort,
@@ -943,7 +1000,7 @@ class DescriptionService:
                         "bestand": file["mid"],
                         "titel": file["titel"],
                         "pagina": n,
-                        "term": f"Wat staat op deze pagina? ({choice['model']})",
+                        "term": f"Wat staat op deze pagina?{PART_LOG.get(part, '')} ({choice['model']})",
                         "model": choice["model"],
                         "redeneren": effort,
                         "tokens": overview["tokens"],
@@ -953,7 +1010,49 @@ class DescriptionService:
                 )
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(overview, ensure_ascii=False, indent=2), encoding="utf-8")
+        if part is not None:
+            return self._store_inventory_part(file, n, part, overview, user=user)
         return self._store_inventory(file, n, overview, cached=False, user=user)
+
+    def forget_inventory(self, file, n, part=None):
+        """Remove the page overview from the page, or one part of it: the
+        description ("beschrijving": kind, summary and the text read in and under
+        the image, which then no longer goes along as context for "Wat staat
+        hierop?") or the search terms ("zoektermen"). Without parts left, the
+        overview goes entirely. The cached answer stays, so asking "Wat staat op
+        deze pagina?" again brings the first answer back for free. Objects found
+        with its terms stay. Free."""
+        if part is not None and part not in INVENTORY_PARTS:
+            raise DetectionError(f"Onbekend deel '{part}'; kies uit {', '.join(INVENTORY_PARTS)}.", status=404, code="not_found")
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            overview = store.get("inventaris")
+            if not overview:
+                return {"verwijderd": False, "inventaris": None}
+            if part is None:
+                store.pop("inventaris")
+            else:
+                for key in INVENTORY_PARTS[part]:
+                    overview[key] = [] if key == "zoektermen" else ""
+                (overview.get("delen") or {}).pop(part, None)
+                if not any(overview.get(key) for keys in INVENTORY_PARTS.values() for key in keys):
+                    store.pop("inventaris")
+            self.objects._write_store(file, n, store)
+        return {"verwijderd": True, "inventaris": store.get("inventaris")}
+
+    def _store_inventory_part(self, file, n, part, answer, user=None):
+        """Put one newly asked part into the stored overview; the other part
+        stays. When and how each part was asked anew is under "delen"."""
+        fields = {k: answer[k] for k in INVENTORY_PARTS[part]}
+        meta = {k: v for k, v in answer.items() if k not in fields}
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            empty = {k: [] if k == "zoektermen" else "" for keys in INVENTORY_PARTS.values() for k in keys}
+            overview = {**empty, **meta, **(store.get("inventaris") or {}), **fields}
+            overview["delen"] = {**(overview.get("delen") or {}), part: meta}
+            store["inventaris"] = overview
+            self.objects._write_store(file, n, store)
+        return {"inventaris": overview, "uit_cache": False, "budget": self.objects.verbruik.status(user)}
 
     def _store_inventory(self, file, n, overview, cached, user=None):
         with self.objects.lock:

@@ -10,6 +10,8 @@ De Commons Cutter heeft een REST-API onder `/api/v1`. De interface in de browser
 - `201` bij aanmaken (detecties, uitsneden), `202` bij een upload (fase 2).
 - Elke API-respons heeft `X-Robots-Tag: noindex, nofollow`.
 - `{mid}` is de M-id van het bestand op Commons (`M28830642`); `{n}` het paginanummer (1 bij een gewone afbeelding); `{object_id}` het id van een object (`obj-…`).
+- Object en uitsnede: een object (`…/objecten/{object_id}`) is wat er gevonden is, alleen gegevens; een uitsnede is het beeldbestand dat je ervan opslaat (`POST …/uitsneden`, daarna `…/uitsnede.jpg` en `…/uitsnede.png` in volledige resolutie). Zonder opslaan geven `uitsnede.jpg` en `uitsnede.png` het beeld op aanvraag, zonder het te bewaren.
+- REST: elk pad is een bron (zelfstandig naamwoord, een lijst in het meervoud: `…/objecten/{object_id}`); GET leest, POST maakt aan of start iets nieuws, PUT zet, PATCH wijzigt een deel, DELETE verwijdert. Geen werkwoorden in de paden (sinds 0.29.0).
 - Inloggen (OAuth 2.0) komt in fase 2. Betaalde aanroepen vragen dan een login en een plek op de toegangslijst; in de proefmodus (`DETECTIE_MODUS=dummy`) is alles gratis en is geen login nodig.
 
 ## Bestand en pagina's
@@ -34,7 +36,10 @@ GET /api/v1/bestand?url=https://commons.wikimedia.org/wiki/File:Album_amicorum_v
 | POST | `/bestand/{mid}/pagina/{n}/detecties` | Een detectie. Body: `{"prompt": "wapen en portret min tekst", "modus": "prompt"}`; of `"modus"`: `alles` of `commons` (de regio's uit Commons, gratis). Of `{"punt": {"x", "y"}}` (Aanwijzen), `{"rechthoek": {"x", "y", "w", "h"}}` (met de hand, gratis) of `{"masker_voor": "<object-id>"}` (de vorm van een regio via een SAM-boxprompt). Antwoord 201 met alle objecten van de pagina en de nieuwe id's |
 | GET | `/bestand/{mid}/pagina/{n}/detecties/raming` | Wat een detectie zou kosten (zelfde parameters als query); voert niets uit |
 | GET | `/bestand/{mid}/pagina/{n}/inventaris` | Het opgeslagen paginaoverzicht ("Wat staat op deze pagina?") en de kosten van een nieuw |
-| POST | `/bestand/{mid}/pagina/{n}/inventaris` | Muse Spark vragen wat er op de pagina staat; zoektermen voor SAM. Body: `{"model": "auto", "opnieuw": false}`. Het overzicht heeft `paginasoort` en `samenvatting` in het Nederlands en (sinds 0.9.0) `paginasoort_en` en `samenvatting_en` in het Engels, en (sinds 0.16.0) `tekst`: de tekst die het model in en onder de afbeelding leest, letterlijk |
+| DELETE | `/bestand/{mid}/pagina/{n}/inventaris` | Het hele paginaoverzicht verwijderen: samenvatting, zoektermen en de gelezen tekst, die dan ook niet meer meegaat als context bij "Wat staat hierop?". Gevonden objecten blijven. Het antwoord blijft in de cache: een POST zonder `opnieuw` brengt het gratis terug. Geeft `{"verwijderd": true\|false, "inventaris": null}`. Gratis |
+| DELETE | `/bestand/{mid}/pagina/{n}/inventaris/{deel}` | Eén deel verwijderen (sinds 0.29.0): `beschrijving` (paginasoort, samenvatting, gelezen tekst) of `zoektermen`; het andere deel blijft. Zijn beide delen leeg, dan gaat het hele overzicht weg. Geeft `{"verwijderd", "inventaris"}` (wat overblijft, of `null`). Een onbekend deel: 404. Gratis |
+| POST | `/bestand/{mid}/pagina/{n}/inventaris/{deel}` | Eén deel opnieuw vragen (sinds 0.29.0): altijd een nieuw, betaald antwoord, met een vraag en antwoordformaat voor alleen dat deel; het andere deel blijft. `delen` in het overzicht zegt wanneer en met welk model elk deel opnieuw is gevraagd. Body: `{"model": "auto"}` (optioneel) |
+| POST | `/bestand/{mid}/pagina/{n}/inventaris` | Muse Spark vragen wat er op de pagina staat; zoektermen voor SAM. Body: `{"model": "auto", "opnieuw": false}`. Met `"opnieuw": true` komt er een nieuw antwoord voor beide delen. Het overzicht heeft `paginasoort` en `samenvatting` in het Nederlands en (sinds 0.9.0) `paginasoort_en` en `samenvatting_en` in het Engels, en (sinds 0.16.0) `tekst`: de tekst die het model in en onder de afbeelding leest, letterlijk |
 
 
 Regio's uit Commons (`modus: commons`) zijn de verklaringen *beeldt af* (P180) met *relatieve positie in afbeelding* (P2677, `pct:x,y,b,h` of pixels) en de bestandsnotities (`{{ImageNote}}`). Elke regio wordt een eigen object (`bron: commons`, `soort: regio` of `notitie`) met het Wikidata-item in `wikidata`; regio's worden nooit samengevoegd.
@@ -43,13 +48,14 @@ Regio's uit Commons (`modus: commons`) zijn de verklaringen *beeldt af* (P180) m
 
 | Methode | Pad | Functie |
 | --- | --- | --- |
-| PATCH | `/bestand/{mid}/pagina/{n}/objecten` | `{"geselecteerd": [ids]}` (precies deze zijn geselecteerd), `{"objecten": [{"id", "status"}]}` of `{"samenvoegen": true}` (dubbelingen samenvoegen) |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}` | Eén object, ook als het in de prullenbak ligt (`in_prullenbak`) |
-| PATCH | `/bestand/{mid}/pagina/{n}/object/{object_id}` | `{"bijschrift": {"tekst": …} \| null}`, `{"status": …}`, `{"prullenbak": true \| false}` |
-| DELETE | `/bestand/{mid}/pagina/{n}/object/{object_id}` | Naar de prullenbak |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/uitsnede.jpg` | De rechthoek als JPG in volledige resolutie; met `?w=` een voorbeeld |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/uitsnede.png` | De vorm van het object als transparante PNG, in volledige resolutie |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/masker.png` | Het masker (wit is het object), op de resolutie van het masker |
+| PATCH | `/bestand/{mid}/pagina/{n}/objecten` | `{"geselecteerd": [ids]}` (precies deze zijn geselecteerd) of `{"objecten": [{"id", "status"}]}` |
+| POST | `/bestand/{mid}/pagina/{n}/samenvoegingen` | Dubbelingen samenvoegen (sinds 0.29.0; eerder `{"samenvoegen": true}` in de PATCH hierboven, dat nog tot 0.30.0 werkt): objecten die hetzelfde beeld tonen, worden één. Geeft `{"objecten", "samengevoegd"}`. Gratis |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}` | Eén object, ook als het in de prullenbak ligt (`in_prullenbak`) |
+| PATCH | `/bestand/{mid}/pagina/{n}/objecten/{object_id}` | `{"bijschrift": {"tekst": …} \| null}`, `{"status": …}`, `{"prullenbak": true \| false}` |
+| DELETE | `/bestand/{mid}/pagina/{n}/objecten/{object_id}` | Naar de prullenbak |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/uitsnede.jpg` | De rechthoek als JPG in volledige resolutie; met `?w=` een voorbeeld |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/uitsnede.png` | De vorm van het object als transparante PNG, in volledige resolutie |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/masker.png` | Het masker (wit is het object), op de resolutie van het masker |
 
 Statussen: `kandidaat`, `geselecteerd`, `uitgesloten`. Bronnen: `sam`, `dummy`, `commons`, `handmatig`.
 
@@ -57,14 +63,14 @@ Statussen: `kandidaat`, `geselecteerd`, `uitgesloten`. Bronnen: `sam`, `dummy`, 
 
 | Methode | Pad | Functie |
 | --- | --- | --- |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De opgeslagen beschrijving en wat een nieuwe kost, met het model en de reden |
-| POST | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | Muse Spark vragen (gecachet). Body: `{"model": "auto" \| "standaard" \| "contributor", "opnieuw": false, "aanwijzing": "…"}`. Met `marge` (0 tot 1, standaard 0,25, in stappen van 0,05) kies je hoeveel ruimte rond het kader het model ziet; de gekozen marge staat in de beschrijving (`marge`). De optionele `aanwijzing` (hooguit 300 tekens) is een extra opdracht voor het model, bijv. "alleen de jongen"; hij wordt bewaard in de beschrijving (`aanwijzing`) en hoort bij de cachesleutel. Heeft de pagina een AI-overzicht met `tekst` (de tekst in en onder de afbeelding), dan gaat die als context mee; `paginatekst: true` in de beschrijving zegt dat, en de tekst hoort ook bij de cachesleutel |
-| PATCH | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De teksten met de hand wijzigen (gratis). Body: een of meer van `onderwerp`, `onderwerp_en`, `bedrijf_of_naam` (sinds 0.22.1), `beschrijving`, `beschrijving_en`, `tekst_in_beeld`, `tekst_rond_beeld` (een lege tekst haalt het veld leeg). De eerste keer dat een veld verandert, blijft de AI-tekst bewaard in `ai_origineel`; `bewerkt` zegt of er nog iets afwijkt. 409 zonder beschrijving |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/geschiedenis` | Eerdere versies van de beschrijving, nieuwste eerst: wat bij een nieuwe vraag, een aanpassing met de hand, terugzetten of wissen is vervangen (hooguit 30), plus antwoorden die nog in de cache staan. Elke versie heeft `versie` (en bij een aanpassing `bewerkt_op`). Gratis |
-| DELETE | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/geschiedenis?versie=…` | Eén eerdere versie verwijderen (sinds 0.27.1). Een AI-antwoord dat nog in de cache staat, wordt voor dit object verborgen; de cache zelf blijft. De huidige beschrijving gaat zo niet weg. Gratis |
-| POST | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/terugzetten` | Een eerdere versie weer de huidige maken (gratis). Body: `{"versie": …}` uit de geschiedenis (sinds 0.27.0; elke versie, ook een aanpassing met de hand, heeft een eigen `versie`), of het oudere `{"tijdstempel": …, "bewerkt": true\|false}` |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/invoer.jpg?marge=0.25` | Wat het model zou zien: het kader met die marge eromheen, het kader in rood. Met `max=` (1024 tot 4000 pixels, de langste zijde) een grotere versie om de tekst in het beeld te lezen en te controleren; het model zelf krijgt altijd 1024. Gratis (er gaat niets naar het model) |
-| DELETE | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De beschrijving vergeten (het antwoord blijft in de cache) |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` | De opgeslagen beschrijving en wat een nieuwe kost, met het model en de reden |
+| POST | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` | Muse Spark vragen (gecachet). Body: `{"model": "auto" \| "standaard" \| "contributor", "opnieuw": false, "aanwijzing": "…"}`. Met `marge` (0 tot 1, standaard 0,25, in stappen van 0,05) kies je hoeveel ruimte rond het kader het model ziet; de gekozen marge staat in de beschrijving (`marge`). De optionele `aanwijzing` (hooguit 300 tekens) is een extra opdracht voor het model, bijv. "alleen de jongen"; hij wordt bewaard in de beschrijving (`aanwijzing`) en hoort bij de cachesleutel. Heeft de pagina een AI-overzicht met `tekst` (de tekst in en onder de afbeelding), dan gaat die als context mee; `paginatekst: true` in de beschrijving zegt dat, en de tekst hoort ook bij de cachesleutel |
+| PATCH | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` | De teksten met de hand wijzigen (gratis). Body: een of meer van `onderwerp`, `onderwerp_en`, `bedrijf_of_naam` (sinds 0.22.1), `beschrijving`, `beschrijving_en`, `tekst_in_beeld`, `tekst_rond_beeld` (een lege tekst haalt het veld leeg). De eerste keer dat een veld verandert, blijft de AI-tekst bewaard in `ai_origineel`; `bewerkt` zegt of er nog iets afwijkt. 409 zonder beschrijving |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving/geschiedenis` | Eerdere versies van de beschrijving, nieuwste eerst: wat bij een nieuwe vraag, een aanpassing met de hand, terugzetten of wissen is vervangen (hooguit 30), plus antwoorden die nog in de cache staan. Elke versie heeft `versie` (en bij een aanpassing `bewerkt_op`). Gratis |
+| DELETE | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving/geschiedenis/{versie}` | Eén eerdere versie verwijderen (sinds 0.27.1; dit pad sinds 0.29.0), met de `versie` uit de geschiedenis. Een AI-antwoord dat nog in de cache staat, wordt voor dit object verborgen; de cache zelf blijft. De huidige beschrijving gaat zo niet weg. Gratis |
+| PUT | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` | Een eerdere versie weer de huidige beschrijving maken (gratis; sinds 0.29.0, eerder POST `…/terugzetten`). Body: `{"versie": …}` uit de geschiedenis; elke versie, ook een aanpassing met de hand, heeft een eigen `versie`. De huidige gaat naar de geschiedenis |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving/invoer.jpg?marge=0.25` | Wat het model zou zien: het kader met die marge eromheen, het kader in rood. Met `max=` (1024 tot 4000 pixels, de langste zijde) een grotere versie om de tekst in het beeld te lezen en te controleren; het model zelf krijgt altijd 1024. Gratis (er gaat niets naar het model) |
+| DELETE | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` | De beschrijving vergeten (het antwoord blijft in de cache) |
 | GET | `/wikidata/zoek?q=…&taal=nl\|en` | Wikidata-items zoeken voor *beeldt af* (gratis) |
 
 Velden: `soort`, `onderwerp`, `onderwerp_en`, `bedrijf_of_naam`, `tekst_in_beeld`, `tekst_rond_beeld`, `beschrijving`, `beschrijving_en`, `zekerheid`, `wikidata_suggesties` (hooguit drie zoektermen; het model verzint geen Q-nummers). Contributor alleen bij publiek domein zonder rechtenlabels (FO 6.3). `soort` en `zekerheid` komen uit een vaste Nederlandse lijst; de interface vertaalt ze. De reden voor het model staat als tekst in `model_reden` (Nederlands) en als code in `model_reden_code` (`publiek_domein`, `contributor_uit`, `rechtenlabel`, `niet_vrij`, `standaard_gekozen`), met de blokkerende rechtenlabels in `model_reden_labels`; de GET geeft hetzelfde als `reden`, `reden_code` en `labels`. Na een bewerking met de hand: `ai_origineel` en `bewerkt` (zie PATCH).
@@ -73,11 +79,11 @@ Velden: `soort`, `onderwerp`, `onderwerp_en`, `bedrijf_of_naam`, `tekst_in_beeld
 
 | Methode | Pad | Functie |
 | --- | --- | --- |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/commons` | Het concept: bestandsnaam, formaat, caption en beschrijving (nl/en), datum, maker, licentiesjablonen, categorieën, *beeldt af*, rechtenlabel, wikitekst, SDC en uploadsamenvatting, met `sdc_labels` (labels van eigenschappen en items in de SDC, voor de preview) en `origineel`: wat het origineel voor deze uitsnede zou krijgen (per *beeldt af*-item een P180 met P2677 `pct:x,y,w,h`; `aanwezig` als het origineel die regio al heeft; `null` bij bestanden met meer pagina's). De SDC bevat ook P31 *digitale afbeelding*, P1163 mediatype, P4092 SHA-1, P3575 grootte, P2048/P2049 hoogte en breedte van het uitgesneden bestand. Gratis |
-| GET | `/bestand/{mid}/pagina/{n}/object/{object_id}/commons/weergave` | De wikitekst zoals Commons hem weergeeft: `{"html": …}`. Commons maakt de HTML (`action=parse`, alleen lezen, gecachet); de app laat alleen veilige tags staan, zonder afbeeldingen, stijlen of scripts, zodat de browser van de gebruiker voor deze preview niets van Wikimedia laadt. Gratis |
-| PATCH | `/bestand/{mid}/pagina/{n}/object/{object_id}/commons` | Velden wijzigen (`bestandsnaam`, `formaat`, `beschrijving`, `caption`, `datum`, `maker`, `categorieen`, `beeldt_af`, `image_extracted`, `merk_bevestigd`, `gekozen`, `sdc_waarden`), of `{"herstel": true}`. `sdc_waarden` (sinds 0.24.0) vervangt de waarden van uitspraken van het origineel (P6216, P275, P170, P571, P195): `{"P195": [{"item": "Q…", "bron": 0}], "P571": [{"tijd": "1708-02"}], "P170": [{"onbekend": true}]}`; `bron` is het volgnummer van de uitspraak van het origineel waarvan de kwalificaties blijven; een lege lijst haalt de uitspraak weg. Kwalificaties en bronnen zijn niet te wijzigen |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/commons` | Het concept: bestandsnaam, formaat, caption en beschrijving (nl/en), datum, maker, licentiesjablonen, categorieën, *beeldt af*, rechtenlabel, wikitekst, SDC en uploadsamenvatting, met `sdc_labels` (labels van eigenschappen en items in de SDC, voor de preview) en `origineel`: wat het origineel voor deze uitsnede zou krijgen (per *beeldt af*-item een P180 met P2677 `pct:x,y,w,h`; `aanwezig` als het origineel die regio al heeft; `null` bij bestanden met meer pagina's). De SDC bevat ook P31 *digitale afbeelding*, P1163 mediatype, P4092 SHA-1, P3575 grootte, P2048/P2049 hoogte en breedte van het uitgesneden bestand. Gratis |
+| GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/commons/weergave` | De wikitekst zoals Commons hem weergeeft: `{"html": …}`. Commons maakt de HTML (`action=parse`, alleen lezen, gecachet); de app laat alleen veilige tags staan, zonder afbeeldingen, stijlen of scripts, zodat de browser van de gebruiker voor deze preview niets van Wikimedia laadt. Gratis |
+| PATCH | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/commons` | Velden wijzigen (`bestandsnaam`, `formaat`, `beschrijving`, `caption`, `datum`, `maker`, `categorieen`, `beeldt_af`, `image_extracted`, `merk_bevestigd`, `gekozen`, `sdc_waarden`), of `{"herstel": true}`. `sdc_waarden` (sinds 0.24.0) vervangt de waarden van uitspraken van het origineel (P6216, P275, P170, P571, P195): `{"P195": [{"item": "Q…", "bron": 0}], "P571": [{"tijd": "1708-02"}], "P170": [{"onbekend": true}]}`; `bron` is het volgnummer van de uitspraak van het origineel waarvan de kwalificaties blijven; een lege lijst haalt de uitspraak weg. Kwalificaties en bronnen zijn niet te wijzigen |
 | GET | `/bestand/{mid}/commons` | Het keuzemenu: alle opgeslagen uitsneden van het bestand met hun concept |
-| POST | `/bestand/{mid}/commons/controle` | Controle vooraf, alleen lezen op Commons: bestaat de naam, staat dezelfde afbeelding er al (SHA-1), bestaan de categorieën. Body: `{"objecten": [{"pagina", "id"}]}`; zonder body de aangevinkte |
+| GET | `/bestand/{mid}/commons/controle?objecten=1:obj-a,2:obj-b` | Controle vooraf, alleen lezen op Commons (sinds 0.29.0 een GET): bestaat de naam, staat dezelfde afbeelding er al (SHA-1), bestaan de categorieën. `objecten` is een lijst `pagina:id`; zonder de aangevinkte |
 | POST | `/bestand/{mid}/commons/uploads` | Uploaden (fase 2). Vereist een login, `{"bevestigd": true}` en `COMMONS_UPLOAD=aan`; nu: 503 `upload_disabled` |
 | GET | `/uploads/{task}` | Voortgang van een upload (fase 2) |
 
@@ -105,6 +111,20 @@ Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{o
 | GET | `/verbruik/{datum}` | Het verbruik van één dag |
 | GET | `/status` | Versie, modus, ingelogde gebruiker, budgetten |
 | GET | `/openapi.json` | De OpenAPI-beschrijving |
+
+## Verouderde paden
+
+Deze paden werken nog tot versie 0.30.0. Het antwoord heeft dan `Deprecation: true` en een `Link` naar het nieuwe pad (`rel="successor-version"`); in `/api/v1/openapi.json` staan ze als `deprecated`.
+
+| Oud (tot 0.30.0) | Nieuw (sinds 0.29.0) |
+| --- | --- |
+| `/bestand/{mid}/pagina/{n}/object/{object_id}` en alles daaronder (`…/uitsnede.jpg`, `…/uitsnede.png`, `…/masker.png`, `…/beschrijving`, `…/beschrijving/geschiedenis`, `…/beschrijving/invoer.jpg`, `…/commons`, `…/commons/weergave`) | hetzelfde onder `/bestand/{mid}/pagina/{n}/objecten/{object_id}` |
+| POST `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/terugzetten` | PUT `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` |
+| DELETE `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/geschiedenis?versie=…` | DELETE `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving/geschiedenis/{versie}` |
+| PATCH `/bestand/{mid}/pagina/{n}/objecten` met `{"samenvoegen": true}` | POST `/bestand/{mid}/pagina/{n}/samenvoegingen` |
+| POST `/bestand/{mid}/commons/controle` met `{"objecten": …}` | GET `/bestand/{mid}/commons/controle?objecten=…` |
+
+Oude paden, zoals de test ze controleert: `/bestand/{mid}/pagina/{n}/object/{object_id}`, `/bestand/{mid}/pagina/{n}/object/{object_id}/uitsnede.jpg`, `/bestand/{mid}/pagina/{n}/object/{object_id}/uitsnede.png`, `/bestand/{mid}/pagina/{n}/object/{object_id}/masker.png`, `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving`, `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/geschiedenis`, `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/terugzetten`, `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/invoer.jpg`, `/bestand/{mid}/pagina/{n}/object/{object_id}/commons`, `/bestand/{mid}/pagina/{n}/object/{object_id}/commons/weergave`.
 
 ## Foutcodes
 

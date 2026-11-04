@@ -3,6 +3,32 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.29.0] - 2026-11-05
+
+### Toegevoegd
+
+- Bevestigingen kunnen opmaak hebben: alinea's, een vet kopje en een lijst. De bevestigingen van *Bekeken* gebruiken dat: de vraag, dan *Wat blijft*, *Terug naar de afbeelding* en *Echt verwijderen*, met links naar de pagina Objecten en de Prullenbak. De M-id is een link: een klik opent de afbeelding weer (in de invoerbalk) en zet hem terug bij Bekeken.
+- *Bekeken*: een gebied **Opzij gezet** onderaan de kolom, met een kop die in- en uitklapt (onthouden). Het prullenbakje bij een afbeelding zet die daar neer, zonder bevestiging; slepen kan ook, in beide richtingen. In *Opzij gezet* zet de pijl omhoog een afbeelding terug en haalt het prullenbakje hem helemaal van de lijst (na een bevestiging). Een afbeelding weer openen zet hem ook terug. De lijst houdt nu 50 afbeeldingen bij. De link onderaan heet *Hele lijst wissen (Bekeken én Opzij gezet)*, zodat duidelijk is dat beide gebieden leeg gaan.
+- Uitleg van het verschil tussen een *object* (wat er gevonden is, alleen gegevens) en een *uitsnede* (het beeldbestand dat je ervan opslaat): in het infovenster van *Wat je vond*, bij de bewaartermijnen, op de pagina Objecten, in de bevestigingen van de prullenbak en van de lijst *Bekeken*, en in README, functioneel ontwerp (*Begrippen*) en docs/api.md. De bevestiging bij *Bekeken* zegt ook hoe je terugkomt bij de afbeelding (de M-id in de invoerbalk, of via de pagina Objecten).
+- Een afbeelding uit de lijst *Bekeken* halen (of de lijst wissen) vraagt eerst een bevestiging, met de uitleg dat alleen de vermelding verdwijnt: afbeelding, objecten, beschrijvingen en uitsneden blijven, en objecten verwijder je via de Prullenbak.
+- Elke kolom (Bekeken, Beeld, Objecten zoeken, Wat je vond) schuift met de pijl in zijn kop weg tot een smalle strook met de naam (en het aantal); een klik op de strook opent hem weer. Het beeld neemt de vrije ruimte; is het beeld ingeschoven, dan de eerste open kolom. Onthouden in de browser; op smalle schermen niet van toepassing.
+- Een kolom *Bekeken* helemaal links: de afbeeldingen die je in deze browser opende, met miniatuur, de huidige gemarkeerd. De breedte is te verslepen. *Laatst bezocht* staat daardoor niet meer boven de objecten. Op smalle schermen is de kolom verborgen.
+- *AI-suggesties voor deze afbeelding*: beschrijving en zoektermen elk apart opnieuw vragen of verwijderen. De eerste vraag blijft één aanroep voor beide (het goedkoopst). Daarna staat onder de beschrijving *Beschrijving opnieuw* en onder de zoektermen *Zoektermen opnieuw*, elk met het bedrag: één nieuwe, betaalde aanroep voor alleen dat deel, het andere deel (en je vinkjes) blijft staan. *Verwijderen* per deel is gratis en vraagt eerst om bevestiging; gevonden objecten blijven. Dit vervangt *Opnieuw om suggesties vragen*. API: `POST …/inventaris` met `deel`, `DELETE …/inventaris?deel=`.
+- *AI-suggesties voor deze afbeelding*: een vinkje in elke zoekterm om die wel of niet mee te nemen met *Alle objecten detecteren* (dan *Gekozen termen detecteren (n)*, met het bedrag voor alleen die termen), met *alle aan* en *alle uit*. Uitgezette termen worden doorgestreept; de keuze wordt per bestand en pagina in de browser onthouden.
+
+### Gewijzigd
+
+- De API is helemaal RESTful (docs/api.md, *Afspraken* en *Verouderde paden*): een object heet `…/pagina/{n}/objecten/{object_id}` (meervoud, zoals de lijst); een eerdere beschrijving terugzetten is `PUT …/beschrijving` met `{"versie"}`; één versie verwijderen `DELETE …/beschrijving/geschiedenis/{versie}`; dubbelingen samenvoegen `POST …/pagina/{n}/samenvoegingen`; de controle vooraf een `GET …/commons/controle?objecten=pagina:id,…`; een deel van het paginaoverzicht `POST` of `DELETE …/inventaris/{deel}`. De oude paden werken nog tot 0.30.0, met `Deprecation: true` en een `Link` naar het nieuwe pad, en staan in OpenAPI als `deprecated`.
+- Nieuwe volgorde van de kolommen, van links naar rechts in de volgorde van het werk, zoals in de Delpher Uitsnijder: beeld, *Objecten zoeken* (het detectiepaneel, eerst *Zoeken en bewaren*), *Wat je vond* (de objecten). De knoppen *Selectie opslaan*, *Downloaden (zip)* en *Naar Commons…* staan nu onder de objecten en blijven in beeld als de lijst scrollt. Op een telefoon: tabbladen Beeld, Detectie, Objecten.
+- *AI-suggesties voor deze afbeelding* in de volgorde van het werk: eerst de vraag (met uitleg en bedrag), dan het antwoord van de AI in een eigen kader, dan de zoektermen met *Alle objecten detecteren*, dan wat er gevonden is, en als laatste *Opnieuw om suggesties vragen* met zijn uitleg. Uitleg is in het hele detectiepaneel kleiner en grijs (`cc-uitleg`), zodat die niet meer op een AI-resultaat lijkt.
+- *AI-suggesties voor deze afbeelding*: boven de zoektermen staat nu dat je met een zoekterm laat zien waar dat op de afbeelding staat (met de kosten per term), en *Alle objecten detecteren* staat direct achter de zoektermen in plaats van eronder.
+
+### Opgelost
+
+- Boven het beeld stonden twee percentages naast elkaar (de huidige zoom en de knop *100%*). De knop heet nu *Ware grootte*; het percentage is de huidige zoom.
+- *Maskers*, *Kaders* en *Namen* boven het beeld zijn uitgeschakeld zolang er geen objecten zijn.
+- Een knop die breder is dan een smalle kolom (zoals *Alle objecten detecteren* met het bedrag) werd aan beide kanten afgekapt; de tekst loopt nu door op een volgende regel.
+
 ## [0.28.0] - 2026-11-04
 
 ### Toegevoegd

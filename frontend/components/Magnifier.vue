@@ -352,7 +352,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxLookup, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
 import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
-import { API, del, errorText, get, objectPath, patch, post, query } from "../api.js";
+import { API, del, errorText, get, objectPath, patch, post, put } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
@@ -649,7 +649,7 @@ async function deleteVersion(entry) {
   if (!ok) return;
   error.value = "";
   try {
-    history.value = (await del(`${base.value}/beschrijving/geschiedenis${query({ versie: entry.versie })}`)).geschiedenis;
+    history.value = (await del(`${base.value}/beschrijving/geschiedenis/${encodeURIComponent(entry.versie)}`)).geschiedenis;
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -659,7 +659,7 @@ async function deleteVersion(entry) {
 async function restoreDescription(entry) {
   error.value = "";
   try {
-    const changed = await post(`${base.value}/beschrijving/terugzetten`, { versie: entry.versie });
+    const changed = await put(`${base.value}/beschrijving`, { versie: entry.versie });
     emit("changed", changed);
     cancelEditing();
     undoTexts.value = null;
