@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.14.1] - 2026-11-04
+
+### Gewijzigd
+
+- De bovenkant van de pagina is compacter: het invoerveld en het geopende bestand staan naast elkaar (op een smal scherm onder elkaar), met een kleinere miniatuur. Licentie, rechten en de gegevens van het bestand staan op één regel en *Metadata* is een kleine uitklapregel. Een lege meldingenlijst neemt geen ruimte meer in.
+
 ## [0.14.0] - 2026-11-04
 
 ### Toegevoegd

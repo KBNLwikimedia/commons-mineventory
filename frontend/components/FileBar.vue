@@ -29,11 +29,10 @@
           <a :href="file.url" target="_blank" rel="noopener">{{ file.naam }}</a>
           <cdx-icon :icon="cdxIconLinkExternal" size="small" />
         </h2>
-        <p class="cc-bestand-regel">
+        <!-- Licence, rights and facts on one line, to keep the top of the page low. -->
+        <p class="cc-bestand-regel cc-klein">
           <cdx-info-chip status="notice">{{ file.licentie.kort || t("file.licence_unknown") }}</cdx-info-chip>
           <rights-label v-for="label in file.rechten.labels" :key="label" :label="label" />
-        </p>
-        <p class="cc-bestand-regel cc-klein">
           <span v-if="file.maker">{{ t("file.maker") }}: {{ file.maker }}</span>
           <span v-if="file.datum"> · {{ t("file.date") }}: {{ file.datum }}</span>
           <span> · {{ file.mid }} · {{ file.breedte }} × {{ file.hoogte }} px</span>
