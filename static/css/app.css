@@ -47,6 +47,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-werkt-met { color: var(--cc-tekst-zacht); font-size: 0.8125rem; }
 .cc-kop-rechts { margin-left: auto; display: flex; align-items: center; gap: 1rem; }
 .cc-talen { display: inline-flex; gap: 0.4rem; }
+.cc-commons-logo { display: inline-flex; line-height: 0; }
+.cc-commons-logo img { width: 24px; height: 24px; }
 .cc-modusbalk { margin: 0; padding: 0.25rem 1rem; background: var(--background-color-notice-subtle, #eaecf0); font-size: 0.8125rem; }
 .cc-hoofd { max-width: 75rem; margin: 0 auto; padding: 0.5rem 1rem 1rem; min-height: 60vh; }
 .cc-terug { margin: 0 0 0.5rem; font-size: 0.875rem; }

@@ -97,6 +97,7 @@
         <!-- 1a. Before the first answer: what the AI will do, and the caption that goes along. -->
         <section v-if="!description" class="cc-uitleg-vooraf">
           <p>{{ t("describe.intro") }}</p>
+          <p>{{ t("describe.intro_modifiers") }}</p>
           <p v-if="object.bijschrift?.tekst" class="cc-klein">
             {{ t("magnifier.caption") }}: <strong>{{ object.bijschrift.tekst }}</strong> — {{ t("describe.caption_goes_along") }}
           </p>

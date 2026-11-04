@@ -19,7 +19,7 @@
     <!-- Only when Commons has regions or notes for this page (they always refer to page 1). -->
     <!-- The AI suggestions come first: they fit this image, unlike a fixed list. -->
     <cdx-accordion v-model="open.suggestions">
-      <template #title>{{ t("panel.suggestions") }}</template>
+      <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /></template>
       <template v-if="inventory">
         <!-- Dutch, and English below it in italics, as in the magnifier (overviews from before 0.8 have only Dutch). -->
         <p class="cc-klein">
@@ -72,7 +72,7 @@
     </cdx-accordion>
 
     <cdx-accordion v-if="regionCount" v-model="open.commons">
-      <template #title>{{ t("panel.from_commons") }}</template>
+      <template #title>{{ t("panel.from_commons") }} <info-dialog v-bind="info('commons', 'panel.from_commons')" /></template>
       <p class="cc-klein">{{ t("panel.from_commons_help") }}</p>
       <cdx-button action="progressive" :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
         {{ t("panel.regions_button", { n: regionCount }) }}
@@ -81,7 +81,7 @@
     </cdx-accordion>
 
     <cdx-accordion v-model="open.search">
-      <template #title>{{ t("panel.search") }}</template>
+      <template #title>{{ t("panel.search") }} <info-dialog v-bind="info('search', 'panel.search')" /></template>
       <form class="cc-zoek" @submit.prevent="search">
         <cdx-text-input v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
         <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
@@ -92,7 +92,7 @@
 
     <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
     <cdx-accordion v-model="open.point">
-      <template #title>{{ t("panel.point_or_draw") }}</template>
+      <template #title>{{ t("panel.point_or_draw") }} <info-dialog v-bind="info('point', 'panel.point_or_draw')" /></template>
       <div class="cc-modus-keuze">
         <cdx-toggle-switch :model-value="pointMode" @update:model-value="emit('point-mode', $event)">
           {{ t("panel.point_switch") }}
@@ -109,7 +109,7 @@
     </cdx-accordion>
 
     <cdx-accordion v-model="open.bulk">
-      <template #title>{{ t("panel.bulk") }}</template>
+      <template #title>{{ t("panel.bulk") }} <info-dialog v-bind="info('bulk', 'panel.bulk')" /></template>
       <div class="cc-knoppen cc-knoppen-rij">
         <cdx-button action="progressive" :disabled="busy" :title="config.alles.map((a) => a.en).join(', ')" @click="act('bulk', 'detect', { modus: 'alles' })">
           {{ t("panel.all") }} <small>{{ cost(config.alles.length) }}</small>
@@ -130,6 +130,7 @@ import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import AiBadge from "./AiBadge.vue";
 import BusyNote from "./BusyNote.vue";
+import InfoDialog from "./InfoDialog.vue";
 
 const props = defineProps({
   file: { type: Object, required: true },
@@ -152,6 +153,14 @@ const modelLinks = {
   muse: { href: "https://dev.meta.ai/docs/models#muse-spark", label: "Muse Spark" },
 };
 const prompt = ref("");
+// The (i) beside each section title: a popup that explains what the section does.
+function info(section, titleKey) {
+  return {
+    title: t(titleKey),
+    label: t("panel.info_label", { section: t(titleKey) }),
+    paragraphs: [1, 2, 3].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
+  };
+}
 const open = reactive({ commons: true, search: false, suggestions: true, point: false, bulk: false });
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 

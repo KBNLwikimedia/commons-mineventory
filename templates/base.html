@@ -18,6 +18,10 @@
     <span class="cc-experiment">{{ t("header.experiment") }}</span>
     <span class="cc-werkt-met">{{ t("header.works_with") }}</span>
     <nav class="cc-kop-rechts" aria-label="{{ t('header.menu') }}">
+      {# Compact Commons logo (Codex icon, no external request), linking to Commons itself. #}
+      <a class="cc-commons-logo" href="https://commons.wikimedia.org/" target="_blank" rel="noopener" title="Wikimedia Commons">
+        <img src="{{ url_for('static', filename='img/commons.svg') }}" alt="Wikimedia Commons" width="24" height="24">
+      </a>
       <a href="{{ url_for('web.objects_overview') }}">{{ t("objects.title") }}</a>
       <span class="cc-talen" role="group" aria-label="{{ t('header.language') }}">
         {% for code in talen %}

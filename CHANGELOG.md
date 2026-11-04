@@ -3,6 +3,18 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.15.0] - 2026-11-04
+
+### Toegevoegd
+
+- Detectiepaneel: naast elke kop (AI-suggesties, Uit Commons, Zoeken, Aanwijzen of tekenen, Bulk-operaties) een info-icoontje dat een popup met uitleg opent: wat het doet, wat het kost en waar je op let.
+
+- Een klein Wikimedia Commons-logo rechts in de kopregel, met een link naar Commons (het logo komt uit Codex en staat in de app zelf; er wordt niets van Wikimedia geladen).
+
+### Gewijzigd
+
+- *Wat staat hierop?*: de uitleg bovenaan heeft een tweede alinea over *AI-bijsturing* (een aanwijzing of meer ruimte rond de uitsnede): je krijgt er een beter resultaat mee, en je kunt het ook meteen instellen, nog voor de eerste vraag.
+
 ## [0.14.1] - 2026-11-04
 
 ### Gewijzigd
