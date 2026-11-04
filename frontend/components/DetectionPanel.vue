@@ -17,25 +17,7 @@
     <busy-note v-if="busy && where === 'top'" :message="t('busy.general')" />
 
     <!-- Only when Commons has regions or notes for this page (they always refer to page 1). -->
-    <cdx-accordion v-if="regionCount" v-model="open.commons">
-      <template #title>{{ t("panel.from_commons") }}</template>
-      <p class="cc-klein">{{ t("panel.from_commons_help") }}</p>
-      <cdx-button action="progressive" :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
-        {{ t("panel.regions_button", { n: regionCount }) }}
-      </cdx-button>
-      <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
-    </cdx-accordion>
-
-    <cdx-accordion v-model="open.search">
-      <template #title>{{ t("panel.search") }}</template>
-      <form class="cc-zoek" @submit.prevent="search">
-        <cdx-text-input v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
-        <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
-      </form>
-      <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
-      <p class="cc-klein">{{ t("panel.search_help") }} {{ cost(1) }}</p>
-    </cdx-accordion>
-
+    <!-- The AI suggestions come first: they fit this image, unlike a fixed list. -->
     <cdx-accordion v-model="open.suggestions">
       <template #title>{{ t("panel.suggestions") }}</template>
       <template v-if="inventory">
@@ -89,21 +71,41 @@
       </p>
     </cdx-accordion>
 
-    <cdx-accordion v-model="open.point">
-      <template #title>{{ t("panel.point") }}</template>
-      <cdx-toggle-switch :model-value="pointMode" @update:model-value="emit('point-mode', $event)">
-        {{ t("panel.point_switch") }}
-      </cdx-toggle-switch>
-      <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
-      <p class="cc-klein">{{ t("panel.point_help") }} {{ cost(1) }}</p>
+    <cdx-accordion v-if="regionCount" v-model="open.commons">
+      <template #title>{{ t("panel.from_commons") }}</template>
+      <p class="cc-klein">{{ t("panel.from_commons_help") }}</p>
+      <cdx-button action="progressive" :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
+        {{ t("panel.regions_button", { n: regionCount }) }}
+      </cdx-button>
+      <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
     </cdx-accordion>
 
-    <cdx-accordion v-model="open.draw">
-      <template #title>{{ t("panel.draw") }}</template>
-      <cdx-toggle-switch :model-value="drawMode" @update:model-value="emit('draw-mode', $event)">
-        {{ t("panel.draw_switch") }}
-      </cdx-toggle-switch>
-      <p class="cc-klein">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
+    <cdx-accordion v-model="open.search">
+      <template #title>{{ t("panel.search") }}</template>
+      <form class="cc-zoek" @submit.prevent="search">
+        <cdx-text-input v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
+        <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
+      </form>
+      <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
+      <p class="cc-klein">{{ t("panel.search_help") }} {{ cost(1) }}</p>
+    </cdx-accordion>
+
+    <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
+    <cdx-accordion v-model="open.point">
+      <template #title>{{ t("panel.point_or_draw") }}</template>
+      <div class="cc-modus-keuze">
+        <cdx-toggle-switch :model-value="pointMode" @update:model-value="emit('point-mode', $event)">
+          {{ t("panel.point_switch") }}
+        </cdx-toggle-switch>
+        <p class="cc-klein">{{ t("panel.point_help") }} {{ cost(1) }}</p>
+        <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
+      </div>
+      <div class="cc-modus-keuze">
+        <cdx-toggle-switch :model-value="drawMode" @update:model-value="emit('draw-mode', $event)">
+          {{ t("panel.draw_switch") }}
+        </cdx-toggle-switch>
+        <p class="cc-klein">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
+      </div>
     </cdx-accordion>
 
     <cdx-accordion v-model="open.bulk">
@@ -150,7 +152,7 @@ const modelLinks = {
   muse: { href: "https://dev.meta.ai/docs/models#muse-spark", label: "Muse Spark" },
 };
 const prompt = ref("");
-const open = reactive({ commons: true, search: true, suggestions: true, point: false, draw: true, bulk: false });
+const open = reactive({ commons: true, search: false, suggestions: true, point: false, bulk: false });
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 
 const SAM_PER_CALL = 0.0025;

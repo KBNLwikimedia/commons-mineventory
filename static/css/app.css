@@ -160,9 +160,9 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .viewer-podium svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .viewer .zone { fill: none; stroke: var(--cc-uitgesloten); stroke-dasharray: 6 4; stroke-width: var(--stroke, 2px); }
 .object-rand { fill: transparent; stroke: var(--cc-kandidaat); stroke-width: var(--stroke, 2px); cursor: pointer; }
-.object-masker { fill: var(--cc-kandidaat); opacity: 0.25; pointer-events: none; }
+.object-masker { fill: var(--cc-kandidaat); opacity: 0.4; pointer-events: none; }
 .object-geselecteerd .object-rand { stroke: var(--cc-geselecteerd); }
-.object-geselecteerd .object-masker { fill: var(--cc-geselecteerd); opacity: 0.35; }
+.object-geselecteerd .object-masker { fill: var(--cc-geselecteerd); opacity: 0.5; }
 .object-uitgesloten .object-rand { stroke: var(--cc-uitgesloten); stroke-dasharray: 4 4; }
 .object-commons .object-rand { stroke: var(--cc-commons-rand); fill: rgba(255, 204, 51, 0.12); }
 .object-commons.object-geselecteerd .object-rand { stroke: var(--cc-commons); stroke-width: calc(var(--stroke, 2px) * 1.6); }
@@ -342,3 +342,29 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-beschrijving-blok { margin-top: 0.25rem; }
 .cc-beschrijving-blok .cc-ai-sturing { margin: 0; }
 .cc-ai-voorbeeld { position: relative; z-index: 1; will-change: transform; }
+.cc-modus-keuze + .cc-modus-keuze { margin-top: 0.75rem; }
+.cc-modus-keuze p { margin: 0.25rem 0 0; }
+/* Names above the objects (toggle "Names"), in the colour of their frame. */
+.object-naam-boven { dominant-baseline: text-after-edge; stroke: #fff; fill: var(--cc-kandidaat); font-weight: bold; }
+.object-geselecteerd .object-naam-boven { fill: var(--cc-geselecteerd); }
+.object-handmatig .object-naam-boven { fill: var(--cc-handmatig); }
+.object-nieuw .object-naam-boven { fill: var(--cc-nieuw); }
+.object-uitgesloten .object-naam-boven { fill: var(--cc-uitgesloten); }
+.cc-weergave-keuze { display: inline-flex; gap: 0.25rem; margin-left: 0.75rem; font-size: 0.875rem; }
+.cc-weergave-keuze .cdx-checkbox { margin: 0; }
+/* As in the Delpher Uitsnijder: masks and/or boxes can be hidden; a hidden box stays clickable. */
+.maskers-verborgen .object-masker { display: none; }
+.boxen-verborgen .object-rand { stroke: transparent; fill: transparent; }
+/* The colour legend under the image. */
+.cc-legenda-blok { border-bottom: 1px solid var(--cc-rand); }
+.cc-legenda-blok > summary { padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.875rem; }
+.cc-legenda { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.15rem 1rem; font-size: 0.75rem; color: var(--cc-tekst-zacht); }
+.cc-legenda li { display: inline-flex; align-items: center; gap: 0.3rem; }
+.cc-legenda-staal { display: inline-block; width: 1rem; height: 0.7rem; border: 2px solid; }
+.cc-legenda-geselecteerd { border-color: var(--cc-geselecteerd); }
+.cc-legenda-kandidaat { border-color: var(--cc-kandidaat); }
+.cc-legenda-nieuw { border-color: var(--cc-nieuw); }
+.cc-legenda-commons { border-color: var(--cc-commons-rand); background: rgba(255, 204, 51, 0.35); }
+.cc-legenda-handmatig { border-color: var(--cc-handmatig); }
+.cc-legenda-uitgesloten { border-color: var(--cc-uitgesloten); border-style: dashed; }
+.cc-legenda-dik { border-color: var(--cc-geselecteerd); border-width: 4px; }

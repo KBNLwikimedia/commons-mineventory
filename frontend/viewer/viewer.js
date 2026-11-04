@@ -6,7 +6,7 @@
  *
  * Interface for the Vue wrapper (ViewerPane.vue):
  *   functions  load(page), setObjects(objects, newIds), setSelection(ids),
- *              zoomToBox(box), focusObject(id), setObjectHover(id, on),
+ *              setLabels(on), zoomToBox(box), focusObject(id), setObjectHover(id, on),
  *              setPointMode(on), setDrawMode(on), fit(), zoomStep(direction), zoomTo(scale)
  *   events     "object-click" {object, ctrl}, "object-open" object,
  *              "point" {x, y, ctrl}, "rectangle" {x, y, w, h},
@@ -46,10 +46,18 @@ function defaultDescribe(obj) {
   return { title: obj.label_nl || obj.label, details: [obj.status], hint: "" };
 }
 
+/* Default name above an object when labels are on; the app passes its own. */
+function defaultLabel(obj) {
+  return obj.label_nl || obj.label || "";
+}
+
 export class PageViewer {
-  constructor(element, { describe = defaultDescribe } = {}) {
+  constructor(element, { describe = defaultDescribe, label = defaultLabel } = {}) {
     this.el = element;
     this.describe = describe;
+    this.label = label;
+    this.showLabels = false;
+    this.lastObjects = [[], []];
     this.stage = document.createElement("div");
     this.stage.className = "viewer-podium";
     this.img = document.createElement("img");
@@ -121,6 +129,7 @@ export class PageViewer {
   /* Detected objects. Selected ones and regions show their mask: an
      accent-coloured rectangle masked by the object's mask PNG. */
   setObjects(objects, newIds) {
+    this.lastObjects = [objects, newIds];
     this.objectLayer.replaceChildren();
     this.defs.replaceChildren();
     this.objectElements.clear();
@@ -145,6 +154,14 @@ export class PageViewer {
         label.setAttribute("class", "object-naam");
         label.textContent = obj.label_nl || obj.label;
         group.append(label);
+      } else if (this.showLabels) {
+        // The name above the box (in the colour of its frame), like the regions on Commons.
+        const label = document.createElementNS(SVG_NS, "text");
+        label.setAttribute("x", obj.box.x);
+        label.setAttribute("y", obj.box.y);
+        label.setAttribute("class", "object-naam object-naam-boven");
+        label.textContent = this.label(obj);
+        group.append(label);
       }
       this.objectLayer.append(group);
       this.objectElements.set(obj.id, group);
@@ -160,6 +177,12 @@ export class PageViewer {
       fresh ? "object-nieuw" : "",
       obj.masker ? "object-gemaskerd" : "",
     ].filter(Boolean).join(" ");
+  }
+
+  /* Names on the image for every object (the regions from Commons always have one). */
+  setLabels(on) {
+    this.showLabels = Boolean(on);
+    this.setObjects(...this.lastObjects);
   }
 
   /* Only the status classes change (no rebuild): ids are the selected objects. */

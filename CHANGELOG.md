@@ -3,7 +3,17 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
-## [Unreleased]
+## [0.14.0] - 2026-11-04
+
+### Toegevoegd
+
+- Maskers zijn duidelijker zichtbaar (minder doorzichtig).
+- Boven het beeld een uitklapblok *Kleurenlegenda* (standaard ingeklapt, alleen als *Kaders* aan staat, en alleen met de kleuren die op de pagina voorkomen): geselecteerd, gevonden maar niet geselecteerd, nieuw (uit de laatste zoekactie), regio die al op Commons staat, met de hand getekende rechthoek, uitgesloten, en dikker voor gekozen of onder de muis. De tooltip van een nieuw object zegt "nieuw".
+- In de balk boven het beeld drie vinkjes, zoals in de Delpher Uitsnijder: **Maskers** (de vorm van elk object), **Kaders** (de rechthoeken; verborgen blijven ze aanklikbaar) en **Namen**. De keuze wordt in deze browser onthouden. **Namen** zet de naam van elk object boven zijn kader (de score staat in de tooltip), in de kleur van dat kader. Regio's van Commons hebben hun naam altijd.
+
+### Gewijzigd
+
+- Detectiepaneel: *AI-suggesties voor deze afbeelding* staat nu bovenaan, als eerste optie (boven *Uit Commons* en *Zoeken*); *Zoeken* is standaard ingeklapt. *Aanwijzen* en *Rechthoek tekenen* zijn samengevoegd tot één uitklapblok *Aanwijzen of tekenen* (standaard ingeklapt), met beide schakelaars onder elkaar.
 
 ## [0.13.2] - 2026-11-04
 
