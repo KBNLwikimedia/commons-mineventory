@@ -122,7 +122,7 @@
   "describe.intro": "Laat de AI-beeldbeschrijving deze uitsnede bekijken. Je krijgt de soort, een onderwerp en een beschrijving in het Nederlands en het Engels, tekst die in of rond het beeld staat, en zoektermen voor 'beeldt af'. Daarna kun je alles nakijken en aanpassen.",
   "describe.kind": "Soort",
   "describe.margin": "Ruimte rond de uitsnede: {pct}%",
-  "describe.margin_help": "Hoeveel ruimte rond de uitsnede de AI ziet: het voorbeeld bovenaan laat het zien. Meer ruimte geeft context, zoals tekst rond het beeld; minder ruimte houdt andere dingen buiten beeld. Geldt voor de volgende vraag.",
+  "describe.margin_help": "Hoeveel ruimte rond de uitsnede de AI ziet (zie het voorbeeld hiernaast). Meer ruimte geeft context, zoals tekst rond het beeld; minder ruimte houdt andere dingen buiten beeld. Geldt voor de volgende vraag.",
   "describe.margin_label": "Ruimte rond de uitsnede die de AI ziet",
   "describe.model_block": "Model, kosten en kwaliteit",
   "describe.model_sees": "wat de AI ziet (rood: de uitsnede)",

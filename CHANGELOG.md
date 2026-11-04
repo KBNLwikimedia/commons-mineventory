@@ -5,6 +5,12 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-04
+
+### Gewijzigd
+
+- *Wat staat hierop?*: zodra *AI-bijsturing* openklapt, glijdt het voorbeeld van wat de AI ziet vloeiend mee naar dat blok (0,6 seconde, eerst versnellend en dan afremmend, niet bij 'minder beweging' in het systeem), naast de aanwijzing en de schuifregelaar; dichtklappen zet het weer bovenaan.
+
 ## [0.13.0] - 2026-11-04
 
 ### Gewijzigd

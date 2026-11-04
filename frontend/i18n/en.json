@@ -122,7 +122,7 @@
   "describe.intro": "Let the AI image description look at this cut-out. You get the kind, a subject and a description in Dutch and English, text in or around the image, and search terms for 'depicts'. Then you can check and edit everything.",
   "describe.kind": "Kind",
   "describe.margin": "Space around the cut-out: {pct}%",
-  "describe.margin_help": "How much space around the cut-out the AI sees: the preview at the top shows it. More space gives context, such as text around the image; less space keeps other things out of view. Applies to the next question.",
+  "describe.margin_help": "How much space around the cut-out the AI sees (see the preview beside it). More space gives context, such as text around the image; less space keeps other things out of view. Applies to the next question.",
   "describe.margin_label": "Space around the cut-out that the AI sees",
   "describe.model_block": "Model, cost and quality",
   "describe.model_sees": "what the AI sees (red: the cut-out)",

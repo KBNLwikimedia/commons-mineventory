@@ -168,7 +168,8 @@
           </div>
         </section>
         </div>
-        <cutout-preview :src="modelInputUrl" :caption="t('describe.model_sees')" />
+        <!-- The image moves to the AI modifiers while they are open, beside the slider (see glidePreview). -->
+        <cutout-preview v-if="!openModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
         </div>
 
         <!-- 2. Ask the AI: always the same place; the first time it is the main action. -->
@@ -202,6 +203,7 @@
                 <span class="cc-klein">{{ t("describe.margin_help") }}</span>
               </label>
             </div>
+            <cutout-preview v-if="openModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
           </div>
         </cdx-accordion>
 
@@ -302,6 +304,28 @@ const hint = ref("");
 // Folded away until wanted: the AI modifiers and the earlier descriptions.
 const openModifiers = ref(false);
 const openHistory = ref(false);
+
+// The preview glides from its old place to the new one when the AI modifiers
+// open or close (FLIP: measure before and after, then animate the difference).
+function visiblePreview() {
+  return [...document.querySelectorAll(".cc-vergroter .cc-ai-voorbeeld")].find((el) => el.offsetParent);
+}
+let previewBefore = null;
+watch(openModifiers, () => (previewBefore = visiblePreview()?.getBoundingClientRect() || null), { flush: "pre" });
+watch(openModifiers, async () => {
+  await nextTick();
+  const el = visiblePreview();
+  if (!el || !previewBefore || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const after = el.getBoundingClientRect();
+  const dx = previewBefore.left - after.left;
+  const dy = previewBefore.top - after.top;
+  el.style.transition = "none";
+  el.style.transform = `translate(${dx}px, ${dy}px)`;
+  el.getBoundingClientRect(); // start from the old place
+  el.style.transition = "transform 0.6s cubic-bezier(0.65, 0, 0.35, 1)"; // ease-in-out: speeds up, then slows down
+  el.style.transform = "";
+  el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
+});
 // How much of the surroundings the AI sees, as a share of the box on every
 // side (0-1): what the last description used, else 25 %.
 const DEFAULT_MARGIN = 0.25;
