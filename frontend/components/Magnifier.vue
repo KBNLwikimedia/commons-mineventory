@@ -97,8 +97,26 @@
                 <template v-if="!textDraft">
                   <dt>{{ t("describe.description") }} <ai-badge :model="description.model" :edited="aiEdited('beschrijving')" /></dt><dd>{{ description.beschrijving }}<br /><i>{{ description.beschrijving_en }}</i></dd>
                 </template>
-                <template v-if="description.tekst_in_beeld"><dt>{{ t("describe.text_in") }}</dt><dd>{{ description.tekst_in_beeld }}</dd></template>
-                <template v-if="description.tekst_rond_beeld"><dt>{{ t("describe.text_around") }}</dt><dd>{{ description.tekst_rond_beeld }}</dd></template>
+                <!-- Legible text read by the AI: editable with the rest, or removed with the bin. -->
+                <template v-for="field in READ_TEXTS" :key="field">
+                  <template v-if="!textDraft && description[field]">
+                    <dt>{{ t(`describe.field_${field}`) }}</dt>
+                    <dd class="cc-gelezen-tekst">
+                      {{ description[field] }}
+                      <cdx-button
+                        weight="quiet"
+                        size="small"
+                        action="destructive"
+                        :disabled="busy"
+                        :aria-label="t('describe.remove_text')"
+                        :title="t('describe.remove_text')"
+                        @click="saveTexts({ ...currentTexts(), [field]: '' })"
+                      >
+                        <cdx-icon :icon="cdxIconTrash" size="small" />
+                      </cdx-button>
+                    </dd>
+                  </template>
+                </template>
               </dl>
 
               <!-- Editing the texts by hand, in both languages. -->
@@ -106,7 +124,7 @@
                 <p class="cc-klein">{{ t("describe.edit_help") }}</p>
                 <cdx-field v-for="field in EDITABLE" :key="field">
                   <template #label>{{ t(`describe.field_${field}`) }}</template>
-                  <cdx-text-input v-if="field.startsWith('onderwerp')" v-model="textDraft[field]" />
+                  <cdx-text-input v-if="field.startsWith('onderwerp') || field.startsWith('tekst_')" v-model="textDraft[field]" />
                   <cdx-text-area v-else v-model="textDraft[field]" :autosize="true" />
                 </cdx-field>
                 <div class="cc-knoppen">
@@ -135,27 +153,66 @@
               </dl>
             </template>
 
-            <!-- The actions, each with what it costs. -->
-            <div class="cc-knoppen">
-              <cdx-button v-if="!description" action="progressive" weight="primary" :disabled="busy" @click="describe(false)">
-                {{ t("describe.ask") }} <span class="cc-kosten">{{ costLabel }}</span>
-              </cdx-button>
-              <template v-else>
-                <cdx-button action="progressive" :disabled="busy" @click="describe(true)">
-                  {{ t("describe.again") }} <span class="cc-kosten">{{ costLabel }}</span>
-                </cdx-button>
-                <cdx-button :disabled="busy" action="destructive" weight="quiet" @click="removeDescription">
-                  <cdx-icon :icon="cdxIconTrash" /> {{ t("describe.remove") }}
-                </cdx-button>
-              </template>
-            </div>
-            <div v-if="busy" class="cc-bezig" role="status">
-              <cdx-progress-bar :inline="true" :aria-label="t('describe.busy', { seconds })" />
-              <p class="cc-klein">{{ t("describe.busy", { seconds }) }}</p>
-            </div>
           </div>
-          <cutout-preview :src="previewUrl" :caption="t('magnifier.preview')" />
         </div>
+
+        <!-- AI modifiers: what steers the next question (hint and space around the cut-out). -->
+        <section class="cc-blok cc-ai-sturing">
+          <h3 class="cc-blok-kop">{{ t("describe.modifiers") }}</h3>
+          <p class="cc-klein">{{ t("describe.modifiers_help") }}</p>
+          <div class="cc-concept-kop">
+            <div class="cc-concept-links">
+              <!-- An optional hint, e.g. "only the boy"; not the caption, not for Commons. -->
+              <cdx-field class="cc-aanwijzing">
+                <template #label>{{ t("describe.hint") }}</template>
+                <template #help-text>{{ t("describe.hint_help") }}</template>
+                <cdx-text-input v-model="hint" :placeholder="t('describe.hint_placeholder')" :maxlength="300" @keydown.enter="describe(Boolean(description))" />
+              </cdx-field>
+              <label class="cc-marge">
+                <span>{{ t("describe.margin", { pct: Math.round(margin * 100) }) }}</span>
+                <input v-model.number="margin" type="range" min="0" max="1" step="0.05" :aria-label="t('describe.margin_label')" />
+                <span class="cc-klein">{{ t("describe.margin_help") }}</span>
+              </label>
+            </div>
+            <!-- What the AI sees: the cut-out (red frame) with the chosen space around it. -->
+            <cutout-preview :src="modelInputUrl" :caption="t('describe.model_sees')" />
+          </div>
+
+          <!-- The actions, each with what it costs. -->
+          <div class="cc-knoppen">
+            <cdx-button v-if="!description" action="progressive" weight="primary" :disabled="busy" @click="describe(false)">
+              {{ t("describe.ask") }} <span class="cc-kosten">{{ costLabel }}</span>
+            </cdx-button>
+            <template v-else>
+              <cdx-button action="progressive" :disabled="busy" @click="describe(true)">
+                {{ t("describe.again") }} <span class="cc-kosten">{{ costLabel }}</span>
+              </cdx-button>
+              <cdx-button :disabled="busy" action="destructive" weight="quiet" @click="removeDescription">
+                <cdx-icon :icon="cdxIconTrash" /> {{ t("describe.remove") }}
+              </cdx-button>
+            </template>
+          </div>
+          <div v-if="busy" class="cc-bezig" role="status">
+            <cdx-progress-bar :inline="true" :aria-label="t('describe.busy', { seconds })" />
+            <p class="cc-klein">{{ t("describe.busy", { seconds }) }}</p>
+          </div>
+        </section>
+
+        <!-- Earlier descriptions of this object, to choose from again (free). -->
+        <section v-if="history.length" class="cc-blok">
+          <h3 class="cc-blok-kop">{{ t("describe.history", { n: history.length }) }}</h3>
+          <p class="cc-klein">{{ t("describe.history_help") }}</p>
+          <ul class="cc-geschiedenis-lijst">
+            <li v-for="entry in history" :key="entry.tijdstempel + (entry.bewerkt ? 'b' : '')">
+              <div>
+                <strong>{{ language === "en" ? entry.onderwerp_en || entry.onderwerp : entry.onderwerp || entry.onderwerp_en }}</strong>
+                <span class="cc-klein cc-geschiedenis-beschrijving">{{ language === "en" ? entry.beschrijving_en || entry.beschrijving : entry.beschrijving || entry.beschrijving_en }}</span>
+                <span class="cc-klein cc-geschiedenis-meta">{{ historyMeta(entry) }}</span>
+              </div>
+              <cdx-button action="progressive" size="small" :disabled="busy" @click="restoreDescription(entry)">{{ t("describe.history_use") }}</cdx-button>
+            </li>
+          </ul>
+        </section>
 
         <!-- Suggestions for depicts: a block of its own. -->
         <section v-if="description?.wikidata_suggesties?.length" class="cc-blok">
@@ -183,6 +240,7 @@
               <a v-if="part.link" :href="part.link.href" target="_blank" rel="noopener">{{ part.link.label }}</a>
               <template v-else>{{ part.text }}</template>
             </template>
+            <template v-if="description?.aanwijzing"><br />{{ t("describe.hint_used", { hint: description.aanwijzing }) }}</template>
             <template v-if="description && description.kosten_usd != null">
               <br />{{ t("describe.paid", { amount: money(description.kosten_usd, language) }) }}
               <template v-if="description.tokens?.invoer != null"> · {{ t("describe.tokens", { input: description.tokens.invoer, output: description.tokens.uitvoer }) }}</template>
@@ -232,6 +290,19 @@ const busy = ref(false);
 const seconds = ref(0);
 let ticker = null;
 const error = ref("");
+// The hint for the next "Ask again" (sent once, then cleared).
+const hint = ref("");
+// How much of the surroundings the AI sees, as a share of the box on every
+// side (0-1): what the last description used, else 25 %.
+const DEFAULT_MARGIN = 0.25;
+const margin = ref(props.object.beschrijving?.marge ?? DEFAULT_MARGIN);
+// The preview follows the slider a moment after it stops moving.
+const shownMargin = ref(margin.value);
+let marginTimer = null;
+watch(margin, (value) => {
+  clearTimeout(marginTimer);
+  marginTimer = setTimeout(() => (shownMargin.value = value), 250);
+});
 const hits = ref([]);
 const editor = ref(null);
 
@@ -305,8 +376,8 @@ const reasonLinks = {
 };
 // The cost on the buttons: an estimate in live mode, free with the dummy.
 const costLabel = computed(() => (plan.value?.betaald ? `± ${money(plan.value.kosten_schatting_usd, language)}` : t("describe.free_short")));
-// The small preview on the "Wat staat hierop?" tab: the rectangle, like the model sees it.
-const previewUrl = computed(() => `${base.value}/uitsnede.jpg?w=480`);
+// What the image description would see with the chosen margin (free; nothing goes to the model).
+const modelInputUrl = computed(() => `${base.value}/beschrijving/invoer.jpg?marge=${shownMargin.value}`);
 // View on the Cut-out tab: the shape (PNG, transparent) or the rectangle (JPG).
 // Only a view; what goes to Commons is the format in the Commons concept.
 const views = [
@@ -322,6 +393,10 @@ watch(
     caption.value = props.object.bijschrift?.tekst || "";
     view.value = props.object.masker ? "png" : "jpg";
     removedCaption.value = "";
+    hint.value = "";
+    margin.value = props.object.beschrijving?.marge ?? DEFAULT_MARGIN;
+    shownMargin.value = margin.value;
+    loadHistory();
     textDraft.value = null;
     undoTexts.value = null;
     hits.value = [];
@@ -348,16 +423,57 @@ async function describe(again) {
   ticker = setInterval(() => seconds.value++, 1000);
   error.value = "";
   try {
-    const result = await post(`${base.value}/beschrijving`, { opnieuw: again });
+    const body = { opnieuw: again, marge: margin.value };
+    if (hint.value.trim()) body.aanwijzing = hint.value.trim();
+    const result = await post(`${base.value}/beschrijving`, body);
     emit("changed", result.object);
+    hint.value = "";
     textDraft.value = null;
     undoTexts.value = null;
     editor.value?.reload();
+    loadHistory();
   } catch (e) {
     error.value = errorText(t, e);
   } finally {
     busy.value = false;
     clearInterval(ticker);
+  }
+}
+
+// Earlier descriptions (kept history plus answers still in the cache), newest first.
+const history = ref([]);
+
+async function loadHistory() {
+  try {
+    history.value = (await get(`${base.value}/beschrijving/geschiedenis`)).geschiedenis;
+  } catch {
+    history.value = [];
+  }
+}
+loadHistory();
+
+function historyMeta(entry) {
+  const when = entry.tijdstempel ? new Date(entry.tijdstempel).toLocaleString(language, { dateStyle: "short", timeStyle: "short" }) : "";
+  const parts = [when, entry.model];
+  if (entry.aanwijzing) parts.push(t("describe.history_hint", { hint: entry.aanwijzing }));
+  parts.push(t("describe.history_margin", { pct: Math.round((entry.marge ?? DEFAULT_MARGIN) * 100) }));
+  if (entry.bewerkt) parts.push(t("describe.edited"));
+  return parts.filter(Boolean).join(" · ");
+}
+
+// Make an earlier description current again; the current one goes into the history.
+async function restoreDescription(entry) {
+  error.value = "";
+  try {
+    const changed = await post(`${base.value}/beschrijving/terugzetten`, { tijdstempel: entry.tijdstempel, bewerkt: Boolean(entry.bewerkt) });
+    emit("changed", changed);
+    textDraft.value = null;
+    undoTexts.value = null;
+    margin.value = changed.beschrijving?.marge ?? DEFAULT_MARGIN;
+    editor.value?.reload();
+    loadHistory();
+  } catch (e) {
+    error.value = errorText(t, e);
   }
 }
 
@@ -370,6 +486,7 @@ async function removeDescription() {
     undoTexts.value = null;
     editor.value?.reload();
     loadPlan();
+    loadHistory();
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -378,7 +495,8 @@ async function removeDescription() {
 // Editing the AI texts by hand (subject and description, NL and EN). The
 // server keeps the original AI text, for "Terug naar de AI-tekst"; "Ongedaan
 // maken" puts back what was there before the last change.
-const EDITABLE = ["onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en"];
+const READ_TEXTS = ["tekst_in_beeld", "tekst_rond_beeld"];
+const EDITABLE = ["onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en", ...READ_TEXTS];
 const textDraft = ref(null);
 const undoTexts = ref(null);
 

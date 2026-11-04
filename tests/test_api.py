@@ -163,6 +163,23 @@ def test_description_with_dummy(http):
     assert plan["beschrijving"] is None and plan["betaald"] is False
     described = http.post(url, json={}).get_json()
     assert described["object"]["beschrijving"]["onderwerp_en"] == "Coat of arms"
+    first = described["object"]["beschrijving"]
+    other = http.post(url, json={"opnieuw": True, "aanwijzing": "alleen de rand"}).get_json()["object"]["beschrijving"]
+    history = http.get(url + "/geschiedenis").get_json()["geschiedenis"]
+    assert history[0]["tijdstempel"] == first["tijdstempel"] and other["aanwijzing"] == "alleen de rand"
+    back = http.post(url + "/terugzetten", json={"tijdstempel": first["tijdstempel"]}).get_json()["beschrijving"]
+    assert back["tijdstempel"] == first["tijdstempel"] and back.get("aanwijzing") is None
+    assert any(h.get("aanwijzing") == "alleen de rand" for h in http.get(url + "/geschiedenis").get_json()["geschiedenis"])
+    assert http.post(url + "/terugzetten", json={"tijdstempel": "nooit"}).status_code == 404
+    preview = http.get(url + "/invoer.jpg?marge=0.5")
+    assert preview.status_code == 200 and preview.mimetype == "image/jpeg"
+    wide = http.post(url, json={"opnieuw": True, "marge": 0.5}).get_json()
+    assert wide["object"]["beschrijving"]["marge"] == 0.5
+    hinted = http.post(url, json={"opnieuw": True, "aanwijzing": "alleen het wapen"}).get_json()
+    assert hinted["object"]["beschrijving"]["aanwijzing"] == "alleen het wapen"
+    assert http.post(url, json={"aanwijzing": 5}).status_code == 400
+    described = http.post(url, json={"opnieuw": True}).get_json()
+    assert described["object"]["beschrijving"]["aanwijzing"] is None
     ai_text = described["object"]["beschrijving"]["beschrijving_en"]
     edited = http.patch(url, json={"beschrijving_en": " A coat of arms. ", "onderwerp": "Wapen"}).get_json()["beschrijving"]
     assert edited["beschrijving_en"] == "A coat of arms." and edited["bewerkt"] is True
@@ -171,6 +188,10 @@ def test_description_with_dummy(http):
     back = http.patch(url, json={"beschrijving_en": ai_text, "onderwerp": edited["ai_origineel"]["onderwerp"]}).get_json()["beschrijving"]
     assert back["bewerkt"] is False and "ai_origineel" not in back
     assert http.patch(url, json={"soort": "x"}).status_code == 400
+    typed = http.patch(url, json={"tekst_rond_beeld": "Wapen van X"}).get_json()["beschrijving"]
+    assert typed["tekst_rond_beeld"] == "Wapen van X" and typed["bewerkt"] is True
+    cleared = http.patch(url, json={"tekst_rond_beeld": ""}).get_json()["beschrijving"]
+    assert not cleared["tekst_rond_beeld"]
     assert "beschrijving" not in http.delete(url).get_json()
     assert http.patch(url, json={"beschrijving": "x"}).status_code == 409
     overview = http.post(PAGE + "/inventaris", json={}).get_json()

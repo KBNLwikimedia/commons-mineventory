@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from . import __version__
 from .detectie.basis import DetectionError
@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 PROMPT_VERSION = 2  # 1: Dutch and English, wikidata_suggesties (0.1.0); 2: the cut-out's own caption (0.4.0)
 MARGIN = 0.25  # share of the box added on every side, so text around the image comes along
+MAX_MARGIN = 1.0  # the user may choose 0 to 100 % (in steps of 5 %)
 MAX_SIDE = 1024  # pixels of the image sent to the model
 CONTEXT_CHARS = 800  # at most this much of the Commons description in the question
 MAX_SUGGESTIONS = 3
@@ -106,8 +107,18 @@ The image is {title} on Wikimedia Commons. Context from the file page (may be in
 - Caption of this cut-out (given by the user or a file note on Commons): {cutout_caption}"""
 
 
+# A one-off hint from the user for "Ask again" (e.g. "only the boy"): part of
+# the question, not of the caption; at most this many characters.
+MAX_HINT = 300
+HINT_INSTRUCTION = """
+
+Instruction from the user for this question (follow it; it overrides the context above where they differ): {hint}"""
+
+# Earlier descriptions kept per object, newest first, to choose from again.
+MAX_HISTORY = 30
+
 # The texts of a description the user may change by hand, in both languages.
-EDITABLE = ("onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en")
+EDITABLE = ("onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en", "tekst_in_beeld", "tekst_rond_beeld")
 
 
 def price(model):
@@ -245,8 +256,22 @@ def choose_model(file, config):
 # ---------------------------------------------------------------------------
 
 
-def crop_with_margin(page_image, page_width, box, margin=MARGIN, max_side=MAX_SIDE):
-    """JPEG data URL of the box plus a margin, at most `max_side` pixels."""
+def clean_margin(margin):
+    """The margin as a share of the box, 0 to MAX_MARGIN in steps of 0.05;
+    MARGIN when not given or not a number."""
+    try:
+        value = float(margin)
+    except (TypeError, ValueError):
+        return MARGIN
+    if value != value:  # NaN
+        return MARGIN
+    return round(min(MAX_MARGIN, max(0.0, value)) * 20) / 20
+
+
+def model_input(page_image, page_width, box, margin=MARGIN, max_side=MAX_SIDE, outline=False):
+    """(JPEG bytes, size) of the box plus a margin, at most `max_side` pixels:
+    what the model sees. With `outline` the box is drawn in red, for the
+    preview in the interface only (never sent to the model)."""
     scale = page_image.width / page_width
     dx, dy = box["w"] * margin, box["h"] * margin
     left = max(0, int((box["x"] - dx) * scale))
@@ -257,9 +282,24 @@ def crop_with_margin(page_image, page_width, box, margin=MARGIN, max_side=MAX_SI
     factor = max_side / max(crop.size)
     if factor < 1:
         crop = crop.resize((max(1, round(crop.width * factor)), max(1, round(crop.height * factor))))
+    else:
+        factor = 1.0
+    if outline:
+        draw = ImageDraw.Draw(crop)
+        x0 = (box["x"] * scale - left) * factor
+        y0 = (box["y"] * scale - top) * factor
+        x1 = ((box["x"] + box["w"]) * scale - left) * factor
+        y1 = ((box["y"] + box["h"]) * scale - top) * factor
+        draw.rectangle((x0, y0, x1 - 1, y1 - 1), outline=(221, 51, 51), width=max(2, round(max(crop.size) / 250)))
     buffer = io.BytesIO()
     crop.save(buffer, format="JPEG", quality=88)
-    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii"), crop.size
+    return buffer.getvalue(), crop.size
+
+
+def crop_with_margin(page_image, page_width, box, margin=MARGIN, max_side=MAX_SIDE):
+    """JPEG data URL of the box plus a margin, at most `max_side` pixels."""
+    data, size = model_input(page_image, page_width, box, margin, max_side)
+    return "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii"), size
 
 
 def context(file):
@@ -280,15 +320,22 @@ def context(file):
     }
 
 
-def build_prompt(file, caption=None):
+def clean_hint(hint):
+    """The user's hint as one line, at most MAX_HINT characters ("" if none)."""
+    return " ".join(str(hint or "").split())[:MAX_HINT]
+
+
+def build_prompt(file, caption=None, hint=None):
     caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
-    return INSTRUCTIONS.format(
+    prompt = INSTRUCTIONS.format(
         kinds=", ".join(KINDS),
         max_suggestions=MAX_SUGGESTIONS,
         title=f'"{file.get("naam") or file.get("titel")}"',
         cutout_caption=f'"{caption}"' if caption else "none",
         **context(file),
     )
+    hint = clean_hint(hint)
+    return prompt + HINT_INSTRUCTION.format(hint=hint) if hint else prompt
 
 
 def build_request(model, prompt, data_url, effort=None, schema=SCHEMA, name="beschrijving"):
@@ -519,9 +566,14 @@ class DescriptionService:
     def _caption(obj):
         return ((obj.get("bijschrift") or {}).get("tekst") or "").strip()
 
-    def _cache_path(self, file, n, obj, model):
-        # The caption is part of the question, so another caption is another (cached) answer.
+    def _cache_path(self, file, n, obj, model, hint="", margin=MARGIN):
+        # The caption, a hint and the margin are part of the question, so another
+        # one is another (cached) answer. With the defaults the key is as before.
         key = f"{file['sha1']}|{n}|{obj['box']}|{self._caption(obj)}|{model}|{self._effort()}|{PROMPT_VERSION}"
+        if hint:
+            key += f"|hint:{hint}"
+        if margin != MARGIN:
+            key += f"|marge:{margin}"
         digest = hashlib.sha1(key.encode()).hexdigest()
         return self.cache_dir / digest[:2] / f"{digest}.json"
 
@@ -533,11 +585,23 @@ class DescriptionService:
             return client.original_image(file, n)
         return Image.open(io.BytesIO(client.page_image(file, n, 3840)))
 
-    def describe(self, file, n, object_id, model=None, again=False, user=None):
-        """Describe an object (paid in live mode) and store the answer on it."""
+    def model_preview(self, file, n, object_id, margin=None):
+        """JPEG of what the model would see with this margin, the box outlined
+        in red. Free: nothing is sent to the model."""
+        obj = self.objects._find(file, n, object_id)
+        page = self.objects.client.load_page(file, n)
+        data, _size = model_input(self._source_image(file, n), page["breedte"], obj["box"], clean_margin(margin), outline=True)
+        return data
+
+    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None):
+        """Describe an object (paid in live mode) and store the answer on it.
+        `hint` is an extra instruction from the user for this question;
+        `margin` the share of the box shown around it (default MARGIN)."""
         obj = self.objects._find(file, n, object_id)
         choice = self._model(file, model)
-        path = self._cache_path(file, n, obj, choice["model"])
+        hint = clean_hint(hint)
+        margin = clean_margin(margin)
+        path = self._cache_path(file, n, obj, choice["model"], hint, margin)
         if path.exists() and not again:
             description = json.loads(path.read_text(encoding="utf-8"))
             description["uit_cache"] = True
@@ -547,8 +611,8 @@ class DescriptionService:
         if self.vision.betaald:
             self.objects.verbruik.check(1, user=user, cost=estimate(choice["model"], effort))
         page = self.objects.client.load_page(file, n)
-        data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"])
-        prompt = build_prompt(file, self._caption(obj))
+        data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
+        prompt = build_prompt(file, self._caption(obj), hint)
 
         body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
         tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
@@ -568,6 +632,8 @@ class DescriptionService:
             "kosten_usd": amount,
             "verstuurde_afmetingen": list(size),
             "promptversie": PROMPT_VERSION,
+            "aanwijzing": hint or None,
+            "marge": margin,
             "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "appversie": __version__,
         }
@@ -592,11 +658,85 @@ class DescriptionService:
         description["uit_cache"] = False
         return self._store(file, n, object_id, description, user)
 
+    # -- History of descriptions ------------------------------------------------
+
+    @staticmethod
+    def _same(a, b):
+        """Whether two descriptions are the same answer (same time, question and texts)."""
+        keys = ("tijdstempel", "aanwijzing", "marge", *EDITABLE)
+        return all((a or {}).get(k) == (b or {}).get(k) for k in keys)
+
+    def _keep_in_history(self, obj):
+        """Put the current description on top of the object's history (not twice)."""
+        current = obj.get("beschrijving")
+        if not current:
+            return
+        history = [h for h in obj.get("beschrijving_geschiedenis", []) if not self._same(h, current)]
+        obj["beschrijving_geschiedenis"] = [current, *history][:MAX_HISTORY]
+
+    def _cached_variants(self, file, n, obj):
+        """Answers for this object that are still in the cache: one per
+        combination of model, hint and margin asked so far. So descriptions
+        from before the history existed can be chosen again too."""
+        combos = {("", MARGIN)}
+        for path in self.cache_dir.glob("*/*.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if "beschrijving" in data:
+                combos.add((data.get("aanwijzing") or "", clean_margin(data.get("marge"))))
+        models = dict.fromkeys([self.config["BEELDMODEL"], self.config["BEELDMODEL_RECHTENVRIJ"]])
+        found = []
+        for model in models:
+            for hint, margin in combos:
+                path = self._cache_path(file, n, obj, model, hint, margin)
+                if path.exists():
+                    try:
+                        found.append(json.loads(path.read_text(encoding="utf-8")))
+                    except (OSError, ValueError):
+                        continue
+        return found
+
+    def history(self, file, n, object_id):
+        """Earlier descriptions of an object, newest first: the kept history,
+        plus answers still in the cache. Without the current one. Free."""
+        obj = self.objects._find(file, n, object_id)
+        current = obj.get("beschrijving")
+        entries = list(obj.get("beschrijving_geschiedenis", []))
+        for variant in self._cached_variants(file, n, obj):
+            if not any(self._same(variant, e) or e.get("tijdstempel") == variant.get("tijdstempel") for e in entries):
+                entries.append({k: v for k, v in variant.items() if k != "uit_cache"})
+        entries = [e for e in entries if not (current and e.get("tijdstempel") == current.get("tijdstempel") and self._same(e, current))]
+        return sorted(entries, key=lambda e: e.get("tijdstempel") or "", reverse=True)
+
+    def restore(self, file, n, object_id, timestamp, edited=None):
+        """Make an earlier description (by its tijdstempel; `edited` picks the
+        hand-edited or the AI version when both exist) the current one again;
+        the current one goes into the history. Free."""
+        candidates = [e for e in self.history(file, n, object_id) if e.get("tijdstempel") == timestamp]
+        if edited is not None:
+            candidates = [e for e in candidates if bool(e.get("bewerkt")) == bool(edited)] or candidates
+        if not candidates:
+            raise DetectionError("Die eerdere beschrijving bestaat niet (meer).", status=404, code="not_found")
+        chosen = candidates[0]
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            self._keep_in_history(obj)
+            obj["beschrijving_geschiedenis"] = [h for h in obj.get("beschrijving_geschiedenis", []) if not self._same(h, chosen)]
+            obj["beschrijving"] = chosen
+            self.objects._write_store(file, n, store)
+        return self.objects.public(file, n, obj)
+
     def _store(self, file, n, object_id, description, user=None):
         with self.objects.lock:
             store = self.objects._load_store(file, n)
             obj = self.objects._find_in(store, object_id)
-            obj["beschrijving"] = {k: v for k, v in description.items() if k != "uit_cache"}
+            new = {k: v for k, v in description.items() if k != "uit_cache"}
+            if not self._same(obj.get("beschrijving"), new):
+                self._keep_in_history(obj)
+            obj["beschrijving"] = new
             self.objects._write_store(file, n, store)
         result = self.objects.public(file, n, obj)
         return {"object": result, "uit_cache": description["uit_cache"], "budget": self.objects.verbruik.status(user)}
@@ -634,6 +774,7 @@ class DescriptionService:
         with self.objects.lock:
             store = self.objects._load_store(file, n)
             obj = self.objects._find_in(store, object_id)
+            self._keep_in_history(obj)  # removed, but it can be chosen again
             obj.pop("beschrijving", None)
             self.objects._write_store(file, n, store)
         return self.objects.public(file, n, obj)

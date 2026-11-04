@@ -5,6 +5,20 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-04
+
+### Toegevoegd
+
+- *Wat staat hierop?*: blok **Eerdere beschrijvingen**: elke beschrijving die vervangen werd (door een nieuwe vraag, terugzetten of wissen) blijft bewaard, met tijd, model, aanwijzing en ruimte; ook antwoorden die nog in de cache staan komen erin, zodat varianten van vóór deze versie terug te halen zijn. *Deze gebruiken* zet er een terug (gratis); de huidige gaat dan de lijst in. API: `GET …/beschrijving/geschiedenis` en `POST …/beschrijving/terugzetten`.
+- *Wat staat hierop?*: de aanwijzing en de ruimte rond de uitsnede staan samen in een eigen blok **AI-bijsturing**, met de voorbeeldweergave van wat de AI ziet en de knoppen om (opnieuw) te beschrijven (de losse miniatuur van de uitsnede naast de beschrijving is weg); de aanwijzing werkt nu ook bij de eerste vraag.
+- *Wat staat hierop?*: *Tekst rond het beeld* en *Tekst in het beeld* zijn nu ook met de hand aan te passen (*Tekst aanpassen*) en met een prullenbakje te verwijderen, met *Ongedaan maken* en *Terug naar de AI-tekst*, net als onderwerp en beschrijving.
+- *Wat staat hierop?*: rechts staat nu **wat de AI ziet**: de uitsnede (rood kader) met de ruimte eromheen die naar het model gaat, en een schuifregelaar *Ruimte rond de uitsnede* van 0 tot 100% (standaard 25%). Minder ruimte houdt andere dingen buiten beeld (zoals een tweede kind), meer ruimte geeft context (zoals tekst rond het beeld). Geldt voor de volgende vraag; de gekozen ruimte wordt bewaard bij de beschrijving. API: `marge` in de POST, en `GET …/beschrijving/invoer.jpg?marge=` (gratis).
+- *Wat staat hierop?*: een veld *Aanwijzing voor de AI (optioneel)* bij *Beschrijf deze afbeelding opnieuw*, bijvoorbeeld "alleen de jongen". De aanwijzing gaat als aparte opdracht mee in de vraag aan het model (niet als bijschrift, niet naar Commons), wordt bewaard bij de beschrijving en staat in *Model, kosten en kwaliteit*. Een andere aanwijzing is een andere vraag, dus geen antwoord uit de cache. API: `aanwijzing` in de POST.
+
+### Gewijzigd
+
+- *Wat staat hierop?*: de knop *Opnieuw vragen* heet nu *Beschrijf deze afbeelding opnieuw* / *Describe this image again*.
+
 ## [0.11.1] - 2026-11-04
 
 ### Gewijzigd

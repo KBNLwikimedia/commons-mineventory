@@ -376,11 +376,44 @@ def description_plan(mid, n, object_id):
 @api.post("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")
 def describe_object(mid, n, object_id):
     """"Wat staat hierop?" (paid in live mode, cached). Body: {"model": "auto" |
-    "standaard" | "contributor", "opnieuw": false}."""
+    "standaard" | "contributor", "opnieuw": false, "aanwijzing": "…", "marge": 0.25};
+    the optional hint is an extra instruction for the model ("only the boy"),
+    the margin the share of the box shown around it (0-1)."""
     body = _body()
+    if not isinstance(body.get("aanwijzing") or "", str):
+        raise DetectionError("'aanwijzing' is een tekst.", status=400, code="invalid_body")
     _require_paid_access(_descriptions().vision.betaald)
     file = _page_file(mid, n)
-    return jsonify(_descriptions().describe(file, n, object_id, body.get("model"), again=bool(body.get("opnieuw")), user=_user()))
+    return jsonify(
+        _descriptions().describe(
+            file, n, object_id, body.get("model"), again=bool(body.get("opnieuw")), user=_user(),
+            hint=body.get("aanwijzing"), margin=body.get("marge"),
+        )
+    )
+
+
+@api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/geschiedenis")
+def description_history(mid, n, object_id):
+    """Earlier descriptions of the object, newest first (free)."""
+    return jsonify({"geschiedenis": _descriptions().history(_page_file(mid, n), n, object_id)})
+
+
+@api.post("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/terugzetten")
+def restore_description(mid, n, object_id):
+    """Make an earlier description current again. Body: {"tijdstempel": …,
+    "bewerkt": true|false (optional)}. Free."""
+    body = _body()
+    if not isinstance(body.get("tijdstempel"), str):
+        raise DetectionError("Geef de 'tijdstempel' van de eerdere beschrijving.", status=400, code="invalid_body")
+    return jsonify(_descriptions().restore(_page_file(mid, n), n, object_id, body["tijdstempel"], body.get("bewerkt")))
+
+
+@api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/invoer.jpg")
+def description_input(mid, n, object_id):
+    """What the image description would see: the box with ?marge= (0-1,
+    default 0.25) around it, the box outlined in red. Free."""
+    data = _descriptions().model_preview(_page_file(mid, n), n, object_id, request.args.get("marge"))
+    return _image(data, "image/jpeg")
 
 
 @api.patch("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")

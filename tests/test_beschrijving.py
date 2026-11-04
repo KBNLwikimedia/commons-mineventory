@@ -60,6 +60,32 @@ def file_with(labels, public_domain):
     return {"rechten": {"labels": labels, "publiek_domein": public_domain}}
 
 
+def test_hint_goes_into_the_prompt_and_the_cache_key():
+    from cutter.beschrijving import build_prompt, clean_hint
+
+    file = {"titel": "File:X.jpg", "naam": "X"}
+    assert "Instruction from the user" not in build_prompt(file)
+    prompt = build_prompt(file, None, "  alleen de\n jongen ")
+    assert prompt.endswith("Instruction from the user for this question (follow it; it overrides the context above where they differ): alleen de jongen")
+    assert len(clean_hint("x" * 500)) == 300
+
+
+def test_margin_is_clamped_and_changes_the_crop():
+    from PIL import Image
+
+    from cutter.beschrijving import clean_margin, model_input
+
+    assert clean_margin(None) == 0.25 and clean_margin("x") == 0.25
+    assert clean_margin(-1) == 0 and clean_margin(3) == 1 and clean_margin(0.33) == 0.35
+    page = Image.new("RGB", (1000, 1000), "white")
+    box = {"x": 400, "y": 400, "w": 100, "h": 100}
+    assert model_input(page, 1000, box, 0)[1] == (100, 100)
+    assert model_input(page, 1000, box, 0.5)[1] == (200, 200)
+    data, _ = model_input(page, 1000, box, 0.5, outline=True)
+    framed = Image.open(__import__("io").BytesIO(data)).convert("RGB")
+    assert framed.getpixel((51, 100))[0] > 180 and framed.getpixel((51, 100))[1] < 120  # the red outline
+
+
 def test_choose_model():
     assert choose_model(file_with(["in_orde"], True), CONFIG)["model"] == "muse-spark-1.3-contributor"
     assert choose_model(file_with(["naamsvermelding"], False), CONFIG)["model"] == "muse-spark-1.3"
