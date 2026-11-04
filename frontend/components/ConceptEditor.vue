@@ -106,29 +106,72 @@
     <p class="cc-klein cc-opslagstatus" role="status">{{ saving ? t("concept.saving") : t("concept.autosave") }}</p>
     <cdx-message v-if="message" :type="messageType" :inline="true">{{ message }}</cdx-message>
 
-    <cdx-accordion>
+    <cdx-accordion v-model="previewOpen">
       <template #title>{{ t("concept.preview") }}</template>
       <p class="cc-klein">{{ concept.samenvatting }}</p>
-      <pre class="cc-wikitekst">{{ concept.wikitekst }}</pre>
+      <!-- Wikitext: as Commons renders it, or the source. -->
+      <div class="cc-voorbeeld-kop">
+        <h4>{{ t("concept.wikitext") }}</h4>
+        <cdx-toggle-button-group v-model="wikitextView" :buttons="views" :aria-label="t('concept.view')" />
+      </div>
+      <template v-if="wikitextView === 'weergave'">
+        <p class="cc-klein">{{ t("concept.rendered_note") }}</p>
+        <p v-if="rendering && !renderedHtml" class="cc-klein">{{ t("concept.rendering") }}</p>
+        <cdx-message v-if="renderError" type="error" :inline="true">{{ renderError }}</cdx-message>
+        <!-- Made by Commons, cleaned by the server (cutter/weergave.py): safe tags only. -->
+        <div v-if="renderedHtml" ref="renderedBox" class="cc-weergave-commons" :class="{ bezig: rendering }" v-html="renderedHtml"></div>
+      </template>
+      <template v-else>
+        <pre class="cc-wikitekst">{{ concept.wikitekst }}</pre>
+      </template>
       <cdx-button action="progressive" size="small" @click="copy(concept.wikitekst)"><cdx-icon :icon="cdxIconCopy" /> {{ t("concept.copy") }}</cdx-button>
-      <h4>{{ t("concept.sdc") }}</h4>
-      <pre class="cc-wikitekst">{{ JSON.stringify(concept.sdc, null, 2) }}</pre>
+
+      <!-- Structured data: as the Structured data tab on Commons shows it, or the JSON. -->
+      <div class="cc-voorbeeld-kop">
+        <h4>{{ t("concept.sdc") }}</h4>
+        <cdx-toggle-button-group v-model="sdcView" :buttons="views" :aria-label="t('concept.view')" />
+      </div>
+      <template v-if="sdcView === 'weergave'">
+        <p class="cc-klein">{{ t("concept.sdc_note") }}</p>
+        <sdc-preview :sdc="concept.sdc" :labels="concept.sdc_labels || {}" />
+      </template>
+      <pre v-else class="cc-wikitekst">{{ JSON.stringify(concept.sdc, null, 2) }}</pre>
+
+      <!-- The other way round: what the original would get, the cut-out as a region (phase 2). -->
+      <div class="cc-voorbeeld-kop">
+        <h4>{{ t("concept.original_regions") }}</h4>
+        <cdx-toggle-button-group v-if="concept.origineel?.sdc.claims.length" v-model="originalView" :buttons="views" :aria-label="t('concept.view')" />
+      </div>
+      <p v-if="!concept.origineel" class="cc-klein">{{ t("concept.original_regions_na") }}</p>
+      <p v-else-if="!concept.origineel.regios.length" class="cc-klein">{{ t("concept.original_regions_none") }}</p>
+      <template v-else>
+        <p class="cc-klein">{{ t("concept.original_regions_help") }}</p>
+        <ul v-if="concept.origineel.regios.some((r) => r.aanwezig)" class="cc-klein">
+          <li v-for="r in concept.origineel.regios.filter((x) => x.aanwezig)" :key="r.q">{{ t("concept.original_region_present", { item: concept.sdc_labels?.[r.q]?.[language] || r.q }) }}</li>
+        </ul>
+        <template v-if="concept.origineel.sdc.claims.length">
+          <sdc-preview v-if="originalView === 'weergave'" :sdc="concept.origineel.sdc" :labels="concept.sdc_labels || {}" :captions-shown="false" />
+          <pre v-else class="cc-wikitekst">{{ JSON.stringify(concept.origineel.sdc, null, 2) }}</pre>
+        </template>
+      </template>
     </cdx-accordion>
   </div>
   <p v-else class="cc-klein">{{ t("concept.loading") }}</p>
 </template>
 
 <script setup>
-import { computed, inject, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import {
   CdxAccordion, CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxLookup, CdxMenuButton, CdxMessage, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
 } from "@wikimedia/codex";
 import { cdxIconCopy, cdxIconEllipsis } from "@wikimedia/codex-icons";
 import { API, errorText, get, objectPath, patch, query } from "../api.js";
+import { makeCollapsible } from "../collapsible.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
 import CutoutPreview from "./CutoutPreview.vue";
 import RightsLabel from "./RightsLabel.vue";
+import SdcPreview from "./SdcPreview.vue";
 import SourceNote from "./SourceNote.vue";
 
 const props = defineProps({ mid: { type: String, required: true }, n: { type: Number, required: true }, objectId: { type: String, required: true } });
@@ -147,6 +190,53 @@ const newCategory = ref("");
 const lookupText = ref("");
 const lookupSelected = ref(null);
 const lookupItems = ref([]);
+// Preview or source, for the wikitext and the structured data.
+const views = [
+  { value: "weergave", label: t("concept.view_rendered") },
+  { value: "broncode", label: t("concept.view_source") },
+];
+// Only rendered while the preview is open: no request to Commons otherwise.
+const previewOpen = ref(false);
+const wikitextView = ref("weergave");
+const sdcView = ref("weergave");
+const originalView = ref("weergave");
+const renderedHtml = ref("");
+const renderedBox = ref(null);
+// Boxes that start closed on Commons (institution, creator) start closed here too.
+watch(renderedHtml, async () => {
+  await nextTick();
+  if (renderedBox.value) makeCollapsible(renderedBox.value, { open: t("concept.box_open"), close: t("concept.box_close") });
+});
+const rendering = ref(false);
+const renderError = ref("");
+let renderTimer = null;
+let renderedText = null;
+
+// Commons renders the wikitext (a read, cached on the server); again after a
+// change, a moment after the concept has been saved.
+async function render() {
+  const text = concept.value?.wikitekst;
+  if (!previewOpen.value || wikitextView.value !== "weergave" || !text || text === renderedText) return;
+  rendering.value = true;
+  renderError.value = "";
+  try {
+    const data = await get(`${path.value}/weergave`);
+    if (concept.value?.wikitekst === text) {
+      renderedHtml.value = data.html;
+      renderedText = text;
+    }
+  } catch (e) {
+    renderError.value = errorText(t, e);
+  } finally {
+    rendering.value = false;
+  }
+}
+
+watch([() => concept.value?.wikitekst, wikitextView, previewOpen], () => {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(render, renderedText === null ? 0 : 800);
+});
+
 const formats = [
   { value: "jpg", label: "JPG" },
   { value: "png", label: "PNG" },
@@ -196,6 +286,7 @@ watch(
 onBeforeUnmount(() => {
   if (saveTimer && draft.value && JSON.stringify(bodyOf(draft.value)) !== lastSaved) save();
   clearTimeout(saveTimer);
+  clearTimeout(renderTimer);
 });
 
 async function reload() {
@@ -208,6 +299,8 @@ async function reload() {
 }
 watch(path, () => {
   Object.keys(undoValues).forEach((key) => delete undoValues[key]);
+  renderedHtml.value = "";
+  renderedText = null;
   reload();
 }, { immediate: true });
 

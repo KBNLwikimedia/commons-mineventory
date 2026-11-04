@@ -270,3 +270,34 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-tekst-bewerken .cdx-field { margin: 0; }
 .cc-tekst-acties { align-items: center; }
 .cc-inventaris-knop { margin-top: 0.75rem; }
+
+/* Preview of the Commons page: wikitext as Commons renders it, and the structured data. */
+.cc-voorbeeld-kop { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; }
+.cc-voorbeeld-kop h4 { margin: 0; }
+.cc-weergave-commons { border: 1px solid var(--cc-rand); padding: 0.75rem 1rem; margin: 0.5rem 0; background: var(--background-color-base, #fff); overflow-x: auto; font-size: 0.875rem; }
+.cc-weergave-commons.bezig { opacity: 0.6; }
+.cc-weergave-commons h2 { font-size: 1.2rem; font-weight: normal; border-bottom: 1px solid var(--cc-rand); margin: 1rem 0 0.5rem; }
+.cc-weergave-commons table { border-collapse: collapse; margin: 0.5rem 0; }
+.cc-weergave-commons td, .cc-weergave-commons th { vertical-align: top; padding: 0.2rem 0.5rem; }
+.cc-weergave-commons .fileinfotpl, .cc-weergave-commons .fileinfo-paramfield { background: var(--background-color-interactive-subtle, #f8f9fa); font-weight: bold; white-space: nowrap; }
+.cc-weergave-commons .licensetpl, .cc-weergave-commons .layouttemplate { border: 1px solid var(--cc-rand); margin: 0.5rem 0; }
+.cc-weergave-commons .catlinks, .cc-weergave-commons .mw-normal-catlinks { border: 1px solid var(--cc-rand); padding: 0.3rem 0.5rem; margin-top: 1rem; }
+.cc-sdc { border: 1px solid var(--cc-rand); padding: 0.5rem 1rem; margin: 0.5rem 0; }
+.cc-sdc-groep { margin: 0.5rem 0 1rem; }
+.cc-sdc-kop { font-size: 0.95rem; margin: 0 0 0.35rem; }
+.cc-sdc-eigenschap { font-weight: normal; font-style: italic; font-size: 0.875rem; }
+.cc-sdc-waarden { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.cc-sdc-waarden > li { background: var(--background-color-interactive-subtle, #f8f9fa); padding: 0.4rem 0.6rem; }
+.cc-sdc-waarden > li > a { font-weight: bold; }
+.cc-sdc-taal { display: inline-block; min-width: 2rem; color: var(--cc-tekst-zacht); }
+.cc-sdc-kwalificaties { display: grid; grid-template-columns: max-content 1fr; gap: 0 0.75rem; margin: 0.3rem 0 0 1rem; font-size: 0.85rem; }
+.cc-sdc-kwalificaties dt { color: var(--cc-tekst-zacht); }
+.cc-sdc-kwalificaties dd { margin: 0; grid-column: 2; }
+.cc-inklap-knop { float: right; background: none; border: 0; padding: 0 0.25rem; color: var(--color-progressive, #36c); cursor: pointer; font: inherit; font-size: 0.85em; }
+/* Wikidata logo and edit pencil, drawn here instead of loaded from Wikimedia. */
+.cc-ikoon { display: inline-block; vertical-align: middle; margin: 0 0.15em; }
+.cc-ikoon-wikidata { width: 20px; height: 11px; background: linear-gradient(to right,
+  #990000 0 2px, transparent 2px 3px, #990000 3px 5px, transparent 5px 6px, #990000 6px 7px, transparent 7px 8px,
+  #339966 8px 10px, transparent 10px 11px, #339966 11px 12px, transparent 12px 13px,
+  #006699 13px 15px, transparent 15px 16px, #006699 16px 17px, transparent 17px 18px, #006699 18px 20px); }
+.cc-ikoon-bewerken::before { content: "✎"; color: var(--color-progressive, #36c); font-size: 0.95em; }

@@ -158,9 +158,11 @@ def default_concept(file, obj):
     }
 
 
-def concept(file, obj):
+def concept(file, obj, facts=None, page=None):
     """The concept of an object: the proposal with the user's changes
-    (`obj["commons"]`) on top, plus the derived rights label, wikitext and SDC."""
+    (`obj["commons"]`) on top, plus the derived rights label, wikitext and SDC.
+    `facts` (size, checksum, dimensions of the cut-out file) complete the SDC;
+    with `page` (its size) comes what the original would get as region."""
     result = default_concept(file, obj)
     stored = obj.get("commons") or {}
     for key, value in stored.items():
@@ -179,7 +181,8 @@ def concept(file, obj):
         "merk" not in labels["labels"] or bool(result.get("merk_bevestigd"))
     )
     result["wikitekst"] = wikitext(file, result)
-    result["sdc"] = structured_data(file, result)
+    result["sdc"] = structured_data(file, result, facts)
+    result["origineel"] = original_regions(file, page, obj, result)
     result["samenvatting"] = UPLOAD_SUMMARY.format(original=file["titel"])
     return result
 
@@ -311,14 +314,99 @@ def _item_snak(prop, qid):
     }
 
 
-def structured_data(file, c):
+def sdc_entity_ids(data):
+    """Every property and item id in structured data (claims and qualifiers),
+    to look up their labels."""
+    ids = []
+
+    def snak(s):
+        ids.append(s.get("property"))
+        value = (s.get("datavalue") or {}).get("value")
+        if isinstance(value, dict) and value.get("id"):
+            ids.append(value["id"])
+        if isinstance(value, dict) and str(value.get("unit", "")).startswith("http"):
+            ids.append(value["unit"].rsplit("/", 1)[-1])
+
+    for claim in data.get("claims", []):
+        snak(claim.get("mainsnak") or {})
+        for prop, snaks in (claim.get("qualifiers") or {}).items():
+            ids.append(prop)
+            for s in snaks:
+                snak(s)
+    return [i for i in dict.fromkeys(ids) if i]
+
+
+# Statements about the file itself, as Commons bots add them after an upload.
+DIGITAL_IMAGE = "Q1250322"  # instance of (P31)
+UNIT_BYTE = "http://www.wikidata.org/entity/Q8799"
+UNIT_PIXEL = "http://www.wikidata.org/entity/Q355198"
+SHA1 = "Q13414952"  # determination method (P459) of the checksum
+MEDIA_TYPES = {"jpg": "image/jpeg", "png": "image/png"}
+# Qualifiers of the original that do not hold for a cut-out: "subject has role"
+# (e.g. collection highlight) is about the original object.
+DROPPED_QUALIFIERS = {"P2868"}
+
+
+def _string_snak(prop, value):
+    return {"snaktype": "value", "property": prop, "datavalue": {"value": value, "type": "string"}}
+
+
+def _quantity_snak(prop, amount, unit):
+    return {"snaktype": "value", "property": prop, "datavalue": {"value": {"amount": f"+{int(amount)}", "unit": unit}, "type": "quantity"}}
+
+
+def _claim(snak, qualifiers=None):
+    claim = {"mainsnak": snak, "type": "statement", "rank": "normal"}
+    if qualifiers:
+        claim["qualifiers"] = qualifiers
+    return claim
+
+
+def original_regions(file, page, obj, c):
+    """What the original would get for this cut-out (functional design 9.4,
+    phase 2: an edit on Commons, so for now only shown): per depicts item of
+    the concept a P180 statement with the cut-out as region, P2677
+    "pct:x,y,w,h" relative to the whole image, like the regions Commons
+    already has. Items the original already shows at (about) that place are
+    marked `aanwezig`. Only for single images: on a page of a PDF or DjVu a
+    region has no fixed meaning. Returns None when not applicable."""
+    if file.get("paginas", 1) != 1 or not page or not obj.get("box"):
+        return None
+    box, width, height = obj["box"], page["breedte"], page["hoogte"]
+    pct = [box["x"] / width * 100, box["y"] / height * 100, box["w"] / width * 100, box["h"] / height * 100]
+    position = "pct:" + ",".join(f"{round(v, 4):g}" for v in pct)
+    known = {}
+    for statement in (file.get("_sdc") or {}).get("beeldt_af", []):
+        if statement.get("soort") == "item":
+            known.setdefault(statement["waarde"], []).extend(statement["kwalificatoren"].get("P2677") or [])
+    result = []
+    for depicted in c["beeldt_af"]:
+        present = any(_same_region(position, other, width, height) for other in known.get(depicted["q"], []))
+        result.append({"q": depicted["q"], "positie": position, "aanwezig": present})
+    claims = [_claim(_item_snak("P180", r["q"]), {"P2677": [_string_snak("P2677", r["positie"])]}) for r in result if not r["aanwezig"]]
+    return {"regios": result, "sdc": {"labels": {}, "claims": claims}}
+
+
+def _same_region(position, other, width, height, tolerance=0.01):
+    """Whether two P2677 values mark (about) the same rectangle."""
+    from .regios import parse_region
+
+    a, b = parse_region(position, width, height), parse_region(other, width, height)
+    if not a or not b:
+        return False
+    return all(abs(a[k] - b[k]) <= tolerance * (width if k in ("x", "w") else height) for k in ("x", "y", "w", "h"))
+
+
+def structured_data(file, c, facts=None):
     """What one wbeditentity on the new M-id would set (9.4): captions, depicts
-    (the chosen items, without a position) and the statements copied from the
-    original. The relation to the original stays in the wikitext for now."""
+    (the chosen items), the statements copied from the original, and the facts of the
+    file itself (instance of, media type, checksum, size, width and height)
+    when `facts` ({"sha1", "bytes", "breedte", "hoogte"}) is known. The
+    relation to the original stays in the wikitext for now."""
     labels = {lang: {"language": lang, "value": text[:MAX_CAPTION]} for lang, text in c["caption"].items() if text}
     claims = []
     for depicted in c["beeldt_af"]:
-        claims.append({"mainsnak": _item_snak("P180", depicted["q"]), "type": "statement", "rank": "normal"})
+        claims.append(_claim(_item_snak("P180", depicted["q"])))
     parsed = file.get("_sdc") or {}
     from .sdc import PROPERTIES
 
@@ -327,9 +415,17 @@ def structured_data(file, c):
             if not statement.get("_mainsnak"):
                 continue
             claim = {"mainsnak": statement["_mainsnak"], "type": "statement", "rank": statement.get("rang", "normal")}
-            if statement.get("_qualifiers"):
-                claim["qualifiers"] = statement["_qualifiers"]
+            qualifiers = {k: v for k, v in (statement.get("_qualifiers") or {}).items() if k not in DROPPED_QUALIFIERS}
+            if qualifiers:
+                claim["qualifiers"] = qualifiers
             claims.append(claim)
+    claims.append(_claim(_item_snak("P31", DIGITAL_IMAGE)))
+    claims.append(_claim(_string_snak("P1163", MEDIA_TYPES[c["formaat"]])))
+    if facts:
+        claims.append(_claim(_string_snak("P4092", facts["sha1"]), {"P459": [_item_snak("P459", SHA1)]}))
+        claims.append(_claim(_quantity_snak("P3575", facts["bytes"], UNIT_BYTE)))
+        claims.append(_claim(_quantity_snak("P2048", facts["hoogte"], UNIT_PIXEL)))
+        claims.append(_claim(_quantity_snak("P2049", facts["breedte"], UNIT_PIXEL)))
     return {"labels": labels, "claims": claims}
 
 

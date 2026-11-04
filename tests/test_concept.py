@@ -179,3 +179,52 @@ def test_date_from_the_wikitext_wins(album):
     c = concept.concept(album, {"id": "o", "label": "x", "box": {"x": 0, "y": 0, "w": 1, "h": 1}})
     assert c["herkomst"]["datum"] == {"bron": "wikitekst"}
     assert c["herkomst"]["maker"] == {"bron": "wikitekst"}
+
+
+def test_original_regions_for_the_cutout():
+    from cutter.concept import original_regions
+
+    file = {"paginas": 1, "_sdc": {"beeldt_af": [{"soort": "item", "waarde": "Q1420", "kwalificatoren": {"P2677": ["pct:10,20,25,50"]}}]}}
+    page = {"breedte": 2000, "hoogte": 1000}
+    obj = {"box": {"x": 200, "y": 200, "w": 500, "h": 500}}
+    result = original_regions(file, page, obj, {"beeldt_af": [{"q": "Q43115"}, {"q": "Q1420"}]})
+    assert result["regios"] == [
+        {"q": "Q43115", "positie": "pct:10,20,25,50", "aanwezig": False},
+        {"q": "Q1420", "positie": "pct:10,20,25,50", "aanwezig": True},
+    ]
+    [claim] = result["sdc"]["claims"]
+    assert claim["mainsnak"]["datavalue"]["value"]["id"] == "Q43115"
+    assert claim["qualifiers"]["P2677"][0]["datavalue"]["value"] == "pct:10,20,25,50"
+    assert original_regions({**file, "paginas": 3}, page, obj, {"beeldt_af": []}) is None
+
+
+def test_sdc_has_file_facts_and_depicts_without_position():
+    from cutter.concept import structured_data
+
+    file = {"_sdc": {}}
+    c = {"caption": {"en": "Man"}, "beeldt_af": [{"q": "Q43115"}], "formaat": "png"}
+    facts = {"sha1": "abc", "bytes": 1234, "breedte": 200, "hoogte": 400}
+    claims = structured_data(file, c, facts)["claims"]
+    by_prop = {}
+    for claim in claims:
+        by_prop.setdefault(claim["mainsnak"]["property"], []).append(claim)
+    depicts = by_prop["P180"]
+    assert [d["mainsnak"]["datavalue"]["value"]["id"] for d in depicts] == ["Q43115"]
+    assert "qualifiers" not in depicts[0]
+    assert by_prop["P31"][0]["mainsnak"]["datavalue"]["value"]["id"] == "Q1250322"
+    assert by_prop["P1163"][0]["mainsnak"]["datavalue"]["value"] == "image/png"
+    assert by_prop["P4092"][0]["qualifiers"]["P459"][0]["datavalue"]["value"]["id"] == "Q13414952"
+    assert by_prop["P3575"][0]["mainsnak"]["datavalue"]["value"]["amount"] == "+1234"
+    assert by_prop["P2049"][0]["mainsnak"]["datavalue"]["value"]["amount"] == "+200"
+    assert by_prop["P2048"][0]["mainsnak"]["datavalue"]["value"]["amount"] == "+400"
+
+
+def test_sdc_drops_subject_has_role_from_the_collection():
+    from cutter.concept import structured_data
+
+    collection = {"property": "P195", "snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q1526131"}}}
+    role = [{"property": "P2868", "snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q29188408"}}}]
+    file = {"_sdc": {"collectie": [{"_mainsnak": collection, "_qualifiers": {"P2868": role}}]}}
+    c = {"caption": {}, "beeldt_af": [], "formaat": "jpg"}
+    [claim] = [x for x in structured_data(file, c)["claims"] if x["mainsnak"]["property"] == "P195"]
+    assert "qualifiers" not in claim

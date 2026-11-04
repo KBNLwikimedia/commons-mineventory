@@ -12,7 +12,7 @@ from urllib.parse import quote
 
 from flask import Blueprint, Response, current_app, jsonify, request, session
 
-from . import __version__, concept, export
+from . import __version__, concept, export, weergave
 from .cache import FetchError
 from .commons import CommonsError, public as public_file
 from .detectie.basis import DetectionError
@@ -412,7 +412,14 @@ def _ai_texts(obj):
 
 
 def _concept(file, n, obj):
-    result = concept.concept(file, obj)
+    service = _service()
+    stored = obj.get("commons") or {}
+    try:
+        facts = service.file_facts(file, n, obj, stored.get("formaat") or "jpg")
+    except Exception:  # noqa: BLE001 - the SDC then simply lacks size and checksum
+        current_app.logger.warning("No file facts for %s/%s/%s", file["mid"], n, obj["id"], exc_info=True)
+        facts = None
+    result = concept.concept(file, obj, facts, service.client.load_page(file, n))
     result.update(
         {
             "id": obj["id"],
@@ -423,9 +430,24 @@ def _concept(file, n, obj):
             "ai": _ai_texts(obj),
             # Label and short description of every depicts item, from Wikidata.
             "beeldt_af_info": _client().item_info([d["q"] for d in result["beeldt_af"]]) if result["beeldt_af"] else {},
+            # Labels of the properties and items in the structured data, for the preview.
+            "sdc_labels": _client().entity_labels(
+                concept.sdc_entity_ids(result["sdc"]) + concept.sdc_entity_ids((result.get("origineel") or {}).get("sdc") or {})
+                + [r["q"] for r in (result.get("origineel") or {}).get("regios", [])]
+            ),
         }
     )
     return result
+
+
+@api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/commons/weergave")
+def render_concept(mid, n, object_id):
+    """The wikitext of the concept as Commons would render it (action=parse,
+    only reads), cleaned: no images, styles or scripts. Free."""
+    file = _page_file(mid, n)
+    result = concept.concept(file, _service()._find(file, n, object_id))
+    html = _client().render_wikitext(result["wikitekst"], "File:" + result["bestandsnaam"])
+    return jsonify({"html": weergave.clean_html(html)})
 
 
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/commons")

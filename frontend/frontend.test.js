@@ -337,3 +337,55 @@ describe("column splitter", () => {
     area.remove();
   });
 });
+
+describe("SdcPreview component", () => {
+  it("shows captions, depicts first with labels, dates and unknown values", async () => {
+    const { default: SdcPreview } = await import("./components/SdcPreview.vue");
+    const item = (prop, id) => ({ snaktype: "value", property: prop, datavalue: { type: "wikibase-entityid", value: { id } } });
+    const sdc = {
+      labels: { nl: { language: "nl", value: "Man met pijp" } },
+      claims: [
+        { mainsnak: item("P6216", "Q19652") },
+        { mainsnak: { snaktype: "value", property: "P571", datavalue: { type: "time", value: { time: "+1920-00-00T00:00:00Z", precision: 8 } } } },
+        { mainsnak: item("P180", "Q1420") },
+        { mainsnak: { snaktype: "somevalue", property: "P170" } },
+      ],
+    };
+    const labels = { P180: { en: "depicts" }, Q1420: { nl: "auto", en: "car" }, P6216: { en: "copyright status" } };
+    const wrapper = mount(SdcPreview, { props: { sdc, labels }, global: { provide: { t: (key, p) => (p ? `${key}:${Object.values(p)}` : key), language: "nl" } } });
+    const heads = wrapper.findAll(".cc-sdc-kop").map((h) => h.text());
+    expect(heads[0]).toBe("sdc.captions");
+    expect(heads[1]).toContain("sdc.depicts_title");
+    expect(wrapper.text()).toContain("Man met pijp");
+    expect(wrapper.text()).toContain("auto");
+    expect(wrapper.text()).toContain("sdc.decade:1920");
+    expect(wrapper.text()).toContain("sdc.unknown_value");
+    expect(wrapper.text()).toContain("P571");
+  });
+});
+
+describe("collapsible boxes", () => {
+  it("closes a collapsed table to its first row and opens it again", async () => {
+    const { makeCollapsible } = await import("./collapsible.js");
+    const box = document.createElement("div");
+    box.innerHTML = '<table class="toccolours collapsible collapsed"><tr><th>KB</th></tr><tr><td>Den Haag</td></tr></table><table class="wikitable"><tr><td>a</td></tr><tr><td>b</td></tr></table>';
+    makeCollapsible(box, { open: "Show", close: "Hide" });
+    const [first, other] = box.querySelectorAll("table");
+    expect(first.rows[1].hidden).toBe(true);
+    expect(other.rows[1].hidden).toBe(false);
+    const button = first.querySelector("button");
+    expect(button.textContent).toContain("Show");
+    button.click();
+    expect(first.rows[1].hidden).toBe(false);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+  });
+});
+
+describe("SdcPreview quantities", () => {
+  it("shows an amount with its unit label", async () => {
+    const { default: SdcPreview } = await import("./components/SdcPreview.vue");
+    const sdc = { labels: {}, claims: [{ mainsnak: { snaktype: "value", property: "P3575", datavalue: { type: "quantity", value: { amount: "+5775624", unit: "http://www.wikidata.org/entity/Q8799" } } } }] };
+    const wrapper = mount(SdcPreview, { props: { sdc, labels: { Q8799: { en: "byte" } } }, global: { provide: { t: (k) => k, language: "en" } } });
+    expect(wrapper.text()).toContain("5,775,624 byte");
+  });
+});

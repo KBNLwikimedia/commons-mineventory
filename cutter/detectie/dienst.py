@@ -128,6 +128,8 @@ class DetectionService:
         self.masks = MaskCache(Path(cache_dir) / "maskers")
         # One lock for all object stores (re-entrant: locked methods call each other).
         self.lock = threading.RLock()
+        # Size and checksum of cut-out files, by what makes the file (see file_facts).
+        self._facts = {}
 
     # -- Terms and planning ----------------------------------------------------
 
@@ -680,6 +682,20 @@ class DetectionService:
         if kind == "jpg":
             return export.crop_jpeg(image, obj["box"], scale)
         return export.cutout(image, obj["box"], scale, decode_raster(self._mask_data(file, n, obj)))[0]
+
+    def file_facts(self, file, n, obj, kind):
+        """Size in bytes, SHA-1 and width and height in pixels of the cut-out
+        file in format `kind` ("jpg" or "png"), as it would be uploaded: the
+        saved file, else made on the fly. Remembered per box, mask and format,
+        so the concept does not make the file again on every change."""
+        key = json.dumps([file["mid"], n, obj["id"], obj["box"], obj.get("masker"), obj.get("opgeslagen"), kind], sort_keys=True)
+        if key not in self._facts:
+            data = self.saved_file(file, n, obj["id"], kind)
+            width, height = Image.open(io.BytesIO(data)).size
+            if len(self._facts) > 500:
+                self._facts.clear()
+            self._facts[key] = {"sha1": hashlib.sha1(data).hexdigest(), "bytes": len(data), "breedte": width, "hoogte": height}
+        return self._facts[key]
 
     @_locked
     def empty_trash(self, targets=None):

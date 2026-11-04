@@ -335,6 +335,40 @@ class CommonsClient:
                 }
         return result
 
+    def entity_labels(self, ids):
+        """{id: {"nl": label, "en": label}} for Wikidata items and properties
+        (Q… and P…), with Wikidata's language fallback; 50 per request,
+        cached. Ids that cannot be fetched are left out (the id stays readable)."""
+        result = {}
+        ids = [i for i in dict.fromkeys(ids) if re.fullmatch(r"[QP]\d+", i or "")]
+        for start in range(0, len(ids), 50):
+            chunk = ids[start : start + 50]
+            params = {"action": "wbgetentities", "ids": "|".join(chunk), "props": "labels", "languages": "nl|en", "languagefallback": "1"}
+            try:
+                data = self._json(params, api=self.wikidata_api)
+            except (FetchError, CommonsError):
+                continue
+            for eid, entity in (data.get("entities") or {}).items():
+                labels = entity.get("labels") or {}
+                names = {lang: (labels.get(lang) or {}).get("value") for lang in ("nl", "en")}
+                if any(names.values()):
+                    result[eid] = names
+        return result
+
+    def render_wikitext(self, text, title):
+        """The HTML Commons makes of wikitext, as a preview of the file page
+        (action=parse; only reads, changes nothing). POST because the text can
+        be longer than a URL allows; cached by content."""
+        data = {
+            "action": "parse", "format": "json", "formatversion": "2", "maxlag": "5",
+            "text": text, "title": title, "contentmodel": "wikitext", "prop": "text",
+            "pst": "1", "disablelimitreport": "1", "disableeditsection": "1", "preview": "1",
+        }
+        body = json.loads(self.fetcher.post(self.api, data, max_age=self.max_age))
+        if "error" in body:
+            raise CommonsError(f"Commons gaf een fout: {body['error'].get('info', body['error'].get('code'))}", status=502, code="commons_error")
+        return (body.get("parse") or {}).get("text") or ""
+
     MAKER_PROPERTIES = ("P170", "P50", "P110")  # creator, author, illustrator
 
     def work(self, qid):

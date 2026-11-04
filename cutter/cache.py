@@ -8,6 +8,7 @@ under the same URL and are kept until cleaned up.
 """
 
 import hashlib
+import json
 import threading
 import time
 from pathlib import Path
@@ -116,6 +117,23 @@ class CachedFetcher:
                 self.cache.set(url, response.content)
             return response.content
         raise FetchError(url, "maxlag")  # pragma: no cover (loop always returns or raises)
+
+    def post(self, url, data, max_age=None):
+        """POST a form (for a read whose text is too long for a URL, such as
+        action=parse), cached by URL and form content; rate limited like get."""
+        key = url + "#" + hashlib.sha256(json.dumps(data, sort_keys=True).encode("utf-8")).hexdigest()
+        cached = self.cache.get(key, max_age)
+        if cached is not None:
+            return cached
+        self.rate_limiter.wait()
+        try:
+            response = self.session.post(url, data=data, timeout=self.timeout)
+        except requests.RequestException as exc:
+            raise FetchError(url, f"Wikimedia niet bereikbaar: {exc.__class__.__name__}") from exc
+        if response.status_code != 200 or b'"maxlag"' in response.content[:300]:
+            raise FetchError(url, f"HTTP {response.status_code}", status=response.status_code)
+        self.cache.set(key, response.content)
+        return response.content
 
 
 def _retry_after(response):

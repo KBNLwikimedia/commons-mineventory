@@ -60,6 +60,22 @@ class FixtureFetcher:
             raise FetchError(url, "HTTP 404", status=404)
         return (COMMONS / name).read_bytes()
 
+    # A rendered page for action=parse (the preview of the wikitext): a little
+    # of what Commons sends, including what the app has to strip.
+    PARSED = (
+        '<div class="mw-parser-output"><style>.x{color:red}</style>'
+        '<table class="fileinfotpl"><tr><td>Description</td><td>{text}</td></tr></table>'
+        '<img src="//upload.wikimedia.org/x.png"><a href="/wiki/Category:Test" onclick="evil()">Test</a>'
+        '<script>alert(1)</script><span style="background:url(http://x)">bg</span></div>'
+    )
+
+    def post(self, url, data, max_age=None):
+        self.calls.append(url)
+        if data.get("action") == "parse":
+            first = data["text"].splitlines()[0] if data["text"] else ""
+            return json.dumps({"parse": {"text": self.PARSED.replace("{text}", first)}}).encode()
+        raise FetchError(url, "HTTP 404", status=404)
+
 
 @pytest.fixture
 def fetcher():

@@ -41,6 +41,7 @@ ENDPOINTS = [
     ("patch", OBJECT + "/beschrijving", "De teksten van de beschrijving met de hand wijzigen", [MID, N, OID], '{"onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en"}', 200, False),
     ("delete", OBJECT + "/beschrijving", "Beschrijving vergeten (het antwoord blijft in de cache)", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/commons", "Het Commons-concept: naam, teksten, licentie, categorieën, beeldt af, rechtenlabel, wikitekst, SDC", [MID, N, OID], None, 200, False),
+    ("get", OBJECT + "/commons/weergave", "De wikitekst van het concept zoals Commons hem weergeeft (opgeschoond HTML)", [MID, N, OID], None, 200, False),
     ("patch", OBJECT + "/commons", "Het Commons-concept wijzigen, of terug naar het voorstel", [MID, N, OID], '{"bestandsnaam", "formaat", "beschrijving", "caption", "categorieen", "beeldt_af", …} | {"herstel": true}', 200, False),
     ("get", PAGE + "/uitsneden", "Opgeslagen uitsneden van een pagina", [MID, N], None, 200, False),
     ("post", PAGE + "/uitsneden", "Uitsneden opslaan (volledige resolutie)", [MID, N], '{"ids": [...]} (standaard: de geselecteerde)', 201, False),
