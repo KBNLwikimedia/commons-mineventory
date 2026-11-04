@@ -19,7 +19,7 @@
           {{ subtitle }}
           <template v-if="file.url">
             · {{ t("objects.source_file") }}
-            <a :href="file.url" target="_blank" rel="noopener">{{ file.naam || String(file.titel || "").replace(/^File:/, "") }}</a>
+            <a :href="file.url" target="_blank" rel="noopener">{{ file.naam || fileName(file.titel) }}</a>
             <cdx-icon :icon="cdxIconLinkExternal" size="x-small" />
           </template>
         </p>
@@ -56,7 +56,7 @@
           <dd>{{ object.box.x }}, {{ object.box.y }} · {{ object.box.w }} × {{ object.box.h }} px</dd>
           <template v-if="savedInfo">
             <dt>{{ t("magnifier.saved") }}</dt>
-            <dd>{{ savedInfo.text }}<template v-if="savedInfo.left">, <em class="cc-verloopt" :class="{ 'cc-verloopt-bijna': savedInfo.soon }">{{ savedInfo.left }}</em></template> <retention-info /><br /><span class="cc-klein">{{ savedInfo.title }}</span></dd>
+            <dd><saved-label :object="object" /> <retention-info /><br /><span class="cc-klein">{{ savedInfo.title }}</span></dd>
           </template>
           <template v-if="object.herkomst?.p2677"><dt>P2677</dt><dd><code>{{ object.herkomst.p2677 }}</code></dd></template>
           <dt>
@@ -340,8 +340,11 @@ import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIco
 import { API, del, errorText, get, objectPath, patch, post, query } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import SavedLabel from "./SavedLabel.vue";
 import { forgetPlacement, makeMovable } from "../movable.js";
-import { objectName, savedLabel } from "../state.js";
+import { fileName, objectName, savedLabel } from "../state.js";
+import { searchItems, wikidataSearcher } from "../wikidata.js";
+import { fitToText } from "../autosize.js";
 import AiBadge from "./AiBadge.vue";
 import ConceptEditor from "./ConceptEditor.vue";
 import CutoutPreview from "./CutoutPreview.vue";
@@ -469,7 +472,13 @@ watch(
   },
   { immediate: true }
 );
-onBeforeUnmount(() => undoMovable?.());
+// Closing: no timer, interval or search keeps running.
+onBeforeUnmount(() => {
+  undoMovable?.();
+  clearTimeout(marginTimer);
+  clearInterval(ticker);
+  lookupSearcher.stop();
+});
 
 const base = computed(() => objectPath(props.file.mid, props.n, props.object.id));
 const name = computed(() => objectName(props.object, language, t));
@@ -549,6 +558,8 @@ watch(
     undoTexts.value = null;
     hits.value = [];
     // Nothing of the previous object's search or errors stays in view.
+    lookupSearcher.stop();
+    fullSearch += 1;
     searched.value = "";
     ownTerm.value = "";
     lookupItems.value = [];
@@ -674,10 +685,7 @@ async function startEditing(group) {
   // As high as the text itself right away (autosize only reacts once you type).
   await nextTick();
   const box = Array.isArray(editBox.value) ? editBox.value[0] : editBox.value;
-  box?.querySelectorAll("textarea").forEach((area) => {
-    area.style.height = "auto";
-    area.style.height = `${area.scrollHeight + 2}px`;
-  });
+  box?.querySelectorAll("textarea").forEach(fitToText);
   box?.querySelector("textarea, input")?.focus();
 }
 
@@ -743,28 +751,14 @@ const searched = ref("");
 const lookupItems = ref([]);
 const lookupChoice = ref(null);
 const lookupDone = ref(false); // "nothing found" only after an answer, not while waiting
-let lookupTimer = null;
-let lookupSeq = 0;
+const lookupSearcher = wikidataSearcher(language);
 function onLookupInput(value) {
-  clearTimeout(lookupTimer);
-  const term = (value || "").trim();
-  lookupDone.value = false;
-  if (term.length < 2) {
-    lookupItems.value = [];
-    return;
-  }
-  lookupTimer = setTimeout(async () => {
-    const seq = ++lookupSeq;
-    try {
-      const found = (await get(`${API}/wikidata/zoek${query({ q: term, taal: language })}`)).resultaten;
-      if (seq !== lookupSeq) return; // an older answer after a newer question
-      lookupItems.value = found.map((hit) => ({ value: hit.q, label: hit.label, description: [hit.q, hit.beschrijving].filter(Boolean).join(" · "), hit }));
-    } catch {
-      lookupItems.value = [];
-    }
-    if (seq === lookupSeq) lookupDone.value = true;
-  }, 300);
+  lookupSearcher.search(value, (items, done) => {
+    if (items) lookupItems.value = items;
+    lookupDone.value = done;
+  });
 }
+let fullSearch = 0;
 async function onLookupSelect(q) {
   const item = lookupItems.value.find((entry) => entry.value === q);
   if (!item) return;
@@ -774,8 +768,11 @@ async function onLookupSelect(q) {
 async function searchWikidata(term) {
   term = (term || "").trim();
   if (!term) return;
+  const mine = ++fullSearch;
   try {
-    hits.value = (await get(`${API}/wikidata/zoek${query({ q: term, taal: language })}`)).resultaten;
+    const found = await searchItems(term, language);
+    if (mine !== fullSearch) return; // a newer search (or another object) came first
+    hits.value = found;
     searched.value = term;
   } catch (e) {
     error.value = errorText(t, e);

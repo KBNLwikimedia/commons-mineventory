@@ -102,7 +102,9 @@ def app(client, tmp_path, monkeypatch):
     monkeypatch.setenv("UITVOER_DIR", str(tmp_path / "uitvoer"))
     monkeypatch.setenv("CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("VITE_DEV", "uit")
-    return create_app(Config(), commons_client=client)
+    app = create_app(Config(), commons_client=client)
+    app.testing = True  # as locally: checks meant for a server are tested on purpose (test_api)
+    return app
 
 
 @pytest.fixture

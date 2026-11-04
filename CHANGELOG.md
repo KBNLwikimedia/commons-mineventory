@@ -3,6 +3,30 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.26.0] - 2026-11-04
+
+Backlog 12c: de open punten uit de code-review.
+
+### Beveiliging
+
+- Budget: een betaalde aanroep boekt zijn kosten vooraf en houdt die vast zolang hij loopt (`Verbruik.reservation`), zodat gelijktijdige vragen samen de daglimiet of het dagbudget niet meer kunnen overschrijden. SAM-aanroepen geven nu ook hun prijs mee aan de controle (het budget werd eerder pas achteraf bewaakt). Hooguit 20 zoektermen per opdracht (`too_many_terms`).
+- Op een server (niet in debug-modus) zijn het verbruikslog (met gebruikersnamen) en het legen van de hele prullenbak alleen voor ingelogde gebruikers op de toegangslijst, tot OAuth de gebruikers scheidt. Lokaal verandert er niets.
+
+### Opgelost
+
+- Foute invoer geeft een nette 400 in plaats van een 500: NaN of oneindig in een punt, rechthoek of minscore, een punt zonder x of y, een lijst id's die geen lijst van teksten is, een verkeerd object bij het legen van de prullenbak.
+- Vreemde gegevens van Commons worden overgeslagen in plaats van een fout te geven: een regio als `1.2.3` of `nan`, een bestandsnotitie met `dimx=nan`.
+- `objecten.json` en `bestand.json` worden atomisch geschreven (eerst een tijdelijk bestand): een crash laat nooit een half bestand achter.
+- Zoeken op Wikidata: een laat antwoord op een oudere vraag overschrijft geen nieuwer resultaat meer, en een lopende zoekopdracht stopt als het venster sluit of een ander object opent.
+- Bij het sluiten van de vergroter stoppen alle timers, en de viewer kijkt niet meer naar de grootte van een element dat weg is.
+- Pagina *Objecten*: een gekozen bron of bestand zonder objecten meer (alles naar de prullenbak) valt uit de keuze; de lijst liep daardoor vast.
+
+### Gewijzigd
+
+- Sneller: het grotere beeld van *wat de AI ziet* (lightbox) wordt één keer gemaakt en daarna uit de cache gehaald; het opzoeken van eerdere beschrijvingen doorzoekt de hele cache hooguit eens per minuut; het verbruikslog wordt alleen opnieuw gelezen als het veranderd is.
+- Minder dubbele code: één Wikidata-zoeker voor alle zoekvelden (`frontend/wikidata.js`), één hulp voor de hoogte van tekstvakken (`frontend/autosize.js`), één onderdeel voor *opgeslagen, nog … dagen* (`SavedLabel.vue`), de prijs van een SAM-aanroep op één plek (van de server, `sam_usd`), één functie voor de tekst van een modelantwoord.
+- Toegankelijkheid: de knoppen per object en per bezocht bestand noemen het object of bestand in hun naam, de huidige pagina heeft `aria-current="page"`, de tabbladen op de telefoon werken met de pijltjestoetsen, Home en End, en de kolommen zijn gekoppeld aan hun tabblad; de knop + bij de categorieën heeft een naam.
+
 ## [0.25.0] - 2026-11-04
 
 Uit een kritische review van code en documentatie (4-11-2026).

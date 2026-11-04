@@ -7,7 +7,7 @@
  * Interface for the Vue wrapper (ViewerPane.vue):
  *   functions  load(page), setObjects(objects, newIds), setSelection(ids),
  *              setLabels(on), zoomToBox(box), focusObject(id), setObjectHover(id, on),
- *              setPointMode(on), setDrawMode(on), fit(), zoomStep(direction), zoomTo(scale)
+ *              setPointMode(on), setDrawMode(on), fit(), zoomStep(direction), zoomTo(scale), destroy()
  *   events     "object-click" {object, ctrl}, "object-open" object,
  *              "point" {x, y, ctrl}, "rectangle" {x, y, w, h},
  *              "object-hover" object|null, "zoom" scale, "imageload", "imageerror"
@@ -474,9 +474,16 @@ export class PageViewer {
     });
 
     if (typeof ResizeObserver !== "undefined") {
-      new ResizeObserver(() => {
+      this.resizeObserver = new ResizeObserver(() => {
         if (this.page && !this.userMoved) this.fit();
-      }).observe(this.el);
+      });
+      this.resizeObserver.observe(this.el);
     }
+  }
+
+  /* When the viewer goes: stop watching the size of its element. */
+  destroy() {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
   }
 }

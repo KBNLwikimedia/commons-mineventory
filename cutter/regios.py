@@ -10,6 +10,7 @@ merged with each other or with other objects.
 """
 
 import hashlib
+import math
 import re
 from datetime import datetime, timezone
 
@@ -25,7 +26,12 @@ def parse_region(value, width, height):
     if not match:
         return None
     pct, *numbers = match.groups()
-    x, y, w, h = (float(n) for n in numbers)
+    try:
+        x, y, w, h = (float(n) for n in numbers)  # "1.2.3" matches the pattern but is no number
+    except ValueError:
+        return None
+    if not all(math.isfinite(v) for v in (x, y, w, h)):
+        return None
     if pct:
         x, y, w, h = x * width / 100, y * height / 100, w * width / 100, h * height / 100
     x0, y0 = max(0, round(x)), max(0, round(y))

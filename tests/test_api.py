@@ -373,3 +373,33 @@ def test_config_in_the_page_cannot_break_out_of_its_script(http):
     page = http.get("/?url=%3C!--%3Cscript%3E%3C/script%3E").get_data(as_text=True)
     config = page.split('<script id="cutter-config" type="application/json">', 1)[1].split("</script>", 1)[0]
     assert "<" not in config and "\\u003c!--" in config
+
+
+@pytest.mark.parametrize("body", [
+    {"punt": {"x": "NaN", "y": 1}},
+    {"punt": {"x": 1}},
+    {"punt": "midden"},
+    {"rechthoek": {"x": "inf", "y": 0, "w": 10, "h": 10}},
+    {"prompt": "wapen", "minscore": 2},
+])
+def test_wrong_detection_input_is_a_400(http, body):
+    assert http.post(PAGE + "/detecties", json=body).status_code == 400
+
+
+def test_wrong_ids_are_a_400(http):
+    assert http.patch(PAGE + "/objecten", json={"geselecteerd": [["x"]]}).status_code == 400
+    assert http.delete("/api/v1/prullenbak", json={"objecten": [{"mid": "M1"}]}).status_code == 400
+
+
+def test_usage_and_emptying_the_trash_need_the_access_list_on_a_server(app, http):
+    """On a server (no debug) the usage log (user names) and emptying everybody's trash
+    are only for users on the access list; locally (debug) nothing changes."""
+    testing = app.testing
+    app.debug, app.testing = False, False  # as on a server
+    try:
+        assert http.get("/api/v1/verbruik").status_code == 403
+        assert http.delete("/api/v1/prullenbak").status_code == 403
+        app.debug = True  # locally
+        assert http.get("/api/v1/verbruik").status_code == 200
+    finally:
+        app.debug, app.testing = False, testing

@@ -3,7 +3,7 @@
   style as the licence chip, with the explanation in a tooltip.
 -->
 <template>
-  <span v-tooltip="t(`rights_help.${label}`)" class="cc-rechtenlabel" tabindex="0" :aria-label="`${t(`rights.${label}`)}: ${t(`rights_help.${label}`)}`">
+  <span v-tooltip="t(`rights_help.${label}`)" class="cc-rechtenlabel" tabindex="0" role="note" :aria-label="`${t(`rights.${label}`)}: ${t(`rights_help.${label}`)}`">
     <cdx-info-chip :status="status">{{ t(`rights.${label}`) }}</cdx-info-chip>
   </span>
 </template>

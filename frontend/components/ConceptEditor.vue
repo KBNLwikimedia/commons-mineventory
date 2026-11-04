@@ -83,7 +83,7 @@
             </template>
             <form class="cc-categorie-erbij" @submit.prevent="addCategory">
               <cdx-text-input v-model="newCategory" :placeholder="t('concept.category_add')" :aria-label="t('concept.category_add')" />
-              <cdx-button action="progressive" type="submit" :disabled="!newCategory.trim()">+</cdx-button>
+              <cdx-button action="progressive" type="submit" :disabled="!newCategory.trim()" :aria-label="t('concept.category_add')" :title="t('concept.category_add')">+</cdx-button>
             </form>
             <span v-if="draft.categorieen.some((c) => !c.gekozen)" class="cc-klein cc-categorie-uit">
               {{ t("concept.categories_removed") }}
@@ -214,6 +214,7 @@ import { API, errorText, get, objectPath, patch, query } from "../api.js";
 import { makeCollapsible } from "../collapsible.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
+import { wikidataSearcher } from "../wikidata.js";
 import CutoutPreview from "./CutoutPreview.vue";
 import RightsLabel from "./RightsLabel.vue";
 import SdcPreview from "./SdcPreview.vue";
@@ -606,21 +607,12 @@ function addCategory() {
   newCategory.value = "";
 }
 
-let timer = null;
+const depictsSearcher = wikidataSearcher(language);
+onBeforeUnmount(() => depictsSearcher.stop());
 function lookup(text) {
-  clearTimeout(timer);
-  if (!text || text.length < 2) {
-    lookupItems.value = [];
-    return;
-  }
-  timer = setTimeout(async () => {
-    try {
-      const data = await get(`${API}/wikidata/zoek${query({ q: text, taal: language })}`);
-      lookupItems.value = data.resultaten.map((hit) => ({ value: hit.q, label: hit.label, description: `${hit.q} · ${hit.beschrijving || ""}` }));
-    } catch {
-      lookupItems.value = [];
-    }
-  }, 300);
+  depictsSearcher.search(text, (items) => {
+    if (items) lookupItems.value = items;
+  });
 }
 
 function pickLookup(q) {

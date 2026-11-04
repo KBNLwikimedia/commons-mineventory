@@ -8,6 +8,7 @@ cut-out is in concept.py.
 """
 
 import html
+import math
 import re
 from dataclasses import dataclass, field
 
@@ -173,7 +174,7 @@ def image_notes(text):
             values = {k: float(call.params[k]) for k in ("x", "y", "w", "h", "dimx", "dimy")}
         except (KeyError, ValueError):
             continue
-        if values["dimx"] <= 0 or values["dimy"] <= 0:
+        if not all(math.isfinite(v) for v in values.values()) or values["dimx"] <= 0 or values["dimy"] <= 0:
             continue
         notes.append({"id": call.params.get("id", str(len(notes) + 1)), "tekst": plain_text(body), **values})
     return notes

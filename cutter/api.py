@@ -7,6 +7,7 @@ never costs money and never changes anything.
 """
 
 import hashlib
+import math
 import re
 from urllib.parse import quote
 
@@ -64,6 +65,18 @@ def _require_paid_access(paid):
         raise DetectionError(
             "Je staat niet op de toegangslijst voor betaalde aanroepen. Vraag toegang aan.", status=403, code="not_on_access_list"
         )
+
+
+def _require_trusted_user():
+    """On a server (not in debug mode): only for a logged-in user on the access list.
+    For what concerns everybody (the usage log with user names, emptying the whole
+    trash) until OAuth separates users (phase 2). Locally nothing changes."""
+    if current_app.debug or current_app.testing:
+        return
+    user = _user()
+    allowed = set(current_app.config["TOEGESTANE_GEBRUIKERS"]) | set(current_app.config["BEHEERDERS_START"])
+    if not user or user not in allowed:
+        raise DetectionError("Alleen voor ingelogde gebruikers op de toegangslijst.", status=403, code="not_on_access_list")
 
 
 def _file(mid):
@@ -208,11 +221,22 @@ def get_page_image(mid, n):
 # -- Detection ----------------------------------------------------------------------------
 
 
-def _minscore(value):
+def _number(value, name):
+    """A finite number from a request, else 400 (never NaN or infinity)."""
     try:
-        return float(value or 0)
+        number = float(value)
     except (TypeError, ValueError):
-        raise DetectionError("Parameter minscore moet een getal tussen 0 en 1 zijn.", status=400)
+        raise DetectionError(f"'{name}' moet een getal zijn.", status=400, code="invalid_body") from None
+    if not math.isfinite(number):
+        raise DetectionError(f"'{name}' moet een eindig getal zijn.", status=400, code="invalid_body")
+    return number
+
+
+def _minscore(value):
+    score = _number(value or 0, "minscore")
+    if not 0 <= score <= 1:
+        raise DetectionError("Parameter minscore moet een getal tussen 0 en 1 zijn.", status=400, code="invalid_body")
+    return score
 
 
 @api.post("/bestand/<mid>/pagina/<int:n>/detecties")
@@ -226,14 +250,15 @@ def create_detection(mid, n):
     service = _service()
     paid = service.detector.betaald
     if "punt" in body:
-        try:
-            x, y = float(body["punt"]["x"]), float(body["punt"]["y"])
-        except (KeyError, TypeError, ValueError):
+        point = body["punt"] if isinstance(body["punt"], dict) else {}
+        if "x" not in point or "y" not in point:
             raise DetectionError("Geef punt.x en punt.y mee (pixels van het origineel).", status=400)
+        x, y = _number(point["x"], "punt.x"), _number(point["y"], "punt.y")
         _require_paid_access(paid)
         result = service.point(file, n, x, y, user=_user())
     elif "rechthoek" in body:
-        result = service.rectangle(file, n, body["rechthoek"] or {})
+        rect = body["rechthoek"] if isinstance(body["rechthoek"], dict) else {}
+        result = service.rectangle(file, n, {k: _number(rect.get(k), f"rechthoek.{k}") for k in ("x", "y", "w", "h")})
     elif "masker_voor" in body:
         _require_paid_access(paid)
         result = service.refine_mask(file, n, str(body["masker_voor"]), user=_user())
@@ -577,7 +602,9 @@ def check_before_upload(mid):
     wanted = _body().get("objecten")
     saved = _saved_objects(file)
     if wanted is not None:
-        keys = {(int(w.get("pagina", 1)), w.get("id")) for w in wanted if isinstance(w, dict)}
+        if not isinstance(wanted, list):
+            raise DetectionError("'objecten' moet een lijst zijn.", status=400, code="invalid_body")
+        keys = {(int(_number(w.get("pagina", 1), "pagina")), str(w.get("id"))) for w in wanted if isinstance(w, dict)}
         saved = [(n, o) for n, o in saved if (n, o["id"]) in keys]
     concepts, sha1s = {}, {}
     for n, obj in saved:
@@ -673,6 +700,7 @@ def trash():
 @api.delete("/prullenbak")
 def empty_trash():
     """Permanently delete everything in the trash, or only {"objecten": [{"mid", "pagina", "id"}]}."""
+    _require_trusted_user()
     targets = _body().get("objecten")
     if targets is not None and not isinstance(targets, list):
         raise DetectionError("'objecten' moet een lijst zijn.", status=400)
@@ -707,6 +735,7 @@ def _date_param(value, name):
 @api.get("/verbruik")
 def usage():
     """Paid calls per day; optional `van` and `tot` (inclusive)."""
+    _require_trusted_user()
     usage = _service().verbruik
     summary = usage.summary(_date_param(request.args.get("van"), "van"), _date_param(request.args.get("tot"), "tot"))
     return jsonify({**summary, "vandaag": usage.status(_user()), "logboek": usage.entries()[-500:][::-1]})
@@ -714,6 +743,7 @@ def usage():
 
 @api.get("/verbruik/<datum>")
 def usage_day(datum):
+    _require_trusted_user()
     entries = _service().verbruik.day(_date_param(datum, "datum"))
     return jsonify(
         {

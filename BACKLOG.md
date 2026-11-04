@@ -34,14 +34,9 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
    - Bestaande paginaoverzichten hebben alleen Nederlands; *Opnieuw vragen* (betaald) haalt ook het Engels op.
    - Nagaan of Commons-bots P1163, P4092, P3575, P2048 en P2049 na een upload zelf zetten (FO 16), zodat de upload ze niet dubbel zet.
 
-12c. [ ] Open punten uit de code-review (4-11-2026; de ernstige zijn in 0.25.0 opgelost):
-   - Budget: SAM-aanroepen controleren het dagbudget pas achteraf (kosten 0 bij de check), er is geen grens aan het aantal zoektermen, en parallelle betaalde vragen kunnen het budget samen overschrijden. Vooraf reserveren onder een slot.
-   - Vóór de deploy (hoort bij 13 en 15): alle wijzigende endpoints zijn nog globaal (DELETE `/prullenbak` leegt ieders prullenbak; `/verbruik` en `/status` tonen gebruikersnamen). Per gebruiker scheiden zodra OAuth er is.
-   - Robuustheid: vreemde Commons-gegevens (een regio met `1.2.3`, een notitie met `dimx=nan`) en foute invoer (NaN in punt of rechthoek, een niet-getal als pagina) geven een 500 in plaats van 400; `objecten.json` niet atomisch geschreven, en de opruimtaak schrijft zonder het slot van de dienst.
-   - Zware gratis GET's: `invoer.jpg` decodeert elke keer het hele origineel (geen cache), `history()` doorzoekt de hele cache, het verbruikslog wordt per status meermaals gelezen.
-   - Frontend: oude antwoorden van zoekopdrachten kunnen nieuwe overschrijven (Wikidata-zoeken in vier componenten, één `useWikidataLookup()` maken); timers en de ResizeObserver van de viewer worden niet opgeruimd; facetten op de pagina Objecten kunnen vastlopen als een gekozen waarde verdwijnt.
-   - Dubbel werk opruimen: Wikidata-zoeken (4×), tekstvak-hoogte, laad- en Opslaan/Annuleren-blokken, `savedLabel`-opmaak, de prijs van een SAM-aanroep (4×), drie `wbgetentities`-lussen, `output_text` dubbel, drie samenvoegroutines; `{{Art Photo}}` valt terug op `{{Information}}`.
-   - Toegankelijkheid: iconknoppen per rij met de naam van het object, `aria-current="page"`, tabbladen op de telefoon met pijltjestoetsen en `role="tabpanel"`.
+12c. [x] Open punten uit de code-review (4-11-2026), opgepakt in 0.26.0: budget vooraf geboekt en een grens aan zoektermen; 400 in plaats van 500 bij foute invoer of vreemde Commons-gegevens; atomisch schrijven; cache voor zware gratis verzoeken; één Wikidata-zoeker zonder late antwoorden; timers en observers opgeruimd; vastlopende facetten; minder dubbele code; toegankelijkheid. Wat overblijft:
+   - Per gebruiker scheiden (prullenbak, objecten, verbruik) kan pas met OAuth (13 en 15); tot dan zijn verbruikslog en het legen van de hele prullenbak op een server alleen voor de toegangslijst.
+   - Kleiner opruimwerk: drie `wbgetentities`-lussen in `commons.py`, drie samenvoegroutines met verschillende regels, `{{Art Photo}}` valt terug op `{{Information}}`, de opruimtaak schrijft zonder het slot van de dienst (wel atomisch).
 
 ## Fase 2: OAuth, upload naar een testwiki, categorieën
 

@@ -8,6 +8,7 @@ estimated cost of every paid call and, from phase 2, the Commons user name.
 
 import json
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -33,20 +34,40 @@ class Verbruik:
         self.per_user_limit = per_user_limit
         self.daily_budget = daily_budget
         self._now = now
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
+        # Paid calls under way: booked before the call, counted by every check,
+        # removed once the call is logged (or failed). So parallel requests
+        # cannot together pass a limit that each of them alone respects.
+        self._reserved = []
+        # The log read once per change of the file, not on every question.
+        self._cache = (None, [])
 
     def _today(self):
         return self.day(f"{self._now():%Y-%m-%d}")
 
     def used_today(self, user=None):
-        """Paid calls today, in total or of one Commons user."""
-        entries = self._today()
+        """Paid calls today (logged and under way), in total or of one Commons user."""
+        entries = self._today() + self._reserved
         if user is not None:
             entries = [e for e in entries if e.get("gebruiker") == user]
         return sum(e.get("afbeeldingen", 1) for e in entries)
 
     def cost_today(self):
-        return round(sum(e.get("kosten_usd", 0.0) for e in self._today()), 4)
+        return round(sum(e.get("kosten_usd", 0.0) for e in self._today() + self._reserved), 4)
+
+    @contextmanager
+    def reservation(self, needed=1, user=None, cost=0.0):
+        """Check the limits and book `needed` calls and `cost` dollars for the
+        duration of a paid call; within the block, register() logs the real call."""
+        booking = {"afbeeldingen": needed, "kosten_usd": cost, "gebruiker": user}
+        with self._lock:
+            self.check(needed, user=user, cost=cost)
+            self._reserved.append(booking)
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._reserved = [b for b in self._reserved if b is not booking]
 
     def reset_at(self):
         tomorrow = (self._now() + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -136,13 +157,18 @@ class Verbruik:
         path = self.directory / "logboek.jsonl"
         if not path.exists():
             return []
+        stat = path.stat()
+        key = (stat.st_mtime_ns, stat.st_size)
+        if self._cache[0] == key:
+            return list(self._cache[1])
         result = []
         for line in path.read_text(encoding="utf-8").splitlines():
             try:
                 result.append(json.loads(line))
             except ValueError:
                 continue
-        return result
+        self._cache = (key, result)
+        return list(result)
 
     def summary(self, start=None, end=None):
         """Totals overall and per day (newest first), also per kind of call

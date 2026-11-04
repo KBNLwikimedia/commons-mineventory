@@ -4,7 +4,7 @@
     <h3>{{ t("pages.title") }}</h3>
     <ol>
       <li v-for="item in file.pagina_lijst" :key="item.n">
-        <button type="button" :class="{ actief: item.n === current }" :aria-current="item.n === current" @click="emit('select', item.n)">
+        <button type="button" :class="{ actief: item.n === current }" :aria-current="item.n === current ? 'page' : undefined" @click="emit('select', item.n)">
           <img :src="item.afbeelding_url" alt="" loading="lazy" />
           <span>{{ t("pages.page", { n: item.n }) }}</span>
         </button>

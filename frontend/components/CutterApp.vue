@@ -25,7 +25,9 @@
         class="cc-mobiel-tab"
         :aria-selected="mobileTab === item ? 'true' : 'false'"
         :aria-controls="`cc-kolom-${item}`"
+        :tabindex="mobileTab === item ? 0 : -1"
         @click="mobileTab = item"
+        @keydown="onTabKey"
       >
         {{ item === "links" ? t("layout.tab_objects", { n: objects.length }) : t(`layout.tab_${item}`) }}
       </button>
@@ -36,7 +38,7 @@
     </div>
 
     <div v-else-if="file && page" class="cc-werkblad" :class="`cc-mobiel-${mobileTab}`">
-      <aside id="cc-kolom-links" class="cc-links" :aria-label="t('layout.left')">
+      <aside id="cc-kolom-links" class="cc-links" role="tabpanel" aria-labelledby="cc-tab-links" :aria-label="t('layout.left')">
         <cdx-accordion v-if="visited.length > 1" class="cc-geschiedenis-blok">
           <template #title>{{ t("history.title") }} <small>({{ visited.length }})</small></template>
           <history-list :entries="visited" :current="file.mid" @remove="forget" @clear="forgetAll" />
@@ -59,7 +61,7 @@
       </aside>
       <column-splitter variable="--cc-links-breedte" side="left" storage-key="cc-breedte-links" :label="t('layout.resize_left')" />
 
-      <section id="cc-kolom-midden" class="cc-midden">
+      <section id="cc-kolom-midden" class="cc-midden" role="tabpanel" aria-labelledby="cc-tab-midden">
         <viewer-pane
           ref="viewer"
           :mid="file.mid"
@@ -77,7 +79,7 @@
       </section>
       <column-splitter variable="--cc-paneel-breedte" side="right" storage-key="cc-breedte-rechts" :label="t('layout.resize_right')" :max="800" />
 
-      <aside id="cc-kolom-rechts" class="cc-rechts" :aria-label="t('layout.right')">
+      <aside id="cc-kolom-rechts" class="cc-rechts" role="tabpanel" aria-labelledby="cc-tab-rechts" :aria-label="t('layout.right')">
         <detection-panel
           :file="file"
           :page="page"
@@ -126,7 +128,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxMessage } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
@@ -158,6 +160,15 @@ const newIds = ref([]);
 // Phone: which column shows (objects, image, detection); the image first.
 const MOBILE_TABS = ["links", "midden", "rechts"];
 const mobileTab = ref("midden");
+// Arrow keys, Home and End move between the tabs, as in every tab list.
+function onTabKey(event) {
+  const index = MOBILE_TABS.indexOf(mobileTab.value);
+  const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: MOBILE_TABS.length - 1 }[event.key];
+  if (next === undefined) return;
+  event.preventDefault();
+  mobileTab.value = MOBILE_TABS[(next + MOBILE_TABS.length) % MOBILE_TABS.length];
+  nextTick(() => document.getElementById(`cc-tab-${mobileTab.value}`)?.focus());
+}
 const inventory = ref(null);
 const focusedId = ref(null);
 // The object under the mouse in the viewer, so the list can light it up too.
@@ -272,7 +283,7 @@ async function detect(request) {
   try {
     if (request.modus !== "commons") {
       const estimate = await get(`${base}/detecties/raming${query(request)}`);
-      if (!(await confirmCost(estimate.aanroepen.betaald, estimate.aanroepen.betaald * 0.0025))) return;
+      if (!(await confirmCost(estimate.aanroepen.betaald, estimate.aanroepen.betaald * props.config.sam_usd))) return;
     }
     const result = await post(`${base}/detecties`, request);
     replaceObjects(result.objecten, result.nieuw);
@@ -341,7 +352,7 @@ async function describeAll() {
 async function onPoint({ x, y }) {
   if (!pointMode.value) return;
   const hit = objects.value.find((o) => o.box.x <= x && x <= o.box.x + o.box.w && o.box.y <= y && y <= o.box.y + o.box.h);
-  if (!hit && !(await confirmCost(1, 0.0025))) return;
+  if (!hit && !(await confirmCost(1, props.config.sam_usd))) return;
   busy.value = true;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { punt: { x, y } });
@@ -369,7 +380,7 @@ async function onRectangle(rect) {
 }
 
 async function refineMask(obj) {
-  if (!(await confirmCost(1, 0.0025))) return;
+  if (!(await confirmCost(1, props.config.sam_usd))) return;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { masker_voor: obj.id });
     replaceObject(result.object);

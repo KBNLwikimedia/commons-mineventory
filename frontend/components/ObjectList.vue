@@ -37,17 +37,17 @@
           <span class="cc-object-naam" @click.prevent="emit('focus', obj.id)">{{ listName(obj) }}</span>
           <template #description>
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
-            <template v-if="obj.opgeslagen"> · <span class="cc-opgeslagen-label" :title="savedLabel(obj, t, language).title">{{ savedLabel(obj, t, language).text }}<template v-if="savedLabel(obj, t, language).left">, <em class="cc-verloopt" :class="{ 'cc-verloopt-bijna': savedLabel(obj, t, language).soon }">{{ savedLabel(obj, t, language).left }}</em></template></span></template>
+            <template v-if="obj.opgeslagen"> · <saved-label :object="obj" /></template>
             <template v-if="obj.al_uitgesneden"> · {{ t("objects.already_extracted") }}</template>
             <span v-if="obj.bijschrift?.tekst && name(obj) !== obj.bijschrift.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
             <template v-if="obj.status === 'uitgesloten'"> · {{ t("status.uitgesloten") }}</template>
           </template>
         </cdx-checkbox>
         <span class="cc-object-knoppen">
-          <cdx-button action="progressive" weight="quiet" size="small" :aria-label="t('objects.open')" @click="emit('open', obj.id)">
+          <cdx-button action="progressive" weight="quiet" size="small" :aria-label="`${t('objects.open')}: ${listName(obj)}`" :title="t('objects.open')" @click="emit('open', obj.id)">
             <cdx-icon :icon="cdxIconEye" />
           </cdx-button>
-          <cdx-button weight="quiet" size="small" action="destructive" :aria-label="t('objects.trash')" @click="emit('trash', obj.id)">
+          <cdx-button weight="quiet" size="small" action="destructive" :aria-label="`${t('objects.trash')}: ${listName(obj)}`" :title="t('objects.trash')" @click="emit('trash', obj.id)">
             <cdx-icon :icon="cdxIconTrash" />
           </cdx-button>
         </span>
@@ -62,7 +62,8 @@ import { CdxButton, CdxCheckbox, CdxIcon } from "@wikimedia/codex";
 import { cdxIconEye, cdxIconTrash } from "@wikimedia/codex-icons";
 import { objectPath } from "../api.js";
 import { useT } from "../i18n.js";
-import { objectName, savedLabel } from "../state.js";
+import SavedLabel from "./SavedLabel.vue";
+import { objectName } from "../state.js";
 
 const props = defineProps({
   objects: { type: Array, required: true },

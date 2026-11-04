@@ -100,7 +100,7 @@ Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{o
 | GET | `/prullenbak` | De prullenbak |
 | DELETE | `/prullenbak` | Alles definitief verwijderen, of alleen `{"objecten": [{"mid", "pagina", "id"}]}` |
 | DELETE | `/prullenbak/{mid}/{n}/{object_id}` | Eén object definitief verwijderen, met de bestanden |
-| GET | `/verbruik?van=&tot=` | Het verbruikslog: aanroepen en kosten per dag, en de laatste regels van het log |
+| GET | `/verbruik?van=&tot=` | Het verbruikslog: aanroepen en kosten per dag, en de laatste regels van het log. Op een server (niet in debug-modus) alleen voor ingelogde gebruikers op de toegangslijst (sinds 0.26.0); dat geldt ook voor `/verbruik/{datum}` en voor het legen van de hele prullenbak |
 | GET | `/verbruik/{datum}` | Het verbruik van één dag |
 | GET | `/status` | Versie, modus, ingelogde gebruiker, budgetten |
 | GET | `/openapi.json` | De OpenAPI-beschrijving |
@@ -119,5 +119,6 @@ Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{o
 | `login_required`, `not_on_access_list` | Betaalde aanroepen vragen een login en de toegangslijst |
 | `upload_disabled`, `not_confirmed`, `not_implemented` | Uploaden staat uit, is niet bevestigd, of komt in fase 2 |
 | `contributor_not_allowed`, `no_api_key`, `no_mask` | Modelkeuze, configuratie of SAM vond niets |
+| `too_many_terms` | Meer dan 20 zoektermen in één opdracht (sinds 0.26.0) |
 | `cross_site` (403), `not_json` (415) | Een verzoek dat iets verandert of geld kost, komt niet van de eigen pagina's van de app, of heeft geen JSON-body (bescherming tegen CSRF, sinds 0.25.0) |
 | `invalid_body`, `invalid_mid`, `no_description` (409), `no_thumbnail`, `method_not_allowed` | Ongeldige body of M-id, nog geen beschrijving, Commons gaf geen verkleinde afbeelding, of een methode die de route niet kent |

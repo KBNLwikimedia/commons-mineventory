@@ -158,3 +158,12 @@ def test_depicts_regions_of_the_book_of_hours(book):
     assert catherine["herkomst"]["p2677"].startswith("pct:35.58")
     assert catherine["herkomst"]["mid"] == "M83565772"
     assert len({o["id"] for o in objects}) == 13
+
+
+def test_odd_commons_data_is_skipped_not_a_crash():
+    from cutter import regios, wikitekst
+
+    assert regios.parse_region("pct:1.2.3,5,10,10", 100, 100) is None
+    assert regios.parse_region("nan,0,10,10", 100, 100) is None
+    text = "{{ImageNote|id=1|x=1|y=1|w=5|h=5|dimx=nan|dimy=100}}Noot{{ImageNoteEnd|id=1}}"
+    assert wikitekst.image_notes(text) == []

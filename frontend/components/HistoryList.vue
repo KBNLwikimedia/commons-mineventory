@@ -16,7 +16,7 @@
             </small>
           </span>
         </a>
-        <cdx-button action="progressive" weight="quiet" size="small" :aria-label="t('history.remove')" @click="emit('remove', entry.mid)">
+        <cdx-button action="progressive" weight="quiet" size="small" :aria-label="`${t('history.remove')}: ${entry.naam || entry.mid}`" :title="t('history.remove')" @click="emit('remove', entry.mid)">
           <cdx-icon :icon="cdxIconTrash" />
         </cdx-button>
       </li>

@@ -51,12 +51,12 @@
                 <cdx-icon :icon="cdxIconTrash" size="small" />
               </cdx-button>
             </span>
-            <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · <span class="cc-opgeslagen-label" :title="savedLabel(obj, t, language).title">{{ savedLabel(obj, t, language).text }}<template v-if="savedLabel(obj, t, language).left">, <em class="cc-verloopt" :class="{ 'cc-verloopt-bijna': savedLabel(obj, t, language).soon }">{{ savedLabel(obj, t, language).left }}</em></template></span></template></small>
+            <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · <saved-label :object="obj" /></template></small>
             <!-- The original the object comes from, linked to its page on Commons. -->
             <small class="cc-afkappen" :title="obj.bestand_titel">
               {{ t("objects.source_file") }}
-              <a v-if="obj.bestand_url" :href="obj.bestand_url" target="_blank" rel="noopener">{{ String(obj.bestand_titel || "").replace(/^File:/, "") }}</a>
-              <template v-else>{{ String(obj.bestand_titel || "").replace(/^File:/, "") }}</template>
+              <a v-if="obj.bestand_url" :href="obj.bestand_url" target="_blank" rel="noopener">{{ fileName(obj.bestand_titel) }}</a>
+              <template v-else>{{ fileName(obj.bestand_titel) }}</template>
             </small>
           </li>
         </ul>
@@ -73,8 +73,8 @@
               <strong>{{ name(obj) }}</strong>
               <small class="cc-afkappen" :title="obj.bestand_titel">
                 {{ t("objects.source_file") }}
-                <a v-if="obj.bestand_url" :href="obj.bestand_url" target="_blank" rel="noopener">{{ String(obj.bestand_titel || "").replace(/^File:/, "") }}</a>
-                <template v-else>{{ String(obj.bestand_titel || "").replace(/^File:/, "") }}</template>
+                <a v-if="obj.bestand_url" :href="obj.bestand_url" target="_blank" rel="noopener">{{ fileName(obj.bestand_titel) }}</a>
+                <template v-else>{{ fileName(obj.bestand_titel) }}</template>
               </small>
               <span class="cc-knoppen">
                 <cdx-button action="progressive" size="small" @click="restore(obj)"><cdx-icon :icon="cdxIconRestore" /> {{ t("objects.restore") }}</cdx-button>
@@ -91,15 +91,16 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, ref } from "vue";
+import { computed, inject, onMounted, ref, watch } from "vue";
 import { CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxMessage, CdxTab, CdxTabs, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconRestore, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
+import SavedLabel from "./SavedLabel.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import RetentionInfo from "./RetentionInfo.vue";
-import { objectName, savedLabel } from "../state.js";
+import { fileName, objectName } from "../state.js";
 
 const t = useT();
 const language = inject("language", "nl");
@@ -125,7 +126,7 @@ const files = computed(() => {
   for (const o of objects.value) {
     const entry = byMid.get(o.mid) || { mid: o.mid, titel: "", n: 0 };
     // Not every object carries the file title; take the first one that does.
-    entry.titel ||= (o.bestand_titel || "").replace(/^File:/, "");
+    entry.titel ||= fileName(o.bestand_titel);
     entry.n += 1;
     byMid.set(o.mid, entry);
   }
@@ -140,6 +141,14 @@ const shown = computed(() =>
   )
 );
 const filtered = computed(() => shown.value.length !== objects.value.length);
+// A chosen source or file that no longer has objects (all moved to the trash) is
+// dropped from the choice; otherwise the list stays empty with no box to untick.
+watch(objects, () => {
+  const present = new Set(sources.value);
+  chosenSources.value = chosenSources.value.filter((source) => present.has(source));
+  const mids = new Set(files.value.map((f) => f.mid));
+  chosenFiles.value = chosenFiles.value.filter((mid) => mids.has(mid));
+});
 
 async function load() {
   try {

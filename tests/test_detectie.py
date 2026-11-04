@@ -219,3 +219,23 @@ def test_simultaneous_changes_do_not_overwrite_each_other(service, album):
         thread.join()
     stored = {o["id"]: (o.get("bijschrift") or {}).get("tekst") for o in service.page_objects(album, 1)}
     assert [stored[oid] for oid in ids] == [f"bijschrift {i}" for i in range(8)]
+
+
+def test_paid_calls_under_way_count_for_the_limits(tmp_path):
+    """Two requests at once cannot together pass the budget: a booking counts until it ends."""
+    log = Verbruik(tmp_path / "verbruik", 2, per_user_limit=5, daily_budget=0.01)
+    with log.reservation(1, user="A", cost=0.008):
+        with pytest.raises(DetectionError) as exc:
+            with log.reservation(1, user="B", cost=0.008):
+                pass
+        assert exc.value.code == "daily_budget"
+    with log.reservation(1, user="B", cost=0.008):  # free again once the first ended
+        pass
+    assert log.cost_today() == 0.0  # bookings are not costs; register() logs the real call
+
+
+def test_too_many_terms_in_one_request(service, album):
+    prompt = " en ".join(f"ding{i}" for i in range(25))
+    with pytest.raises(DetectionError) as exc:
+        service.detect(album, 1, prompt)
+    assert exc.value.code == "too_many_terms"

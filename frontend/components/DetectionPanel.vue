@@ -185,8 +185,7 @@ const open = reactive({ commons: true, search: false, suggestions: true, point: 
 const cropTool = computed(() => cropToolLink(props.file));
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 
-const SAM_PER_CALL = 0.0025;
-const cost = (calls) => (config.betaald ? `(${money(calls * SAM_PER_CALL, config.taal)})` : t("panel.free"));
+const cost = (calls) => (config.betaald ? `(${money(calls * config.sam_usd, config.taal)})` : t("panel.free"));
 const museCost = (usd) => (config.betaald ? `(${money(usd, config.taal)})` : t("panel.free"));
 
 // Where the waiting feedback goes: the section whose button was clicked last;

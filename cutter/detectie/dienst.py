@@ -27,6 +27,7 @@ from .. import export, prompts, regios
 from ..commons import public as public_file
 from .basis import DetectionError
 from ..opruimen import last_used, mark_used
+from ..verbruik import KOSTEN_PER_AFBEELDING
 from .maskers import MaskCache, decode_raster
 
 MIN_IOU = 0.5
@@ -38,6 +39,14 @@ NEVER_MERGED = {"commons"}  # regions from Commons stay objects of their own (7.
 IMAGE_WIDTH = 1920
 STATUSES = ("kandidaat", "geselecteerd", "uitgesloten")
 MODES = ("prompt", "alles", "commons")
+
+
+def _write_atomic(path, text):
+    """Write via a temporary file and a rename: readers see the old or the new file, never half."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
+MAX_TERMS_PER_REQUEST = 20  # search terms in one request (each uncached term is one paid SAM call)
 SAVED_META = ("tijdstempel", "breedte", "hoogte")  # in "opgeslagen", next to the file paths
 # Fields made by the user or paid for, kept when a search returns an object again.
 KEPT_ON_UPDATE = ("bijschrift", "ook", "beschrijving", "commons", "masker", "masker_herkomst", "status")
@@ -174,8 +183,12 @@ class DetectionService:
         if dry_run:
             result["budget"] = self.verbruik.status(user)
             return result
+        if len(terms["plus"]) + len(terms["min"]) > MAX_TERMS_PER_REQUEST:
+            raise DetectionError(
+                f"Hooguit {MAX_TERMS_PER_REQUEST} zoektermen per opdracht.", status=400, code="too_many_terms"
+            )
         if plan["betaald"]:
-            self.verbruik.check(plan["betaald"], user=user)
+            self.verbruik.check(plan["betaald"], user=user, cost=plan["betaald"] * KOSTEN_PER_AFBEELDING)
 
         excluded = []
         if modus == "commons":
@@ -214,7 +227,7 @@ class DetectionService:
             stored = json.loads(path.read_text(encoding="utf-8"))
         else:
             if self.detector.betaald:
-                self.verbruik.check(1, user=user)
+                self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
             detected = self.detector.detect(
                 self._image(file, page, context), term["en"], native_size=(page["breedte"], page["hoogte"])
             )
@@ -285,7 +298,7 @@ class DetectionService:
 
         page = self.client.load_page(file, n)
         if self.detector.betaald:
-            self.verbruik.check(1, user=user)
+            self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
         detected = self.detector.detect_point(
             self._image(file, page, {"image": None}), x, y, native_size=(page["breedte"], page["hoogte"])
         )
@@ -333,7 +346,7 @@ class DetectionService:
             raise DetectionError(f"Object '{object_id}' niet gevonden.", status=404)
         page = self.client.load_page(file, n)
         if self.detector.betaald:
-            self.verbruik.check(1, user=user)
+            self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
         detected = self.detector.detect_box(
             self._image(file, page, {"image": None}), obj["box"], native_size=(page["breedte"], page["hoogte"])
         )
@@ -407,9 +420,8 @@ class DetectionService:
                 obj["masker"] = {k: v for k, v in mask.items() if k != "payload"} | {"bestand": relative}
         clean = {**store, "objecten": [self._without_display(o) for o in store["objecten"]],
                  "prullenbak": [self._without_display(o) for o in store["prullenbak"]]}
-        path.write_text(json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8")
-        meta = self._file_dir(file) / "bestand.json"
-        meta.write_text(json.dumps(public_file(file), ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_atomic(path, json.dumps(clean, ensure_ascii=False, indent=2))
+        _write_atomic(self._file_dir(file) / "bestand.json", json.dumps(public_file(file), ensure_ascii=False, indent=2))
 
     @staticmethod
     def _without_display(obj):
@@ -586,6 +598,8 @@ class DetectionService:
     @_locked
     def set_selection(self, file, n, ids):
         """Exactly these objects are selected; other selected ones become candidates."""
+        if not isinstance(ids or [], list) or not all(isinstance(i, str) for i in ids or []):
+            raise DetectionError("'geselecteerd' is een lijst van object-id's.", status=400, code="invalid_body")
         ids = set(ids or [])
         objects = self.page_objects(file, n)
         unknown = ids - {o["id"] for o in objects}
@@ -605,7 +619,7 @@ class DetectionService:
         objects = self.page_objects(file, n)
         by_id = {o["id"]: o for o in objects}
         for change in changes:
-            if not isinstance(change, dict) or change.get("status") not in STATUSES:
+            if not isinstance(change, dict) or not isinstance(change.get("id"), str) or change.get("status") not in STATUSES:
                 raise DetectionError(f"Elke wijziging is {{\"id\", \"status\"}} met status {', '.join(STATUSES)}.", status=400)
             if change.get("id") not in by_id:
                 raise DetectionError(f"Onbekend object: {change.get('id')}.", status=404)
@@ -703,7 +717,10 @@ class DetectionService:
     def empty_trash(self, targets=None):
         """Permanently delete objects in the trash: all of them, or only the
         given {"mid", "pagina", "id"} entries. Returns how many were deleted."""
-        wanted = {(t["mid"], int(t["pagina"]), t["id"]) for t in targets} if targets is not None else None
+        try:
+            wanted = {(str(t["mid"]), int(t["pagina"]), str(t["id"])) for t in targets} if targets is not None else None
+        except (KeyError, TypeError, ValueError):
+            raise DetectionError("Elk object is {\"mid\", \"pagina\", \"id\"}.", status=400, code="invalid_body") from None
         deleted = 0
         for entry in self.all_objects(trash=True):
             key = (entry["mid"], entry["pagina"], entry["id"])

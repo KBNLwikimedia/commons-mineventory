@@ -94,6 +94,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { CdxButton, CdxDialog, CdxIcon, CdxProgressBar, CdxTextArea } from "@wikimedia/codex";
 import { cdxIconEdit } from "@wikimedia/codex-icons";
+import { fitToText } from "../autosize.js";
 import { useT } from "../i18n.js";
 import AiBadge from "./AiBadge.vue";
 
@@ -228,11 +229,8 @@ async function startEdit(item) {
   // As high as the text in it (autosize only reacts once you type); long texts scroll.
   await nextTick();
   const area = document.querySelector(".cc-lightbox-bewerk textarea");
-  if (area) {
-    area.style.height = "auto";
-    area.style.height = `${area.scrollHeight + 2}px`;
-    area.focus();
-  }
+  fitToText(area);
+  area?.focus();
 }
 function cancelEdit() {
   editing.value = null;

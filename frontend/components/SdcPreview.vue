@@ -95,10 +95,10 @@
 </template>
 
 <script setup>
-import { computed, h, inject, ref } from "vue";
+import { computed, h, inject, onBeforeUnmount, ref } from "vue";
 import { CdxButton, CdxIcon, CdxLookup, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconEdit, cdxIconSearch } from "@wikimedia/codex-icons";
-import { API, get, query } from "../api.js";
+import { wikidataSearcher } from "../wikidata.js";
 import { useT } from "../i18n.js";
 
 const props = defineProps({
@@ -164,23 +164,15 @@ function saveEdit(property) {
   editing.value = null;
 }
 
-// Wikidata items as you type (a read), for an item value.
-let timer = null;
+// Wikidata items as you type (a read), for an item value; each row searches on its own.
+const searchers = new Map();
 function search(value, text) {
-  clearTimeout(timer);
-  if (!text || text.length < 2) {
-    value.items = [];
-    return;
-  }
-  timer = setTimeout(async () => {
-    try {
-      const found = (await get(`${API}/wikidata/zoek${query({ q: text, taal: language })}`)).resultaten;
-      value.items = found.map((hit) => ({ value: hit.q, label: hit.label, description: [hit.q, hit.beschrijving].filter(Boolean).join(" · ") }));
-    } catch {
-      value.items = [];
-    }
-  }, 300);
+  if (!searchers.has(value)) searchers.set(value, wikidataSearcher(language));
+  searchers.get(value).search(text, (items) => {
+    if (items) value.items = items;
+  });
 }
+onBeforeUnmount(() => searchers.forEach((searcher) => searcher.stop()));
 function choose(value, q) {
   const hit = (value.items || []).find((item) => item.value === q);
   if (hit) value.text = hit.label;

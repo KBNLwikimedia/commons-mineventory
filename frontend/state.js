@@ -113,3 +113,8 @@ export function savedLabel(obj, t, language = "nl", now = Date.now()) {
     soon: days <= 7,
   };
 }
+
+// The name of a Commons file without the namespace ("File:Foo.jpg" → "Foo.jpg").
+export function fileName(title) {
+  return String(title || "").replace(/^File:/, "");
+}

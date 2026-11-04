@@ -153,7 +153,10 @@ onMounted(() => {
   viewer.value.setDrawMode(props.drawMode);
 });
 
-onBeforeUnmount(() => host.value?.replaceChildren());
+onBeforeUnmount(() => {
+  viewer.value?.destroy();
+  host.value?.replaceChildren();
+});
 
 watch(() => [props.page, props.mid], load);
 watch(() => [props.objects, props.newIds], () => viewer.value?.setObjects(props.objects, props.newIds));

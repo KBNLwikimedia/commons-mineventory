@@ -21,9 +21,11 @@ permission from Olaf.
 """
 
 import base64
+from contextlib import nullcontext
 import hashlib
 import io
 import json
+import time
 import logging
 import re
 from datetime import datetime, timezone
@@ -33,6 +35,7 @@ import requests
 from PIL import Image, ImageDraw
 
 from . import __version__
+from .detectie.meta_sam import extract_output_text
 from .detectie.basis import DetectionError
 from .opruimen import mark_used
 
@@ -382,15 +385,8 @@ def build_request(model, prompt, data_url, effort=None, schema=SCHEMA, name="bes
     return body
 
 
-def output_text(body):
-    if isinstance(body.get("output_text"), str):
-        return body["output_text"]
-    return "".join(
-        content.get("text", "")
-        for item in body.get("output") or []
-        for content in item.get("content") or []
-        if content.get("type") == "output_text"
-    )
+# The text of a Responses API answer: the same for SAM and Muse Spark (meta_sam.py).
+output_text = extract_output_text
 
 
 def parse_answer(text):
@@ -548,6 +544,7 @@ class DescriptionService:
         self.objects = objects  # DetectionService: object store, Commons client, usage
         self.config = config
         self.cache_dir = Path(cache_dir) / "beschrijvingen"
+        self._combos = None  # (time, {(hint, margin)}) — see _asked_combinations
 
     def _model(self, file, wanted):
         choice = choose_model(file, self.config)
@@ -619,9 +616,18 @@ class DescriptionService:
         in red. `max_side` (up to MAX_PREVIEW_SIDE) gives a larger version, to
         read and check the text in the image. Free: nothing is sent to the model."""
         obj = self.objects._find(file, n, object_id)
-        page = self.objects.client.load_page(file, n)
         side = max(MAX_SIDE, min(int(max_side or MAX_SIDE), MAX_PREVIEW_SIDE))
-        data, _size = model_input(self._source_image(file, n), page["breedte"], obj["box"], clean_margin(margin), side, outline=True)
+        margin = clean_margin(margin)
+        # Made once per box, margin and size, then from the cache (cleaned up with the cut-outs).
+        key = hashlib.sha1(f"{file['sha1']}|{n}|{obj['box']}|{margin}|{side}|invoer".encode()).hexdigest()
+        path = self.cache_dir.parent / "uitsneden" / key[:2] / f"{key}.jpg"
+        if path.exists():
+            mark_used(path)
+            return path.read_bytes()
+        page = self.objects.client.load_page(file, n)
+        data, _size = model_input(self._source_image(file, n), page["breedte"], obj["box"], margin, side, outline=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
         return data
 
     def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None):
@@ -642,52 +648,54 @@ class DescriptionService:
             return self._store(file, n, object_id, description, user)
 
         effort = self._effort()
-        if self.vision.betaald:
-            self.objects.verbruik.check(1, user=user, cost=estimate(choice["model"], effort))
-        page = self.objects.client.load_page(file, n)
-        data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
-        prompt = build_prompt(file, self._caption(obj), hint, page_text)
+        # A paid call books its cost while it runs (Verbruik.reservation): parallel
+        # requests cannot together pass the daily limit or budget.
+        booking = self.objects.verbruik.reservation(1, user=user, cost=estimate(choice["model"], effort)) if self.vision.betaald else nullcontext()
+        with booking:
+            page = self.objects.client.load_page(file, n)
+            data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
+            prompt = build_prompt(file, self._caption(obj), hint, page_text)
 
-        body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
-        tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
-        if self.vision.betaald:
-            amount = cost(choice["model"], tokens_in, tokens_out) if tokens_in is not None else estimate(choice["model"], effort)
-        else:
-            amount = 0.0
-        description = {
-            **parse_answer(output_text(body)),
-            "model": choice["model"],
-            "model_reden": choice["reden"],
-            "model_reden_code": choice["reden_code"],
-            "model_reden_labels": choice["labels"],
-            "rechtenvrij": choice["rechtenvrij"],
-            "redeneren": effort,
-            "tokens": {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning},
-            "kosten_usd": amount,
-            "verstuurde_afmetingen": list(size),
-            "promptversie": PROMPT_VERSION,
-            "aanwijzing": hint or None,
-            "marge": margin,
-            "paginatekst": bool(page_text),
-            "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "appversie": __version__,
-        }
-        if self.vision.betaald:
-            self.objects.verbruik.register(
-                {
-                    "soort": "beschrijving",
-                    "bestand": file["mid"],
-                    "titel": file["titel"],
-                    "pagina": n,
-                    "object": object_id,
-                    "term": f"Wat staat hierop? ({choice['model']})",
-                    "model": choice["model"],
-                    "redeneren": effort,
-                    "tokens": description["tokens"],
-                },
-                cost=amount,
-                user=user,
-            )
+            body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
+            tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
+            if self.vision.betaald:
+                amount = cost(choice["model"], tokens_in, tokens_out) if tokens_in is not None else estimate(choice["model"], effort)
+            else:
+                amount = 0.0
+            description = {
+                **parse_answer(output_text(body)),
+                "model": choice["model"],
+                "model_reden": choice["reden"],
+                "model_reden_code": choice["reden_code"],
+                "model_reden_labels": choice["labels"],
+                "rechtenvrij": choice["rechtenvrij"],
+                "redeneren": effort,
+                "tokens": {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning},
+                "kosten_usd": amount,
+                "verstuurde_afmetingen": list(size),
+                "promptversie": PROMPT_VERSION,
+                "aanwijzing": hint or None,
+                "marge": margin,
+                "paginatekst": bool(page_text),
+                "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "appversie": __version__,
+            }
+            if self.vision.betaald:
+                self.objects.verbruik.register(
+                    {
+                        "soort": "beschrijving",
+                        "bestand": file["mid"],
+                        "titel": file["titel"],
+                        "pagina": n,
+                        "object": object_id,
+                        "term": f"Wat staat hierop? ({choice['model']})",
+                        "model": choice["model"],
+                        "redeneren": effort,
+                        "tokens": description["tokens"],
+                    },
+                    cost=amount,
+                    user=user,
+                )
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(description, ensure_ascii=False, indent=2), encoding="utf-8")
         description["uit_cache"] = False
@@ -709,18 +717,27 @@ class DescriptionService:
         history = [h for h in obj.get("beschrijving_geschiedenis", []) if not self._same(h, current)]
         obj["beschrijving_geschiedenis"] = [current, *history][:MAX_HISTORY]
 
+    def _asked_combinations(self):
+        """Every (hint, margin) asked so far, from the description cache. Read
+        once a minute at most: the cache can hold thousands of answers."""
+        now = time.monotonic()
+        if self._combos is None or now - self._combos[0] > 60:
+            combos = set()
+            for path in self.cache_dir.glob("*/*.json"):
+                try:
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+                if "beschrijving" in data:
+                    combos.add((data.get("aanwijzing") or "", clean_margin(data.get("marge"))))
+            self._combos = (now, combos)
+        return set(self._combos[1])
+
     def _cached_variants(self, file, n, obj):
         """Answers for this object that are still in the cache: one per
         combination of model, hint and margin asked so far. So descriptions
         from before the history existed can be chosen again too."""
-        combos = {("", MARGIN)}
-        for path in self.cache_dir.glob("*/*.json"):
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                continue
-            if "beschrijving" in data:
-                combos.add((data.get("aanwijzing") or "", clean_margin(data.get("marge"))))
+        combos = {("", MARGIN)} | self._asked_combinations()
         models = dict.fromkeys([self.config["BEELDMODEL"], self.config["BEELDMODEL_RECHTENVRIJ"]])
         page_texts = dict.fromkeys(["", self._page_text(file, n)])
         found = []
@@ -849,50 +866,52 @@ class DescriptionService:
             return self._store_inventory(file, n, overview, cached=True, user=user)
 
         effort = self._effort()
-        if self.vision.betaald:
-            self.objects.verbruik.check(1, user=user, cost=estimate(choice["model"], effort, ESTIMATE_PAGE_INPUT))
-        image = Image.open(io.BytesIO(self.objects.client.page_image(file, n, PAGE_WIDTH))).convert("RGB")
-        if image.width > PAGE_WIDTH:
-            image = image.resize((PAGE_WIDTH, round(image.height * PAGE_WIDTH / image.width)))
-        buffer = io.BytesIO()
-        image.save(buffer, format="JPEG", quality=85)
-        data_url = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
-        publication = f'"{file.get("naam")}"' + (f", page {n}" if file.get("paginas", 1) > 1 else "")
-        prompt = INVENTORY_INSTRUCTIONS.format(publication=publication, max_terms=MAX_TERMS)
+        # A paid call books its cost while it runs (Verbruik.reservation): parallel
+        # requests cannot together pass the daily limit or budget.
+        booking = self.objects.verbruik.reservation(1, user=user, cost=estimate(choice["model"], effort, ESTIMATE_PAGE_INPUT)) if self.vision.betaald else nullcontext()
+        with booking:
+            image = Image.open(io.BytesIO(self.objects.client.page_image(file, n, PAGE_WIDTH))).convert("RGB")
+            if image.width > PAGE_WIDTH:
+                image = image.resize((PAGE_WIDTH, round(image.height * PAGE_WIDTH / image.width)))
+            buffer = io.BytesIO()
+            image.save(buffer, format="JPEG", quality=85)
+            data_url = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+            publication = f'"{file.get("naam")}"' + (f", page {n}" if file.get("paginas", 1) > 1 else "")
+            prompt = INVENTORY_INSTRUCTIONS.format(publication=publication, max_terms=MAX_TERMS)
 
-        body = self.vision.describe(choice["model"], prompt, data_url, None, effort, schema=INVENTORY_SCHEMA)
-        tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
-        if self.vision.betaald:
-            amount = cost(choice["model"], tokens_in, tokens_out) if tokens_in is not None else estimate(choice["model"], effort, ESTIMATE_PAGE_INPUT)
-        else:
-            amount = 0.0
-        overview = {
-            **parse_inventory(output_text(body)),
-            "model": choice["model"],
-            "model_reden": choice["reden"],
-            "redeneren": effort,
-            "tokens": {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning},
-            "kosten_usd": amount,
-            "verstuurde_afmetingen": list(image.size),
-            "versie": INVENTORY_VERSION,
-            "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "appversie": __version__,
-        }
-        if self.vision.betaald:
-            self.objects.verbruik.register(
-                {
-                    "soort": "inventaris",
-                    "bestand": file["mid"],
-                    "titel": file["titel"],
-                    "pagina": n,
-                    "term": f"Wat staat op deze pagina? ({choice['model']})",
-                    "model": choice["model"],
-                    "redeneren": effort,
-                    "tokens": overview["tokens"],
-                },
-                cost=amount,
-                user=user,
-            )
+            body = self.vision.describe(choice["model"], prompt, data_url, None, effort, schema=INVENTORY_SCHEMA)
+            tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
+            if self.vision.betaald:
+                amount = cost(choice["model"], tokens_in, tokens_out) if tokens_in is not None else estimate(choice["model"], effort, ESTIMATE_PAGE_INPUT)
+            else:
+                amount = 0.0
+            overview = {
+                **parse_inventory(output_text(body)),
+                "model": choice["model"],
+                "model_reden": choice["reden"],
+                "redeneren": effort,
+                "tokens": {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning},
+                "kosten_usd": amount,
+                "verstuurde_afmetingen": list(image.size),
+                "versie": INVENTORY_VERSION,
+                "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "appversie": __version__,
+            }
+            if self.vision.betaald:
+                self.objects.verbruik.register(
+                    {
+                        "soort": "inventaris",
+                        "bestand": file["mid"],
+                        "titel": file["titel"],
+                        "pagina": n,
+                        "term": f"Wat staat op deze pagina? ({choice['model']})",
+                        "model": choice["model"],
+                        "redeneren": effort,
+                        "tokens": overview["tokens"],
+                    },
+                    cost=amount,
+                    user=user,
+                )
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(overview, ensure_ascii=False, indent=2), encoding="utf-8")
         return self._store_inventory(file, n, overview, cached=False, user=user)
