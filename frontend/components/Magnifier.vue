@@ -18,8 +18,14 @@
           <cdx-toggle-button-group v-model="view" :buttons="views" :aria-label="t('magnifier.view')" />
           <span class="cc-klein">{{ t(`concept.format_${view}`) }}</span>
         </div>
-        <div class="cc-vergroter-beeld">
-          <img :src="imageUrl" :alt="name" />
+        <!-- While the cut-out is made (from a large original this can take a while): a progress bar and a text. -->
+        <div class="cc-vergroter-beeld" :class="{ 'cc-laden': imageState === 'loading' }" :aria-busy="imageState === 'loading' ? 'true' : 'false'">
+          <div v-if="imageState === 'loading'" class="cc-beeld-laden" role="status">
+            <cdx-progress-bar :inline="true" :aria-label="t('magnifier.loading')" />
+            <p class="cc-klein">{{ t("magnifier.loading") }}</p>
+          </div>
+          <cdx-message v-else-if="imageState === 'error'" type="error" :inline="true">{{ t("magnifier.load_error") }}</cdx-message>
+          <img v-show="imageState === 'loaded'" :src="imageUrl" :alt="name" @load="imageState = 'loaded'" @error="imageState = 'error'" />
         </div>
         <dl class="cc-gegevens">
           <dt>{{ t("magnifier.source") }}</dt>
@@ -450,7 +456,12 @@ const views = [
   { value: "jpg", label: "JPG" },
 ];
 const view = ref(props.object.masker ? "png" : "jpg");
+// "loading" until the browser has the cut-out; again after switching between PNG and JPG.
+const imageState = ref("loading");
 const imageUrl = computed(() => (props.object.masker && view.value === "png" ? `${base.value}/uitsnede.png` : `${base.value}/uitsnede.jpg?w=1200`));
+watch(imageUrl, () => {
+  imageState.value = "loading";
+});
 
 watch(
   () => props.object.id,

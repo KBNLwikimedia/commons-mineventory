@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.21.2] - 2026-11-04
+
+### Gewijzigd
+
+- Vergroter, tabblad *Uitsnede*: zolang de uitsnede nog gemaakt wordt (bij een groot origineel kan dat even duren), staat er een voortgangsbalk met de tekst "De uitsnede wordt gemaakt in volledige resolutie…". Ook na het wisselen tussen PNG en JPG. Lukt het laden niet, dan staat er een foutmelding in plaats van een leeg vak.
+
 ## [0.21.1] - 2026-11-04
 
 ### Gewijzigd

@@ -262,6 +262,8 @@
   "magnifier.caption_removed": "Bijschrift verwijderd: “{text}”",
   "magnifier.cutout": "Uitsnede",
   "magnifier.download": "Downloaden:",
+  "magnifier.load_error": "De uitsnede kon niet worden geladen. Probeer het later nog eens of ververs de pagina.",
+  "magnifier.loading": "De uitsnede wordt gemaakt in volledige resolutie… Bij een groot origineel kan dat even duren.",
   "magnifier.move": "Slepen om te verplaatsen · dubbelklik: terug naar het midden",
   "magnifier.preview": "de uitsnede",
   "magnifier.refine_mask": "Vorm zoeken met AI-beelddetectie",

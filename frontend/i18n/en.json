@@ -262,6 +262,8 @@
   "magnifier.caption_removed": "Caption removed: “{text}”",
   "magnifier.cutout": "Cut-out",
   "magnifier.download": "Download:",
+  "magnifier.load_error": "The cut-out could not be loaded. Try again later or reload the page.",
+  "magnifier.loading": "Making the cut-out at full resolution… With a large original this can take a while.",
   "magnifier.move": "Drag to move · double-click: back to the centre",
   "magnifier.preview": "the cut-out",
   "magnifier.refine_mask": "Find the shape with AI image detection",
