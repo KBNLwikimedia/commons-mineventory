@@ -26,6 +26,10 @@
           <dd>{{ t(`source.${object.bron}`) }} <ai-badge v-if="object.bron === 'sam'" kind="detectie" :model="object.herkomst?.model || config.sam_model" :score="object.score" /><template v-if="object.wikidata"> · <a :href="`https://www.wikidata.org/wiki/${object.wikidata}`" target="_blank" rel="noopener">{{ object.wikidata }}</a></template></dd>
           <dt>{{ t("magnifier.box") }}</dt>
           <dd>{{ object.box.x }}, {{ object.box.y }} · {{ object.box.w }} × {{ object.box.h }} px</dd>
+          <template v-if="savedInfo">
+            <dt>{{ t("magnifier.saved") }}</dt>
+            <dd><span :class="{ 'cc-verloopt-bijna': savedInfo.soon }">{{ savedInfo.text }}</span> <retention-info /><br /><span class="cc-klein">{{ savedInfo.title }}</span></dd>
+          </template>
           <template v-if="object.herkomst?.p2677"><dt>P2677</dt><dd><code>{{ object.herkomst.p2677 }}</code></dd></template>
           <dt>
             {{ t("magnifier.caption") }}
@@ -276,11 +280,12 @@ import { API, del, errorText, get, objectPath, patch, post, query } from "../api
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { forgetPlacement, makeMovable } from "../movable.js";
-import { objectName } from "../state.js";
+import { objectName, savedLabel } from "../state.js";
 import AiBadge from "./AiBadge.vue";
 import ConceptEditor from "./ConceptEditor.vue";
 import CutoutPreview from "./CutoutPreview.vue";
 import InfoButton from "./InfoButton.vue";
+import RetentionInfo from "./RetentionInfo.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -294,6 +299,7 @@ const language = inject("language", "nl");
 const config = inject("config");
 const tab = ref("uitsnede");
 const caption = ref(props.object.bijschrift?.tekst || "");
+const savedInfo = computed(() => savedLabel(props.object, t, language));
 const captionInfo = ref(false);
 const plan = ref(null);
 const busy = ref(false);

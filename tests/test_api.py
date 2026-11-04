@@ -285,7 +285,7 @@ def test_page_embeds_config_and_texts(http):
     config = json.loads(match.group(1))
     assert config["taal"] == "en" and config["teksten"]["input.open"] == "Open"
     assert config["start"]["mid"] == "M5" and config["modus"] == "dummy"
-    assert {g["sleutel"] for g in config["snel_zoeken"]} >= {"heraldiek", "portretten"}
+    assert "snel_zoeken" not in config  # removed in 0.21.0
 
 
 def test_pages_use_built_assets_without_cdn(http):

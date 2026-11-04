@@ -156,9 +156,6 @@ def _client_config(page, **extra):
         "upload": config["COMMONS_UPLOAD"],
         "sam_model": config["SAM_MODEL"],
         "muse": _muse_info(),
-        "snel_zoeken": [
-            {"sleutel": key, "label": label, "termen": terms} for key, (label, terms) in prompts.CATEGORIEEN.items()
-        ],
         "alles": [{"en": term, "nl": prompts.dutch(term)} for term in prompts.ALLES],
         # Retention periods in days (12.1), so the interface can say that not everything is kept.
         "bewaren": {
@@ -176,7 +173,7 @@ def _client_config(page, **extra):
 
 
 def _start():
-    keys = ("url", "titel", "mid", "pagina", "object", "prompt", "modus", "categorie")
+    keys = ("url", "titel", "mid", "pagina", "object", "prompt")
     return {key: request.args.get(key, "") for key in keys}
 
 

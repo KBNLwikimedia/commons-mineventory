@@ -2,6 +2,9 @@ flask>=3.0,<4
 requests>=2.31,<3
 pillow>=10,<14
 numpy>=1.26,<3
+# Cut-outs from originals above MAX_MEGAPIXELS, read in pieces (cutter/tegels.py).
+# [binary] brings libvips itself as a wheel (Windows, macOS, Linux; also on Toolforge).
+pyvips[binary]>=3.0,<4
 python-dotenv>=1.0,<2
 # Uses the OS certificate store (needed behind TLS-inspecting proxies).
 truststore>=0.9

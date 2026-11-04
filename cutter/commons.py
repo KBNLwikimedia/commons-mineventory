@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urlsplit
 
 from PIL import Image
 
-from . import rechten, sdc, wikitekst
+from . import rechten, sdc, tegels, wikitekst
 from .cache import FetchError
 
 COMMONS_HOSTS = {"commons.wikimedia.org", "commons.m.wikimedia.org"}
@@ -241,7 +241,9 @@ class CommonsClient:
             "paginas": pages_count if mime in PAGED else 1,
             "ondersteund": supported,
             "niet_ondersteund": reason,
-            "uitsnijden_mogelijk": supported and (mime in RENDERED or width * height <= self.max_megapixels * 1e6),
+            # Above MAX_MEGAPIXELS: cut-outs in pieces with libvips (cutter/tegels.py), when installed.
+            "uitsnijden_mogelijk": supported and (mime in RENDERED or width * height <= self.max_megapixels * 1e6 or tegels.available()),
+            "tegels": supported and mime not in RENDERED and width * height > self.max_megapixels * 1e6 and tegels.available(),
             "revisie": revision.get("revid"),
             "doorverwezen_van": redirected,
             "licentie": {
@@ -510,12 +512,26 @@ class CommonsClient:
             thumb = self._thumb_info(file, n, page["breedte"])
             data = self.fetcher.get(thumb.get("thumburl") or thumb["url"])
             return Image.open(io.BytesIO(data))
+        if file.get("tegels"):
+            # Too large to decode as a whole: read in pieces from the file on disk.
+            return tegels.TiledImage(self._original_path(file) or self._original_bytes(file), page=n - 1)
         data = self._original_bytes(file)
         Image.MAX_IMAGE_PIXELS = max(Image.MAX_IMAGE_PIXELS or 0, int(self.max_megapixels * 1e6 * 1.1))
         image = Image.open(io.BytesIO(data))
         if n > 1:
             image.seek(n - 1)
         return image
+
+    def _original_path(self, file):
+        """The original on disk (fetched once), or None without a cache folder."""
+        if self.originals_dir is None:
+            return None
+        path = self.originals_dir / file["sha1"][:2] / file["sha1"]
+        if not path.exists():
+            self._original_bytes(file)
+        else:
+            path.touch()  # retention counts from the last use (12.1)
+        return path
 
     def _original_bytes(self, file):
         """The original file, fetched once from upload.wikimedia.org and kept

@@ -406,3 +406,4 @@ h2, h3, h4 { margin: 0.5rem 0; }
   .cc-werkblad.cc-mobiel-rechts > :not(.cc-rechts) { display: none; }
   .cc-werkblad .cc-midden { height: calc(100vh - 9rem); order: 0; }
 }
+.cc-verloopt-bijna { color: var(--color-warning, #ac6600); font-weight: bold; }

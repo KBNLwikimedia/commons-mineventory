@@ -17,7 +17,7 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 - Nooit het origineel op Commons overschrijven.
 
 ## Techniek
-- Python 3.11+, Flask, requests, Pillow, numpy, meta-sam-parser. Geen zware ML-libs.
+- Python 3.11+, Flask, requests, Pillow, numpy, meta-sam-parser, pyvips (libvips, voor originelen boven 100 megapixel; besluit Olaf 4-11-2026). Geen zware ML-libs.
 - Frontend: Flask rendert de pagina's (Jinja); daarin worden Vue 3-componenten gemount. Build-stap met Vite (Node.js alleen bij ontwikkelen en bouwen; op Toolforge draait alleen Python). Bronnen in frontend/, uitvoer in static/dist/ (niet in git).
 - Stijl en componenten: Codex 2.x (Wikimedia-designsysteem) via npm. Geen externe CDN's (privacy op Toolforge).
 - De viewer (canvas, zoom, pan, overlays, maskers) is een gewone JS-module zonder Vue, overgenomen uit de Delpher Uitsnijder. Niet herschrijven in Vue.

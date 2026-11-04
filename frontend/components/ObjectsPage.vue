@@ -51,7 +51,7 @@
                 <cdx-icon :icon="cdxIconTrash" size="small" />
               </cdx-button>
             </span>
-            <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · {{ t("objects.saved") }}</template></small>
+            <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · <span :class="{ 'cc-verloopt-bijna': savedLabel(obj, t, language).soon }" :title="savedLabel(obj, t, language).title">{{ savedLabel(obj, t, language).text }}</span></template></small>
             <small class="cc-afkappen" :title="obj.bestand_titel">{{ obj.bestand_titel }}</small>
           </li>
         </ul>
@@ -90,7 +90,7 @@ import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import RetentionInfo from "./RetentionInfo.vue";
-import { objectName } from "../state.js";
+import { objectName, savedLabel } from "../state.js";
 
 const t = useT();
 const language = inject("language", "nl");

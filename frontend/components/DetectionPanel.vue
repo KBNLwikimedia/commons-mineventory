@@ -1,6 +1,6 @@
 <!--
-  The detection panel (functional design 7 and 10.4): regions from Commons,
-  search, Snel zoeken, suggestions for this page, point mode and bulk
+  The detection panel (functional design 7 and 10.4): suggestions for this
+  page, regions from Commons, search, point or draw, bulk and CropTool
   operations. Costs are shown per button; in dummy mode everything is free.
 -->
 <template>

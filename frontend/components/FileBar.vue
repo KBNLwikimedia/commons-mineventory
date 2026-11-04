@@ -38,6 +38,7 @@
           <span> · {{ file.mid }} · {{ file.breedte }} × {{ file.hoogte }} px</span>
           <span v-if="file.paginas > 1"> · {{ t("file.pages", { n: file.paginas }) }}</span>
         </p>
+        <p v-if="file.tegels" class="cc-klein">{{ t("file.tiles", { mp: file.megapixels }) }}</p>
         <cdx-message v-if="file.ondersteund && !file.uitsnijden_mogelijk" type="warning" :inline="true">
           {{ t("file.too_large", { mp: file.megapixels }) }}
         </cdx-message>

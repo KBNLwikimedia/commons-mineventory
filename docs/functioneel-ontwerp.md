@@ -64,7 +64,7 @@ Voorbeelden:
 | --- | --- |
 | `uitsnijder/detectie/basis.py`, `dummy.py`, `meta_sam.py`, `maskers.py` | Ongewijzigd: de detectorinterface, `DummyDetector`, `MetaSamDetector` (met `meta-sam-parser`), maskers lui decoderen en cachen |
 | `uitsnijder/detectie/dienst.py` | De kern blijft: zoektermen, cache per afbeelding+term+model, samenvoegen van dubbelingen (IoU), selectie, prullenbak, opslaan, uitsnede-JPG. De Delpher-delen (zones, ALTO, bijschriften, koppeling aan artikelen) gaan eruit |
-| `uitsnijder/prompts.py` | EN/MIN-syntax, de vertaaltabel en de Snel zoeken-groepen. De groepen aanpassen aan Commons (zie 7.4) |
+| `uitsnijder/prompts.py` | EN/MIN-syntax, de vertaaltabel en de lijst voor Alles detecteren (zie 7.4) |
 | `uitsnijder/beschrijving.py` | "Wat staat hierop?" en het paginaoverzicht, met `reasoning.effort` en de modelkeuze. De context is anders: geen ALTO, wel de Commons-beschrijving, caption en categorieën (zie 6.2) |
 | `uitsnijder/verbruik.py`, `/verbruik` | Ongewijzigd, plus de Commons-gebruiker per aanroep (zie 8.3) |
 | `uitsnijder/cache.py`, `config.py`, `changelog.py`, `markdown_lite.py` | Ongewijzigd, met andere sleutels en variabelen |
@@ -148,6 +148,7 @@ Op Commons staat elk bestand al onder een vrije licentie of in het publieke dome
 - **Meerpagina-TIFF**: per pagina, uit het origineel.
 - **SVG, GIF, video en audio**: niet ondersteund; de app meldt dat.
 - **Grote bestanden**: Commons heeft scans van honderden megapixels. Pillow beschermt tegen "decompression bombs"; op Toolforge is het werkgeheugen per webservice beperkt. Voorstel: tot **100 megapixel** gewoon verwerken; daarboven alleen detecteren op de verkleinde versie en uitsnijden in tegels uit het origineel, of weigeren met een melding. Niet beantwoord in ronde 2; de app gaat uit van het voorstel (100 megapixel), bij de bouw te meten op Toolforge.
+  **Gebouwd in 0.21.0** (besluit Olaf, 4-11-2026): boven `MAX_MEGAPIXELS` leest de app het origineel met **libvips** (`pyvips[binary]`, `cutter/tegels.py`) stuk voor stuk. Detecteren en de viewer gebruiken de verkleinde versie van Commons, zoals bij elk bestand; voor een uitsnede, het voorbeeld en de vraag aan Muse Spark wordt alleen het nodige stuk gedecodeerd, in volledige resolutie. JPEG, PNG en (meerpagina-)TIFF; 16-bits, grijs en CMYK worden 8-bits sRGB. Gemeten: een uitsnede van 2000 × 1500 uit een JPEG van 150 megapixel piekt op ongeveer 100 MB geheugen (Pillow zou het hele beeld decoderen, ongeveer 450 MB). Zonder pyvips weigert de app zulke bestanden, zoals voorheen.
 
 ### 5.5 Hiërarchie
 
@@ -224,7 +225,7 @@ EN/MIN-syntax, Nederlandse termen via de vertaaltabel naar Engels, één SAM-aan
 
 ### 7.2 Snel zoeken
 
-**Uit de interface gehaald (4-11-2026, besluit Olaf):** op Commons staan duizenden soorten objecten, dus een vaste lijst klopt voor veel afbeeldingen niet. De AI-suggesties per afbeelding (7.6) vervangen dit. De API-modus `categorie` blijft bestaan.
+**Uit de interface gehaald (4-11-2026, besluit Olaf):** op Commons staan duizenden soorten objecten, dus een vaste lijst klopt voor veel afbeeldingen niet. De AI-suggesties per afbeelding (7.6) vervangen dit. Sinds 0.21.0 is ook de API-modus `categorie` weg.
 
 Vaste groepen, aangepast aan wat er op Commons staat: wapens en heraldiek, portretten, figuren en personen, dieren, planten en bloemen, gebouwen, kaarten, schepen, initialen en vignetten, logo's en beeldmerken, handschrift en tekstblokken, foto's in een album. Elke groep is een vooringevulde prompt.
 
@@ -503,7 +504,7 @@ Versieprefix `/api/v1`, OpenAPI op `/api/v1/openapi.json`, documentatie op `/doc
 | GET | `/api/v1/bestand?url=…|titel=…|mid=…` | Normaliseren; titel, M-id, afmetingen, MIME, SHA-1, licentie, maker, categorieën, SDC-samenvatting, paginalijst, rechtenlabels |
 | GET | `/api/v1/bestand/{mid}/pagina/{n}` | Pagina: afmetingen, objecten, regio's uit Commons |
 | GET | `/api/v1/bestand/{mid}/pagina/{n}/afbeelding?w=` | Verkleinde afbeelding (gecachet) |
-| POST | `/api/v1/bestand/{mid}/pagina/{n}/detecties` | Detectie (`prompt`, `modus`: `prompt`, `alles`, `commons`, `categorie`; of `punt`). 201 |
+| POST | `/api/v1/bestand/{mid}/pagina/{n}/detecties` | Detectie (`prompt`, `modus`: `prompt`, `alles`, `commons`; of `punt`). 201 |
 | GET | `/api/v1/bestand/{mid}/pagina/{n}/detecties/raming` | Kostenraming; voert niets uit |
 | GET, POST | `/api/v1/bestand/{mid}/pagina/{n}/inventaris` | Paginaoverzicht |
 | PATCH | `/api/v1/bestand/{mid}/pagina/{n}/objecten` | Selectie of status wijzigen |

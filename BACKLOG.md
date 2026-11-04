@@ -17,14 +17,13 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 4. [x] Commons-adapter: invoer normaliseren (URL, titel, M-id), imageinfo, origineel ophalen en cachen, wikitekst, SDC, categorieën, meerpaginabestanden.
 5. [x] Licentie en rechtenlabels uit de wikitekst en de SDC (merk, persoonlijkheidsrechten, origineel ter discussie, naamsvermelding verplicht).
 6. [x] Frontend-opzet: Vite, Vue 3, Codex 2.x via npm, koppeling Flask–Vite (manifest), Vitest, vertaalbestanden nl/en met taalkeuze. De viewer uit de Delpher Uitsnijder als JS-module. Daarna de UI: header, invoerbalk, viewer, detectiepaneel, vergroter.
-7. [x] Detectiemodi: zoekterm, Snel zoeken (Commons-groepen), Aanwijzen, bulk, paginaoverzicht (dummy).
+7. [x] Detectiemodi: zoekterm, Aanwijzen, bulk, paginaoverzicht (dummy). Snel zoeken (vaste Commons-groepen) is in 0.13 uit de interface en in 0.21.0 ook uit de API gehaald; de AI-suggesties per afbeelding vervangen het.
 8. [x] Uit Commons: regio's uit de gestructureerde gegevens (P180 met P2677, `pct:` en pixels) als losse objecten, elk apart uit te snijden; optioneel een masker via een SAM-boxprompt; plus bestandsnotities (`{{ImageNote}}`). Testbestand: Book of Hours of Philip of Burgundy - KW76F - folio 283r (13 regio's).
 9. [x] Opslaan in volledige resolutie (PNG en JPG), zip, `/objecten`, prullenbak.
 10. [x] "Wat staat hierop?" met Commons-context en `wikidata_suggesties` (fixtures).
 11. [x] Commons-concept per object, keuzemenu, controle vooraf, proefweergave; nog geen upload.
 12. [x] REST-API, OpenAPI, `/docs`, sitemap.
-   - Open uit fase 1 (3-11-2026): tegels voor bestanden boven 100 megapixel.
-   - Gedaan (4-11-2026): "Bijsnijden in CropTool" als uitklapblok in het detectiepaneel (0.18.0; een vooringevuld kader nam CropTool niet over); de opruimtaak voor de bewaartermijnen, `flask --app app opruimen [--echt]` (0.18.0); mobiel als tabbladen Objecten, Beeld, Detectie (0.19.0); de velden van `{{Artwork}}`, `{{Photograph}}`, `{{Book}}` en `{{Map}}` per sjabloon, besloten met Olaf (0.20.0, docs/artwork-velden.md). Nog niet: bij elke uitsnede tonen wanneer die verloopt.
+   - Gedaan (4-11-2026): "Bijsnijden in CropTool" als uitklapblok in het detectiepaneel (0.18.0; een vooringevuld kader nam CropTool niet over); de opruimtaak voor de bewaartermijnen, `flask --app app opruimen [--echt]` (0.18.0); mobiel als tabbladen Objecten, Beeld, Detectie (0.19.0); de velden van `{{Artwork}}`, `{{Photograph}}`, `{{Book}}` en `{{Map}}` per sjabloon, besloten met Olaf (0.20.0, docs/artwork-velden.md); bij elke opgeslagen uitsnede hoe lang die nog bewaard wordt, en uitsneden uit originelen boven 100 megapixel met libvips (0.21.0). Fase 1 heeft geen open punten meer.
 12a. [x] Verfijning op aanwijzing van Olaf (3 en 4-11-2026, versies 0.2.0 tot en met 0.9.0; details in CHANGELOG.md):
    - Live-modus lokaal getest door Olaf, met zijn eigen sleutel.
    - AI-teksten: onderwerp en beschrijving met de hand aan te passen (Ongedaan maken, Terug naar de AI-tekst); AI-merkjes met uitleg (model, score, wat te controleren); soort, zekerheid en paginaoverzicht in beide talen; de modelkeuze in gewone woorden.

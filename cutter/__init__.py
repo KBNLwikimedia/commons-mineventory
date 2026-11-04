@@ -1,6 +1,6 @@
 """Commons Cutter: detect and cut out objects in images on Wikimedia Commons (experiment)."""
 
-__version__ = "0.20.0"
+__version__ = "0.21.0"
 
 
 def create_app(config=None, commons_client=None, detector=None, vision=None):
@@ -47,7 +47,7 @@ def create_app(config=None, commons_client=None, detector=None, vision=None):
             max_megapixels=config.MAX_MEGAPIXELS,
         )
     app.extensions["commons"] = commons_client
-    app.extensions["detectiedienst"] = DetectionService(
+    app.extensions["detectiedienst"] = service = DetectionService(
         detector or make_detector(app.config),
         commons_client,
         config.CACHE_DIR,
@@ -59,6 +59,7 @@ def create_app(config=None, commons_client=None, detector=None, vision=None):
             daily_budget=config.DAGBUDGET_USD,
         ),
     )
+    service.keep_cutout_days = config.BEWAAR_UITSNEDEN_DAGEN
     app.extensions["beschrijvingsdienst"] = DescriptionService(
         vision or make_vision(app.config), app.extensions["detectiedienst"], app.config, config.CACHE_DIR
     )

@@ -194,7 +194,7 @@ def _minscore(value):
 
 @api.post("/bestand/<mid>/pagina/<int:n>/detecties")
 def create_detection(mid, n):
-    """Run a detection (7): {"prompt", "modus", "categorie", "minscore"}, a
+    """Run a detection (7): {"prompt", "modus", "minscore"}, a
     click {"punt": {x, y}}, a manual rectangle {"rechthoek": {x, y, w, h}}
     (free), or a SAM mask for an object with a rectangle {"masker_voor": id}.
     Only through POST, so link previews and crawlers can never cost money."""
@@ -217,9 +217,9 @@ def create_detection(mid, n):
     else:
         modus = body.get("modus", "prompt")
         if modus != "commons":
-            _require_paid_access(paid and service.plan(file, n, service.terms(body.get("prompt", ""), modus, body.get("categorie")))["betaald"])
+            _require_paid_access(paid and service.plan(file, n, service.terms(body.get("prompt", ""), modus))["betaald"])
         result = service.detect(
-            file, n, prompt=body.get("prompt", ""), modus=modus, categorie=body.get("categorie"),
+            file, n, prompt=body.get("prompt", ""), modus=modus,
             minscore=_minscore(body.get("minscore")), user=_user(),
         )
     return jsonify(result), 201
@@ -231,7 +231,7 @@ def estimate_detection(mid, n):
     file = _page_file(mid, n)
     result = _service().detect(
         file, n, prompt=request.args.get("prompt", ""), modus=request.args.get("modus", "prompt"),
-        categorie=request.args.get("categorie"), minscore=_minscore(request.args.get("minscore")), dry_run=True, user=_user(),
+        minscore=_minscore(request.args.get("minscore")), dry_run=True, user=_user(),
     )
     return jsonify(result)
 

@@ -38,10 +38,8 @@ def test_min_excludes_overlapping(service, album):
 def test_modes(service, album):
     everything = service.detect(album, 1, modus="alles")
     assert everything["termen"]["plus"][0]["en"] == "illustration" and len(everything["termen"]["plus"]) == 8
-    heraldry = service.detect(album, 1, modus="categorie", categorie="heraldiek")
-    assert [t["en"] for t in heraldry["termen"]["plus"]] == ["coat of arms", "heraldic shield"]
-    with pytest.raises(DetectionError):
-        service.detect(album, 1, modus="categorie", categorie="bestaat-niet")
+    with pytest.raises(DetectionError):  # Snel zoeken is gone (0.21.0)
+        service.detect(album, 1, modus="categorie")
     with pytest.raises(DetectionError) as exc:
         service.detect(album, 1, "")
     assert exc.value.code == "empty_prompt"
@@ -114,6 +112,11 @@ def test_save_writes_full_resolution_files(service, album, tmp_path):
     assert Image.open(folder / masked["png"]).mode == "RGBA"
     assert (folder / masked["masker"]).exists()
     assert saved[rect["id"]]["opgeslagen"]["breedte"] == jpg.width  # pixels of the written file
+    # The API says when the saved files go (retention, 12.1): 30 days after the last use.
+    from datetime import datetime, timedelta, timezone
+
+    expires = datetime.fromisoformat(service.public(album, 1, saved[rect["id"]])["opgeslagen"]["verloopt"])
+    assert abs(expires - (datetime.now(timezone.utc) + timedelta(days=30))) < timedelta(minutes=5)
 
 
 def test_save_needs_a_selection(service, album):

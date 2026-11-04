@@ -16,7 +16,7 @@ De Commons Cutter heeft een REST-API onder `/api/v1`. De interface in de browser
 
 | Methode | Pad | Functie |
 | --- | --- | --- |
-| GET | `/bestand?url=…`, `?titel=…` of `?mid=…` | Invoer normaliseren (URL, titel, M-id, curid, upload.wikimedia.org) en het bestand teruggeven: titel, M-id, afmetingen, MIME, SHA-1, licentie, maker, datum, categorieën, SDC-samenvatting, rechtenlabels, paginalijst |
+| GET | `/bestand?url=…`, `?titel=…` of `?mid=…` | Invoer normaliseren (URL, titel, M-id, curid, upload.wikimedia.org) en het bestand teruggeven: titel, M-id, afmetingen, MIME, SHA-1, licentie, maker, datum, categorieën, SDC-samenvatting, rechtenlabels, paginalijst. `uitsnijden_mogelijk` zegt of uitsneden in volledige resolutie kunnen; `tegels: true` dat het origineel boven `MAX_MEGAPIXELS` ligt en stuk voor stuk met libvips gelezen wordt (sinds 0.21.0) |
 | GET | `/bestand/{mid}` | Hetzelfde, op M-id |
 | GET | `/bestand/{mid}/pagina/{n}` | Afmetingen van de pagina (pixels van het origineel), objecten, aantal regio's en notities uit Commons, en `prullenbak_termen`: per zoekterm hoeveel objecten van deze pagina in de prullenbak staan |
 | GET | `/bestand/{mid}/pagina/{n}/afbeelding?w=` | Een verkleinde afbeelding: de dichtstbijzijnde thumbnailstap van Commons van minstens `w` pixels (20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840), gecachet |
@@ -31,12 +31,11 @@ GET /api/v1/bestand?url=https://commons.wikimedia.org/wiki/File:Album_amicorum_v
 
 | Methode | Pad | Functie |
 | --- | --- | --- |
-| POST | `/bestand/{mid}/pagina/{n}/detecties` | Een detectie. Body: `{"prompt": "wapen en portret min tekst", "modus": "prompt"}`; of `"modus"`: `alles`, `categorie` (met `"categorie": "heraldiek"`) of `commons` (de regio's uit Commons, gratis). Of `{"punt": {"x", "y"}}` (Aanwijzen), `{"rechthoek": {"x", "y", "w", "h"}}` (met de hand, gratis) of `{"masker_voor": "<object-id>"}` (de vorm van een regio via een SAM-boxprompt). Antwoord 201 met alle objecten van de pagina en de nieuwe id's |
+| POST | `/bestand/{mid}/pagina/{n}/detecties` | Een detectie. Body: `{"prompt": "wapen en portret min tekst", "modus": "prompt"}`; of `"modus"`: `alles` of `commons` (de regio's uit Commons, gratis). Of `{"punt": {"x", "y"}}` (Aanwijzen), `{"rechthoek": {"x", "y", "w", "h"}}` (met de hand, gratis) of `{"masker_voor": "<object-id>"}` (de vorm van een regio via een SAM-boxprompt). Antwoord 201 met alle objecten van de pagina en de nieuwe id's |
 | GET | `/bestand/{mid}/pagina/{n}/detecties/raming` | Wat een detectie zou kosten (zelfde parameters als query); voert niets uit |
 | GET | `/bestand/{mid}/pagina/{n}/inventaris` | Het opgeslagen paginaoverzicht ("Wat staat op deze pagina?") en de kosten van een nieuw |
 | POST | `/bestand/{mid}/pagina/{n}/inventaris` | Muse Spark vragen wat er op de pagina staat; zoektermen voor SAM. Body: `{"model": "auto", "opnieuw": false}`. Het overzicht heeft `paginasoort` en `samenvatting` in het Nederlands en (sinds 0.9.0) `paginasoort_en` en `samenvatting_en` in het Engels, en (sinds 0.16.0) `tekst`: de tekst die het model in en onder de afbeelding leest, letterlijk |
 
-Snel zoeken-groepen (`categorie`): `heraldiek`, `portretten`, `figuren`, `dieren`, `planten`, `gebouwen`, `kaarten`, `schepen`, `initialen`, `logos`, `tekst`, `albumfotos`.
 
 Regio's uit Commons (`modus: commons`) zijn de verklaringen *beeldt af* (P180) met *relatieve positie in afbeelding* (P2677, `pct:x,y,b,h` of pixels) en de bestandsnotities (`{{ImageNote}}`). Elke regio wordt een eigen object (`bron: commons`, `soort: regio` of `notitie`) met het Wikidata-item in `wikidata`; regio's worden nooit samengevoegd.
 
@@ -88,7 +87,7 @@ Bestandsnaam: `<Onderwerp> – extracted from <titel origineel zonder extensie>.
 | Methode | Pad | Functie |
 | --- | --- | --- |
 | POST | `/bestand/{mid}/pagina/{n}/uitsneden` | Uitsneden opslaan in volledige resolutie: JPG (de rechthoek, kwaliteit 95) en, bij een masker, een transparante PNG en het masker. Body: `{"ids": [...]}`; zonder ids de geselecteerde |
-| GET | `/bestand/{mid}/pagina/{n}/uitsneden` | De opgeslagen uitsneden van een pagina |
+| GET | `/bestand/{mid}/pagina/{n}/uitsneden` | De opgeslagen uitsneden van een pagina. Elk object met `opgeslagen` heeft daarin ook `laatst_gebruikt` en `verloopt` (ISO 8601, UTC): wanneer de opruimtaak de bestanden weghaalt als ze tot dan niet gebruikt worden (`BEWAAR_UITSNEDEN_DAGEN`, FO 12.1). Dat staat ook bij de objecten in de andere antwoorden |
 | GET | `/bestand/{mid}/export?formaat=zip\|json` | Alles van een bestand: een zip (met `LEESMIJ.txt`, `bestand.json`, de uitsneden en de wikitekst per uitsnede) of JSON |
 
 Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{objecten.json, jpg/, png/, maskers/}`.

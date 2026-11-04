@@ -3,6 +3,17 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.21.0] - 2026-11-04
+
+### Toegevoegd
+
+- Uitsneden uit originelen boven 100 megapixel (FO 5.4): de app leest zo'n origineel met libvips (`pyvips[binary]`, nieuw in `requirements.txt`) stuk voor stuk, in volledige resolutie, in plaats van het te weigeren. Detecteren gebeurt op de verkleinde versie, zoals altijd. JPEG, PNG en (meerpagina-)TIFF; 16-bits, grijs en CMYK worden 8-bits sRGB. De bestandsregel meldt het bij zo'n groot bestand. Gemeten: een uitsnede uit een JPEG van 150 megapixel piekt op ongeveer 100 MB in plaats van ongeveer 450 MB. Zonder pyvips weigert de app zulke bestanden, zoals voorheen.
+- Bij elke opgeslagen uitsnede staat hoe lang die nog bewaard wordt: "opgeslagen, nog 23 dagen" in de objectenlijst en op de pagina *Objecten*, met de datum in de tooltip, en in de laatste week in oranje. In de vergroter staat het onder *Opgeslagen*, met de (i) over de bewaartermijnen. De API geeft het als `opgeslagen.verloopt` en `opgeslagen.laatst_gebruikt`, gerekend zoals de opruimtaak dat doet.
+
+### Verwijderd
+
+- Snel zoeken ook uit de code: de API-modus `categorie`, de twaalf vaste groepen in `cutter/prompts.py`, `snel_zoeken` in de paginaconfiguratie en de vertalingen `quick.*`. De AI-suggesties per afbeelding vervangen het (zie 0.13). `docs/api.md`, het FO, de OpenAPI-beschrijving en de backlog zijn bijgewerkt.
+
 ## [0.20.0] - 2026-11-04
 
 ### Gewijzigd

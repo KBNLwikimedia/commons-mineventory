@@ -36,7 +36,7 @@
           <span class="cc-object-naam" @click.prevent="emit('focus', obj.id)">{{ listName(obj) }}</span>
           <template #description>
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
-            <template v-if="obj.opgeslagen"> · {{ t("objects.saved") }}</template>
+            <template v-if="obj.opgeslagen"> · <span :class="{ 'cc-verloopt-bijna': savedLabel(obj, t, language).soon }" :title="savedLabel(obj, t, language).title">{{ savedLabel(obj, t, language).text }}</span></template>
             <template v-if="obj.al_uitgesneden"> · {{ t("objects.already_extracted") }}</template>
             <span v-if="obj.bijschrift?.tekst && name(obj) !== obj.bijschrift.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
             <template v-if="obj.status === 'uitgesloten'"> · {{ t("status.uitgesloten") }}</template>
@@ -61,7 +61,7 @@ import { CdxButton, CdxCheckbox, CdxIcon } from "@wikimedia/codex";
 import { cdxIconEye, cdxIconTrash } from "@wikimedia/codex-icons";
 import { objectPath } from "../api.js";
 import { useT } from "../i18n.js";
-import { objectName } from "../state.js";
+import { objectName, savedLabel } from "../state.js";
 
 const props = defineProps({
   objects: { type: Array, required: true },

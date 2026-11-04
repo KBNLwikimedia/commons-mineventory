@@ -26,7 +26,7 @@ from PIL import Image
 from .. import export, prompts, regios
 from ..commons import public as public_file
 from .basis import DetectionError
-from ..opruimen import mark_used
+from ..opruimen import last_used, mark_used
 from .maskers import MaskCache, decode_raster
 
 MIN_IOU = 0.5
@@ -37,7 +37,7 @@ NEVER_MERGED = {"commons"}  # regions from Commons stay objects of their own (7.
 # the 2000 px of the Delpher Uitsnijder (functional design 5.2 and 6.1).
 IMAGE_WIDTH = 1920
 STATUSES = ("kandidaat", "geselecteerd", "uitgesloten")
-MODES = ("prompt", "alles", "categorie", "commons")
+MODES = ("prompt", "alles", "commons")
 SAVED_META = ("tijdstempel", "breedte", "hoogte")  # in "opgeslagen", next to the file paths
 # Fields made by the user or paid for, kept when a search returns an object again.
 KEPT_ON_UPDATE = ("bijschrift", "ook", "beschrijving", "commons", "masker", "masker_herkomst", "status")
@@ -126,6 +126,7 @@ class DetectionService:
         self.cache_dir = Path(cache_dir) / "detectie"
         self.output_dir = Path(output_dir)
         self.verbruik = verbruik
+        self.keep_cutout_days = 30  # BEWAAR_UITSNEDEN_DAGEN; set by create_app
         self.masks = MaskCache(Path(cache_dir) / "maskers")
         # One lock for all object stores (re-entrant: locked methods call each other).
         self.lock = threading.RLock()
@@ -135,14 +136,10 @@ class DetectionService:
     # -- Terms and planning ----------------------------------------------------
 
     @staticmethod
-    def terms(prompt="", modus="prompt", categorie=None):
+    def terms(prompt="", modus="prompt"):
         """{"plus": [{term, en}], "min": [...]} for a request."""
         if modus == "alles":
             return {"plus": [{"term": t, "en": t} for t in prompts.ALLES], "min": []}
-        if modus == "categorie":
-            if categorie not in prompts.CATEGORIEEN:
-                raise DetectionError(f"Onbekende categorie '{categorie}'.", status=400)
-            return {"plus": [{"term": t, "en": t} for t in prompts.CATEGORIEEN[categorie][1]], "min": []}
         if modus == "commons":
             return {"plus": [], "min": []}
         if modus != "prompt":
@@ -169,8 +166,8 @@ class DetectionService:
     # -- Detection ---------------------------------------------------------------
 
     @_locked
-    def detect(self, file, n, prompt="", modus="prompt", categorie=None, minscore=0.0, dry_run=False, user=None):
-        terms = self.terms(prompt, modus, categorie)
+    def detect(self, file, n, prompt="", modus="prompt", minscore=0.0, dry_run=False, user=None):
+        terms = self.terms(prompt, modus)
         page = self.client.load_page(file, n)
         plan = self.plan(file, n, terms)
         result = {"modus": modus, "termen": terms, "aanroepen": plan, "detector": self.detector.model, "dry_run": dry_run}
@@ -743,7 +740,6 @@ class DetectionService:
             image = Image.open(io.BytesIO(self.client.page_image(file, n, min(needed, page["breedte"]))))
         else:
             image = self.client.original_image(file, n)
-        image = image.convert("RGB")
         scale = image.width / page["breedte"]
         crop = image.crop(
             (
@@ -753,6 +749,7 @@ class DetectionService:
                 max(int(box["y"] * scale) + 1, round((box["y"] + box["h"]) * scale)),
             )
         )
+        crop = crop.convert("RGB")  # the piece only: a large original is never converted as a whole
         if width and crop.width > width:
             crop = crop.resize((width, max(1, round(crop.height * width / crop.width))))
         buffer = io.BytesIO()
@@ -818,9 +815,9 @@ class DetectionService:
 
     # -- Output -------------------------------------------------------------------
 
-    @staticmethod
-    def public(file, n, obj):
-        """API representation: the mask without its (large) payload, plus URLs."""
+    def public(self, file, n, obj):
+        """API representation: the mask without its (large) payload, plus URLs;
+        for a saved cut-out also when its files go (retention, 12.1)."""
         mask = obj.get("masker")
         public = {k: v for k, v in obj.items() if k != "masker"}
         public["masker"] = (
@@ -832,7 +829,20 @@ class DetectionService:
         public["masker_url"] = f"{base}/masker.png"
         public["uitsnede_url"] = f"{base}/uitsnede.jpg"
         public["uitsnede_png_url"] = f"{base}/uitsnede.png"
+        if obj.get("opgeslagen"):
+            public["opgeslagen"] = {**obj["opgeslagen"], **self._expiry(file, obj["opgeslagen"])}
         return public
+
+    def _expiry(self, file, saved):
+        """When the saved files of a cut-out are removed: BEWAAR_UITSNEDEN_DAGEN
+        after their last use (the cleanup, cutter/opruimen.py). {} when unknown."""
+        paths = [self._file_dir(file) / saved[k] for k in ("jpg", "png", "masker") if saved.get(k)]
+        present = [p for p in paths if p.exists()]
+        if not present:
+            return {}
+        last = max(last_used(p) for p in present)
+        expires = datetime.fromtimestamp(last + self.keep_cutout_days * 86400, timezone.utc)
+        return {"laatst_gebruikt": datetime.fromtimestamp(last, timezone.utc).isoformat(timespec="seconds"), "verloopt": expires.isoformat(timespec="seconds")}
 
 
 def make_detector(config):

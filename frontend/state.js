@@ -95,3 +95,19 @@ export function cropToolLink(file) {
   const title = file.naam || String(file.titel || "").replace(/^File:/, "");
   return `${CROPTOOL}?${new URLSearchParams({ title })}`;
 }
+
+// "saved · 23 days left" for a saved cut-out (retention, functional design 12.1),
+// with the date and an explanation for a tooltip. The server gives `verloopt`.
+export function savedLabel(obj, t, language = "nl", now = Date.now()) {
+  const saved = obj?.opgeslagen;
+  if (!saved) return null;
+  if (!saved.verloopt) return { text: t("objects.saved"), title: "" };
+  const expires = new Date(saved.verloopt);
+  const days = Math.max(0, Math.ceil((expires.getTime() - now) / 86400000));
+  const date = expires.toLocaleDateString(language === "en" ? "en-GB" : "nl-NL", { day: "numeric", month: "long", year: "numeric" });
+  return {
+    text: days === 1 ? t("objects.saved_one_day") : t("objects.saved_days", { n: days }),
+    title: t("objects.saved_expiry", { date }),
+    soon: days <= 7,
+  };
+}

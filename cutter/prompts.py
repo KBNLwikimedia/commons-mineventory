@@ -1,5 +1,5 @@
 """Prompt parser for the EN/MIN (AND/NOT) operators, the NL->EN term table and
-the Snel zoeken groups (functional design 7.1, 7.2 and 7.4; taken over from
+the list for Alles detecteren (functional design 7.1 and 7.4; taken over from
 the Delpher Uitsnijder).
 
 SAM understands one concept per call, so a prompt becomes a list of terms to
@@ -95,23 +95,6 @@ VERTAALTABEL = {
 # "Alles detecteren" (7.4); overlapping duplicates (IoU >= 0.8) are merged.
 # Eight terms, eight SAM calls (about $0.02, functional design 6.4).
 ALLES = ["illustration", "portrait", "coat of arms", "drawing", "photograph", "map", "decorated initial", "logo"]
-
-# Snel zoeken (functional design 7.2): groups for what is on Commons. Key, the
-# i18n key of the label (frontend/i18n), and the prompt set.
-CATEGORIEEN = {
-    "heraldiek": ("quick.heraldry", ["coat of arms", "heraldic shield"]),
-    "portretten": ("quick.portraits", ["portrait"]),
-    "figuren": ("quick.figures", ["person", "human figure"]),
-    "dieren": ("quick.animals", ["animal", "bird"]),
-    "planten": ("quick.plants", ["plant", "flower"]),
-    "gebouwen": ("quick.buildings", ["building", "church"]),
-    "kaarten": ("quick.maps", ["map"]),
-    "schepen": ("quick.ships", ["ship", "boat"]),
-    "initialen": ("quick.initials", ["decorated initial", "ornament"]),
-    "logos": ("quick.logos", ["logo", "trademark"]),
-    "tekst": ("quick.text", ["handwriting", "text block"]),
-    "albumfotos": ("quick.album_photos", ["photograph"]),
-}
 
 
 # English labels to Dutch, for display. The reverse of VERTAALTABEL (first
