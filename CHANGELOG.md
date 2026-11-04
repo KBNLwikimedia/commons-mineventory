@@ -5,6 +5,12 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-04
+
+### Gewijzigd
+
+- *Opnieuw vragen* bij de AI-suggesties heet nu *Opnieuw om suggesties vragen* / *Ask for suggestions again*. Bij één object in de prullenbak staat er "1 staat in de prullenbak" (was "1 are").
+
 ## [0.11.0] - 2026-11-04
 
 ### Toegevoegd

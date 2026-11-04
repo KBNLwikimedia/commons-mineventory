@@ -62,7 +62,7 @@
         <!-- What of these suggestions is on the image now, and what went to the trash. -->
         <p class="cc-klein">
           {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: inventory.zoektermen.length }) }}
-          <template v-if="suggestionTotals.trashed">{{ t("panel.suggestions_trashed", { n: suggestionTotals.trashed }) }}</template>
+          <template v-if="suggestionTotals.trashed">{{ suggestionTotals.trashed === 1 ? t("panel.suggestions_trashed_one") : t("panel.suggestions_trashed", { n: suggestionTotals.trashed }) }}</template>
         </p>
       </template>
       <!-- The actions, full size, apart from the suggested labels above. With an
