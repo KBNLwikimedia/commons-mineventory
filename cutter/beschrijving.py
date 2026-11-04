@@ -126,7 +126,7 @@ def estimate(model, effort=None, input_tokens=None):
 
 # -- Page overview ("Wat staat op deze pagina?") --------------------------------
 
-INVENTORY_VERSION = 1
+INVENTORY_VERSION = 2  # 2: kind and summary also in English
 PAGE_WIDTH = 1600  # pixels of the page image sent to the model
 ESTIMATE_PAGE_INPUT = 3000  # tokens: a whole page at 1600 px plus the question
 MAX_TERMS = 12
@@ -135,7 +135,9 @@ INVENTORY_SCHEMA = {
     "type": "object",
     "properties": {
         "paginasoort": {"type": "string"},
+        "paginasoort_en": {"type": "string"},
         "samenvatting": {"type": "string"},
+        "samenvatting_en": {"type": "string"},
         "zoektermen": {
             "type": "array",
             "items": {
@@ -151,7 +153,7 @@ INVENTORY_SCHEMA = {
             },
         },
     },
-    "required": ["paginasoort", "samenvatting", "zoektermen"],
+    "required": ["paginasoort", "paginasoort_en", "samenvatting", "samenvatting_en", "zoektermen"],
     "additionalProperties": False,
 }
 
@@ -159,7 +161,9 @@ INVENTORY_INSTRUCTIONS = """You look at one whole image on Wikimedia Commons: {p
 
 List the visual objects in this image (not text), so that an open-vocabulary object detector (SAM) can find them. Answer in JSON:
 - paginasoort: the kind of image in Dutch, a few words (e.g. "albumblad met wapens", "prent", "kaart", "pagina uit een getijdenboek").
+- paginasoort_en: the same in English.
 - samenvatting: one sentence in Dutch about what is visible.
+- samenvatting_en: the same sentence in English.
 - zoektermen: at most {max_terms} distinct kinds of visual objects, most frequent or most striking first. For each:
   - en: a short English noun phrase for the detector, singular, 1-3 words, concrete and visual (e.g. "portrait", "coat of arms", "saint", "angel", "decorated initial", "ship", "map", "flower", "ornament").
   - nl: the same in Dutch.
@@ -176,7 +180,7 @@ def parse_inventory(text):
     except ValueError:
         data = None
     if not isinstance(data, dict):
-        return {"paginasoort": "", "samenvatting": " ".join((text or "").split())[:300], "zoektermen": []}
+        return {"paginasoort": "", "paginasoort_en": "", "samenvatting": " ".join((text or "").split())[:300], "samenvatting_en": "", "zoektermen": []}
     terms, seen = [], set()
     for entry in data.get("zoektermen") or []:
         if not isinstance(entry, dict):
@@ -194,7 +198,9 @@ def parse_inventory(text):
             break
     return {
         "paginasoort": " ".join(str(data.get("paginasoort") or "").split()),
+        "paginasoort_en": " ".join(str(data.get("paginasoort_en") or "").split()),
         "samenvatting": " ".join(str(data.get("samenvatting") or "").split()),
+        "samenvatting_en": " ".join(str(data.get("samenvatting_en") or "").split()),
         "zoektermen": terms,
     }
 
@@ -381,7 +387,9 @@ class DummyVision:
         if schema is INVENTORY_SCHEMA:
             answer = {
                 "paginasoort": "voorbeeldafbeelding (dummy)",
+                "paginasoort_en": "example image (dummy)",
                 "samenvatting": "Voorbeeldoverzicht (dummy, geen echt model).",
+                "samenvatting_en": "Example overview (dummy, no real model).",
                 "zoektermen": [
                     {"en": "coat of arms", "nl": "wapen", "aantal": 2, "waar": "bovenaan"},
                     {"en": "portrait", "nl": "portret", "aantal": 1, "waar": "midden"},

@@ -89,7 +89,7 @@
           <div class="cc-concept-links">
             <template v-if="description">
               <dl class="cc-gegevens">
-                <dt>{{ t("describe.kind") }}</dt><dd>{{ fixedValue("kind", description.soort) }} · {{ t("describe.certainty") }}: {{ fixedValue("certainty", description.zekerheid) }}</dd>
+                <dt>{{ t("describe.kind") }} <ai-badge kind="soort" :model="description.model" /></dt><dd>{{ fixedValue("kind", description.soort) }} · {{ t("describe.certainty") }}: {{ fixedValue("certainty", description.zekerheid) }}</dd>
                 <template v-if="!textDraft">
                   <dt>{{ t("describe.subject") }} <ai-badge :model="description.model" :edited="aiEdited('onderwerp')" /></dt><dd>{{ description.onderwerp }}<br /><i>{{ description.onderwerp_en }}</i></dd>
                 </template>

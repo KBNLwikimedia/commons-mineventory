@@ -34,7 +34,7 @@ GET /api/v1/bestand?url=https://commons.wikimedia.org/wiki/File:Album_amicorum_v
 | POST | `/bestand/{mid}/pagina/{n}/detecties` | Een detectie. Body: `{"prompt": "wapen en portret min tekst", "modus": "prompt"}`; of `"modus"`: `alles`, `categorie` (met `"categorie": "heraldiek"`) of `commons` (de regio's uit Commons, gratis). Of `{"punt": {"x", "y"}}` (Aanwijzen), `{"rechthoek": {"x", "y", "w", "h"}}` (met de hand, gratis) of `{"masker_voor": "<object-id>"}` (de vorm van een regio via een SAM-boxprompt). Antwoord 201 met alle objecten van de pagina en de nieuwe id's |
 | GET | `/bestand/{mid}/pagina/{n}/detecties/raming` | Wat een detectie zou kosten (zelfde parameters als query); voert niets uit |
 | GET | `/bestand/{mid}/pagina/{n}/inventaris` | Het opgeslagen paginaoverzicht ("Wat staat op deze pagina?") en de kosten van een nieuw |
-| POST | `/bestand/{mid}/pagina/{n}/inventaris` | Muse Spark vragen wat er op de pagina staat; zoektermen voor SAM. Body: `{"model": "auto", "opnieuw": false}` |
+| POST | `/bestand/{mid}/pagina/{n}/inventaris` | Muse Spark vragen wat er op de pagina staat; zoektermen voor SAM. Body: `{"model": "auto", "opnieuw": false}`. Het overzicht heeft `paginasoort` en `samenvatting` in het Nederlands en (sinds 0.9.0) `paginasoort_en` en `samenvatting_en` in het Engels |
 
 Snel zoeken-groepen (`categorie`): `heraldiek`, `portretten`, `figuren`, `dieren`, `planten`, `gebouwen`, `kaarten`, `schepen`, `initialen`, `logos`, `tekst`, `albumfotos`.
 

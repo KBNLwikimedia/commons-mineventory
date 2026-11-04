@@ -157,6 +157,7 @@ def test_dummy_description_and_inventory(objects, album, tmp_path):
     overview = service.inventory(album, 1)["inventaris"]
     assert overview["zoektermen"][0] == {"en": "coat of arms", "nl": "wapen", "aantal": 2, "waar": "bovenaan"}
     assert service.inventory_plan(album, 1)["inventaris"]["paginasoort"]
+    assert service.inventory_plan(album, 1)["inventaris"]["samenvatting_en"]
     assert objects.verbruik.entries() == []  # dummy is free
 
 

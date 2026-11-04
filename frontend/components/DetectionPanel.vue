@@ -55,9 +55,14 @@
     </cdx-accordion>
 
     <cdx-accordion v-model="open.suggestions">
-      <template #title>{{ t("panel.suggestions") }} <ai-badge v-if="inventory" kind="pagina" :model="inventory.model" /></template>
+      <template #title>{{ t("panel.suggestions") }}</template>
       <template v-if="inventory">
-        <p class="cc-klein">{{ inventory.paginasoort }} — {{ inventory.samenvatting }}</p>
+        <!-- Dutch, and English below it in italics, as in the magnifier (overviews from before 0.8 have only Dutch). -->
+        <p class="cc-klein">
+          {{ inventory.paginasoort }} — {{ inventory.samenvatting }}
+          <template v-if="inventory.samenvatting_en"><br /><i>{{ inventory.paginasoort_en }} — {{ inventory.samenvatting_en }}</i></template>
+          <ai-badge kind="pagina" :model="inventory.model" />
+        </p>
         <div class="cc-knoppen">
           <cdx-button
             action="progressive"

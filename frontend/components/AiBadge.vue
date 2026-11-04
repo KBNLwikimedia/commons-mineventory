@@ -1,6 +1,6 @@
 <!--
   A small "AI" mark beside a text that a language model wrote: the subject
-  and description from "Wat staat hierop?" (kind "beschrijving") or the page
+  and description from "Wat staat hierop?" (kind "beschrijving"), its kind and certainty (kind "soort"), the page
   overview with its search terms (kind "pagina"), or an object found by the
   AI image detection (kind "detectie"). A click opens a short
   explanation of what that means and what to check. It may sit in an
@@ -61,6 +61,7 @@ const TEXTS = {
   beschrijving: { what: "ai.what", risk: "ai.risk", check: "ai.check" },
   pagina: { what: "ai.what_page", risk: "ai.risk", check: "ai.check_page" },
   detectie: { what: "ai.what_detection", risk: "ai.risk_detection", check: "ai.check_detection" },
+  soort: { what: "ai.what_kind", risk: "ai.risk", check: "ai.check_kind" },
 };
 const texts = computed(() => TEXTS[props.kind] || TEXTS.beschrijving);
 // The model name links to Meta's page about it (as in the live-mode line).

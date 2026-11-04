@@ -5,6 +5,14 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-04
+
+### Gewijzigd
+
+- Het AI-merkje bij *AI-suggesties voor deze afbeelding* staat nu achter de samenvatting van het AI-paginaoverzicht, in plaats van in de kop.
+- *AI-suggesties voor deze afbeelding*: het AI-paginaoverzicht geeft soort en samenvatting nu ook in het Engels (`paginasoort_en`, `samenvatting_en`), schuin onder het Nederlands, zoals in de vergroter. Een bestaand overzicht heeft alleen Nederlands; *Opnieuw vragen* haalt beide talen op (nieuwe cacheversie).
+- *Wat staat hierop?*: ook bij *Soort* staat het AI-merkje, met uitleg dat soort en zekerheid door het taalmodel zijn gekozen en dat de zekerheid geen gemeten score is.
+
 ## [0.8.0] - 2026-11-04
 
 ### Toegevoegd
