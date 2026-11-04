@@ -130,6 +130,11 @@ export class PageViewer {
      accent-coloured rectangle masked by the object's mask PNG. */
   setObjects(objects, newIds) {
     this.lastObjects = [objects, newIds];
+    // Marks that outlive a redraw (a new answer from the server): under the mouse, chosen in the list.
+    const marked = {};
+    this.objectElements.forEach((group, id) => {
+      ["hover", "uitgelicht"].forEach((name) => group.classList.contains(name) && (marked[name] = id));
+    });
     this.objectLayer.replaceChildren();
     this.defs.replaceChildren();
     this.objectElements.clear();
@@ -166,6 +171,12 @@ export class PageViewer {
       this.objectLayer.append(group);
       this.objectElements.set(obj.id, group);
     });
+    Object.entries(marked).forEach(([name, id]) => {
+      const group = this.objectElements.get(id);
+      if (!group) return;
+      group.classList.add(name);
+      if (group.object.masker) this._addMask(group, group.object);
+    });
     this._scaleLabels();
   }
 
@@ -191,7 +202,9 @@ export class PageViewer {
     this.objectElements.forEach((group, id) => {
       const obj = group.object;
       obj.status = selected.has(id) ? "geselecteerd" : obj.status === "geselecteerd" ? "kandidaat" : obj.status;
-      group.setAttribute("class", this._classes(obj, group.classList.contains("object-nieuw")));
+      // Keep the marks that are not about the status: under the mouse, chosen in the list.
+      const kept = ["hover", "uitgelicht"].filter((name) => group.classList.contains(name));
+      group.setAttribute("class", [this._classes(obj, group.classList.contains("object-nieuw")), ...kept].join(" "));
     });
   }
 

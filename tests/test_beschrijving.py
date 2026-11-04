@@ -184,6 +184,7 @@ def test_dummy_description_and_inventory(objects, album, tmp_path):
     assert overview["zoektermen"][0] == {"en": "coat of arms", "nl": "wapen", "aantal": 2, "waar": "bovenaan"}
     assert service.inventory_plan(album, 1)["inventaris"]["paginasoort"]
     assert service.inventory_plan(album, 1)["inventaris"]["samenvatting_en"]
+    assert service.inventory_plan(album, 1)["inventaris"]["tekst"]
     assert objects.verbruik.entries() == []  # dummy is free
 
 
@@ -205,8 +206,38 @@ def test_caption_goes_into_the_question_and_the_cache_key(objects, album, tmp_pa
     assert '"Wapen van Bronckhorst"' in prompts[-1]
 
 
+def test_page_text_goes_into_the_question_and_the_cache_key(objects, album, tmp_path):
+    obj = objects.rectangle(album, 1, {"x": 0, "y": 0, "w": 300, "h": 300})["object"]
+    prompts = []
+
+    class Recording(FixtureVision):
+        def describe(self, model, prompt, data_url, o, effort=None, schema=beschrijving.SCHEMA):
+            prompts.append(prompt)
+            if schema is beschrijving.INVENTORY_SCHEMA:
+                return DummyVision().describe(model, prompt, data_url, o, effort, schema)
+            return super().describe(model, prompt, data_url, o, effort, schema)
+
+    service = DescriptionService(Recording(), objects, CONFIG, tmp_path / "cache")
+    first = service.describe(album, 1, obj["id"])["object"]["beschrijving"]
+    assert "Text read earlier" not in prompts[-1] and not first["paginatekst"]
+    service.inventory(album, 1)  # the dummy overview reads a text under the image
+    again = service.describe(album, 1, obj["id"])
+    assert not again["uit_cache"]  # with the page text: a new question
+    assert "Voorbeeldtekst onder de afbeelding (dummy)." in prompts[-1]
+    assert again["object"]["beschrijving"]["paginatekst"]
+    assert len(service.history(album, 1, obj["id"])) >= 1  # the first answer is kept
+
+
 def test_concept_api_includes_the_caption(http):
     page = "/api/v1/bestand/M28830642/pagina/1"
     obj = http.post(page + "/detecties", json={"rechthoek": {"x": 0, "y": 0, "w": 100, "h": 100}}).get_json()["object"]
     http.patch(f"{page}/object/{obj['id']}", json={"bijschrift": {"tekst": "Spes mea Deus"}})
     assert http.get(f"{page}/object/{obj['id']}/commons").get_json()["bijschrift"] == "Spes mea Deus"
+
+
+def test_inventory_keeps_text_lines():
+    from cutter.beschrijving import parse_inventory
+
+    answer = r'{"paginasoort": "prent", "samenvatting": "x", "tekst": "Gaarne  helpen zij\n\nAlles gaat de auto in.", "zoektermen": []}'
+    assert parse_inventory(answer)["tekst"] == "Gaarne helpen zij\nAlles gaat de auto in."
+    assert parse_inventory("geen json")["tekst"] == ""

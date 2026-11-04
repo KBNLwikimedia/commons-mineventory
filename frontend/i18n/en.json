@@ -337,6 +337,7 @@
   "panel.inventory_again": "Ask for suggestions again",
   "panel.inventory_again_help": "Ask for suggestions again really asks the model again, so it costs money again; the new answer can look a lot like the previous one.",
   "panel.inventory_help": "The AI page overview looks at the whole page and suggests search terms.",
+  "panel.inventory_text": "Text in and under the image:",
   "panel.merge": "Merge duplicates",
   "panel.mode_dummy": "Test mode (dummy detection): everything is free.",
   "panel.mode_live": "Live: AI image detection ({sam}) and AI image description ({muse}) via the Meta Model API. Paid actions ask for confirmation.",

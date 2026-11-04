@@ -3,6 +3,17 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.16.0] - 2026-11-04
+
+### Toegevoegd
+
+- AI-suggesties voor deze afbeelding: Muse Spark leest nu ook de tekst in en onder de afbeelding (bijvoorbeeld het rijmpje onder een prent) en neemt die letterlijk over. Die staat onder de samenvatting. Het overzicht heeft versie 3 (veld `tekst`); een bestaand overzicht heeft dat veld niet, *Opnieuw om suggesties vragen* (betaald) haalt het op.
+- *Wat staat hierop?*: de tekst die het overzicht in en onder de hele afbeelding las, gaat als context mee naar de beschrijving van elke uitsnede (bijvoorbeeld het rijmpje dat over het plaatje gaat). Muse Spark gebruikt hem om de uitsnede te benoemen en beschrijven, en om tekst in of rond de uitsnede beter te lezen. Een vraag met paginatekst is een andere vraag dan zonder (eigen cache); de beschrijving onthoudt of hij gebruikt is (`paginatekst`).
+
+### Opgelost
+
+- Een object aan- en uitvinken terwijl de muis op de rij in de lijst staat, maakte het masker in het beeld lichter: het object verloor zijn markering "onder de muis" en werd daardoor net als de andere objecten gedimd. De markeringen blijven nu staan, ook als het beeld na het antwoord van de server opnieuw wordt getekend.
+
 ## [0.15.0] - 2026-11-04
 
 ### Toegevoegd

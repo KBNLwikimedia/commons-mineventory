@@ -110,6 +110,15 @@ The image is {title} on Wikimedia Commons. Context from the file page (may be in
 # A one-off hint from the user for "Ask again" (e.g. "only the boy"): part of
 # the question, not of the caption; at most this many characters.
 MAX_HINT = 300
+PAGE_TEXT_INSTRUCTION = """
+
+Text read earlier in the whole image this cut-out comes from (in and under the picture; read by a model, so it may contain errors):
+<<<
+{text}
+>>>
+Use it as context where it helps to name or describe the cut-out (e.g. a caption or verse about what is shown). For tekst_in_beeld and tekst_rond_beeld, only give text you can see in the cut-out itself; you may use this text to read it more accurately."""
+MAX_PAGE_TEXT = 2000
+
 HINT_INSTRUCTION = """
 
 Instruction from the user for this question (follow it; it overrides the context above where they differ): {hint}"""
@@ -137,7 +146,7 @@ def estimate(model, effort=None, input_tokens=None):
 
 # -- Page overview ("Wat staat op deze pagina?") --------------------------------
 
-INVENTORY_VERSION = 2  # 2: kind and summary also in English
+INVENTORY_VERSION = 3  # 2: kind and summary also in English; 3: the text in and under the image
 PAGE_WIDTH = 1600  # pixels of the page image sent to the model
 ESTIMATE_PAGE_INPUT = 3000  # tokens: a whole page at 1600 px plus the question
 MAX_TERMS = 12
@@ -149,6 +158,7 @@ INVENTORY_SCHEMA = {
         "paginasoort_en": {"type": "string"},
         "samenvatting": {"type": "string"},
         "samenvatting_en": {"type": "string"},
+        "tekst": {"type": "string"},
         "zoektermen": {
             "type": "array",
             "items": {
@@ -164,7 +174,7 @@ INVENTORY_SCHEMA = {
             },
         },
     },
-    "required": ["paginasoort", "paginasoort_en", "samenvatting", "samenvatting_en", "zoektermen"],
+    "required": ["paginasoort", "paginasoort_en", "samenvatting", "samenvatting_en", "tekst", "zoektermen"],
     "additionalProperties": False,
 }
 
@@ -175,12 +185,13 @@ List the visual objects in this image (not text), so that an open-vocabulary obj
 - paginasoort_en: the same in English.
 - samenvatting: one sentence in Dutch about what is visible.
 - samenvatting_en: the same sentence in English.
+- tekst: all text you can read in the image, including captions or verses printed under or around the picture, transcribed literally in its own language and spelling, with a newline between separate lines or blocks. Read it carefully; mark a word you cannot read with [?]. Leave it empty when there is no text.
 - zoektermen: at most {max_terms} distinct kinds of visual objects, most frequent or most striking first. For each:
   - en: a short English noun phrase for the detector, singular, 1-3 words, concrete and visual (e.g. "portrait", "coat of arms", "saint", "angel", "decorated initial", "ship", "map", "flower", "ornament").
   - nl: the same in Dutch.
   - aantal: how many you see (an estimate).
   - waar: where in the image, in Dutch (e.g. "linksboven", "onderste helft").
-Only list what you can actually see; do not guess. Skip plain text and borders."""
+Only list what you can actually see; do not guess. In zoektermen, skip plain text and borders."""
 
 
 def parse_inventory(text):
@@ -191,7 +202,7 @@ def parse_inventory(text):
     except ValueError:
         data = None
     if not isinstance(data, dict):
-        return {"paginasoort": "", "paginasoort_en": "", "samenvatting": " ".join((text or "").split())[:300], "samenvatting_en": "", "zoektermen": []}
+        return {"paginasoort": "", "paginasoort_en": "", "samenvatting": " ".join((text or "").split())[:300], "samenvatting_en": "", "tekst": "", "zoektermen": []}
     terms, seen = [], set()
     for entry in data.get("zoektermen") or []:
         if not isinstance(entry, dict):
@@ -212,6 +223,8 @@ def parse_inventory(text):
         "paginasoort_en": " ".join(str(data.get("paginasoort_en") or "").split()),
         "samenvatting": " ".join(str(data.get("samenvatting") or "").split()),
         "samenvatting_en": " ".join(str(data.get("samenvatting_en") or "").split()),
+        # The text in the image keeps its line breaks (verses, captions in two columns).
+        "tekst": "\n".join(" ".join(line.split()) for line in str(data.get("tekst") or "").splitlines() if line.strip())[:2000],
         "zoektermen": terms,
     }
 
@@ -325,7 +338,7 @@ def clean_hint(hint):
     return " ".join(str(hint or "").split())[:MAX_HINT]
 
 
-def build_prompt(file, caption=None, hint=None):
+def build_prompt(file, caption=None, hint=None, page_text=None):
     caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
     prompt = INSTRUCTIONS.format(
         kinds=", ".join(KINDS),
@@ -334,6 +347,9 @@ def build_prompt(file, caption=None, hint=None):
         cutout_caption=f'"{caption}"' if caption else "none",
         **context(file),
     )
+    page_text = (page_text or "").strip()[:MAX_PAGE_TEXT]
+    if page_text:
+        prompt += PAGE_TEXT_INSTRUCTION.format(text=page_text)
     hint = clean_hint(hint)
     return prompt + HINT_INSTRUCTION.format(hint=hint) if hint else prompt
 
@@ -437,6 +453,7 @@ class DummyVision:
                 "paginasoort_en": "example image (dummy)",
                 "samenvatting": "Voorbeeldoverzicht (dummy, geen echt model).",
                 "samenvatting_en": "Example overview (dummy, no real model).",
+                "tekst": "Voorbeeldtekst onder de afbeelding (dummy).",
                 "zoektermen": [
                     {"en": "coat of arms", "nl": "wapen", "aantal": 2, "waar": "bovenaan"},
                     {"en": "portrait", "nl": "portret", "aantal": 1, "waar": "midden"},
@@ -566,7 +583,12 @@ class DescriptionService:
     def _caption(obj):
         return ((obj.get("bijschrift") or {}).get("tekst") or "").strip()
 
-    def _cache_path(self, file, n, obj, model, hint="", margin=MARGIN):
+    def _page_text(self, file, n):
+        """The text the page overview read in and under the whole image ("" if none)."""
+        overview = self.objects._load_store(file, n).get("inventaris") or {}
+        return (overview.get("tekst") or "").strip()[:MAX_PAGE_TEXT]
+
+    def _cache_path(self, file, n, obj, model, hint="", margin=MARGIN, page_text=""):
         # The caption, a hint and the margin are part of the question, so another
         # one is another (cached) answer. With the defaults the key is as before.
         key = f"{file['sha1']}|{n}|{obj['box']}|{self._caption(obj)}|{model}|{self._effort()}|{PROMPT_VERSION}"
@@ -574,6 +596,8 @@ class DescriptionService:
             key += f"|hint:{hint}"
         if margin != MARGIN:
             key += f"|marge:{margin}"
+        if page_text:
+            key += f"|paginatekst:{hashlib.sha1(page_text.encode()).hexdigest()}"
         digest = hashlib.sha1(key.encode()).hexdigest()
         return self.cache_dir / digest[:2] / f"{digest}.json"
 
@@ -601,7 +625,9 @@ class DescriptionService:
         choice = self._model(file, model)
         hint = clean_hint(hint)
         margin = clean_margin(margin)
-        path = self._cache_path(file, n, obj, choice["model"], hint, margin)
+        # The text read in the whole image (page overview) goes along as context.
+        page_text = self._page_text(file, n)
+        path = self._cache_path(file, n, obj, choice["model"], hint, margin, page_text)
         if path.exists() and not again:
             description = json.loads(path.read_text(encoding="utf-8"))
             description["uit_cache"] = True
@@ -612,7 +638,7 @@ class DescriptionService:
             self.objects.verbruik.check(1, user=user, cost=estimate(choice["model"], effort))
         page = self.objects.client.load_page(file, n)
         data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
-        prompt = build_prompt(file, self._caption(obj), hint)
+        prompt = build_prompt(file, self._caption(obj), hint, page_text)
 
         body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
         tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
@@ -634,6 +660,7 @@ class DescriptionService:
             "promptversie": PROMPT_VERSION,
             "aanwijzing": hint or None,
             "marge": margin,
+            "paginatekst": bool(page_text),
             "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "appversie": __version__,
         }
@@ -663,7 +690,7 @@ class DescriptionService:
     @staticmethod
     def _same(a, b):
         """Whether two descriptions are the same answer (same time, question and texts)."""
-        keys = ("tijdstempel", "aanwijzing", "marge", *EDITABLE)
+        keys = ("tijdstempel", "aanwijzing", "marge", "paginatekst", *EDITABLE)
         return all((a or {}).get(k) == (b or {}).get(k) for k in keys)
 
     def _keep_in_history(self, obj):
@@ -687,10 +714,11 @@ class DescriptionService:
             if "beschrijving" in data:
                 combos.add((data.get("aanwijzing") or "", clean_margin(data.get("marge"))))
         models = dict.fromkeys([self.config["BEELDMODEL"], self.config["BEELDMODEL_RECHTENVRIJ"]])
+        page_texts = dict.fromkeys(["", self._page_text(file, n)])
         found = []
         for model in models:
-            for hint, margin in combos:
-                path = self._cache_path(file, n, obj, model, hint, margin)
+            for (hint, margin), page_text in ((c, p) for c in combos for p in page_texts):
+                path = self._cache_path(file, n, obj, model, hint, margin, page_text)
                 if path.exists():
                     try:
                         found.append(json.loads(path.read_text(encoding="utf-8")))

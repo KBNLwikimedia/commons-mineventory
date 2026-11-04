@@ -337,6 +337,7 @@
   "panel.inventory_again": "Opnieuw om suggesties vragen",
   "panel.inventory_again_help": "Opnieuw om suggesties vragen stelt de vraag echt opnieuw en kost dus weer geld; het nieuwe antwoord kan veel op het vorige lijken.",
   "panel.inventory_help": "Het AI-paginaoverzicht bekijkt de hele pagina en stelt zoektermen voor.",
+  "panel.inventory_text": "Tekst in en onder de afbeelding:",
   "panel.merge": "Dubbelingen samenvoegen",
   "panel.mode_dummy": "Proefmodus (dummydetectie): alles is gratis.",
   "panel.mode_live": "Live: AI-beelddetectie ({sam}) en AI-beeldbeschrijving ({muse}) via de Meta Model API. Betaalde acties vragen om bevestiging.",

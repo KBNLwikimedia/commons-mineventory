@@ -27,6 +27,11 @@
           <template v-if="inventory.samenvatting_en"><br /><i>{{ inventory.paginasoort_en }} — {{ inventory.samenvatting_en }}</i></template>
           <ai-badge kind="pagina" :model="inventory.model" />
         </p>
+        <!-- The text the model read in and under the image (overviews since 0.16 only). -->
+        <div v-if="inventory.tekst" class="cc-klein cc-inventaris-tekst">
+          <strong>{{ t("panel.inventory_text") }}</strong>
+          <blockquote>{{ inventory.tekst }}</blockquote>
+        </div>
         <div class="cc-knoppen">
           <cdx-button
             action="progressive"

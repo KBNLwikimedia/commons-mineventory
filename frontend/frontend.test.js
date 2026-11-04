@@ -142,6 +142,27 @@ describe("PageViewer", () => {
     expect(host.querySelector('g[data-id="a"]').getAttribute("class")).toContain("object-kandidaat");
   });
 
+  it("keeps the hover and highlight marks when the selection changes", () => {
+    const { host, viewer } = viewerWithPage();
+    viewer.setObjects(objects);
+    viewer.setObjectHover("a", true);
+    viewer.focusObject("a", false);
+    viewer.setSelection([]);
+    viewer.setSelection(["a"]);
+    const group = host.querySelector('g[data-id="a"]');
+    expect(group.classList.contains("hover")).toBe(true);
+    expect(group.classList.contains("uitgelicht")).toBe(true);
+    expect(group.classList.contains("object-geselecteerd")).toBe(true);
+  });
+
+  it("keeps the hover mark when the objects are drawn again", () => {
+    const { host, viewer } = viewerWithPage();
+    viewer.setObjects(objects);
+    viewer.setObjectHover("a", true);
+    viewer.setObjects(objects);
+    expect(host.querySelector('g[data-id="a"]').classList.contains("hover")).toBe(true);
+  });
+
   it("emits events and can unsubscribe", () => {
     const { viewer } = viewerWithPage();
     const seen = [];
