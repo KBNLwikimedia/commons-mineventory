@@ -468,5 +468,32 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-categorie-erbij { display: inline-flex; gap: 0.25rem; }
 .cc-categorie-erbij .cdx-text-input { width: 14rem; }
 .cc-categorie-uit { flex-basis: 100%; }
-.cc-sdc-erbij { max-width: 24rem; margin-top: 0.25rem; }
+.cc-sdc-erbij { max-width: 36rem; margin-top: 0.4rem; }
 .cc-veld-dialoog.cdx-dialog { max-width: 48rem; }
+/* As a file page on Commons: the two tabs, the captions box with Edit, [edit] after a heading. */
+.cc-commons-tabs { margin-top: 0.5rem; }
+.cc-commons-kader { border: 1px solid var(--cc-rand); padding: 0.75rem 1rem; margin: 0.75rem 0; }
+.cc-commons-kader-kop { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.cc-captions { width: 100%; border-collapse: collapse; }
+.cc-captions th, .cc-captions td { text-align: left; font-weight: normal; padding: 0.4rem 0.25rem; border-bottom: 1px solid var(--cc-rand); vertical-align: top; }
+.cc-captions tr:last-child th, .cc-captions tr:last-child td { border-bottom: 0; }
+.cc-captions th { width: 30%; }
+.cc-captions td.leeg { color: var(--cc-tekst-zacht); }
+.cc-weergave-commons .mw-heading { display: flex; align-items: baseline; gap: 0.5rem; }
+.cc-sectie-edit { font-size: 0.8125rem; font-family: sans-serif; }
+button.cc-sectie-edit { border: 0; background: none; padding: 0; color: var(--color-progressive, #36c); cursor: pointer; }
+button.cc-sectie-edit:hover { text-decoration: underline; }
+.cc-sectie-vast { color: var(--cc-tekst-zacht); cursor: help; }
+.cc-voorbeeld-kop .cdx-toggle-button-group { flex: none; display: inline-flex; flex-wrap: nowrap; white-space: nowrap; }
+.cc-voorbeeld-kop > .cc-klein { flex: 1; min-width: 0; }
+/* Structured data: Edit at the right of a statement, as on Commons; the editing rows. */
+.cc-sdc-kop { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.cc-sdc-edit { font-weight: normal; font-size: 0.875rem; }
+.cc-sdc-vast { font-weight: normal; cursor: help; }
+.cc-sdc-bewerk-rij { display: flex; align-items: center; gap: 0.35rem; }
+.cc-sdc-bewerk-rij .cdx-lookup, .cc-sdc-bewerk-rij .cdx-text-input { flex: 1; max-width: 32rem; }
+.cc-sdc-melding { margin: 0.5rem 0; }
+.cc-naam-formaat { display: flex; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap; }
+.cc-naam-formaat .cc-naam-veld { flex: 1 1 24rem; min-width: 0; margin-top: 0; }
+.cc-naam-formaat .cc-formaat-veld { flex: none; margin-top: 0; }
+.cc-naam-formaat .cc-formaat-veld .cdx-toggle-button-group { display: inline-flex; flex-wrap: nowrap; }

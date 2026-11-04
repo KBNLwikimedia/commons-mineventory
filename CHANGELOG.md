@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.24.0] - 2026-11-04
+
+### Gewijzigd
+
+- Commons-concept, nu net als een bestandspagina op Commons: twee tabbladen, *Bestandsinformatie* en *Gestructureerde gegevens*. Op *Bestandsinformatie* staat bovenaan het kader *Captions* met *Bewerken* rechts, dan de weergave met *[bewerken]* achter de kop Summary (beschrijving, datum en maker in één venster) en bij Licensing de opmerking *van het origineel*; de potloodjes per rij blijven. Daaronder de categorieën. Op *Gestructureerde gegevens* staan de uitspraken, met 'beeldt af' (P180) bovenaan en bewerkbaar, ook als er nog geen item is: zoals op Commons met het zoekveld *Zoek om items toe te voegen*. Op *Gestructureerde gegevens* heeft elke uitspraak die van het origineel komt (auteursrechtenstatus, licentie, maker, datum van creatie, collectie) rechts *Bewerken*, zoals op Commons: je past alleen de waarden aan (een Wikidata-item via zoeken, een datum als 1708, 1708-02 of 1708-02-28, bij de maker ook 'onbekend'), haalt er een weg of voegt er een toe; de kwalificaties van het origineel blijven, nieuwe kwalificaties of bronnen kunnen niet. De feiten van het bestand zelf (type, MIME-type, checksum, grootte, afmetingen) zijn niet te bewerken. Een melding zegt dat verder verfijnen na de upload op Commons zelf gebeurt. API: veld `sdc_waarden` in het concept. Weergave en Broncode staan weer naast elkaar. *Formaat* (JPG/PNG) staat nu rechts naast de bestandsnaam. Per tabblad een knop *Broncode* om de wikitekst of JSON te zien (alleen lezen).
+
 ## [0.23.0] - 2026-11-04
 
 ### Toegevoegd

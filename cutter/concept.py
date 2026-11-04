@@ -74,8 +74,13 @@ COPIED_PROPERTIES = ("P6216", "P275", "P170", "P571", "P195")
 FORMATS = ("jpg", "png")
 EDITABLE = {
     "bestandsnaam", "formaat", "beschrijving", "caption", "datum", "maker", "categorieen",
-    "beeldt_af", "image_extracted", "merk_bevestigd", "gekozen",
+    "beeldt_af", "image_extracted", "merk_bevestigd", "gekozen", "sdc_waarden",
 }
+# Statements from the original whose values can be changed in the app (not their
+# qualifiers or references; fine-tuning is for Commons itself, after the upload).
+# The facts of the file (P31, P1163, P4092, P3575, P2048, P2049) are not edited.
+EDITABLE_PROPERTIES = COPIED_PROPERTIES
+GREGORIAN = "http://www.wikidata.org/entity/Q1985727"
 
 
 def clean_name(text):
@@ -277,11 +282,61 @@ def validate_patch(body):
     for key in ("image_extracted",):
         if key in body and not isinstance(body[key], bool):
             raise ValueError(f"'{key}' is true of false.")
+    if "sdc_waarden" in body:
+        _validate_sdc_values(body["sdc_waarden"])
     if "merk_bevestigd" in body and body["merk_bevestigd"] is not None and not (
         isinstance(body["merk_bevestigd"], str) and body["merk_bevestigd"].strip()
     ):
         raise ValueError("'merk_bevestigd' is een reden (tekst), of null.")
     return body
+
+
+def _validate_sdc_values(values):
+    """{"P195": [{"item": "Q…"}], "P571": [{"tijd": "1708"}], "P170": [{"onbekend": true}], …};
+    each value may name "bron", the index of the original statement whose qualifiers it keeps."""
+    if not isinstance(values, dict):
+        raise ValueError("'sdc_waarden' is een object met per eigenschap een lijst waarden.")
+    for prop, items in values.items():
+        if prop not in EDITABLE_PROPERTIES:
+            raise ValueError(f"De waarden van {prop} zijn hier niet te wijzigen; wel van {', '.join(EDITABLE_PROPERTIES)}.")
+        if not isinstance(items, list):
+            raise ValueError(f"'sdc_waarden.{prop}' is een lijst.")
+        for value in items:
+            kinds = [k for k in ("item", "tijd", "onbekend") if k in (value if isinstance(value, dict) else {})]
+            if len(kinds) != 1:
+                raise ValueError("Een waarde is {\"item\": \"Q…\"}, {\"tijd\": \"1708\"} of {\"onbekend\": true}.")
+            if "item" in value and not re.fullmatch(r"Q\d+", str(value["item"])):
+                raise ValueError(f"'{value['item']}' is geen Wikidata-item (Q…).")
+            if "tijd" in value and time_value(value["tijd"]) is None:
+                raise ValueError(f"'{value['tijd']}' is geen datum; gebruik bijv. 1708, 1708-02 of 1708-02-28.")
+            if "bron" in value and not (isinstance(value["bron"], int) and value["bron"] >= 0):
+                raise ValueError("'bron' is het volgnummer van een statement van het origineel.")
+
+
+def time_value(text):
+    """A Wikibase time from "1708", "1708-02" or "1708-02-28" (year, month or day
+    precision, Gregorian); None when it is not such a date."""
+    match = re.fullmatch(r"\s*(-?\d{1,4})(?:-(\d{2}))?(?:-(\d{2}))?\s*", str(text or ""))
+    if not match:
+        return None
+    year, month, day = match.group(1), match.group(2), match.group(3)
+    if (month and not 1 <= int(month) <= 12) or (day and not 1 <= int(day) <= 31):
+        return None
+    sign = "-" if year.startswith("-") else "+"
+    return {
+        "time": f"{sign}{int(year.lstrip('-')):04d}-{month or '00'}-{day or '00'}T00:00:00Z",
+        "timezone": 0, "before": 0, "after": 0,
+        "precision": 11 if day else 10 if month else 9,
+        "calendarmodel": GREGORIAN,
+    }
+
+
+def _value_snak(prop, value):
+    if value.get("onbekend"):
+        return {"snaktype": "somevalue", "property": prop}
+    if "tijd" in value:
+        return {"snaktype": "value", "property": prop, "datavalue": {"value": time_value(value["tijd"]), "type": "time"}}
+    return _item_snak(prop, value["item"])
 
 
 # -- Wikitext (9.3) ---------------------------------------------------------------------
@@ -541,7 +596,9 @@ def structured_data(file, c, facts=None):
     parsed = file.get("_sdc") or {}
     from .sdc import PROPERTIES
 
+    overrides = c.get("sdc_waarden") or {}
     for prop in COPIED_PROPERTIES:
+        originals = []
         for statement in parsed.get(PROPERTIES[prop], []):
             if not statement.get("_mainsnak"):
                 continue
@@ -549,6 +606,17 @@ def structured_data(file, c, facts=None):
             qualifiers = {k: v for k, v in (statement.get("_qualifiers") or {}).items() if k not in DROPPED_QUALIFIERS}
             if qualifiers:
                 claim["qualifiers"] = qualifiers
+            originals.append(claim)
+        if prop not in overrides:
+            claims.extend(originals)
+            continue
+        # Values changed in the app: the new value, with the qualifiers of the
+        # original statement it replaces (none for a value that was added).
+        for value in overrides[prop]:
+            source = originals[value["bron"]] if isinstance(value.get("bron"), int) and value["bron"] < len(originals) else None
+            claim = {"mainsnak": _value_snak(prop, value), "type": "statement", "rank": (source or {}).get("rank", "normal")}
+            if source and source.get("qualifiers"):
+                claim["qualifiers"] = source["qualifiers"]
             claims.append(claim)
     claims.append(_claim(_item_snak("P31", DIGITAL_IMAGE)))
     claims.append(_claim(_string_snak("P1163", MEDIA_TYPES[c["formaat"]])))

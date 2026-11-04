@@ -338,3 +338,36 @@ def test_text_in_and_around_the_cutout_become_inscriptions():
     assert "={{Information field|name={{int:wm-license-artwork-inscriptions}}" in out and "Other" in out
     # Nothing read: no inscriptions at all.
     assert "Inscription" not in concept.concept(kb_file(), {"id": "o", "label": "x"})["wikitekst"]
+
+
+def test_statement_values_can_be_changed_but_keep_their_qualifiers():
+    c = concept.default_concept({"titel": "File:X.jpg", "categorieen": [], "_wikitekst": ""}, {"id": "o", "label": "x"})
+    file = {
+        "titel": "File:X.jpg",
+        "_sdc": {"collectie": [{"_mainsnak": concept._item_snak("P195", "Q1"), "_qualifiers": {"P217": [{"snaktype": "value", "property": "P217"}]}}]},
+    }
+    from cutter.sdc import PROPERTIES
+
+    file["_sdc"] = {PROPERTIES["P195"]: file["_sdc"]["collectie"]}
+    c["sdc_waarden"] = {"P195": [{"item": "Q2", "bron": 0}, {"item": "Q3"}], "P571": [{"tijd": "1708-02"}], "P170": [{"onbekend": True}]}
+    claims = concept.structured_data(file, c)["claims"]
+    collection = [cl for cl in claims if cl["mainsnak"]["property"] == "P195"]
+    assert [cl["mainsnak"]["datavalue"]["value"]["id"] for cl in collection] == ["Q2", "Q3"]
+    assert "P217" in collection[0]["qualifiers"] and "qualifiers" not in collection[1]
+    date = next(cl for cl in claims if cl["mainsnak"]["property"] == "P571")["mainsnak"]["datavalue"]["value"]
+    assert date["time"] == "+1708-02-00T00:00:00Z" and date["precision"] == 10
+    assert next(cl for cl in claims if cl["mainsnak"]["property"] == "P170")["mainsnak"]["snaktype"] == "somevalue"
+    # An empty list removes the statement.
+    c["sdc_waarden"] = {"P195": []}
+    assert not [cl for cl in concept.structured_data(file, c)["claims"] if cl["mainsnak"]["property"] == "P195"]
+
+
+@pytest.mark.parametrize("body", [
+    {"sdc_waarden": {"P31": [{"item": "Q1"}]}},
+    {"sdc_waarden": {"P195": [{"item": "X1"}]}},
+    {"sdc_waarden": {"P571": [{"tijd": "ergens"}]}},
+    {"sdc_waarden": {"P195": [{"item": "Q1", "tijd": "1708"}]}},
+])
+def test_statement_values_are_checked(body):
+    with pytest.raises(ValueError):
+        concept.validate_patch(body)

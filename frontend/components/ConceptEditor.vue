@@ -13,16 +13,18 @@
         <p class="cc-bestand-regel">
           <rights-label v-for="label in concept.rechten.labels" :key="label" :label="label" />
         </p>
-        <cdx-field>
-          <template #label>{{ t("concept.filename") }}</template>
-          <template #help-text>{{ t("concept.filename_help") }}</template>
-          <cdx-text-input v-model="draft.bestandsnaam" />
-        </cdx-field>
-        <cdx-field :is-fieldset="true">
-          <template #label>{{ t("concept.format") }}</template>
-          <template #help-text>{{ t(`concept.format_${draft.formaat}`) }}</template>
-          <cdx-toggle-button-group v-model="draft.formaat" :buttons="formats" />
-        </cdx-field>
+        <!-- File name and, right beside it, the format (it sets the extension). -->
+        <div class="cc-naam-formaat">
+          <cdx-field class="cc-naam-veld">
+            <template #label>{{ t("concept.filename") }}</template>
+            <template #help-text>{{ t("concept.filename_help") }} {{ t(`concept.format_${draft.formaat}`) }}</template>
+            <cdx-text-input v-model="draft.bestandsnaam" />
+          </cdx-field>
+          <cdx-field :is-fieldset="true" class="cc-formaat-veld">
+            <template #label>{{ t("concept.format") }}</template>
+            <cdx-toggle-button-group v-model="draft.formaat" :buttons="formats" />
+          </cdx-field>
+        </div>
       </div>
       <cutout-preview :src="previewUrl" :caption="t('concept.preview_image')" />
     </div>
@@ -39,69 +41,94 @@
     <p class="cc-klein cc-opslagstatus" role="status">{{ saving ? t("concept.saving") : t("concept.autosave") }}</p>
     <cdx-message v-if="message" :type="messageType" :inline="true">{{ message }}</cdx-message>
 
-    <!-- The Commons page itself, editable: a pencil on every row that comes from the concept. -->
+    <!-- The file page as on Commons: two tabs, "File information" and "Structured data", with
+         Edit / [edit] links in the same places; a pencil on every row too. -->
     <section class="cc-commons-pagina">
       <h3 class="cc-blok-kop">{{ t("concept.preview") }}</h3>
       <p class="cc-klein">{{ concept.samenvatting }}</p>
-      <!-- Wikitext: as Commons renders it, or the source. -->
-      <div class="cc-voorbeeld-kop">
-        <h4>{{ t("concept.wikitext") }}</h4>
-        <cdx-toggle-button-group v-model="wikitextView" :buttons="views" :aria-label="t('concept.view')" />
-      </div>
-      <template v-if="wikitextView === 'weergave'">
-        <p class="cc-klein">{{ t("concept.rendered_note_edit") }}</p>
-        <p v-if="rendering && !renderedHtml" class="cc-klein">{{ t("concept.rendering") }}</p>
-        <cdx-message v-if="renderError" type="error" :inline="true">{{ renderError }}</cdx-message>
-        <!-- Made by Commons, cleaned by the server (cutter/weergave.py): safe tags only. -->
-        <div v-if="renderedHtml" ref="renderedBox" class="cc-weergave-commons" :class="{ bezig: rendering }" @click="onRenderedClick" v-html="renderedHtml"></div>
-      </template>
-      <template v-else>
-        <pre class="cc-wikitekst">{{ concept.wikitekst }}</pre>
-      </template>
-      <!-- Categories, as at the bottom of a Commons page: remove with ×, add below. -->
-      <div class="cc-categorie-balk">
-        <strong>{{ t("concept.categories") }}:</strong>
-        <template v-for="(category, i) in draft.categorieen" :key="category.naam + i">
-          <span v-if="category.gekozen" class="cc-categorie">
-            <a :href="`https://commons.wikimedia.org/wiki/Category:${encodeURIComponent(category.naam.replace(/ /g, '_'))}`" target="_blank" rel="noopener">{{ category.naam }}</a>
-            <button type="button" class="cc-categorie-weg" :aria-label="`${t('actions.remove')}: ${category.naam}`" :title="t('actions.remove')" @click="category.gekozen = false">×</button>
-          </span>
-        </template>
-        <form class="cc-categorie-erbij" @submit.prevent="addCategory">
-          <cdx-text-input v-model="newCategory" :placeholder="t('concept.category_add')" :aria-label="t('concept.category_add')" />
-          <cdx-button action="progressive" type="submit" :disabled="!newCategory.trim()">+</cdx-button>
-        </form>
-        <span v-if="draft.categorieen.some((c) => !c.gekozen)" class="cc-klein cc-categorie-uit">
-          {{ t("concept.categories_removed") }}
-          <template v-for="(category, i) in draft.categorieen.filter((c) => !c.gekozen)" :key="'uit' + i">
-            <button type="button" class="cc-link" :title="t('concept.category_back')" @click="category.gekozen = true">↶ {{ category.naam }}</button>{{ " " }}
+      <cdx-tabs v-model:active="pageTab" class="cc-commons-tabs">
+        <cdx-tab name="info" :label="t('concept.tab_info')">
+          <!-- Captions: on Commons above the summary, with Edit at the right. -->
+          <div class="cc-commons-kader">
+            <div class="cc-commons-kader-kop">
+              <strong>{{ t("sdc.captions") }}</strong>
+              <button type="button" class="cc-link" @click="openEdit('caption')">{{ t("concept.edit_link") }}</button>
+            </div>
+            <table class="cc-captions">
+              <tr v-for="lang in ['en', 'nl']" :key="lang">
+                <th>{{ t(`concept.language_${lang}`) }}</th>
+                <td :class="{ leeg: !draft.caption[lang] }">{{ draft.caption[lang] || t("concept.caption_empty") }}</td>
+              </tr>
+            </table>
+          </div>
+          <div class="cc-voorbeeld-kop">
+            <span class="cc-klein">{{ wikitextView === "weergave" ? t("concept.rendered_note_edit") : t("concept.source_note") }}</span>
+            <cdx-toggle-button-group v-model="wikitextView" :buttons="views" :aria-label="t('concept.view')" />
+          </div>
+          <template v-if="wikitextView === 'weergave'">
+            <p v-if="rendering && !renderedHtml" class="cc-klein">{{ t("concept.rendering") }}</p>
+            <cdx-message v-if="renderError" type="error" :inline="true">{{ renderError }}</cdx-message>
+            <!-- Made by Commons, cleaned by the server (cutter/weergave.py): safe tags only. -->
+            <div v-if="renderedHtml" ref="renderedBox" class="cc-weergave-commons" :class="{ bezig: rendering }" @click="onRenderedClick" v-html="renderedHtml"></div>
           </template>
-        </span>
-      </div>
-      <cdx-button action="progressive" size="small" @click="copy(concept.wikitekst)"><cdx-icon :icon="cdxIconCopy" /> {{ t("concept.copy") }}</cdx-button>
+          <pre v-else class="cc-wikitekst">{{ concept.wikitekst }}</pre>
+          <!-- Categories, as at the bottom of a Commons page: remove with ×, add below. -->
+          <div class="cc-categorie-balk">
+            <strong>{{ t("concept.categories") }}:</strong>
+            <template v-for="(category, i) in draft.categorieen" :key="category.naam + i">
+              <span v-if="category.gekozen" class="cc-categorie">
+                <a :href="`https://commons.wikimedia.org/wiki/Category:${encodeURIComponent(category.naam.replace(/ /g, '_'))}`" target="_blank" rel="noopener">{{ category.naam }}</a>
+                <button type="button" class="cc-categorie-weg" :aria-label="`${t('actions.remove')}: ${category.naam}`" :title="t('actions.remove')" @click="category.gekozen = false">×</button>
+              </span>
+            </template>
+            <form class="cc-categorie-erbij" @submit.prevent="addCategory">
+              <cdx-text-input v-model="newCategory" :placeholder="t('concept.category_add')" :aria-label="t('concept.category_add')" />
+              <cdx-button action="progressive" type="submit" :disabled="!newCategory.trim()">+</cdx-button>
+            </form>
+            <span v-if="draft.categorieen.some((c) => !c.gekozen)" class="cc-klein cc-categorie-uit">
+              {{ t("concept.categories_removed") }}
+              <template v-for="(category, i) in draft.categorieen.filter((c) => !c.gekozen)" :key="'uit' + i">
+                <button type="button" class="cc-link" :title="t('concept.category_back')" @click="category.gekozen = true">↶ {{ category.naam }}</button>{{ " " }}
+              </template>
+            </span>
+          </div>
+          <cdx-button action="progressive" size="small" @click="copy(concept.wikitekst)"><cdx-icon :icon="cdxIconCopy" /> {{ t("concept.copy") }}</cdx-button>
+        </cdx-tab>
 
-      <!-- Structured data: as the Structured data tab on Commons shows it, or the JSON. -->
-      <div class="cc-voorbeeld-kop">
-        <h4>{{ t("concept.sdc") }}</h4>
-        <cdx-toggle-button-group v-model="sdcView" :buttons="views" :aria-label="t('concept.view')" />
-      </div>
-      <template v-if="sdcView === 'weergave'">
-        <p class="cc-klein">{{ t("concept.sdc_note_edit") }}</p>
-        <sdc-preview :sdc="concept.sdc" :labels="concept.sdc_labels || {}" :editable="true" @edit-captions="openEdit('caption')" @remove-depicts="removeDepicts">
-          <template #depicts-add>
-            <cdx-lookup
-              v-model:selected="lookupSelected"
-              v-model:input-value="lookupText"
-              :menu-items="lookupItems"
-              :placeholder="t('concept.depicts_add')"
-              class="cc-sdc-erbij"
-              @input="lookup"
-              @update:selected="pickLookup"
-            />
-          </template>
-        </sdc-preview>
-      </template>
-      <pre v-else class="cc-wikitekst">{{ JSON.stringify(concept.sdc, null, 2) }}</pre>
+        <cdx-tab name="sdc" :label="t('concept.tab_sdc')">
+          <!-- The app has a simple editor; fine-tuning the structured data happens on Commons itself. -->
+          <cdx-message type="notice" :inline="true" class="cc-sdc-melding">{{ t("concept.sdc_simple") }}</cdx-message>
+          <div class="cc-voorbeeld-kop">
+            <span class="cc-klein">{{ sdcView === "weergave" ? t("concept.sdc_note_edit") : t("concept.source_note") }}</span>
+            <cdx-toggle-button-group v-model="sdcView" :buttons="views" :aria-label="t('concept.view')" />
+          </div>
+          <!-- As the Structured data tab: the statements (the captions are on the first tab). -->
+          <sdc-preview
+            v-if="sdcView === 'weergave'"
+            :sdc="concept.sdc"
+            :labels="concept.sdc_labels || {}"
+            :captions-shown="false"
+            :editable="true"
+            :overrides="draft.sdc_waarden"
+            @remove-depicts="removeDepicts"
+            @save-statement="saveStatement"
+          >
+            <template #depicts-add>
+              <cdx-lookup
+                v-model:selected="lookupSelected"
+                v-model:input-value="lookupText"
+                :menu-items="lookupItems"
+                :placeholder="t('concept.depicts_search')"
+                :start-icon="cdxIconSearch"
+                class="cc-sdc-erbij"
+                @input="lookup"
+                @update:selected="pickLookup"
+              />
+            </template>
+          </sdc-preview>
+          <pre v-else class="cc-wikitekst">{{ JSON.stringify(concept.sdc, null, 2) }}</pre>
+        </cdx-tab>
+      </cdx-tabs>
 
       <!-- The other way round: what the original would get, the cut-out as a region (phase 2). -->
       <div class="cc-voorbeeld-kop">
@@ -134,33 +161,39 @@
       @primary="saveEdit"
       @default="editOpen = false"
     >
-      <template v-if="editField === 'caption' || editField === 'beschrijving'">
-        <cdx-field v-for="lang in ['nl', 'en']" :key="lang">
-          <template #label>{{ t(editField === "caption" ? "concept.caption" : "concept.description") }} ({{ lang }})</template>
-          <template v-if="canUndo(editField, lang, editDraft)" #help-text>
-            <button type="button" class="cc-link" @click="undoFill(editField, lang, editDraft)">↶ {{ t("magnifier.undo") }}</button>
-          </template>
-          <div class="cc-veld-met-menu">
-            <cdx-text-input v-if="editField === 'caption'" v-model="editDraft[editField][lang]" />
-            <cdx-text-area v-else v-model="editDraft[editField][lang]" :autosize="true" />
-            <cdx-menu-button
-              v-if="fillOptions(editField, lang, editDraft).length"
-              :selected="null"
-              :menu-items="fillOptions(editField, lang, editDraft)"
-              :aria-label="t('concept.fill_from')"
-              :title="t('concept.fill_from')"
-              @update:selected="(value) => fillField(editField, lang, value, editDraft)"
-            >
-              <cdx-icon :icon="cdxIconEllipsis" />
-            </cdx-menu-button>
-          </div>
+      <template v-for="field in editFields" :key="field">
+        <template v-if="field === 'caption' || field === 'beschrijving'">
+          <cdx-field v-for="lang in ['nl', 'en']" :key="`${field}.${lang}`">
+            <template #label>{{ t(field === "caption" ? "concept.caption" : "concept.description") }} ({{ lang }})</template>
+            <template v-if="canUndo(field, lang, editDraft)" #help-text>
+              <button type="button" class="cc-link" @click="undoFill(field, lang, editDraft)">↶ {{ t("magnifier.undo") }}</button>
+            </template>
+            <div class="cc-veld-met-menu">
+              <cdx-text-input v-if="field === 'caption'" v-model="editDraft[field][lang]" />
+              <cdx-text-area v-else v-model="editDraft[field][lang]" :autosize="true" />
+              <cdx-menu-button
+                v-if="fillOptions(field, lang, editDraft).length"
+                :selected="null"
+                :menu-items="fillOptions(field, lang, editDraft)"
+                :aria-label="t('concept.fill_from')"
+                :title="t('concept.fill_from')"
+                @update:selected="(value) => fillField(field, lang, value, editDraft)"
+              >
+                <cdx-icon :icon="cdxIconEllipsis" />
+              </cdx-menu-button>
+            </div>
+          </cdx-field>
+        </template>
+        <cdx-field v-else>
+          <template #label>{{ t(field === "datum" ? "concept.date" : "concept.maker") }}</template>
+          <template v-if="concept.herkomst?.[field]" #help-text><source-note :source="concept.herkomst[field]" /></template>
+          <cdx-text-input v-model="editDraft[field]" />
         </cdx-field>
       </template>
-      <cdx-field v-else-if="editField === 'datum' || editField === 'maker'">
-        <template #label>{{ t(editField === "datum" ? "concept.date" : "concept.maker") }}</template>
-        <template v-if="concept.herkomst?.[editField]" #help-text><source-note :source="concept.herkomst[editField]" /></template>
-        <cdx-text-input v-model="editDraft[editField]" />
-      </cdx-field>
+      <p v-if="editField === 'samenvatting'" class="cc-klein">
+        {{ t("concept.summary_edit_note") }}
+        <button type="button" class="cc-link" @click="editOpen = false; emit('edit-texts')">{{ t("concept.edit_teksten") }}</button>
+      </p>
     </cdx-dialog>
   </div>
   <p v-else class="cc-klein">{{ t("concept.loading") }}</p>
@@ -169,9 +202,9 @@
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import {
-  CdxButton, CdxCheckbox, CdxDialog, CdxField, CdxIcon, CdxLookup, CdxMenuButton, CdxMessage, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
+  CdxButton, CdxCheckbox, CdxDialog, CdxField, CdxIcon, CdxLookup, CdxMenuButton, CdxMessage, CdxTab, CdxTabs, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
 } from "@wikimedia/codex";
-import { cdxIconCopy, cdxIconEllipsis } from "@wikimedia/codex-icons";
+import { cdxIconCopy, cdxIconEllipsis, cdxIconSearch } from "@wikimedia/codex-icons";
 import { API, errorText, get, objectPath, patch, query } from "../api.js";
 import { makeCollapsible } from "../collapsible.js";
 import { askConfirm } from "../confirm.js";
@@ -243,7 +276,31 @@ function pencilFor(field) {
   return button;
 }
 
+// After the section headings, as on Commons: [edit] at Summary; at Licensing a note
+// instead (the licence is taken over from the original and is not changed here).
+function addSectionLinks(box) {
+  const headings = box.querySelectorAll("h2");
+  const summary = headings[0];
+  const licence = headings[1];
+  if (summary && !summary.parentElement.querySelector(".cc-sectie-edit")) {
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "cc-sectie-edit cc-weergave-potlood-tekst";
+    link.dataset.veld = "samenvatting";
+    link.textContent = `[ ${t("concept.edit_section")} ]`;
+    summary.after(link);
+  }
+  if (licence && !licence.parentElement.querySelector(".cc-sectie-edit")) {
+    const note = document.createElement("span");
+    note.className = "cc-sectie-edit cc-sectie-vast";
+    note.textContent = `[ ${t("concept.licence_fixed")} ]`;
+    note.title = t("concept.licence_fixed_help");
+    licence.after(note);
+  }
+}
+
 function addPencils(box) {
+  addSectionLinks(box);
   const book = /\{\{\s*book\b/i.test(concept.value?.wikitekst || "");
   for (const [id, field] of Object.entries(ROW_FIELDS)) {
     if (book && field === "caption") continue; // {{Book}}: the title is the book's
@@ -259,7 +316,7 @@ function addPencils(box) {
 }
 
 function onRenderedClick(event) {
-  const button = event.target.closest(".cc-weergave-potlood");
+  const button = event.target.closest(".cc-weergave-potlood, .cc-weergave-potlood-tekst");
   if (!button) return;
   event.preventDefault();
   if (button.dataset.veld === "teksten") emit("edit-texts");
@@ -271,14 +328,25 @@ const editOpen = ref(false);
 const editField = ref("");
 const editDraft = ref(null);
 const editTitle = computed(() => (editField.value ? t(`concept.edit_${editField.value}`) : ""));
-function openEdit(field) {
-  editField.value = field;
-  editDraft.value = JSON.parse(JSON.stringify({ [field]: draft.value[field] }));
+// What each edit link or pencil opens; Summary [edit] opens all its fields at once.
+const EDIT_GROUPS = { caption: ["caption"], beschrijving: ["beschrijving"], datum: ["datum"], maker: ["maker"], samenvatting: ["beschrijving", "datum", "maker"] };
+const editFields = computed(() => EDIT_GROUPS[editField.value] || []);
+function openEdit(group) {
+  editField.value = group;
+  editDraft.value = JSON.parse(JSON.stringify(Object.fromEntries(EDIT_GROUPS[group].map((field) => [field, draft.value[field]]))));
   editOpen.value = true;
 }
 function saveEdit() {
-  draft.value[editField.value] = JSON.parse(JSON.stringify(editDraft.value[editField.value]));
+  for (const field of editFields.value) draft.value[field] = JSON.parse(JSON.stringify(editDraft.value[field]));
   editOpen.value = false;
+  save();
+}
+// "File information" or "Structured data", as the two tabs of a file page on Commons.
+const pageTab = ref("info");
+
+// New values for one statement taken over from the original (an empty list removes it).
+function saveStatement({ property, values }) {
+  draft.value.sdc_waarden = { ...draft.value.sdc_waarden, [property]: values };
   save();
 }
 
@@ -294,7 +362,7 @@ let renderedText = null;
 // change, a moment after the concept has been saved.
 async function render() {
   const text = concept.value?.wikitekst;
-  if (!previewOpen.value || wikitextView.value !== "weergave" || !text || text === renderedText) return;
+  if (!previewOpen.value || pageTab.value !== "info" || wikitextView.value !== "weergave" || !text || text === renderedText) return;
   rendering.value = true;
   renderError.value = "";
   try {
@@ -310,7 +378,7 @@ async function render() {
   }
 }
 
-watch([() => concept.value?.wikitekst, wikitextView, previewOpen], () => {
+watch([() => concept.value?.wikitekst, wikitextView, previewOpen, () => pageTab.value], () => {
   clearTimeout(renderTimer);
   renderTimer = setTimeout(render, renderedText === null ? 0 : 800);
 });
@@ -347,6 +415,7 @@ function fill(data) {
     beeldt_af: data.beeldt_af,
     image_extracted: data.image_extracted,
     merk_bevestigd: data.merk_bevestigd || "",
+    sdc_waarden: data.sdc_waarden || {},
   }));
   lastSaved = JSON.stringify(bodyOf(draft.value));
 }
