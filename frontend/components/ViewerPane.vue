@@ -50,7 +50,9 @@ function describe(obj) {
   // The caption (in quotes) and the description by the AI image description, when there are.
   const title = objectName(obj, language, t);
   const caption = obj.bijschrift?.tekst && obj.bijschrift.tekst !== title ? `“${obj.bijschrift.tekst}”` : "";
-  const text = [caption, obj.beschrijving?.beschrijving].filter(Boolean).join(" — ");
+  // The AI description in the interface language, else the other one.
+  const description = obj.beschrijving && ((language === "en" ? obj.beschrijving.beschrijving_en : obj.beschrijving.beschrijving) || obj.beschrijving.beschrijving || obj.beschrijving.beschrijving_en);
+  const text = [caption, description].filter(Boolean).join(" — ");
   return { title, details, text, hint: t("viewer.tooltip_hint") };
 }
 

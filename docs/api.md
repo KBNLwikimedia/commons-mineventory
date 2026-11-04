@@ -18,7 +18,7 @@ De Commons Cutter heeft een REST-API onder `/api/v1`. De interface in de browser
 | --- | --- | --- |
 | GET | `/bestand?url=…`, `?titel=…` of `?mid=…` | Invoer normaliseren (URL, titel, M-id, curid, upload.wikimedia.org) en het bestand teruggeven: titel, M-id, afmetingen, MIME, SHA-1, licentie, maker, datum, categorieën, SDC-samenvatting, rechtenlabels, paginalijst |
 | GET | `/bestand/{mid}` | Hetzelfde, op M-id |
-| GET | `/bestand/{mid}/pagina/{n}` | Afmetingen van de pagina (pixels van het origineel), objecten, aantal regio's en notities uit Commons |
+| GET | `/bestand/{mid}/pagina/{n}` | Afmetingen van de pagina (pixels van het origineel), objecten, aantal regio's en notities uit Commons, en `prullenbak_termen`: per zoekterm hoeveel objecten van deze pagina in de prullenbak staan |
 | GET | `/bestand/{mid}/pagina/{n}/afbeelding?w=` | Een verkleinde afbeelding: de dichtstbijzijnde thumbnailstap van Commons van minstens `w` pixels (20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840), gecachet |
 
 Voorbeeld:

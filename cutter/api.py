@@ -149,6 +149,10 @@ def get_page(mid, n):
     file = _page_file(mid, n)
     page = _client().load_page(file, n)
     objects = [_service().public(file, n, o) for o in _service().page_objects(file, n)]
+    trashed = {}
+    for o in _service()._load_store(file, n)["prullenbak"]:
+        if o.get("zoekterm"):
+            trashed[o["zoekterm"]] = trashed.get(o["zoekterm"], 0) + 1
     return jsonify(
         {
             **page,
@@ -157,6 +161,8 @@ def get_page(mid, n):
             "regio_aantal": file["regio_aantal"] if n == 1 else 0,
             "notitie_aantal": file["notitie_aantal"] if n == 1 else 0,
             "objecten": objects,
+            # Per search term: how many objects of this page are in the trash.
+            "prullenbak_termen": trashed,
         }
     )
 

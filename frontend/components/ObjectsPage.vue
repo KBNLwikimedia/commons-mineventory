@@ -7,21 +7,24 @@
   <div class="cc-pagina-objecten">
     <cdx-tabs v-model:active="tab" :framed="true">
       <cdx-tab name="objecten" :label="t('objects.tab_objects', { n: objects.length })">
-        <div class="cc-facetten">
+        <!-- Facets on the left, stacked; the objects on the right. -->
+        <div class="cc-objecten-indeling">
+        <aside class="cc-facetten">
           <cdx-field :is-fieldset="true">
             <template #label>{{ t("objects.facet_source") }}</template>
-            <cdx-checkbox v-for="source in sources" :key="source" v-model="chosenSources" :input-value="source" :inline="true">
+            <cdx-checkbox v-for="source in sources" :key="source" v-model="chosenSources" :input-value="source" >
               {{ t(`source.${source}`) }} ({{ count(source) }})
             </cdx-checkbox>
           </cdx-field>
           <cdx-field v-if="files.length > 1" :is-fieldset="true">
             <template #label>{{ t("objects.facet_file") }}</template>
-            <cdx-checkbox v-for="f in files" :key="f.mid" v-model="chosenFiles" :input-value="f.mid" :inline="true">
+            <cdx-checkbox v-for="f in files" :key="f.mid" v-model="chosenFiles" :input-value="f.mid" >
               <span class="cc-afkappen cc-facet-bestand" :title="f.titel">{{ f.titel }}</span> ({{ f.n }})
             </cdx-checkbox>
           </cdx-field>
           <cdx-toggle-switch v-model="onlySaved">{{ t("objects.only_saved") }}</cdx-toggle-switch>
-        </div>
+        </aside>
+        <div class="cc-objecten-inhoud">
         <!-- Bulk: everything the facets show now. -->
         <div v-if="shown.length" class="cc-knoppen cc-bulk">
           <cdx-button action="destructive" :disabled="busy" @click="trashShown">
@@ -39,16 +42,19 @@
             <a :href="obj.app_url">
               <img :src="`${obj.uitsnede_url}?w=200`" :alt="name(obj)" loading="lazy" />
             </a>
-            <strong>{{ name(obj) }}</strong>
-            <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · {{ t("objects.saved") }}</template></small>
-            <small class="cc-afkappen" :title="obj.bestand_titel">{{ obj.bestand_titel }}</small>
-            <span class="cc-knoppen">
+            <!-- Name with a small trash button beside it. -->
+            <span class="cc-kaart-kop">
+              <strong>{{ name(obj) }}</strong>
               <cdx-button action="destructive" weight="quiet" size="small" :disabled="busy" :aria-label="t('objects.trash')" :title="t('objects.trash')" @click="trashMany([obj])">
-                <cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}
+                <cdx-icon :icon="cdxIconTrash" size="small" />
               </cdx-button>
             </span>
+            <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · {{ t("objects.saved") }}</template></small>
+            <small class="cc-afkappen" :title="obj.bestand_titel">{{ obj.bestand_titel }}</small>
           </li>
         </ul>
+        </div>
+        </div>
       </cdx-tab>
       <cdx-tab name="prullenbak" :label="t('objects.tab_trash', { n: trash.length })">
         <p v-if="!trash.length" class="cc-leeg">{{ t("objects.trash_empty") }}</p>
@@ -190,7 +196,9 @@ async function purge(obj) {
 }
 
 async function emptyTrash() {
-  if (!(await askConfirm(t("objects.empty_confirm", { n: trash.value.length }), { go: t("objects.empty_trash"), destructive: true }))) return;
+  const n = trash.value.length;
+  const text = n === 1 ? t("objects.empty_confirm_one") : t("objects.empty_confirm", { n });
+  if (!(await askConfirm(text, { go: t("objects.delete_forever"), destructive: true }))) return;
   try {
     await del(`${API}/prullenbak`);
     await load();

@@ -65,6 +65,8 @@
           :page="page"
           :busy="busy"
           :inventory="inventory"
+          :objects="objects"
+          :trash-terms="trashTerms"
           :point-mode="pointMode"
           @detect="detect"
           @smart="smartDetect"
@@ -130,6 +132,8 @@ const t = useT();
 const file = ref(null);
 const pageN = ref(1);
 const page = ref(null);
+// Per search term: objects of this page in the trash (for the AI suggestions).
+const trashTerms = ref({});
 const objects = ref([]);
 const newIds = ref([]);
 const inventory = ref(null);
@@ -208,6 +212,7 @@ async function goToPage(n) {
     const data = await get(pagePath(file.value.mid, n));
     page.value = data;
     objects.value = data.objecten;
+    trashTerms.value = data.prullenbak_termen || {};
     newIds.value = [];
     inventory.value = null;
     window.history.replaceState(null, "", appUrl(file.value.mid, n));
@@ -401,6 +406,7 @@ async function trashObject(id) {
   try {
     const result = await del(objectPath(file.value.mid, n, id));
     objects.value = result.objecten;
+    refreshTrashTerms(n);
     if (magnifiedId.value === id) magnifierOpen.value = false;
     notify("notice", t("objects.trashed"), {
       object: shown,
@@ -415,11 +421,24 @@ async function trashObject(id) {
 async function restoreObject(id, n) {
   try {
     await patch(objectPath(file.value.mid, n, id), { prullenbak: false });
-    if (n === pageN.value) objects.value = (await get(pagePath(file.value.mid, n))).objecten;
+    if (n === pageN.value) {
+      const data = await get(pagePath(file.value.mid, n));
+      objects.value = data.objecten;
+      trashTerms.value = data.prullenbak_termen || {};
+    }
     notify("success", t("objects.restored"));
   } catch (error) {
     fail(error);
   }
+}
+
+// The trash counts per search term, fetched again after a move to or from the trash.
+function refreshTrashTerms(n) {
+  get(pagePath(file.value.mid, n))
+    .then((data) => {
+      if (n === pageN.value) trashTerms.value = data.prullenbak_termen || {};
+    })
+    .catch(() => {});
 }
 
 // -- History ("Laatst bezocht") ----------------------------------------------------------

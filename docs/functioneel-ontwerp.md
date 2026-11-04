@@ -24,7 +24,7 @@ Voorbeelden:
 
 | | CropTool | Commons Cutter |
 | --- | --- | --- |
-| Selectie | Eén rechthoek, met de hand getrokken; randdetectie | Veel objecten tegelijk, gevonden met AI (zoekterm, Snel zoeken, Aanwijzen, Alles detecteren), met maskers; handmatige rechthoek als terugvaloptie |
+| Selectie | Eén rechthoek, met de hand getrokken; randdetectie | Veel objecten tegelijk, gevonden met AI (zoekterm, AI-suggesties per afbeelding, Aanwijzen, Alles detecteren), met maskers; handmatige rechthoek als terugvaloptie |
 | Vorm van de uitsnede | Rechthoek | Rechthoek (JPG) of de vorm van het object (transparante PNG) |
 | Bewerkingen | Rechtzetten, draaien, spiegelen, helderheid/contrast, verliesloos JPEG (jpegtran) | Geen beeldbewerking in fase 1. Wel: rand eromheen instelbaar, keuze PNG of JPG |
 | Bestandstypen | JPEG, PNG, TIFF, SVG, WebP, GIF; één pagina uit PDF/DjVu | JPEG, PNG, TIFF, WebP; pagina's uit PDF/DjVu/TIFF (zie 5.4). Geen SVG en geen geanimeerde GIF |
@@ -224,6 +224,8 @@ EN/MIN-syntax, Nederlandse termen via de vertaaltabel naar Engels, één SAM-aan
 
 ### 7.2 Snel zoeken
 
+**Uit de interface gehaald (4-11-2026, besluit Olaf):** op Commons staan duizenden soorten objecten, dus een vaste lijst klopt voor veel afbeeldingen niet. De AI-suggesties per afbeelding (7.6) vervangen dit. De API-modus `categorie` blijft bestaan.
+
 Vaste groepen, aangepast aan wat er op Commons staat: wapens en heraldiek, portretten, figuren en personen, dieren, planten en bloemen, gebouwen, kaarten, schepen, initialen en vignetten, logo's en beeldmerken, handschrift en tekstblokken, foto's in een album. Elke groep is een vooringevulde prompt.
 
 ### 7.3 Aanwijzen
@@ -265,7 +267,7 @@ De opvolger van "Uit Delpher": regio's die op Commons al bestaan. Eis van Olaf (
 
 ### 7.6 Paginaoverzicht
 
-"Wat staat op deze pagina?" met zoektermen als chips onder Snel zoeken, zoals nu.
+"Wat staat op deze pagina?" met zoektermen als chips in het blok *AI-suggesties voor deze afbeelding*, met per term hoeveel objecten op de afbeelding staan (en in de prullenbak), en een knop *Alle objecten detecteren*.
 
 ## 8. Inloggen en rechten (OAuth)
 
@@ -480,7 +482,7 @@ Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 - **Invoerbalk**: Commons-URL of titel, knop **Openen**. Daaronder: titel, miniatuur, licentie (als Codex-*chip*), maker, datum, link naar de bestandspagina, en een uitklapbare **Metadata** (beschrijving, categorieën, SDC).
 - **Links**: bestand › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › objecten.
 - **Midden**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
-- **Rechts**: het detectiepaneel in uitklapbare blokken (Codex *Accordion*-stijl): Bulk-operaties, Zoeken, Snel zoeken, AI-suggesties voor deze afbeelding, Aanwijzen, Rechthoek tekenen, **Uit Commons**. Daaronder de resultatenlijst met vinkjes, en de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
+- **Rechts**: het detectiepaneel in uitklapbare blokken (Codex *Accordion*-stijl): Bulk-operaties, Zoeken, AI-suggesties voor deze afbeelding, Aanwijzen, Rechthoek tekenen, **Uit Commons**. Daaronder de resultatenlijst met vinkjes, en de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
 - **Vergroter**: de uitsnede, "Wat staat hierop?", het bijschrift en het Commons-concept (tab).
 - **Gebouwd in fase 1 (stand 0.9.0)**: de randen tussen de drie kolommen zijn versleepbaar (ook met de pijltjestoetsen; breedte per browser onthouden); de objectenlijst toont een miniatuur per object, en een regel licht op als de muis erboven of boven die uitsnede in het beeld staat; alle knoppen zijn Codex-blauw (*progressive*), verwijderen blijft rood; in het Commons-concept zitten de invulacties per veld in een klein menu (⋯) met *Ongedaan maken* direct erna; de namen die de app zelf geeft (klik, rechthoek, regio) en soort en zekerheid volgen de taal van de interface.
 - **Pagina's**: `/objecten` (alle uitsneden, met het facet "Op Commons"), `/commons` (het keuzemenu), `/verbruik`, `/docs`, `/changelog`.

@@ -8,7 +8,7 @@ De app is afgeleid van de [Delpher Uitsnijder](https://github.com/ookgezellig/de
 
 ## Status
 
-Fase 1 is klaar (versie 0.10.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
+Fase 1 is klaar (versie 0.11.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
 
 ## Lokaal draaien
 
@@ -33,7 +33,7 @@ en open http://localhost:5000. Zonder `npm run dev` gebruikt Flask de gebouwde b
 ## Wat de app nu doet
 
 - Een Commons-bestand openen via de URL, de titel of de M-id; ook PDF- en DjVu-pagina's. *Laatst bezocht* onthoudt je bestanden in deze browser.
-- Objecten en maskers detecteren met SAM 3.1 (Meta Model API): zoeken met een zoekterm, Snel zoeken, AI-suggesties voor de afbeelding, Aanwijzen, Alles detecteren, Slim detecteren. Of zelf een rechthoek tekenen (gratis).
+- Objecten en maskers detecteren met SAM 3.1 (Meta Model API): zoeken met een zoekterm, AI-suggesties voor de afbeelding, Aanwijzen, Alles detecteren, Slim detecteren. Of zelf een rechthoek tekenen (gratis).
 - Regio's overnemen die al op Commons staan (de gele rechthoeken van *beeldt af* met positie, en bestandsnotities), gratis, en elke regio als apart bestand uitsnijden.
 - "Wat staat hierop?" en "Wat staat op deze pagina?" met Muse Spark, in het Nederlands en het Engels. AI-teksten zijn herkenbaar aan een AI-merkje met uitleg, en met de hand aan te passen (met *Ongedaan maken* en *Terug naar de AI-tekst*).
 - Uitsneden opslaan in volledige resolutie, als JPG (rechthoek) of transparante PNG (vorm), los of als zip; een overzicht van alle uitsneden en een prullenbak.

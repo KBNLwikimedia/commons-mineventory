@@ -9,6 +9,10 @@
         </button>
         ·
         <button type="button" class="cc-link" @click="emit('select', [])">{{ t("objects.none") }}</button>
+        ·
+        <button type="button" class="cc-link" @click="emit('select', objects.filter((o) => o.status !== 'uitgesloten' && o.status !== 'geselecteerd').map((o) => o.id))">
+          {{ t("objects.invert") }}
+        </button>
       </span>
     </header>
     <p v-if="!objects.length" class="cc-leeg">{{ t("objects.empty") }}</p>

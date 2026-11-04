@@ -36,24 +36,6 @@
       <p class="cc-klein">{{ t("panel.search_help") }} {{ cost(1) }}</p>
     </cdx-accordion>
 
-    <cdx-accordion v-model="open.quick">
-      <template #title>{{ t("panel.quick") }}</template>
-      <div class="cc-knoppen">
-        <cdx-button
-          action="progressive"
-          v-for="group in config.snel_zoeken"
-          :key="group.sleutel"
-          size="small"
-          :disabled="busy"
-          :title="group.termen.join(', ')"
-          @click="act('quick', 'detect', { modus: 'categorie', categorie: group.sleutel })"
-        >
-          {{ t(group.label) }}
-        </cdx-button>
-      </div>
-      <busy-note v-if="busy && where === 'quick'" :message="t('busy.sam')" />
-    </cdx-accordion>
-
     <cdx-accordion v-model="open.suggestions">
       <template #title>{{ t("panel.suggestions") }}</template>
       <template v-if="inventory">
@@ -70,12 +52,18 @@
             :key="term.en"
             size="small"
             :disabled="busy"
-            :title="`${term.aantal}× · ${term.waar}`"
+            :title="termTitle(term)"
             @click="act('suggestions', 'detect', { modus: 'prompt', prompt: term.en })"
           >
             {{ config.taal === "nl" ? term.nl : term.en }}
+            <span v-if="termCount(term.en)" class="cc-term-aantal">{{ termCount(term.en) }}</span>
           </cdx-button>
         </div>
+        <!-- What of these suggestions is on the image now, and what went to the trash. -->
+        <p class="cc-klein">
+          {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: inventory.zoektermen.length }) }}
+          <template v-if="suggestionTotals.trashed">{{ t("panel.suggestions_trashed", { n: suggestionTotals.trashed }) }}</template>
+        </p>
       </template>
       <!-- The actions, full size, apart from the suggested labels above. With an
            overview, detecting all its terms in one go is the main action. -->
@@ -146,6 +134,9 @@ const props = defineProps({
   page: { type: Object, required: true },
   busy: { type: Boolean, default: false },
   inventory: { type: Object, default: null },
+  // The objects on the page now, and per search term how many are in the trash.
+  objects: { type: Array, default: () => [] },
+  trashTerms: { type: Object, default: () => ({}) },
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
 });
@@ -159,7 +150,7 @@ const modelLinks = {
   muse: { href: "https://dev.meta.ai/docs/models#muse-spark", label: "Muse Spark" },
 };
 const prompt = ref("");
-const open = reactive({ commons: true, search: true, quick: true, suggestions: false, point: false, draw: true, bulk: false });
+const open = reactive({ commons: true, search: true, suggestions: true, point: false, draw: true, bulk: false });
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 
 const SAM_PER_CALL = 0.0025;
@@ -170,6 +161,27 @@ const museCost = (usd) => (config.betaald ? `(${money(usd, config.taal)})` : t("
 // a click in the image (point mode) shows it under Aanwijzen.
 const where = ref("top");
 let clicked = { section: "top", at: 0 };
+// How many objects on the image came from a suggested term (not those in the trash).
+function termCount(term) {
+  return props.objects.filter((o) => o.zoekterm === term).length;
+}
+
+function termTitle(term) {
+  const parts = [t("panel.term_expected", { n: term.aantal, where: term.waar }), t("panel.term_found", { n: termCount(term.en) })];
+  if (props.trashTerms[term.en]) parts.push(t("panel.term_trashed", { n: props.trashTerms[term.en] }));
+  return parts.join(" · ");
+}
+
+const suggestionTotals = computed(() => {
+  const terms = props.inventory?.zoektermen || [];
+  const counts = terms.map((term) => termCount(term.en));
+  return {
+    found: counts.reduce((a, b) => a + b, 0),
+    terms: counts.filter(Boolean).length,
+    trashed: terms.reduce((sum, term) => sum + (props.trashTerms[term.en] || 0), 0),
+  };
+});
+
 function act(section, event, payload) {
   clicked = { section, at: Date.now() };
   emit(event, payload);
