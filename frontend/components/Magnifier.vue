@@ -169,7 +169,7 @@
         </section>
         </div>
         <!-- The image moves to the AI modifiers while they are open, beside the slider (see glidePreview). -->
-        <cutout-preview v-if="!openModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
+        <cutout-preview v-if="!previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
         </div>
 
         <!-- 2. Ask the AI: always the same place; the first time it is the main action. -->
@@ -185,7 +185,7 @@
         </div>
 
         <!-- 3a. AI modifiers: steer the next question (hint, and the space around the cut-out). -->
-        <cdx-accordion v-model="openModifiers" class="cc-beschrijving-blok">
+        <cdx-accordion v-model="openModifiers" class="cc-beschrijving-blok" @cc-closing="previewInModifiers = false">
           <template #title>{{ t("describe.modifiers") }}</template>
           <template #description>{{ modifiersSummary || t("describe.modifiers_default") }}</template>
           <p class="cc-klein">{{ t("describe.modifiers_help") }}</p>
@@ -203,7 +203,7 @@
                 <span class="cc-klein">{{ t("describe.margin_help") }}</span>
               </label>
             </div>
-            <cutout-preview v-if="openModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
+            <cutout-preview v-if="previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
           </div>
         </cdx-accordion>
 
@@ -305,26 +305,42 @@ const hint = ref("");
 const openModifiers = ref(false);
 const openHistory = ref(false);
 
-// The preview glides from its old place to the new one when the AI modifiers
-// open or close (FLIP: measure before and after, then animate the difference).
+// Where the preview sits: beside the slider while the AI modifiers are open.
+// It moves as soon as they start to open or close (the fold itself is
+// animated by accordion-motion.js), and glides there: a copy flies from the
+// old place to the new one, above everything, so the folding content does not
+// clip it (FLIP: measure before and after, animate the difference).
+const previewInModifiers = ref(false);
+watch(openModifiers, (open) => {
+  previewInModifiers.value = open;
+});
 function visiblePreview() {
   return [...document.querySelectorAll(".cc-vergroter .cc-ai-voorbeeld")].find((el) => el.offsetParent);
 }
 let previewBefore = null;
-watch(openModifiers, () => (previewBefore = visiblePreview()?.getBoundingClientRect() || null), { flush: "pre" });
-watch(openModifiers, async () => {
+watch(previewInModifiers, () => (previewBefore = visiblePreview()?.getBoundingClientRect() || null), { flush: "pre" });
+watch(previewInModifiers, async () => {
   await nextTick();
   const el = visiblePreview();
   if (!el || !previewBefore || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  // Measured after the accordion has started to open, so the target is known.
+  await new Promise((resolve) => requestAnimationFrame(resolve));
   const after = el.getBoundingClientRect();
-  const dx = previewBefore.left - after.left;
-  const dy = previewBefore.top - after.top;
-  el.style.transition = "none";
-  el.style.transform = `translate(${dx}px, ${dy}px)`;
-  el.getBoundingClientRect(); // start from the old place
-  el.style.transition = "transform 0.6s cubic-bezier(0.65, 0, 0.35, 1)"; // ease-in-out: speeds up, then slows down
-  el.style.transform = "";
-  el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
+  const flyer = el.cloneNode(true);
+  Object.assign(flyer.style, {
+    position: "fixed", left: `${previewBefore.left}px`, top: `${previewBefore.top}px`, width: `${after.width}px`,
+    margin: "0", zIndex: "1000", pointerEvents: "none",
+  });
+  document.body.appendChild(flyer);
+  el.style.visibility = "hidden";
+  const move = flyer.animate(
+    [{ transform: "translate(0, 0)" }, { transform: `translate(${after.left - previewBefore.left}px, ${after.top - previewBefore.top}px)` }],
+    { duration: 600, easing: "cubic-bezier(0.65, 0, 0.35, 1)" } // speeds up, then slows down
+  );
+  move.onfinish = move.oncancel = () => {
+    el.style.visibility = "";
+    flyer.remove();
+  };
 });
 // How much of the surroundings the AI sees, as a share of the box on every
 // side (0-1): what the last description used, else 25 %.

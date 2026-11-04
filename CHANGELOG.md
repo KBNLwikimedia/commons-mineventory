@@ -5,6 +5,13 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-11-04
+
+### Gewijzigd
+
+- Alle uitklapblokken in de app (Codex *Accordion*: het detectiepaneel, de vergroter, de proefweergave, *Laatst bezocht*, …) klappen nu vloeiend open en dicht, eerst versnellend en dan afremmend (0,35 seconde), in plaats van in één keer; niet bij 'minder beweging' in het systeem (`frontend/accordion-motion.js`).
+- *Wat staat hierop?*: het voorbeeld van wat de AI ziet vliegt nu boven alles uit naar *AI-bijsturing* en terug, tegelijk met het uit- en inklappen, zodat het onderweg niet wordt afgesneden.
+
 ## [0.13.1] - 2026-11-04
 
 ### Gewijzigd

@@ -392,3 +392,21 @@ describe("SdcPreview quantities", () => {
     expect(wrapper.text()).toContain("5,775,624 byte");
   });
 });
+
+describe("smooth accordions", () => {
+  it("holds a closing fold back, announces it, then closes", async () => {
+    const { smoothAccordions } = await import("./accordion-motion.js");
+    document.body.innerHTML = '<details class="cdx-accordion" open><summary>Title</summary><div class="cdx-accordion__content">Content</div></details>';
+    smoothAccordions();
+    const details = document.querySelector("details");
+    let announced = false;
+    details.addEventListener("cc-closing", () => (announced = true));
+    // jsdom has no Element.animate, so the fold finishes at once.
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    details.querySelector("summary").dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(announced).toBe(true);
+    expect(details.open).toBe(false);
+    document.body.innerHTML = "";
+  });
+});

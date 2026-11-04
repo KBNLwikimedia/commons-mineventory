@@ -1,6 +1,7 @@
 // Mounts a Vue app on a place in a Jinja page (functional design 10.2), with
 // the texts and settings Flask embedded in the page.
 import { createApp } from "vue";
+import { smoothAccordions } from "./accordion-motion.js";
 import { readConfig } from "./config.js";
 import { createI18n } from "./i18n.js";
 
@@ -16,5 +17,6 @@ export function mount(component, selector, props = {}) {
   app.use(createI18n(config.teksten || {}, config.taal));
   app.provide("config", config);
   app.mount(element);
+  smoothAccordions(); // all fold-outs open and close smoothly (once per page)
   return app;
 }
