@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.19.0] - 2026-11-04
+
+### Toegevoegd
+
+- Op een telefoon (smaller dan 48rem, ongeveer 770 pixels) zijn de drie kolommen tabbladen: *Objecten*, *Beeld* en *Detectie* (FO 10.5), in een balk die bovenaan blijft staan. *Beeld* is het eerste. Op grotere schermen verandert er niets.
+
+### Gewijzigd
+
+- In de uitlegpopups kan tekst vet staan; in *Hoe lang wordt dit bewaard?* staan de termijnen, "geen archief" en "blijft altijd" vet.
+
 ## [0.18.0] - 2026-11-04
 
 ### Toegevoegd

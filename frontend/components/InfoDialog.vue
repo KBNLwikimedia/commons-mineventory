@@ -24,7 +24,10 @@
     :default-action="{ label: t('actions.close') }"
     @default="open = false"
   >
-    <p v-for="(paragraph, i) in paragraphs" :key="i">{{ paragraph }}</p>
+    <!-- **text** in a paragraph is shown bold (no HTML from the texts). -->
+    <p v-for="(paragraph, i) in paragraphs" :key="i">
+      <template v-for="(part, j) in paragraph.split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
+    </p>
   </cdx-dialog>
 </template>
 

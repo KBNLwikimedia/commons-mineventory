@@ -14,12 +14,29 @@
       <history-list :entries="visited" @remove="forget" @clear="forgetAll" />
     </section>
 
+    <!-- On a phone (functional design 10.5) the three columns are tabs; on larger screens this bar is hidden. -->
+    <div v-if="file && file.ondersteund && page" class="cc-mobiel-tabs" role="tablist" :aria-label="t('layout.tabs')">
+      <button
+        v-for="item in MOBILE_TABS"
+        :id="`cc-tab-${item}`"
+        :key="item"
+        type="button"
+        role="tab"
+        class="cc-mobiel-tab"
+        :aria-selected="mobileTab === item ? 'true' : 'false'"
+        :aria-controls="`cc-kolom-${item}`"
+        @click="mobileTab = item"
+      >
+        {{ item === "links" ? t("layout.tab_objects", { n: objects.length }) : t(`layout.tab_${item}`) }}
+      </button>
+    </div>
+
     <div v-if="file && !file.ondersteund" class="cc-unsupported">
       <cdx-message type="warning">{{ file.niet_ondersteund }}</cdx-message>
     </div>
 
-    <div v-else-if="file && page" class="cc-werkblad">
-      <aside class="cc-links" :aria-label="t('layout.left')">
+    <div v-else-if="file && page" class="cc-werkblad" :class="`cc-mobiel-${mobileTab}`">
+      <aside id="cc-kolom-links" class="cc-links" :aria-label="t('layout.left')">
         <cdx-accordion v-if="visited.length > 1" class="cc-geschiedenis-blok">
           <template #title>{{ t("history.title") }} <small>({{ visited.length }})</small></template>
           <history-list :entries="visited" :current="file.mid" @remove="forget" @clear="forgetAll" />
@@ -42,7 +59,7 @@
       </aside>
       <column-splitter variable="--cc-links-breedte" side="left" storage-key="cc-breedte-links" :label="t('layout.resize_left')" />
 
-      <section class="cc-midden">
+      <section id="cc-kolom-midden" class="cc-midden">
         <viewer-pane
           ref="viewer"
           :mid="file.mid"
@@ -60,7 +77,7 @@
       </section>
       <column-splitter variable="--cc-paneel-breedte" side="right" storage-key="cc-breedte-rechts" :label="t('layout.resize_right')" :max="800" />
 
-      <aside class="cc-rechts" :aria-label="t('layout.right')">
+      <aside id="cc-kolom-rechts" class="cc-rechts" :aria-label="t('layout.right')">
         <detection-panel
           :file="file"
           :page="page"
@@ -138,6 +155,9 @@ const page = ref(null);
 const trashTerms = ref({});
 const objects = ref([]);
 const newIds = ref([]);
+// Phone: which column shows (objects, image, detection); the image first.
+const MOBILE_TABS = ["links", "midden", "rechts"];
+const mobileTab = ref("midden");
 const inventory = ref(null);
 const focusedId = ref(null);
 // The object under the mouse in the viewer, so the list can light it up too.

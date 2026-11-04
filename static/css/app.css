@@ -388,3 +388,21 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-legenda-uitgesloten { border-color: var(--cc-uitgesloten); border-style: dashed; }
 .cc-legenda-dik { border-color: var(--cc-geselecteerd); border-width: 4px; }
 .cc-croptool-logo { margin-right: 0.15rem; vertical-align: -2px; }
+/* -- Phone (functional design 10.5): the three columns as tabs ----------------------- */
+.cc-mobiel-tabs { display: none; }
+@media (max-width: 48rem) {
+  .cc-mobiel-tabs {
+    display: flex; position: sticky; top: 0; z-index: 3; margin-top: 0.5rem;
+    background: var(--background-color-base, #fff); border-bottom: 1px solid var(--cc-rand);
+  }
+  .cc-mobiel-tab {
+    flex: 1; padding: 0.6rem 0.25rem; border: 0; border-bottom: 3px solid transparent; background: none;
+    font: inherit; font-weight: bold; color: var(--cc-tekst-zacht); cursor: pointer;
+  }
+  .cc-mobiel-tab[aria-selected="true"] { color: var(--color-progressive, #36c); border-bottom-color: var(--color-progressive, #36c); }
+  .cc-mobiel-tab:focus-visible { outline: 2px solid var(--color-progressive, #36c); outline-offset: -2px; }
+  .cc-werkblad.cc-mobiel-links > :not(.cc-links),
+  .cc-werkblad.cc-mobiel-midden > :not(.cc-midden),
+  .cc-werkblad.cc-mobiel-rechts > :not(.cc-rechts) { display: none; }
+  .cc-werkblad .cc-midden { height: calc(100vh - 9rem); order: 0; }
+}
