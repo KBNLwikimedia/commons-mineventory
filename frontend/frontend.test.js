@@ -448,11 +448,11 @@ describe("savedLabel", () => {
     const t = (key, vars = {}) => `${key}:${Object.values(vars).join(",")}`;
     const now = Date.parse("2026-11-04T12:00:00Z");
     expect(savedLabel({}, t)).toBeNull();
-    expect(savedLabel({ opgeslagen: { jpg: "a.jpg" } }, t).text).toBe("objects.saved:");
+    expect(savedLabel({ opgeslagen: { jpg: "a.jpg" } }, t)).toMatchObject({ text: "objects.saved:" });
     const later = savedLabel({ opgeslagen: { verloopt: "2026-11-27T12:00:00Z" } }, t, "nl", now);
-    expect(later.text).toBe("objects.saved_days:23");
+    expect(later).toMatchObject({ text: "objects.saved:", left: "objects.saved_days:23" });
     expect(later.soon).toBe(false);
     expect(later.title).toContain("27 november 2026");
-    expect(savedLabel({ opgeslagen: { verloopt: "2026-11-05T10:00:00Z" } }, t, "nl", now)).toMatchObject({ text: "objects.saved_one_day:", soon: true });
+    expect(savedLabel({ opgeslagen: { verloopt: "2026-11-05T10:00:00Z" } }, t, "nl", now)).toMatchObject({ left: "objects.saved_one_day:", soon: true });
   });
 });

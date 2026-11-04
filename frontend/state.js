@@ -106,7 +106,9 @@ export function savedLabel(obj, t, language = "nl", now = Date.now()) {
   const days = Math.max(0, Math.ceil((expires.getTime() - now) / 86400000));
   const date = expires.toLocaleDateString(language === "en" ? "en-GB" : "nl-NL", { day: "numeric", month: "long", year: "numeric" });
   return {
-    text: days === 1 ? t("objects.saved_one_day") : t("objects.saved_days", { n: days }),
+    text: t("objects.saved"),
+    // The period left, shown apart (italic) so it stands out.
+    left: days === 1 ? t("objects.saved_one_day") : t("objects.saved_days", { n: days }),
     title: t("objects.saved_expiry", { date }),
     soon: days <= 7,
   };

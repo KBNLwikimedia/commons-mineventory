@@ -407,3 +407,6 @@ h2, h3, h4 { margin: 0.5rem 0; }
   .cc-werkblad .cc-midden { height: calc(100vh - 9rem); order: 0; }
 }
 .cc-verloopt-bijna { color: var(--color-warning, #ac6600); font-weight: bold; }
+.cc-opgeslagen-label { font-size: 0.75rem; }
+.cc-verloopt { font-style: italic; font-weight: bold; color: var(--color-base, #202122); white-space: nowrap; }
+.cc-verloopt.cc-verloopt-bijna { color: var(--color-warning, #ac6600); }

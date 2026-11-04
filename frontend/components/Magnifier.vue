@@ -28,7 +28,7 @@
           <dd>{{ object.box.x }}, {{ object.box.y }} · {{ object.box.w }} × {{ object.box.h }} px</dd>
           <template v-if="savedInfo">
             <dt>{{ t("magnifier.saved") }}</dt>
-            <dd><span :class="{ 'cc-verloopt-bijna': savedInfo.soon }">{{ savedInfo.text }}</span> <retention-info /><br /><span class="cc-klein">{{ savedInfo.title }}</span></dd>
+            <dd>{{ savedInfo.text }}<template v-if="savedInfo.left">, <em class="cc-verloopt" :class="{ 'cc-verloopt-bijna': savedInfo.soon }">{{ savedInfo.left }}</em></template> <retention-info /><br /><span class="cc-klein">{{ savedInfo.title }}</span></dd>
           </template>
           <template v-if="object.herkomst?.p2677"><dt>P2677</dt><dd><code>{{ object.herkomst.p2677 }}</code></dd></template>
           <dt>

@@ -36,7 +36,7 @@
           <span class="cc-object-naam" @click.prevent="emit('focus', obj.id)">{{ listName(obj) }}</span>
           <template #description>
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
-            <template v-if="obj.opgeslagen"> · <span :class="{ 'cc-verloopt-bijna': savedLabel(obj, t, language).soon }" :title="savedLabel(obj, t, language).title">{{ savedLabel(obj, t, language).text }}</span></template>
+            <template v-if="obj.opgeslagen"> · <span class="cc-opgeslagen-label" :title="savedLabel(obj, t, language).title">{{ savedLabel(obj, t, language).text }}<template v-if="savedLabel(obj, t, language).left">, <em class="cc-verloopt" :class="{ 'cc-verloopt-bijna': savedLabel(obj, t, language).soon }">{{ savedLabel(obj, t, language).left }}</em></template></span></template>
             <template v-if="obj.al_uitgesneden"> · {{ t("objects.already_extracted") }}</template>
             <span v-if="obj.bijschrift?.tekst && name(obj) !== obj.bijschrift.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
             <template v-if="obj.status === 'uitgesloten'"> · {{ t("status.uitgesloten") }}</template>

@@ -3,6 +3,13 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.21.1] - 2026-11-04
+
+### Gewijzigd
+
+- "Opgeslagen, *nog … dagen*" staat in de objectenlijst en op de pagina *Objecten* in een kleinere letter; de resterende periode staat cursief en vet, zodat die opvalt (in de laatste week in oranje). Zo ook in de vergroter.
+- Pagina *Objecten*: onder elk object staat "Uitsnede uit" met de naam van het origineel (zonder "File:"), als link naar de bestandspagina op Commons; zo ook in de prullenbak.
+
 ## [0.21.0] - 2026-11-04
 
 ### Toegevoegd

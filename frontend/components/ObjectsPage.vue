@@ -51,8 +51,13 @@
                 <cdx-icon :icon="cdxIconTrash" size="small" />
               </cdx-button>
             </span>
-            <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · <span :class="{ 'cc-verloopt-bijna': savedLabel(obj, t, language).soon }" :title="savedLabel(obj, t, language).title">{{ savedLabel(obj, t, language).text }}</span></template></small>
-            <small class="cc-afkappen" :title="obj.bestand_titel">{{ obj.bestand_titel }}</small>
+            <small>{{ t(`source.${obj.bron}`) }}<template v-if="obj.opgeslagen"> · <span class="cc-opgeslagen-label" :title="savedLabel(obj, t, language).title">{{ savedLabel(obj, t, language).text }}<template v-if="savedLabel(obj, t, language).left">, <em class="cc-verloopt" :class="{ 'cc-verloopt-bijna': savedLabel(obj, t, language).soon }">{{ savedLabel(obj, t, language).left }}</em></template></span></template></small>
+            <!-- The original the object comes from, linked to its page on Commons. -->
+            <small class="cc-afkappen" :title="obj.bestand_titel">
+              {{ t("objects.source_file") }}
+              <a v-if="obj.bestand_url" :href="obj.bestand_url" target="_blank" rel="noopener">{{ String(obj.bestand_titel || "").replace(/^File:/, "") }}</a>
+              <template v-else>{{ String(obj.bestand_titel || "").replace(/^File:/, "") }}</template>
+            </small>
           </li>
         </ul>
         </div>
@@ -66,7 +71,11 @@
             <li v-for="obj in trash" :key="obj.mid + obj.id">
               <img :src="`${obj.uitsnede_url}?w=200`" :alt="name(obj)" loading="lazy" />
               <strong>{{ name(obj) }}</strong>
-              <small class="cc-afkappen">{{ obj.bestand_titel }}</small>
+              <small class="cc-afkappen" :title="obj.bestand_titel">
+                {{ t("objects.source_file") }}
+                <a v-if="obj.bestand_url" :href="obj.bestand_url" target="_blank" rel="noopener">{{ String(obj.bestand_titel || "").replace(/^File:/, "") }}</a>
+                <template v-else>{{ String(obj.bestand_titel || "").replace(/^File:/, "") }}</template>
+              </small>
               <span class="cc-knoppen">
                 <cdx-button action="progressive" size="small" @click="restore(obj)"><cdx-icon :icon="cdxIconRestore" /> {{ t("objects.restore") }}</cdx-button>
                 <cdx-button size="small" action="destructive" @click="purge(obj)">{{ t("objects.delete_forever") }}</cdx-button>
