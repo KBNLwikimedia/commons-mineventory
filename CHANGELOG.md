@@ -3,6 +3,36 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.25.0] - 2026-11-04
+
+Uit een kritische review van code en documentatie (4-11-2026).
+
+### Beveiliging
+
+- Zonder `FLASK_SECRET_KEY` gebruikt de app een willekeurige sleutel per proces in plaats van een vaste, en een sessiecookie telt (tot OAuth) niet meer als login. Wie de vaste sleutel kende, kon eerder een cookie met een gebruikersnaam ondertekenen en betaalde aanroepen doen.
+- CSRF: verzoeken die iets veranderen of geld kosten (POST, PATCH, DELETE) komen alleen nog van de eigen pagina's van de app (Origin en Sec-Fetch-Site) en moeten JSON zijn. Een andere website kon de browser eerder een betaalde vraag laten doen (code `cross_site`, 403; `not_json`, 415).
+- Wikitekst-injectie: vrije tekst in het Commons-concept (AI-teksten, captions, beschrijving, inscripties) staat er nu letterlijk in, met de wikitekens als HTML-entiteit. Tekst als `}}`, `[[Category:…]]`, `{{subst:…}}`, `~~~~` of `__NOINDEX__` kan geen sjabloon, categorie of handtekening meer toevoegen. Sjablonen uit het origineel (zoals `{{Creator:…}}`) blijven werken. Categorienamen worden gecontroleerd.
+- De configuratie in de pagina escapet `<`, `>` en `&`, zodat tekst uit de URL het script niet kan afsluiten. Taallinks geven geen Flask-interne parameters (`_external` …) door.
+- De opschoner van de Commons-weergave laat geen `position`, `z-index` of `transform` meer door (geen elementen over de app heen) en ziet CSS-escapes.
+- Prompt-injectie: de tekst die het paginaoverzicht las, kan de markeringen van zijn eigen blok niet meer bevatten; elk tekstveld van een AI-antwoord is hooguit 4000 tekens.
+- Strengere controle van een concept-PATCH (datum, maker, gekozen, talen van caption en beschrijving, `bron`) en van de M-id bij definitief verwijderen.
+
+### Opgelost
+
+- Commons-concept: een wijziging die nog opgeslagen moest worden, kon bij snel wisselen van object op het nieuwe object terechtkomen; nu gaat die naar het juiste object, en herladen gooit geen niet-opgeslagen wijziging meer weg. Dezelfde wijziging wordt niet meer twee keer verstuurd.
+- Na Broncode → Weergave stonden de potloodjes en *[bewerken]* er niet meer.
+- *Ongedaan maken* na *Naar de prullenbak* zette het object terug in het bestand dat op dat moment open was, niet in het eigen bestand.
+- Het paginaoverzicht van een pagina die je net verliet, kon op de nieuwe pagina verschijnen.
+- De vergroter wist bij een ander object ook de zoekopdracht en foutmelding van het vorige.
+
+### Verwijderd
+
+- Ongebruikte vertalingen, CSS-regels en code (onder meer een dubbele regel en de Wikidata-beschrijving van het oude formulier).
+
+### Gewijzigd
+
+- Documentatie bijgewerkt tot 0.24.2: README (functies), CLAUDE.md (stand, techniek, beheerpaneel), BACKLOG (nummering, gedane punten, open punten uit de review), functioneel ontwerp, privacyverklaring (wat naar Meta en Wikidata gaat), `.env.example` en de OpenAPI-beschrijving (bodies zoals de code ze leest).
+
 ## [0.24.2] - 2026-11-04
 
 ### Gewijzigd
@@ -70,7 +100,7 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ### Verwijderd
 
-- Snel zoeken ook uit de code: de API-modus `categorie`, de twaalf vaste groepen in `cutter/prompts.py`, `snel_zoeken` in de paginaconfiguratie en de vertalingen `quick.*`. De AI-suggesties per afbeelding vervangen het (zie 0.13). `docs/api.md`, het FO, de OpenAPI-beschrijving en de backlog zijn bijgewerkt.
+- Snel zoeken ook uit de code: de API-modus `categorie`, de twaalf vaste groepen in `cutter/prompts.py`, `snel_zoeken` in de paginaconfiguratie en de vertalingen `quick.*`. De AI-suggesties per afbeelding vervangen het (zie 0.11.0). `docs/api.md`, het FO, de OpenAPI-beschrijving en de backlog zijn bijgewerkt.
 
 ## [0.20.0] - 2026-11-04
 
@@ -81,7 +111,7 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 - `{{Map}}` wordt overgenomen zoals `{{Artwork}}`: kaartdatum, drukdatum, plaats, blad en schaal gaan mee, het middelpunt (`latitude`, `longitude`) en de legenda niet. `{{Photograph}}` houdt ook `camera coord`, `{{Book}}` ook `wikisource`.
 - Categorieën: een uitsnede van een bestand uit *Media contributed by Koninklijke Bibliotheek* komt in *Cut-outs from media contributed by Koninklijke Bibliotheek*, een uitsnede uit *Media from Delpher* in *Cut-outs from media from Delpher*; de partnercategorie zelf gaat niet mee. Dat loopt via het partnersjabloon in `source`, met de bestaande parameter `category=`: `{{Koninklijke Bibliotheek|category=[[Category:Cut-outs from media contributed by Koninklijke Bibliotheek]]}}` (en zo ook `{{Delpher}}`). De vermelding van de partner blijft dus staan.
 
-### Documentatie
+### Gewijzigd
 
 - `docs/artwork-velden.md`: per veld van `{{Artwork}}`, `{{Photograph}}` en `{{Book}}` wat het Commons-concept nu doet en een voorstel (overnemen, opnieuw invullen of weglaten), met een steekproef van 596 KB-bestanden op Commons en de besluiten van Olaf.
 
@@ -235,7 +265,7 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [0.9.1] - 2026-11-04
 
-### Documentatie
+### Gewijzigd
 
 - README, CLAUDE.md, BACKLOG.md, het functioneel ontwerp (v0.5), `docs/api.md` en `docs/privacy.md` bijgewerkt naar de stand van 0.9.0: bewerkbare AI-teksten, AI-merkjes, de modelkeuze als code, de proefweergave zoals op Commons, de extra SDC en de regio op het origineel als voorbeeld.
 

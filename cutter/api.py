@@ -46,7 +46,9 @@ def _user():
     """The logged-in Commons user (phase 2: OAuth). Until then, in debug mode
     only, LOKALE_GEBRUIKER stands in for a login, so live mode can be tried
     locally; on a server (no debug) it is ignored."""
-    return session.get("gebruiker") or (current_app.debug and current_app.config.get("LOKALE_GEBRUIKER")) or None
+    # Phase 2: the user OAuth puts in the session. Nothing sets it yet, so it is not
+    # read: a forged session cookie must never count as a login.
+    return (current_app.debug and current_app.config.get("LOKALE_GEBRUIKER")) or None
 
 
 def _require_paid_access(paid):
@@ -80,6 +82,27 @@ def _page_file(mid, n):
 def _body():
     body = request.get_json(silent=True)
     return body if isinstance(body, dict) else {}
+
+
+@api.before_request
+def _same_site_only():
+    """A request that changes something (or costs money) only from the app's own
+    pages: another website cannot make the browser POST, PATCH or DELETE here
+    (CSRF). Browsers send Origin and Sec-Fetch-Site; scripts and tests may send
+    neither. A body must be JSON."""
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None
+    if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
+        raise DetectionError("Alleen vanaf de eigen pagina's van de app.", status=403, code="cross_site")
+    origin = request.headers.get("Origin")
+    if origin and origin != request.host_url.rstrip("/"):
+        raise DetectionError("Alleen vanaf de eigen pagina's van de app.", status=403, code="cross_site")
+    if request.content_length and not request.is_json:
+        raise DetectionError("Stuur de gegevens als JSON (Content-Type: application/json).", status=415, code="not_json")
+    return None
+
+
+MID = re.compile(r"M\d{1,12}")
 
 
 # -- Errors -------------------------------------------------------------------------------
@@ -659,6 +682,8 @@ def empty_trash():
 
 @api.delete("/prullenbak/<mid>/<int:n>/<object_id>")
 def purge_from_trash(mid, n, object_id):
+    if not MID.fullmatch(mid):
+        raise DetectionError(f"'{mid}' is geen M-id.", status=400, code="invalid_mid")
     file = {"mid": mid}
     service = _service()
     if not service.in_trash(file, n, object_id):

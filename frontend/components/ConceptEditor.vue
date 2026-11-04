@@ -220,7 +220,7 @@ import SdcPreview from "./SdcPreview.vue";
 import SourceNote from "./SourceNote.vue";
 
 const props = defineProps({ mid: { type: String, required: true }, n: { type: Number, required: true }, objectId: { type: String, required: true } });
-const emit = defineEmits(["saved", "edit-texts", "texts-changed"]);
+const emit = defineEmits(["saved", "texts-changed"]);
 const t = useT();
 const language = inject("language", "nl");
 const concept = ref(null);
@@ -249,7 +249,7 @@ const renderedHtml = ref("");
 const renderedBox = ref(null);
 // Boxes that start closed on Commons (institution, creator) start closed here too;
 // and every row that comes from the concept gets a pencil.
-watch(renderedHtml, async () => {
+watch([renderedHtml, renderedBox], async () => {
   await nextTick();
   if (!renderedBox.value) return;
   makeCollapsible(renderedBox.value, { open: t("concept.box_open"), close: t("concept.box_close") });
@@ -468,6 +468,8 @@ onBeforeUnmount(() => {
 });
 
 async function reload() {
+  // A change still waiting to be saved goes first, so reloading never throws it away.
+  if (saveTimer) await save();
   try {
     fill(await get(path.value));
   } catch (e) {
@@ -475,19 +477,30 @@ async function reload() {
     messageType.value = "error";
   }
 }
-watch(path, () => {
+watch(path, (now, before) => {
+  // Another object: a change of the previous one is saved there, never on this one.
+  if (before && saveTimer && draft.value && JSON.stringify(bodyOf(draft.value)) !== lastSaved) {
+    send(bodyOf(draft.value), { target: before });
+  }
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  draft.value = null;
+  concept.value = null; // "loading…" until the new object's concept is there
   Object.keys(undoValues).forEach((key) => delete undoValues[key]);
   renderedHtml.value = "";
   renderedText = null;
   reload();
 }, { immediate: true });
 
-async function send(body, { announce = false } = {}) {
+async function send(body, { announce = false, target = path.value } = {}) {
   saving.value = true;
   message.value = "";
   const sent = JSON.stringify(body);
+  const before = lastSaved;
+  if (target === path.value) lastSaved = sent; // the same change is not sent twice
   try {
-    const data = await patch(path.value, body);
+    const data = await patch(target, body);
+    if (target !== path.value) return; // saved for an object that is no longer shown
     // Typed on while saving? Keep what is in the form; the next save follows.
     if (body.herstel || JSON.stringify(bodyOf(draft.value)) === sent) fill(data);
     else {
@@ -500,6 +513,7 @@ async function send(body, { announce = false } = {}) {
     }
     emit("saved", concept.value);
   } catch (e) {
+    if (target === path.value) lastSaved = before; // not saved: a later change tries again
     message.value = errorText(t, e);
     messageType.value = "error";
   } finally {
@@ -510,6 +524,7 @@ async function send(body, { announce = false } = {}) {
 function save() {
   clearTimeout(saveTimer);
   saveTimer = null;
+  if (!draft.value || JSON.stringify(bodyOf(draft.value)) === lastSaved) return Promise.resolve();
   // The extension follows the format; the server makes them match.
   return send(bodyOf(draft.value));
 }
@@ -584,14 +599,6 @@ function undoFill(field, language, target = draft.value) {
   delete undoValues[key];
 }
 
-// The short Wikidata description of a depicts item: in the interface language,
-// else the other one; "" when Wikidata has neither, null when not (yet) known.
-function itemDescription(q) {
-  const info = concept.value?.beeldt_af_info?.[q];
-  if (!info) return null;
-  const other = language === "nl" ? "en" : "nl";
-  return info.beschrijving?.[language] || info.beschrijving?.[other] || "";
-}
 
 function addCategory() {
   const name = newCategory.value.trim().replace(/^Category:/i, "");

@@ -1,6 +1,6 @@
 # Functioneel ontwerp – Commons Cutter
 
-Naam: **Commons Cutter** (Engels, zoals de tool op Toolforge en de repo; besluit Olaf 3-11-2026). Status: concept v0.5, 4 november 2026 (v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
+Naam: **Commons Cutter** (Engels, zoals de tool op Toolforge en de repo; besluit Olaf 3-11-2026). Status: concept v0.6, 4 november 2026 (v0.6: bijgewerkt tot app-versie 0.24.2; zie CHANGELOG.md voor alles wat sinds 0.9.0 gebouwd is; v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
 
 Dit FO beschrijft een variant van de [Delpher Uitsnijder](https://github.com/ookgezellig/delpher-uitsnijder) (versie 0.18.13, lokaal in `D:\KB-OPEN\github-repos\delpher-uitsnijder`) voor afbeeldingen op Wikimedia Commons. Waar dit document "de Delpher Uitsnijder" zegt, gaat het om die app: haar FO, `docs/api.md`, `docs/commons-beschrijving.md`, `docs/beeld-taalmodel.md` en `docs/meta-sam-api.md`. Die documenten blijven de bron voor alles wat ongewijzigd wordt overgenomen. Dit FO beschrijft vooral wat anders is.
 
@@ -38,7 +38,7 @@ Voorbeelden:
 
 - Geen eigen beeldbewerking. Wie wil rechtzetten of de helderheid aanpassen, gebruikt CropTool, eventueel op de nieuwe uitsnede.
 - Geen "origineel overschrijven". Dat is CropTools terrein, en een uitsnede van een object is een ander werk dan het origineel.
-- Vanuit de app een link "Openen in CropTool" bij elke uitsnede die al op Commons staat, met de box als vooringevulde selectie (CropTool accepteert die in de querystring; het exacte formaat bij de bouw nagaan).
+- Na de upload een link "Openen in CropTool" bij elke uitsnede die op Commons staat (backlog 14a). CropTool neemt geen vooringevuld kader over (getest in 0.17.0); het detectiepaneel heeft nu *Bijsnijden in CropTool* voor het hele bestand (0.18.0).
 
 ## 3. Uitgangspunten
 
@@ -167,7 +167,7 @@ Opslag: `uitvoer/<M-id>/objecten.json` per bestand en per pagina, zoals in de De
 Ongewijzigd ten opzichte van de Delpher Uitsnijder (`docs/meta-sam-api.md`):
 
 - `POST https://api.meta.ai/v1/responses` met `model: sam-3.1`, één Engelse noun phrase per aanroep, of een punt- of boxprompt (Aanwijzen).
-- De server stuurt een verkleinde versie (standaard 2000 px breed) als base64-data-URL. Besloten (3-11-2026): **data-URL**, zoals in de Delpher Uitsnijder. Dan haalt Meta niets zelf op bij Wikimedia, en bepaalt de app de resolutie.
+- De server stuurt een verkleinde versie (standaard 1920 px breed) als base64-data-URL. Besloten (3-11-2026): **data-URL**, zoals in de Delpher Uitsnijder. Dan haalt Meta niets zelf op bij Wikimedia, en bepaalt de app de resolutie.
 - Antwoord via `meta-sam-parser`; maskers lui decoderen en cachen.
 - Cache per **SHA-1 van het bestand** + pagina + term + model. Een nieuwe versie van het bestand (andere SHA-1) geeft dus een nieuwe detectie.
 
@@ -175,10 +175,10 @@ Ongewijzigd ten opzichte van de Delpher Uitsnijder (`docs/meta-sam-api.md`):
 
 "Wat staat hierop?" per object en "Wat staat op deze pagina?" per bestand, zoals in `docs/beeld-taalmodel.md`, met dezelfde JSON-velden (`soort`, `onderwerp`, `bedrijf_of_naam`, `tekst_in_beeld`, `tekst_rond_beeld`, `beschrijving`, `zekerheid`). Verschillen:
 
-- **Context** voor het model: de beschrijving en de caption van het origineel (als platte tekst, ingekort), de zichtbare categorieën en de bestaande *beeldt af*-items, uitdrukkelijk als hulp en niet als waarheid. In plaats van de ALTO-tekst.
+- **Context** voor het model: de beschrijving en de caption van het origineel (als platte tekst, ingekort), de zichtbare categorieën en de bestaande *beeldt af*-items, uitdrukkelijk als hulp en niet als waarheid. In plaats van de ALTO-tekst. Daarnaast (sinds 0.13–0.16): het bijschrift van de uitsnede, de aanwijzing van de gebruiker (AI-bijsturing) en de tekst die het paginaoverzicht in en onder de hele afbeelding las.
 - **Nieuw veld `wikidata_suggesties`**: hooguit drie zoektermen voor *beeldt af* (bijv. "coat of arms", "Jacob van Bronckhorst van Batenburg"). De app zoekt die gratis op met `wbsearchentities`; de gebruiker kiest het item. Het model verzint zelf geen Q-nummers.
 - **Taal**: beschrijving en caption in het Nederlands én het Engels (in één aanroep). Niet beantwoord in ronde 2; dit is het voorstel, en het past bij de tweetalige interface. Het paginaoverzicht geeft sinds app-versie 0.9.0 ook soort en samenvatting in beide talen (`paginasoort_en`, `samenvatting_en`); `soort` en `zekerheid` komen uit een vaste Nederlandse lijst en de interface vertaalt ze.
-- **Met de hand aanpassen** (gebouwd, 0.6.0): onderwerp en beschrijving (nl en en) zijn te bewerken met *Tekst aanpassen*, met *Ongedaan maken* na het opslaan. De eerste keer dat een veld verandert, bewaart de app de AI-tekst in `ai_origineel`, zodat *Terug naar de AI-tekst* altijd kan; `bewerkt` zegt of er nog iets afwijkt.
+- **Met de hand aanpassen** (gebouwd, 0.6.0; sinds 0.22.1 met een potloodje per veld): onderwerp en beschrijving (nl en en), naam, tekst in en rond het beeld, met *Ongedaan maken* na het opslaan; ook in de lightbox naast het grote beeld (0.22.0). De eerste keer dat een veld verandert, bewaart de app de AI-tekst in `ai_origineel`, zodat *Terug naar de AI-tekst* altijd kan; `bewerkt` zegt of er nog iets afwijkt.
 - **Herkenbaar als AI** (gebouwd, 0.8.0): bij soort, onderwerp, beschrijving, het paginaoverzicht en *Bron: AI-beelddetectie* staat een AI-merkje. Een klik opent een venster dat uitlegt wat het model deed (met een link naar het model en, bij de detectie, de score van het object), wat er mis kan gaan en wat de gebruiker moet controleren. De waarschuwing dat een taalmodel zich kan vergissen staat in het blok *Model, kosten en kwaliteit*.
 
 ### 6.3 Contributor of Standard
@@ -348,7 +348,7 @@ Eis van Olaf (3-11-2026): Olaf is nu de enige beheerder, maar wil andere beheerd
 
 Gebaseerd op `docs/commons-beschrijving.md` van de Delpher Uitsnijder:
 
-1. **Concept per object** (veld `commons`): bestandsnaam, beschrijving, caption (nl/en), datum, maker, bron, licentie, categorieën, *beeldt af*, rechtenlabel, en de keuze PNG of JPG. Gratis samengesteld, bewerkbaar in de vergroter.
+1. **Concept per object** (veld `commons`): bestandsnaam, beschrijving, caption (nl/en), datum, maker, bron, licentie, categorieën, *beeldt af*, rechtenlabel, en de keuze PNG of JPG. Gratis samengesteld, bewerkbaar in de vergroter: op de weergave zelf (potloodjes, *[bewerken]*), op de tabbladen *Bestandsinformatie* en *Gestructureerde gegevens*, zoals op Commons (0.23–0.24).
 2. **Keuzemenu**: alle opgeslagen uitsneden van het bestand, met miniatuur, concept, rechtenlabel en een vinkje. Standaard aangevinkt: alleen **In orde** en **Naamsvermelding verplicht**.
 3. **Controle vooraf** (gratis, alleen lezen): bestaat de naam al, bestaat dezelfde afbeelding al (SHA-1), bestaan de categorieën.
 4. **Proefweergave**: de volledige wikitekst en de SDC-verklaringen per uitsnede, elk met een schakelaar **Weergave / Broncode** (gebouwd, 0.7.0):
@@ -403,7 +403,7 @@ Besloten door Olaf (3-11-2026): **onderwerp voorop, in het Engels**.
 - **`{{Extracted from|File:…}}`** op de nieuwe pagina, net als CropTool.
 - **`{{Extracted from|File:…}}` is verplicht** op elke uitsnede, JPG en gemaskerde PNG, zodat altijd te zien is wat het bronbestand is (eis van Olaf, 3-11-2026). De app laat het niet weghalen.
 - **`{{Image extracted|<nieuw bestand>}}`** op het origineel: een bewerking van de pagina van iemand anders. CropTool doet dit ook. Besloten door Olaf (3-11-2026): **standaard aan, per upload uit te zetten**. Eén bewerking voor alle uitsneden van een sessie; een bestaand sjabloon wordt aangevuld, niet gedupliceerd. De bewerkingssamenvatting noemt de nieuwe bestanden.
-- Gebruikt het origineel `{{Artwork}}`, `{{Photograph}}` of `{{Book}}`, dan neemt de app dat sjabloon over met de velden die op de uitsnede ook kloppen (maker, datum, instelling, inventarisnummer) en een nieuwe `description`/`title`. Welke velden precies: bij de bouw vastleggen per sjabloon.
+- Gebruikt het origineel `{{Artwork}}`, `{{Photograph}}` of `{{Book}}`, dan neemt de app dat sjabloon over met de velden die op de uitsnede ook kloppen (maker, datum, instelling, inventarisnummer) en een nieuwe `description`/`title`. Welke velden: vastgelegd in docs/artwork-velden.md (0.20.0), ook voor `{{Map}}`; de tekst in en rond het beeld als `{{Inscription}}` (0.22.0).
 - **Licentie**: alle sjablonen uit de licentiesectie van het origineel, letterlijk. Bij `{{Flickrreview}}` of `{{LicenseReview}}` met een bevestiging: de bevestiging komt **niet** mee (CropTool doet dat ook niet), maar wel een verwijzing naar het origineel.
 - **Categorieën**: de zichtbare categorieën van het origineel als voorstel (aan te vinken), plus wat de gebruiker toevoegt. Onderhoudscategorieën en `{{Assessments}}`, `{{QI}}`, `{{FP}}` en dergelijke komen nooit mee.
 - **Volgcategorie** `Category:Uploaded with Commons Cutter` (verborgen), en een projectpagina **`Commons:Commons Cutter`**. Olaf maakt beide aan (besluit 3-11-2026), vóór de eerste echte upload.
@@ -445,7 +445,7 @@ Na de upload, in één `wbeditentity` op `M<pageid>`:
 
 ### 10.1 Welke Codex
 
-Het verzoek noemde Codex **v0.4.1**. Dat is een oude versie (2022), nog zonder de **CSS-only-componenten**. De huidige versie is **2.7.0** (november 2026). Besloten door Olaf (3-11-2026): **Codex 2.x met Vue 3, gebouwd met Vite**. Dit wijkt bewust af van de Delpher Uitsnijder, die geen build-stap heeft. Waarom 2.x: de huidige versie sluit aan bij wat Commons zelf gebruikt (Vector 2022), heeft CSS-only-componenten en levert de designtokens als CSS-variabelen.
+Het verzoek noemde Codex **v0.4.1**. Dat is een oude versie (2022), nog zonder de **CSS-only-componenten**. De app gebruikt **2.6.0** (package.json). Besloten door Olaf (3-11-2026): **Codex 2.x met Vue 3, gebouwd met Vite**. Dit wijkt bewust af van de Delpher Uitsnijder, die geen build-stap heeft. Waarom 2.x: de huidige versie sluit aan bij wat Commons zelf gebruikt (Vector 2022), heeft CSS-only-componenten en levert de designtokens als CSS-variabelen.
 
 ### 10.2 Frontend-opbouw met Vite
 
@@ -483,7 +483,7 @@ Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 - **Invoerbalk**: Commons-URL of titel, knop **Openen**. Daaronder: titel, miniatuur, licentie (als Codex-*chip*), maker, datum, link naar de bestandspagina, en een uitklapbare **Metadata** (beschrijving, categorieën, SDC).
 - **Links**: bestand › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › objecten.
 - **Midden**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
-- **Rechts**: het detectiepaneel in uitklapbare blokken (Codex *Accordion*-stijl): Bulk-operaties, Zoeken, AI-suggesties voor deze afbeelding, Aanwijzen, Rechthoek tekenen, **Uit Commons**. Daaronder de resultatenlijst met vinkjes, en de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
+- **Rechts**: het detectiepaneel in uitklapbare blokken (Codex *Accordion*), sinds 0.14.0 in deze volgorde: AI-suggesties voor deze afbeelding, Uit Commons, Zoeken, Aanwijzen of tekenen, Bulk-operaties, Bijsnijden in CropTool (0.18.0). Daaronder de resultatenlijst met vinkjes, en de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
 - **Vergroter**: de uitsnede, "Wat staat hierop?", het bijschrift en het Commons-concept (tab).
 - **Gebouwd in fase 1 (stand 0.9.0)**: de randen tussen de drie kolommen zijn versleepbaar (ook met de pijltjestoetsen; breedte per browser onthouden); de objectenlijst toont een miniatuur per object, en een regel licht op als de muis erboven of boven die uitsnede in het beeld staat; alle knoppen zijn Codex-blauw (*progressive*), verwijderen blijft rood; in het Commons-concept zitten de invulacties per veld in een klein menu (⋯) met *Ongedaan maken* direct erna; de namen die de app zelf geeft (klik, rechthoek, regio) en soort en zekerheid volgen de taal van de interface.
 - **Pagina's**: `/objecten` (alle uitsneden, met het facet "Op Commons"), `/commons` (het keuzemenu), `/verbruik`, `/docs`, `/changelog`.
@@ -492,7 +492,7 @@ Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 
 ### 10.5 Mobiel
 
-Panelen als tabbladen (Bestand, Beeld, Detectie). Bekijken en selecteren wel; uploaden bij voorkeur op een groot scherm.
+Panelen als tabbladen (Objecten, Beeld, Detectie; gebouwd in 0.19.0, *Beeld* eerst). Bekijken en selecteren wel; uploaden bij voorkeur op een groot scherm.
 
 ## 11. REST-API
 
@@ -559,7 +559,6 @@ API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-s
   - **30 dagen**: opgeslagen uitsneden en maskers (`uitvoer/<mid>/pagina_<n>/jpg`, `png`, `maskers`); het object vergeet dan dat het opgeslagen was, en opnieuw opslaan maakt ze weer aan. Ook voorbeelden en maskerafbeeldingen in de cache. Objecten die op Commons staan, houden hun gegevens.
   - **1 jaar**: de antwoorden van SAM en Muse Spark in de cache, en een hele pagina (objecten en beschrijvingen) die zo lang niet geopend is.
   - Nooit: het verbruikslog (`uitvoer/verbruik`).
-  - Nog niet: de app toont nog niet bij elke uitsnede wanneer die verloopt.
 - **Sessies**: server-side, in Redis van Toolforge of in bestanden; tokens versleuteld.
 - **Lange taken** (Alles beschrijven, uploads van tientallen bestanden): pagina voor pagina vanuit de browser, zoals nu, of als `toolforge jobs`-taak. Voorstel: vanuit de browser, met de knop Stoppen.
 - **Werkgeheugen**: een webservice heeft standaard een beperkt geheugen; grote scans (5.4) kunnen dat overschrijden. Bij de bouw meten en zo nodig meer aanvragen.
@@ -668,7 +667,7 @@ commons-cutter/
 
 ### Aangenomen (niet beantwoord, voorstel geldt tot Olaf anders zegt)
 
-- Grens voor grote bestanden: 100 megapixel (5.4).
+- Grote bestanden: boven 100 megapixel stuk voor stuk met libvips (5.4; besluit Olaf 4-11-2026, gebouwd in 0.21.0).
 - Beschrijving en caption in het Nederlands én het Engels (6.2).
 
 ### Nog open
@@ -682,7 +681,6 @@ Geen vragen die de bouw van fase 1 en 2 tegenhouden. Later:
 - Of ToolsDB de juiste plek is voor de gegevens van het beheerpaneel, en hoe de tool erbij kan (8.4).
 
 - De thumbnailstappen die Commons nu toestaat (5.2).
-- Het formaat van de vooringevulde selectie in CropTool (2).
 - De minimale set OAuth-grants (8.2).
 - Of de testwiki OAuth 2.0 en SDC ondersteunt (9.6).
 - Welke SDC-eigenschap de relatie uitsnede → origineel vastlegt (9.4).

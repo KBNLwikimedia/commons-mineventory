@@ -97,7 +97,8 @@ def _t(key, **params):
 
 
 def _language_url(language):
-    args = request.args.to_dict()
+    # Not the Flask-internal ones (_external, _scheme, _anchor …): they are not ours to pass on.
+    args = {k: v for k, v in request.args.to_dict().items() if not k.startswith("_")}
     args["uselang"] = language
     return url_for(request.endpoint or "web.index", **(request.view_args or {}), **args)
 
@@ -165,7 +166,8 @@ def _client_config(page, **extra):
         },
         **extra,
     }
-    text = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    # <, > and & as \u escapes: no text from a URL can end or open a tag in the <script>.
+    text = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     return Markup(f'<script id="cutter-config" type="application/json">{text}</script>')
 
 

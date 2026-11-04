@@ -155,7 +155,6 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-veld-met-menu { display: flex; gap: 0.25rem; align-items: flex-start; }
 .cc-veld-met-menu > .cdx-text-input, .cc-veld-met-menu > .cdx-text-area { flex: 1; min-width: 0; }
 .cc-blok { margin-top: 1.25rem; padding: 0.75rem 1rem; border: 1px solid var(--cc-rand); border-radius: 2px; }
-.cc-blok-zacht { background: var(--background-color-interactive-subtle, #f8f9fa); }
 .cc-blok-kop { font-size: 1rem; margin: 0 0 0.35rem; }
 .cc-kosten { font-weight: normal; opacity: 0.85; margin-left: 0.35em; }
 .cc-waarschuwing { margin-top: 0.5rem; }
@@ -242,7 +241,6 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-invoer-met-knop.met-tekstknop .cdx-text-input__input { padding-right: 10rem; }
 .cc-invoer-knop-tekst.cdx-button { padding: 2px 8px; font-weight: bold; }
 .cc-invoer-knop.cdx-button { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); min-width: 0; min-height: 0; padding: 4px; }
-.cc-twee { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
 .cc-concept-kop { display: flex; gap: 1.5rem; align-items: flex-start; margin-top: 1rem; }
 .cc-concept-links { flex: 1; min-width: 0; }
 .cc-concept-links .cdx-field:first-of-type { margin-top: 0.5rem; }
@@ -250,10 +248,6 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-concept-voorbeeld img { display: block; margin: 0 auto; max-width: 14rem; max-height: 12rem; border: 1px solid var(--cc-rand); background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
 .cc-concept-voorbeeld figcaption { margin-top: 0.2rem; }
 .cc-qid { margin: 0 0.35rem; color: var(--cc-tekst-zacht); }
-.cc-beeldt-af li { margin-bottom: 0.35rem; }
-.cc-item-beschrijving { display: block; font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
-.cc-item-beschrijving.leeg { font-style: italic; }
-.cc-beeldt-af { list-style: none; padding: 0; margin: 0 0 0.5rem; }
 .cc-treffers { list-style: none; padding: 0; }
 .cc-concept .cdx-field { margin-top: 0.75rem; }
 
@@ -287,11 +281,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
   .cc-splitter { display: none; }
   .cc-midden { height: 70vh; order: -1; }
   .cc-links, .cc-rechts { overflow: visible; }
-  .cc-twee { grid-template-columns: 1fr; }
   .cc-werkt-met { display: none; }
 }
-.cc-tekst-bewerken { margin: 0.5em 0; display: flex; flex-direction: column; gap: 0.5em; }
-.cc-tekst-bewerken .cdx-field { margin: 0; }
 .cc-tekst-acties { align-items: center; }
 .cc-inventaris-knop { margin-top: 0.75rem; }
 
@@ -340,11 +331,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 @media (max-width: 48rem) { .cc-objecten-indeling { grid-template-columns: 1fr; } .cc-objecten-indeling .cc-facetten { position: static; } }
 .cc-term-aantal { display: inline-block; min-width: 1.2em; margin-left: 0.3em; padding: 0 0.3em; border-radius: 0.6em; background: var(--background-color-progressive-subtle, #eaf3ff); font-size: 0.8em; text-align: center; }
 .cc-aanwijzing { flex-basis: 100%; margin: 0 0 0.25rem; }
-.cc-ai-invoer { flex-shrink: 0; width: 14rem; display: flex; flex-direction: column; gap: 0.25rem; }
-.cc-ai-invoer .cc-concept-voorbeeld img { background: #f8f9fa; }
 .cc-marge { display: flex; flex-direction: column; gap: 0.1rem; }
 .cc-marge input[type=range] { width: 100%; accent-color: var(--color-progressive, #36c); }
-.cc-ai-invoer p { margin: 0; }
 .cc-gelezen-tekst .cdx-button { min-height: 0; min-width: 0; padding: 0 2px; vertical-align: middle; }
 .cc-ai-sturing .cc-concept-kop { margin-bottom: 0.5rem; }
 .cc-ai-sturing .cc-marge { margin-top: 0.75rem; }
@@ -355,8 +343,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-geschiedenis-meta { color: var(--cc-tekst-zacht); }
 /* "Wat staat hierop?": answer, ask button, then folded blocks. */
 .cc-uitleg-vooraf p { margin: 0 0 0.5rem; }
-.cc-antwoord .cc-tekst-acties { align-items: center; }
-.cc-tekst-acties .cc-rechts-uitlijnen.cdx-button { margin-left: auto; }
+.cc-antwoord .cc-tekst-acties .cc-rechts-uitlijnen.cdx-button { margin-left: auto; }
 .cc-vraag-knop { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0 0.75rem; }
 .cc-beschrijving-blok { margin-top: 0.25rem; }
 .cc-beschrijving-blok .cc-ai-sturing { margin: 0; }

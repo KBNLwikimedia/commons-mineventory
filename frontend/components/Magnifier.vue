@@ -326,7 +326,7 @@
       </cdx-tab>
 
       <cdx-tab name="commons" :label="t('concept.tab')">
-        <concept-editor ref="editor" :mid="file.mid" :n="n" :object-id="object.id" @edit-texts="tab = 'beschrijving'" @texts-changed="emit('changed', $event)" />
+        <concept-editor ref="editor" :mid="file.mid" :n="n" :object-id="object.id" @texts-changed="emit('changed', $event)" />
       </cdx-tab>
     </cdx-tabs>
     <cdx-message v-if="error" type="error" :inline="true">{{ error }}</cdx-message>
@@ -548,6 +548,11 @@ watch(
     cancelEditing();
     undoTexts.value = null;
     hits.value = [];
+    // Nothing of the previous object's search or errors stays in view.
+    searched.value = "";
+    ownTerm.value = "";
+    lookupItems.value = [];
+    error.value = "";
     loadPlan();
   }
 );

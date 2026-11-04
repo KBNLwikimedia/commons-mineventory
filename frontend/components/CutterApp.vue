@@ -239,7 +239,12 @@ async function goToPage(n) {
     inventory.value = null;
     window.history.replaceState(null, "", appUrl(file.value.mid, n));
     visited.value = addToHistory({ mid: file.value.mid, naam: file.value.naam, pagina: n, paginas: file.value.paginas });
-    get(`${pagePath(file.value.mid, n)}/inventaris`).then((plan) => (inventory.value = plan.inventaris)).catch(() => {});
+    const asked = `${file.value.mid}/${n}`;
+    get(`${pagePath(file.value.mid, n)}/inventaris`)
+      .then((plan) => {
+        if (asked === `${file.value?.mid}/${pageN.value}`) inventory.value = plan.inventaris; // not for a page left meanwhile
+      })
+      .catch(() => {});
     if (start.object) {
       const id = start.object;
       start.object = "";
@@ -418,6 +423,7 @@ async function trashObject(id) {
   });
   if (!ok) return;
   const n = pageN.value;
+  const mid = file.value.mid; // Undo later restores in this file, also after opening another
   // What the notice shows of the object: taken before it leaves the list.
   const obj = objects.value.find((o) => o.id === id);
   const shown = obj && {
@@ -432,7 +438,7 @@ async function trashObject(id) {
     if (magnifiedId.value === id) magnifierOpen.value = false;
     notify("notice", t("objects.trashed"), {
       object: shown,
-      actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreObject(id, n) }],
+      actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreObject(id, n, mid) }],
       link: { href: "/objecten?tab=prullenbak", label: t("objects.to_trash") },
     });
   } catch (error) {
@@ -440,10 +446,10 @@ async function trashObject(id) {
   }
 }
 
-async function restoreObject(id, n) {
+async function restoreObject(id, n, mid = file.value.mid) {
   try {
-    await patch(objectPath(file.value.mid, n, id), { prullenbak: false });
-    if (n === pageN.value) {
+    await patch(objectPath(mid, n, id), { prullenbak: false });
+    if (mid === file.value?.mid && n === pageN.value) {
       const data = await get(pagePath(file.value.mid, n));
       objects.value = data.objecten;
       trashTerms.value = data.prullenbak_termen || {};

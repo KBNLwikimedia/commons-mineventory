@@ -112,6 +112,7 @@ The image is {title} on Wikimedia Commons. Context from the file page (may be in
 # A one-off hint from the user for "Ask again" (e.g. "only the boy"): part of
 # the question, not of the caption; at most this many characters.
 MAX_HINT = 300
+MAX_FIELD = 4000  # characters per text field of an answer (a long verse fits; a runaway answer not)
 PAGE_TEXT_INSTRUCTION = """
 
 Text read earlier in the whole image this cut-out comes from (in and under the picture; read by a model, so it may contain errors):
@@ -349,7 +350,8 @@ def build_prompt(file, caption=None, hint=None, page_text=None):
         cutout_caption=f'"{caption}"' if caption else "none",
         **context(file),
     )
-    page_text = (page_text or "").strip()[:MAX_PAGE_TEXT]
+    # The markers that frame the text cannot occur in it (a text that "closes" its own block).
+    page_text = (page_text or "").replace("<<<", "").replace(">>>", "").strip()[:MAX_PAGE_TEXT]
     if page_text:
         prompt += PAGE_TEXT_INSTRUCTION.format(text=page_text)
     hint = clean_hint(hint)
@@ -414,7 +416,8 @@ def parse_answer(text):
     result = {}
     for key in TEXT_FIELDS:
         value = data.get(key)
-        result[key] = " ".join(value.split()) if isinstance(value, str) and value.strip() else None
+        # Capped: an answer can never be longer than a field reasonably is (MAX_FIELD).
+        result[key] = " ".join(value.split())[:MAX_FIELD] if isinstance(value, str) and value.strip() else None
     if result["soort"] not in KINDS:
         result["soort"] = "anders"
     if result["zekerheid"] not in ("hoog", "middel", "laag"):

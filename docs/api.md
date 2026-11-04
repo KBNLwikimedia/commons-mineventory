@@ -119,3 +119,5 @@ Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{o
 | `login_required`, `not_on_access_list` | Betaalde aanroepen vragen een login en de toegangslijst |
 | `upload_disabled`, `not_confirmed`, `not_implemented` | Uploaden staat uit, is niet bevestigd, of komt in fase 2 |
 | `contributor_not_allowed`, `no_api_key`, `no_mask` | Modelkeuze, configuratie of SAM vond niets |
+| `cross_site` (403), `not_json` (415) | Een verzoek dat iets verandert of geld kost, komt niet van de eigen pagina's van de app, of heeft geen JSON-body (bescherming tegen CSRF, sinds 0.25.0) |
+| `invalid_body`, `invalid_mid`, `no_description` (409), `no_thumbnail`, `method_not_allowed` | Ongeldige body of M-id, nog geen beschrijving, Commons gaf geen verkleinde afbeelding, of een methode die de route niet kent |

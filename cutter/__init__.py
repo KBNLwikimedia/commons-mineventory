@@ -1,6 +1,6 @@
 """Commons Cutter: detect and cut out objects in images on Wikimedia Commons (experiment)."""
 
-__version__ = "0.24.2"
+__version__ = "0.25.0"
 
 
 def create_app(config=None, commons_client=None, detector=None, vision=None):
@@ -9,6 +9,8 @@ def create_app(config=None, commons_client=None, detector=None, vision=None):
     `config` (a Config), `commons_client`, `detector` and `vision` (the
     vision-language model) can be injected for tests.
     """
+    import secrets
+
     from flask import Flask
 
     from .api import api
@@ -27,7 +29,9 @@ def create_app(config=None, commons_client=None, detector=None, vision=None):
         static_folder=str(ROOT_DIR / "static"),
     )
     app.config.update(config.as_flask_config())
-    app.secret_key = config.FLASK_SECRET_KEY or "dev-only-not-secret"
+    # Without FLASK_SECRET_KEY: a random key per process (sessions do not survive a
+    # restart), never a fixed one that anybody could use to sign a session cookie.
+    app.secret_key = config.FLASK_SECRET_KEY or secrets.token_hex(32)
     app.json.ensure_ascii = False
 
     if commons_client is None:

@@ -225,10 +225,17 @@ def test_paid_calls_need_a_login(app, http):
     try:
         response = http.post(PAGE + "/detecties", json={"prompt": "wapen"})
         assert response.status_code == 401 and response.get_json()["code"] == "login_required"
+        # A session cookie is not a login (until OAuth sets one): even a forged one counts for nothing.
         with http.session_transaction() as session:
-            session["gebruiker"] = "Iemand"
+            session["gebruiker"] = "OlafJanssen"
+        assert http.post(PAGE + "/detecties", json={"prompt": "wapen"}).status_code == 401
+        # Locally, in debug mode, LOKALE_GEBRUIKER stands in for a login; not on the list: 403.
+        app.debug = True
+        app.config["LOKALE_GEBRUIKER"] = "Iemand"
         response = http.post(PAGE + "/detecties", json={"prompt": "wapen"})
         assert response.status_code == 403 and response.get_json()["code"] == "not_on_access_list"
+        app.debug = False
+        app.config["LOKALE_GEBRUIKER"] = ""
         # Free things stay free without a login.
         assert http.post(PAGE + "/detecties", json={"rechthoek": {"x": 0, "y": 0, "w": 50, "h": 50}}).status_code == 201
     finally:
@@ -349,3 +356,20 @@ def test_cutout_view_or_download_with_the_concept_name(http):
     assert "filename*=UTF-8''Detail%20%E2%80%93%20extracted%20from%20Album" in saved and saved.endswith(".jpg")
     png = http.get(f"{PAGE}/object/{obj['id']}/uitsnede.png?download=1").headers["Content-Disposition"]
     assert png.endswith(".png")
+
+
+def test_changes_only_from_the_app_itself(http):
+    """CSRF: another website cannot make the browser change something or spend money."""
+    url = PAGE + "/detecties"
+    body = {"rechthoek": {"x": 0, "y": 0, "w": 50, "h": 50}}
+    assert http.post(url, json=body, headers={"Origin": "https://evil.example"}).status_code == 403
+    assert http.post(url, json=body, headers={"Sec-Fetch-Site": "cross-site"}).status_code == 403
+    assert http.post(url, data="{}", headers={"Content-Type": "text/plain"}).status_code == 415
+    assert http.post(url, json=body, headers={"Origin": "http://localhost", "Sec-Fetch-Site": "same-origin"}).status_code == 201
+    assert http.get(PAGE, headers={"Sec-Fetch-Site": "cross-site"}).status_code == 200  # reading stays open
+
+
+def test_config_in_the_page_cannot_break_out_of_its_script(http):
+    page = http.get("/?url=%3C!--%3Cscript%3E%3C/script%3E").get_data(as_text=True)
+    config = page.split('<script id="cutter-config" type="application/json">', 1)[1].split("</script>", 1)[0]
+    assert "<" not in config and "\\u003c!--" in config

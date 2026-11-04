@@ -327,7 +327,7 @@ def test_partner_template_with_cutout_category_in_source():
 def test_text_in_and_around_the_cutout_become_inscriptions():
     obj = {"id": "o", "label": "x", "beschrijving": {"onderwerp": "akte", "tekst_in_beeld": "Deze Hoffstede\nis | groot", "tekst_rond_beeld": "Den Inhoud van de Plaats"}}
     text = concept.concept(kb_file(), obj)["wikitekst"]
-    assert ("|inscriptions={{Inscription|1=Deze Hoffstede\nis {{!}} groot|type=text|linebreaks=1}}"
+    assert ("|inscriptions={{Inscription|1=Deze Hoffstede\nis &#124; groot|type=text|linebreaks=1}}"
             "{{Inscription|1=Den Inhoud van de Plaats|type=caption|linebreaks=1|comment=outside the cut-out, on the original}}") in text
     # {{Information}} and {{Book}} have no inscriptions field: an extra row in other fields.
     plain = kb_file("== {{int:license-header}} ==\n{{PD-old}}")
@@ -369,5 +369,31 @@ def test_statement_values_can_be_changed_but_keep_their_qualifiers():
     {"sdc_waarden": {"P195": [{"item": "Q1", "tijd": "1708"}]}},
 ])
 def test_statement_values_are_checked(body):
+    with pytest.raises(ValueError):
+        concept.validate_patch(body)
+
+
+def test_free_text_cannot_inject_wikitext():
+    """AI output or typed text with template, link, category, signature or magic-word syntax
+    ends up as literal text: no extra parameters, categories or templates."""
+    evil = "Mooi}}\n|author=Evil ~~~~ [[Category:Spam]] {{subst:X}} __NOINDEX__ <script>"
+    obj = {"id": "o", "label": "x", "beschrijving": {"onderwerp": evil, "onderwerp_en": "x", "beschrijving": evil, "tekst_in_beeld": evil, "tekst_rond_beeld": evil}}
+    text = concept.concept(kb_file(), obj)["wikitekst"]
+    for bad in ("[[Category:Spam]]", "{{subst:", "~~~~", "__NOINDEX__", "<script>", "|author=Evil", "Mooi}}"):
+        assert bad not in text, bad
+    assert "Mooi&#125;&#125;" in text and "&#91;&#91;Category:Spam&#93;&#93;" in text
+    # Only our own: Bookbindings, the tracking category and the KB cut-out category (via its template).
+    assert text.count("[[Category:") == 3
+
+
+@pytest.mark.parametrize("body", [
+    {"datum": None},
+    {"maker": ["x"]},
+    {"gekozen": "ja"},
+    {"caption": {"xx": "a"}},
+    {"categorieen": [{"naam": "A]] [[Category:B", "gekozen": True}]},
+    {"sdc_waarden": {"P195": [{"item": "Q1", "bron": True}]}},
+])
+def test_concept_patch_refuses_wrong_types(body):
     with pytest.raises(ValueError):
         concept.validate_patch(body)

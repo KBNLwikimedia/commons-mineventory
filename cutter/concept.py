@@ -13,6 +13,8 @@ from . import rechten, wikitekst
 
 MAX_NAME_BYTES = 240  # 9.2; Commons allows 255 bytes, the margin is for "(2)" and the like
 MAX_CAPTION = 250  # characters per caption (9.4)
+# A category name may not hold the characters Commons forbids in titles, nor line breaks.
+CATEGORY_FORBIDDEN = re.compile(r"[#<>\[\]{}|\n\r\x00-\x1f\x7f]")
 FORBIDDEN = re.compile(r"[#<>\[\]{}|/\\:\x00-\x1f\x7f]")
 TRACKING_CATEGORY = "Uploaded with Commons Cutter"
 UPLOAD_SUMMARY = (
@@ -264,10 +266,15 @@ def validate_patch(body):
             raise ValueError("De bestandsnaam bevat tekens die Commons niet toestaat: # < > [ ] { } | / \\ :")
         if len(name.encode("utf-8")) > 255:
             raise ValueError("De bestandsnaam is langer dan 255 bytes.")
+    for key in ("datum", "maker"):
+        if key in body and not isinstance(body[key], str):
+            raise ValueError(f"'{key}' is een tekst.")
+    if "gekozen" in body and body["gekozen"] is not None and not isinstance(body["gekozen"], bool):
+        raise ValueError("'gekozen' is true, false of null.")
     for key in ("beschrijving", "caption"):
         if key in body:
             value = body[key]
-            if not isinstance(value, dict) or not all(isinstance(v, str) for v in value.values()):
+            if not isinstance(value, dict) or not set(value) <= {"nl", "en"} or not all(isinstance(v, str) for v in value.values()):
                 raise ValueError(f"'{key}' is een object met teksten per taal, bijv. {{\"nl\": \"…\", \"en\": \"…\"}}.")
             if key == "caption" and any(len(v) > MAX_CAPTION for v in value.values()):
                 raise ValueError(f"Een caption is hooguit {MAX_CAPTION} tekens.")
@@ -275,6 +282,9 @@ def validate_patch(body):
         isinstance(body["categorieen"], list) and all(isinstance(c, dict) and isinstance(c.get("naam"), str) for c in body["categorieen"])
     ):
         raise ValueError("'categorieen' is een lijst van {\"naam\": …, \"gekozen\": true|false}.")
+    for category in body.get("categorieen") or []:
+        if CATEGORY_FORBIDDEN.search(category["naam"]) or not category["naam"].strip() or len(category["naam"].encode()) > 240:
+            raise ValueError(f"'{category['naam']}' is geen geldige categorienaam.")
     if "beeldt_af" in body and not (
         isinstance(body["beeldt_af"], list) and all(isinstance(d, dict) and re.fullmatch(r"Q\d+", str(d.get("q", ""))) for d in body["beeldt_af"])
     ):
@@ -309,7 +319,7 @@ def _validate_sdc_values(values):
                 raise ValueError(f"'{value['item']}' is geen Wikidata-item (Q…).")
             if "tijd" in value and time_value(value["tijd"]) is None:
                 raise ValueError(f"'{value['tijd']}' is geen datum; gebruik bijv. 1708, 1708-02 of 1708-02-28.")
-            if "bron" in value and not (isinstance(value["bron"], int) and value["bron"] >= 0):
+            if "bron" in value and not (isinstance(value["bron"], int) and not isinstance(value["bron"], bool) and value["bron"] >= 0):
                 raise ValueError("'bron' is het volgnummer van een statement van het origineel.")
 
 
@@ -342,8 +352,21 @@ def _value_snak(prop, value):
 # -- Wikitext (9.3) ---------------------------------------------------------------------
 
 
+# Characters that mean something in wikitext, as HTML entities: free text (from the AI,
+# from Commons fields that are text, typed by the user) shows as written and cannot
+# open or close a template, link, category, signature (~~~~), magic word (__X__),
+# HTML tag or table. Commons renders the entities as the characters themselves.
+WIKI_ENTITIES = {"{": "&#123;", "}": "&#125;", "[": "&#91;", "]": "&#93;", "|": "&#124;", "~": "&#126;", "<": "&lt;", ">": "&gt;", "_": "&#95;", "=": "&#61;"}
+
+
+def wikisafe(text):
+    """Free text for a template parameter: shown literally, never interpreted."""
+    text = str(text or "").replace("&", "&amp;")
+    return "".join(WIKI_ENTITIES.get(ch, ch) for ch in text)
+
+
 def _languages(texts):
-    return "".join(f"{{{{{lang}|1={text.strip()}}}}}" for lang, text in texts.items() if text and text.strip())
+    return "".join(f"{{{{{lang}|1={wikisafe(text.strip())}}}}}" for lang, text in texts.items() if text and text.strip())
 
 
 def canonical_fields(info):
@@ -369,7 +392,7 @@ INSCRIPTION_FIELD = "{{{{Information field|name={{{{int:wm-license-artwork-inscr
 
 
 def _inscription(text, kind, comment=""):
-    text = text.replace("|", "{{!}}").replace("=", "{{=}}")
+    text = wikisafe(text)
     extra = f"|comment={comment}" if comment else ""
     return f"{{{{Inscription|1={text}|type={kind}|linebreaks=1{extra}}}}}"
 

@@ -27,7 +27,10 @@ ATTRIBUTES = {"class", "style", "title", "lang", "dir", "colspan", "rowspan", "h
 
 def _safe_style(value):
     low = value.lower()
-    return not any(bad in low for bad in ("url(", "expression", "javascript:", "@import", "behavior"))
+    low = low.replace("\\", "")  # CSS escapes (\75 rl) cannot hide a forbidden word
+    if any(bad in low for bad in ("url(", "expression", "javascript:", "@import", "behavior", "position", "z-index", "transform")):
+        return False
+    return True
 
 
 def _safe_href(value):
