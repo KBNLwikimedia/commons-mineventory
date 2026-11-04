@@ -83,3 +83,22 @@ export function objectName(obj, language = "nl", t = null) {
   if (language === "en") return obj.label_en || obj.label;
   return obj.label_nl || obj.label;
 }
+
+// CropTool (croptool2.toolforge.org) opened on the original with this object's
+// box as its selection (README of wpmed/croptool2: title, left, top, width,
+// height). Only for single images: there the box is in pixels of the original;
+// for PDF, DjVu and multi-page TIFF it is in pixels of a rendered page.
+export const CROPTOOL = "https://croptool2.toolforge.org/";
+
+export function cropToolLink(file, obj) {
+  if (!file || !obj?.box || (file.paginas || 1) > 1 || !String(file.mime || "").startsWith("image/")) return null;
+  const { x, y, w, h } = obj.box;
+  const params = new URLSearchParams({
+    title: file.naam || String(file.titel || "").replace(/^File:/, ""),
+    left: Math.round(x),
+    top: Math.round(y),
+    width: Math.round(w),
+    height: Math.round(h),
+  });
+  return `${CROPTOOL}?${params}`;
+}

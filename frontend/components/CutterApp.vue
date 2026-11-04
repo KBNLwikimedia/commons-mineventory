@@ -31,6 +31,7 @@
           :objects="objects"
           :focused="focusedId"
           :hovered="hoveredId"
+          :new-ids="newIds"
           @toggle="toggleSelected"
           @select="setSelection"
           @focus="focusObject"

@@ -255,6 +255,8 @@
   "magnifier.caption_info": "What does the caption do?",
   "magnifier.caption_remove": "Remove caption",
   "magnifier.caption_removed": "Caption removed: “{text}”",
+  "magnifier.croptool": "Crop in CropTool",
+  "magnifier.croptool_help": "Opens CropTool with this box already selected. There you can crop or straighten the original on Commons, or save it as a new file (you need to log in to Commons). The Commons Cutter itself never overwrites the original.",
   "magnifier.cutout": "Cut-out",
   "magnifier.download": "Download:",
   "magnifier.move": "Drag to move · double-click: back to the centre",

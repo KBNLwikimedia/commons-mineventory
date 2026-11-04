@@ -255,6 +255,8 @@
   "magnifier.caption_info": "Wat doet het bijschrift?",
   "magnifier.caption_remove": "Bijschrift verwijderen",
   "magnifier.caption_removed": "Bijschrift verwijderd: “{text}”",
+  "magnifier.croptool": "Bijsnijden in CropTool",
+  "magnifier.croptool_help": "Opent CropTool met dit kader al geselecteerd. Daar kun je het origineel op Commons bijsnijden, rechtzetten of als nieuw bestand opslaan (inloggen op Commons nodig). De Commons Cutter zelf overschrijft het origineel nooit.",
   "magnifier.cutout": "Uitsnede",
   "magnifier.download": "Downloaden:",
   "magnifier.move": "Slepen om te verplaatsen · dubbelklik: terug naar het midden",

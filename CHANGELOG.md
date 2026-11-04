@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.17.0] - 2026-11-04
+
+### Toegevoegd
+
+- Staat de muis op een kader in het beeld (of op een rij in de objectenlijst), dan krijgt die rij in de lijst een rand in de kleur van het kader: rood voor geselecteerd, blauw voor gevonden maar niet geselecteerd, en zo verder volgens de kleurenlegenda.
+
+- Vergroter, tabblad *Uitsnede*: link **Bijsnijden in CropTool**, die CropTool opent met het kader van het object al geselecteerd (parameters `title`, `left`, `top`, `width`, `height` uit de README van CropTool). Alleen bij enkele afbeeldingen; bij PDF, DjVu en meerpagina-TIFF niet, omdat het kader daar in pixels van een gerenderde pagina staat.
+
+- *Wat staat hierop?*: de knop *Beschrijf deze afbeelding* staat nu onder *AI-bijsturing*, zodat je eerst bijstuurt en dan vraagt.
+
 ## [0.16.0] - 2026-11-04
 
 ### Toegevoegd

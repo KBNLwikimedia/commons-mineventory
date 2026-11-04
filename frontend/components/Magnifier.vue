@@ -78,6 +78,15 @@
             <cdx-button action="progressive" weight="quiet" @click="viewFull('jpg')"><cdx-icon :icon="cdxIconLinkExternal" /> JPG</cdx-button>
             <cdx-button action="progressive" weight="quiet" @click="viewFull('png')"><cdx-icon :icon="cdxIconLinkExternal" /> PNG</cdx-button>
           </span>
+          <!-- CropTool with this box as its selection (only for single images: the box is in pixels of the original). -->
+          <a
+            v-if="cropToolUrl"
+            class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--action-progressive cdx-button--weight-quiet"
+            :href="cropToolUrl"
+            target="_blank"
+            rel="noopener"
+            :title="t('magnifier.croptool_help')"
+          ><cdx-icon :icon="cdxIconLinkExternal" /> {{ t("magnifier.croptool") }}</a>
           <cdx-button action="progressive" v-if="!object.masker" @click="emit('refine', object)">{{ t("magnifier.refine_mask") }}</cdx-button>
           <cdx-button action="destructive" @click="emit('trashed', object.id)"><cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}</cdx-button>
         </div>
@@ -173,19 +182,7 @@
         <cutout-preview v-if="!previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
         </div>
 
-        <!-- 2. Ask the AI: always the same place; the first time it is the main action. -->
-        <div class="cc-vraag-knop">
-          <cdx-button action="progressive" :weight="description ? 'normal' : 'primary'" :disabled="busy" @click="describe(Boolean(description))">
-            {{ description ? t("describe.again") : t("describe.ask") }} <span class="cc-kosten">{{ costLabel }}</span>
-          </cdx-button>
-          <span v-if="modifiersSummary" class="cc-klein">{{ t("describe.with_modifiers", { what: modifiersSummary }) }}</span>
-        </div>
-        <div v-if="busy" class="cc-bezig" role="status">
-          <cdx-progress-bar :inline="true" :aria-label="t('describe.busy', { seconds })" />
-          <p class="cc-klein">{{ t("describe.busy", { seconds }) }}</p>
-        </div>
-
-        <!-- 3a. AI modifiers: steer the next question (hint, and the space around the cut-out). -->
+        <!-- 2. AI modifiers: steer the next question (hint, and the space around the cut-out). -->
         <cdx-accordion v-model="openModifiers" class="cc-beschrijving-blok" @cc-closing="previewInModifiers = false">
           <template #title>{{ t("describe.modifiers") }}</template>
           <template #description>{{ modifiersSummary || t("describe.modifiers_default") }}</template>
@@ -207,6 +204,18 @@
             <cutout-preview v-if="previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" />
           </div>
         </cdx-accordion>
+
+        <!-- 3. Ask the AI, under the modifiers that steer it: the first time it is the main action. -->
+        <div class="cc-vraag-knop">
+          <cdx-button action="progressive" :weight="description ? 'normal' : 'primary'" :disabled="busy" @click="describe(Boolean(description))">
+            {{ description ? t("describe.again") : t("describe.ask") }} <span class="cc-kosten">{{ costLabel }}</span>
+          </cdx-button>
+          <span v-if="modifiersSummary" class="cc-klein">{{ t("describe.with_modifiers", { what: modifiersSummary }) }}</span>
+        </div>
+        <div v-if="busy" class="cc-bezig" role="status">
+          <cdx-progress-bar :inline="true" :aria-label="t('describe.busy', { seconds })" />
+          <p class="cc-klein">{{ t("describe.busy", { seconds }) }}</p>
+        </div>
 
         <!-- 3b. Earlier descriptions of this object, to choose from again (free). -->
         <cdx-accordion v-if="history.length" v-model="openHistory" class="cc-beschrijving-blok">
@@ -276,7 +285,7 @@ import { API, del, errorText, get, objectPath, patch, post, query } from "../api
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { forgetPlacement, makeMovable } from "../movable.js";
-import { objectName } from "../state.js";
+import { cropToolLink, objectName } from "../state.js";
 import AiBadge from "./AiBadge.vue";
 import ConceptEditor from "./ConceptEditor.vue";
 import CutoutPreview from "./CutoutPreview.vue";
@@ -294,6 +303,7 @@ const language = inject("language", "nl");
 const config = inject("config");
 const tab = ref("uitsnede");
 const caption = ref(props.object.bijschrift?.tekst || "");
+const cropToolUrl = computed(() => cropToolLink(props.file, props.object));
 const captionInfo = ref(false);
 const plan = ref(null);
 const busy = ref(false);

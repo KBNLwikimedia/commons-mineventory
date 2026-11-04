@@ -20,7 +20,7 @@
       <li
         v-for="obj in sorted"
         :key="obj.id"
-        :class="[`cc-object-${obj.status}`, `cc-bron-${obj.bron}`, { focus: obj.id === focused, hover: obj.id === hovered }]"
+        :class="[`cc-object-${obj.status}`, `cc-bron-${obj.bron}`, { focus: obj.id === focused, hover: obj.id === hovered, 'cc-nieuw': newIds.includes(obj.id) }]"
         @mouseenter="emit('hover', obj.id, true)"
         @mouseleave="emit('hover', obj.id, false)"
       >
@@ -67,6 +67,8 @@ const props = defineProps({
   objects: { type: Array, required: true },
   focused: { type: String, default: null },
   hovered: { type: String, default: null },
+  // Objects from the latest search: their frame is orange, so is their outline here.
+  newIds: { type: Array, default: () => [] },
   mid: { type: String, required: true },
   n: { type: Number, required: true },
 });

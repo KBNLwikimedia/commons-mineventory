@@ -431,3 +431,15 @@ describe("smooth accordions", () => {
     document.body.innerHTML = "";
   });
 });
+
+describe("cropToolLink", () => {
+  it("opens CropTool on the original with the box as selection, only for single images", async () => {
+    const { cropToolLink } = await import("./state.js");
+    const file = { naam: "A b.jpg", titel: "File:A b.jpg", paginas: 1, mime: "image/jpeg" };
+    expect(cropToolLink(file, { box: { x: 10, y: 20, w: 300.4, h: 40 } })).toBe(
+      "https://croptool2.toolforge.org/?title=A+b.jpg&left=10&top=20&width=300&height=40"
+    );
+    expect(cropToolLink({ ...file, paginas: 3 }, { box: { x: 0, y: 0, w: 1, h: 1 } })).toBeNull();
+    expect(cropToolLink({ ...file, mime: "application/pdf" }, { box: { x: 0, y: 0, w: 1, h: 1 } })).toBeNull();
+  });
+});

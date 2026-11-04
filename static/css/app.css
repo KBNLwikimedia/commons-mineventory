@@ -142,6 +142,14 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-objecten li.focus:hover, .cc-objecten li.focus.hover { background: var(--background-color-progressive-subtle--hover, #dce3f9); }
 .cc-objecten li.cc-bron-commons { border-left-color: var(--cc-commons); }
 .cc-objecten li.cc-object-uitgesloten { opacity: 0.6; }
+/* Under the mouse (in the list or on its frame in the image): an outline in the colour of its frame. */
+.cc-objecten li.hover { outline: 2px solid var(--cc-kandidaat); outline-offset: -2px; }
+.cc-objecten li.hover.cc-object-geselecteerd { outline-color: var(--cc-geselecteerd); }
+.cc-objecten li.hover.cc-object-uitgesloten { outline-color: var(--cc-uitgesloten); }
+.cc-objecten li.hover.cc-bron-commons { outline-color: var(--cc-commons-rand); }
+.cc-objecten li.hover.cc-bron-commons.cc-object-geselecteerd { outline-color: var(--cc-commons); }
+.cc-objecten li.hover.cc-bron-handmatig { outline-color: var(--cc-handmatig); }
+.cc-objecten li.hover.cc-nieuw { outline-color: var(--cc-nieuw); }
 .cc-object-naam { cursor: pointer; }
 .cc-object-bijschrift { display: block; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12rem; }
 .cc-veld-met-menu { display: flex; gap: 0.25rem; align-items: flex-start; }
