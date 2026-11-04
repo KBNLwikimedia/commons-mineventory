@@ -10,8 +10,9 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 - Werk na elke afgeronde taak CHANGELOG.md bij (Keep a Changelog, semver).
 
 ## Fasering (strikt)
-- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API.
-- GEEN live aanroepen naar de Meta Model API zonder expliciete opdracht van Olaf. MetaSamDetector en de beschrijving alleen testen met fixtures.
+- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (versie 0.9.0); zie BACKLOG.md voor wat nog open staat.
+- GEEN live aanroepen naar de Meta Model API zonder expliciete opdracht van Olaf. MetaSamDetector en de beschrijving alleen testen met fixtures. Olaf draait zelf lokaal in live-modus (`DETECTIE_MODUS=live` in zijn .env); test in de browser dus nooit een knop die betaalt (Zoeken, Aanwijzen, Beschrijf deze afbeelding, Opnieuw vragen) zonder zijn opdracht.
+- Commons alleen lezen (ook `action=parse` voor de proefweergave is een leesverzoek). Bewerkingen op Commons, ook SDC of regio's op het origineel, pas in fase 2 en alleen na een klik en bevestiging van de gebruiker.
 - Uploaden naar Commons alleen na een klik en een bevestiging van de gebruiker. Eerst op een testwiki; de eerste echte upload doet Olaf zelf.
 - Nooit het origineel op Commons overschrijven.
 
@@ -25,6 +26,12 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 - Alles RESTful onder /api/v1; houd docs/api.md en /api/v1/openapi.json synchroon met de code. Een GET kost nooit geld en verandert niets.
 - Commons netjes gebruiken: eigen User-Agent, maxlag=5, caching, ongeveer één verzoek per seconde, één upload tegelijk.
 - Uitsneden en uploads altijd in de volledige resolutie van het origineel.
+- HTML die van Commons komt (proefweergave) gaat altijd door `cutter/weergave.py` (allowlist; geen afbeeldingen, stijlen of scripts), zodat de browser niets van Wikimedia laadt.
+
+## Interface
+- Codex-knoppen zijn blauw (`action="progressive"`); verwijderen is `destructive`; per weergave hooguit één gevulde hoofdactie (`weight="primary"`).
+- Tekst die AI maakte (SAM, Muse Spark) krijgt een AI-merkje (`AiBadge.vue`) met uitleg; AI-teksten zijn met de hand aan te passen, met Ongedaan maken.
+- Werk met de data van Olaf voorzichtig: maak testobjecten zelf aan en ruim ze op; zet zijn teksten na een test terug.
 
 ## Taal
 - Interface: tweetalig, Nederlands en Engels, via vertaalbestanden (frontend/i18n/nl.json en en.json); geen tekst hard in de code.
@@ -40,5 +47,7 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 ## Werkwijze
 - Kleine, afgeronde stappen; na elke stap draaien de tests.
 - Vraag Olaf bij twijfel over scope, kosten, rechten of bewerkingen op Commons.
-- Commit alleen als Olaf erom vraagt.
+- Commit alleen als Olaf erom vraagt; bij elke commit de versie ophogen (cutter/__init__.py, package.json, package-lock.json) en de Unreleased-sectie van CHANGELOG.md een versie geven.
+- Git in deze map heeft `-c safe.directory=D:/KB-OPEN/github-repos/commons-cutter` nodig; wijzig de globale git-config niet.
+- Grote antwoorden (meer dan ongeveer 320 KB) worden op Olafs machine over loopback soms afgekapt; dat ligt niet aan de app.
 - Zet nieuwe ideeën in BACKLOG.md in plaats van ze meteen te bouwen.

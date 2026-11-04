@@ -64,7 +64,7 @@ Statussen: `kandidaat`, `geselecteerd`, `uitgesloten`. Bronnen: `sam`, `dummy`, 
 | DELETE | `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving` | De beschrijving vergeten (het antwoord blijft in de cache) |
 | GET | `/wikidata/zoek?q=…&taal=nl\|en` | Wikidata-items zoeken voor *beeldt af* (gratis) |
 
-Velden: `soort`, `onderwerp`, `onderwerp_en`, `bedrijf_of_naam`, `tekst_in_beeld`, `tekst_rond_beeld`, `beschrijving`, `beschrijving_en`, `zekerheid`, `wikidata_suggesties` (hooguit drie zoektermen; het model verzint geen Q-nummers). Contributor alleen bij publiek domein zonder rechtenlabels (FO 6.3).
+Velden: `soort`, `onderwerp`, `onderwerp_en`, `bedrijf_of_naam`, `tekst_in_beeld`, `tekst_rond_beeld`, `beschrijving`, `beschrijving_en`, `zekerheid`, `wikidata_suggesties` (hooguit drie zoektermen; het model verzint geen Q-nummers). Contributor alleen bij publiek domein zonder rechtenlabels (FO 6.3). `soort` en `zekerheid` komen uit een vaste Nederlandse lijst; de interface vertaalt ze. De reden voor het model staat als tekst in `model_reden` (Nederlands) en als code in `model_reden_code` (`publiek_domein`, `contributor_uit`, `rechtenlabel`, `niet_vrij`, `standaard_gekozen`), met de blokkerende rechtenlabels in `model_reden_labels`; de GET geeft hetzelfde als `reden`, `reden_code` en `labels`. Na een bewerking met de hand: `ai_origineel` en `bewerkt` (zie PATCH).
 
 ## Commons-concept en upload
 

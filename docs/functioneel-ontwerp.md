@@ -1,6 +1,6 @@
 # Functioneel ontwerp – Commons Cutter
 
-Naam: **Commons Cutter** (Engels, zoals de tool op Toolforge en de repo; besluit Olaf 3-11-2026). Status: concept v0.4, 3 november 2026 (v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
+Naam: **Commons Cutter** (Engels, zoals de tool op Toolforge en de repo; besluit Olaf 3-11-2026). Status: concept v0.5, 4 november 2026 (v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
 
 Dit FO beschrijft een variant van de [Delpher Uitsnijder](https://github.com/ookgezellig/delpher-uitsnijder) (versie 0.18.13, lokaal in `D:\KB-OPEN\github-repos\delpher-uitsnijder`) voor afbeeldingen op Wikimedia Commons. Waar dit document "de Delpher Uitsnijder" zegt, gaat het om die app: haar FO, `docs/api.md`, `docs/commons-beschrijving.md`, `docs/beeld-taalmodel.md` en `docs/meta-sam-api.md`. Die documenten blijven de bron voor alles wat ongewijzigd wordt overgenomen. Dit FO beschrijft vooral wat anders is.
 
@@ -176,7 +176,9 @@ Ongewijzigd ten opzichte van de Delpher Uitsnijder (`docs/meta-sam-api.md`):
 
 - **Context** voor het model: de beschrijving en de caption van het origineel (als platte tekst, ingekort), de zichtbare categorieën en de bestaande *beeldt af*-items, uitdrukkelijk als hulp en niet als waarheid. In plaats van de ALTO-tekst.
 - **Nieuw veld `wikidata_suggesties`**: hooguit drie zoektermen voor *beeldt af* (bijv. "coat of arms", "Jacob van Bronckhorst van Batenburg"). De app zoekt die gratis op met `wbsearchentities`; de gebruiker kiest het item. Het model verzint zelf geen Q-nummers.
-- **Taal**: beschrijving en caption in het Nederlands én het Engels (in één aanroep). Niet beantwoord in ronde 2; dit is het voorstel, en het past bij de tweetalige interface.
+- **Taal**: beschrijving en caption in het Nederlands én het Engels (in één aanroep). Niet beantwoord in ronde 2; dit is het voorstel, en het past bij de tweetalige interface. Het paginaoverzicht geeft sinds app-versie 0.9.0 ook soort en samenvatting in beide talen (`paginasoort_en`, `samenvatting_en`); `soort` en `zekerheid` komen uit een vaste Nederlandse lijst en de interface vertaalt ze.
+- **Met de hand aanpassen** (gebouwd, 0.6.0): onderwerp en beschrijving (nl en en) zijn te bewerken met *Tekst aanpassen*, met *Ongedaan maken* na het opslaan. De eerste keer dat een veld verandert, bewaart de app de AI-tekst in `ai_origineel`, zodat *Terug naar de AI-tekst* altijd kan; `bewerkt` zegt of er nog iets afwijkt.
+- **Herkenbaar als AI** (gebouwd, 0.8.0): bij soort, onderwerp, beschrijving, het paginaoverzicht en *Bron: AI-beelddetectie* staat een AI-merkje. Een klik opent een venster dat uitlegt wat het model deed (met een link naar het model en, bij de detectie, de score van het object), wat er mis kan gaan en wat de gebruiker moet controleren. De waarschuwing dat een taalmodel zich kan vergissen staat in het blok *Model, kosten en kwaliteit*.
 
 ### 6.3 Contributor of Standard
 
@@ -188,7 +190,7 @@ De regel uit de Delpher Uitsnijder ("Contributor alleen als alles klopt") wordt:
 
 Anders: Standard.
 
-Besloten door Olaf (3-11-2026): **Contributor aan voor publiek domein**, ook voor bestanden van anderen. `BEELDMODEL_CONTRIBUTOR` staat daarom standaard op `aan`. Voorwaarden 1 en 2 blijven gelden: bij twijfel gaat het naar Standard. Per aanroep wordt vastgelegd welk model is gebruikt en waarom, zoals in de Delpher Uitsnijder.
+Besloten door Olaf (3-11-2026): **Contributor aan voor publiek domein**, ook voor bestanden van anderen. `BEELDMODEL_CONTRIBUTOR` staat daarom standaard op `aan`. Voorwaarden 1 en 2 blijven gelden: bij twijfel gaat het naar Standard. Per aanroep wordt vastgelegd welk model is gebruikt en waarom, zoals in de Delpher Uitsnijder. De reden staat er als Nederlandse tekst (voor logs en verbruik) en als code (`reden_code`: `publiek_domein`, `contributor_uit`, `rechtenlabel`, `niet_vrij`, `standaard_gekozen`) die de interface in gewone woorden toont, met een link naar Meta's uitleg van de Contributor-modus.
 
 ### 6.4 Kosten en limieten
 
@@ -226,7 +228,7 @@ Vaste groepen, aangepast aan wat er op Commons staat: wapens en heraldiek, portr
 
 ### 7.3 Aanwijzen
 
-Klikken op een plek zonder bekend object: een puntprompt aan SAM (één betaalde aanroep), resultaat als kandidaat. Shift-slepen: een handmatige rechthoek (gratis).
+Klikken op een plek zonder bekend object: een puntprompt aan SAM (één betaalde aanroep), resultaat als kandidaat. Een handmatige rechthoek (gratis) heeft een eigen blok, *Rechthoek tekenen*; Shift-slepen doet hetzelfde zonder die modus.
 
 ### 7.4 Bulk-operaties
 
@@ -346,7 +348,10 @@ Gebaseerd op `docs/commons-beschrijving.md` van de Delpher Uitsnijder:
 1. **Concept per object** (veld `commons`): bestandsnaam, beschrijving, caption (nl/en), datum, maker, bron, licentie, categorieën, *beeldt af*, rechtenlabel, en de keuze PNG of JPG. Gratis samengesteld, bewerkbaar in de vergroter.
 2. **Keuzemenu**: alle opgeslagen uitsneden van het bestand, met miniatuur, concept, rechtenlabel en een vinkje. Standaard aangevinkt: alleen **In orde** en **Naamsvermelding verplicht**.
 3. **Controle vooraf** (gratis, alleen lezen): bestaat de naam al, bestaat dezelfde afbeelding al (SHA-1), bestaan de categorieën.
-4. **Proefweergave**: de volledige wikitekst en de SDC-verklaringen per uitsnede.
+4. **Proefweergave**: de volledige wikitekst en de SDC-verklaringen per uitsnede, elk met een schakelaar **Weergave / Broncode** (gebouwd, 0.7.0):
+   - *Weergave* van de wikitekst: Commons maakt de HTML (`action=parse`, alleen lezen, gecachet; een POST omdat de tekst lang kan zijn). De server laat alleen veilige tags staan, zonder afbeeldingen, stijlen of scripts, zodat de browser niets van Wikimedia laadt (12.3). Inklapbare blokken (zoals een instelling) staan net als op Commons dicht; het Wikidata-logo en het potloodje tekent de app zelf. Alleen opgevraagd als de proefweergave open is.
+   - *Weergave* van de SDC: zoals het tabblad *Gestructureerde gegevens* op Commons, met captions, *beeldt af* bovenaan, elke eigenschap met waarden en kwalificaties, en labels van Wikidata.
+   - Een blok *Regio op het origineel* toont wat het origineel voor deze uitsnede zou krijgen (9.4).
 5. **Uploaden (n)**, alleen na het bevestigingsvinkje: *"Ik heb de beschrijving, de licentie en de rechten gecontroleerd. De bestanden worden op mijn naam geüpload."* Eén tegelijk, met voortgang en een knop **Stoppen**.
 6. **Na de upload**: de Commons-URL bij het object; optioneel `{{Image extracted}}` op het origineel (9.3); een link "Openen in CropTool".
 
@@ -411,10 +416,14 @@ Na de upload, in één `wbeditentity` op `M<pageid>`:
 | P180 *beeldt af* | Door de gebruiker gekozen Wikidata-items (6.2), eventueel met P1354 *getoond met* |
 | P6216 *auteursrechtstatus*, P275 *licentie* | Overgenomen van het origineel |
 | P170 *maker*, P571 *datum van creatie* | Overgenomen van het origineel, als aanwezig |
-| P195 *collectie* | Overgenomen van het origineel, als aanwezig |
+| P195 *collectie* | Overgenomen van het origineel, als aanwezig, zonder de kwalificator P2868 *subject heeft rol* (bijv. *collection highlight*): die gaat over het origineel |
+| P31 *is een* | Q1250322 *digitale afbeelding* |
+| P1163 *mediatype* | `image/jpeg` of `image/png`, naar het gekozen formaat |
+| P4092 *checksum* | SHA-1 van het uitgesneden bestand, met P459 *bepalingsmethode* = SHA-1 |
+| P3575 *gegevensgrootte*, P2048 *hoogte*, P2049 *breedte* | Van het uitgesneden bestand zoals het geüpload wordt (byte, pixel) |
 | Relatie met het origineel | **Te onderzoeken.** Kandidaten: P7482 *bron van het bestand* met een kwalificator die naar het origineel wijst, of alleen de wikitekst (`{{Extracted from}}`). Kijken wat de gemeenschap gebruikt |
 
-**Backlog:** op het origineel een P180 met P2677 *relatieve positie in afbeelding* voor elk object, zodat de regio's ook op het origineel vindbaar zijn. Dat is een bewerking van het origineel; alleen als Olaf het wil.
+**Regio op het origineel:** per *beeldt af*-item van de uitsnede een P180 met P2677 *relatieve positie in afbeelding* (`pct:x,y,w,h` van de uitsnede in het hele beeld) op het origineel, zodat de regio's ook daar vindbaar zijn, zoals bij het Book of Hours. Gewenst door Olaf (4-11-2026): de regio's horen op het origineel, niet op de uitsnede. Gebouwd als voorbeeld in de proefweergave (0.7.0; regio's die het origineel al heeft worden herkend; niet bij bestanden met meer pagina's). Het echte schrijven is een bewerking van het origineel en komt met de upload (fase 2) of later (fase 4).
 
 ### 9.5 PNG of JPG
 
@@ -471,8 +480,9 @@ Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 - **Invoerbalk**: Commons-URL of titel, knop **Openen**. Daaronder: titel, miniatuur, licentie (als Codex-*chip*), maker, datum, link naar de bestandspagina, en een uitklapbare **Metadata** (beschrijving, categorieën, SDC).
 - **Links**: bestand › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › objecten.
 - **Midden**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
-- **Rechts**: het detectiepaneel in uitklapbare blokken (Codex *Accordion*-stijl): Bulk-operaties, Zoeken, Snel zoeken, Voorstellen voor deze pagina, Aanwijzen, **Uit Commons**. Daaronder de resultatenlijst met vinkjes, en de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
+- **Rechts**: het detectiepaneel in uitklapbare blokken (Codex *Accordion*-stijl): Bulk-operaties, Zoeken, Snel zoeken, AI-suggesties voor deze afbeelding, Aanwijzen, Rechthoek tekenen, **Uit Commons**. Daaronder de resultatenlijst met vinkjes, en de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
 - **Vergroter**: de uitsnede, "Wat staat hierop?", het bijschrift en het Commons-concept (tab).
+- **Gebouwd in fase 1 (stand 0.9.0)**: de randen tussen de drie kolommen zijn versleepbaar (ook met de pijltjestoetsen; breedte per browser onthouden); de objectenlijst toont een miniatuur per object, en een regel licht op als de muis erboven of boven die uitsnede in het beeld staat; alle knoppen zijn Codex-blauw (*progressive*), verwijderen blijft rood; in het Commons-concept zitten de invulacties per veld in een klein menu (⋯) met *Ongedaan maken* direct erna; de namen die de app zelf geeft (klik, rechthoek, regio) en soort en zekerheid volgen de taal van de interface.
 - **Pagina's**: `/objecten` (alle uitsneden, met het facet "Op Commons"), `/commons` (het keuzemenu), `/verbruik`, `/docs`, `/changelog`.
 - **Footer**: *"Dit is een experiment. Het is geen officiële dienst van de KB, nationale bibliotheek, of van de Wikimedia Foundation. Aan deze toepassing kunnen geen rechten worden ontleend."* Plus links naar de documentatie, de API, de broncode, de privacyverklaring en de changelog.
 - **Meldingen** als Codex *Message* (notice, warning, error, success).
@@ -557,6 +567,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 ### 12.3 Regels van Toolforge en privacy
 
 - Volgens de gebruiksvoorwaarden van Toolforge mag een tool geen persoonsgegevens (zoals IP-adressen) naar derden lekken zonder dat de gebruiker dat weet. Daarom: geen externe CDN's, lettertypen of scripts (alles zit in de gebouwde bundel en komt van de tool zelf), en een **privacyverklaring** op `/privacy`.
+- **Proefweergave van de wikitekst**: de server laat Commons de wikitekst renderen (`action=parse`) en geeft de browser alleen opgeschoonde HTML zonder afbeeldingen, stijlen of scripts; de browser laadt dus niets van Wikimedia (9.1).
 - **Meta Model API**: de server stuurt beelden van Commons (openbaar) en de context (beschrijving, categorieën) naar Meta, nooit gegevens van de gebruiker. De privacyverklaring zegt dat. Of een commerciële, betaalde API van Meta acceptabel is voor een Toolforge-tool, zoeken we uit vóór de deploy (besluit Olaf, 3-11-2026: "zien we te zijner tijd").
 - Verbruikslog met gebruikersnamen: zie 8.3.
 
@@ -589,7 +600,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 **Fase 4: verdieping**
 
 14. Batch over meerdere bestanden (een hele categorie in één keer).
-15. Regio's terugschrijven naar het origineel (P180 met P2677).
+15. Regio's terugschrijven naar het origineel (P180 met P2677); het voorbeeld staat al in de proefweergave (9.4).
 16. Een link vanuit Commons: gadget of een item in het menu Hulpmiddelen ("Openen in de Commons Cutter"), zoals CropTool.
 17. IIIF-annotaties exporteren.
 18. Eigen API-sleutel per gebruiker voor scripts.
@@ -600,7 +611,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 ```
 commons-cutter/
   app.py  wsgi.py  Procfile  requirements.txt  .env.example  .gitignore
-  cutter/ (beheer.py, opslag.py, commons.py, regios.py, oauth.py, upload.py, wikitekst.py, sdc.py, rechten.py,
+  cutter/ (beheer.py, opslag.py, commons.py, regios.py, oauth.py, upload.py, wikitekst.py, sdc.py, rechten.py, weergave.py,
                detectie/{basis,dummy,meta_sam,maskers,dienst}.py, beschrijving.py,
                prompts.py, verbruik.py, cache.py, export.py, api.py, openapi.py, web.py)
   templates/                         (Jinja-pagina's met mountpunten voor Vue)
@@ -665,6 +676,7 @@ Geen vragen die de bouw van fase 1 en 2 tegenhouden. Later:
 - De minimale set OAuth-grants (8.2).
 - Of de testwiki OAuth 2.0 en SDC ondersteunt (9.6).
 - Welke SDC-eigenschap de relatie uitsnede → origineel vastlegt (9.4).
+- Of Commons-bots P1163, P4092, P3575, P2048 en P2049 na een upload zelf toevoegen, zodat de app ze niet dubbel zet (9.4).
 - Of de Toolforge Build Service een Node-stap (`npm ci && npm run build`) vóór de Python-build kan draaien, of dat de frontend in een GitHub Action wordt gebouwd (12.1).
 - Welke Vue-versie Codex 2.x vraagt, en of Codex-componenten die zich in een Jinja-pagina mounten goed samengaan met de CSS van Flask-pagina's (10.2).
 - Geheugen en time-outs van een Build Service-webservice op Toolforge (12.1).

@@ -12,7 +12,8 @@ De Commons Cutter is een experiment. Het is geen officiële dienst van de KB, na
 
 ## Wat naar derden gaat
 
-- **Wikimedia Commons en Wikidata**: de server haalt bestanden en gegevens op; jouw browser laadt alleen bestanden van de tool zelf.
+- **Wikimedia Commons en Wikidata**: de server haalt bestanden en gegevens op; jouw browser laadt alleen bestanden van de tool zelf. Voor de proefweergave laat de server Commons de wikitekst van een concept renderen; je browser krijgt alleen opgeschoonde HTML, zonder afbeeldingen, stijlen of scripts van Wikimedia.
+- **In je browser bewaard**: *Laatst bezocht* (de bestanden die je opende) en de breedte van de kolommen staan, net als de plaats en grootte van de vergroter, in de opslag van je eigen browser (localStorage), niet op de server.
 - **Meta Model API** (alleen in live-modus): de server stuurt een verkleinde versie van het openbare Commons-bestand en de context van de bestandspagina (beschrijving, categorieën) naar Meta. Nooit gegevens over jou.
 - **Geen externe scripts, lettertypen of CDN's**: alles wat je browser laadt, komt van de tool zelf. Zo lekt je IP-adres niet naar derden, zoals de gebruiksvoorwaarden van Toolforge vragen.
 
