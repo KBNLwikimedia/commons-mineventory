@@ -3,6 +3,17 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.18.0] - 2026-11-04
+
+### Toegevoegd
+
+- Opruimtaak voor de bewaartermijnen (FO 12.1): `flask --app app opruimen` telt wat weg zou gaan, `--echt` verwijdert het. Originelen en de Commons-cache na 7 dagen, niet-geüploade uitsneden en maskers na 30 dagen, detecties en beschrijvingen na 1 jaar, telkens vanaf het laatste gebruik. Het verbruikslog blijft altijd. De app zet bij elk lezen de toegangstijd van het bestand, zodat de termijn vanaf het laatste gebruik telt.
+- De bewaartermijnen staan in de interface: een (i) met popup *Hoe lang wordt dit bewaard?* naast het aantal objecten boven *Selectie opslaan*, en op de pagina *Objecten* een regel dat opgeslagen uitsneden na 30 dagen zonder gebruik verdwijnen. De termijnen komen uit de configuratie (`bewaren` in de paginaconfiguratie).
+
+### Gewijzigd
+
+- *Bijsnijden in CropTool* staat niet meer in de vergroter: CropTool nam het kader uit de link niet over en toonde de hele afbeelding. In het detectiepaneel staat nu onderaan een uitklapblok **Bijsnijden in CropTool** (standaard ingeklapt, met uitleg en een info-popup), met een knop die het hele bestand in CropTool opent. Met het logo van CropTool2 (het Codex-icoon *cut*, dat CropTool2 zelf ook gebruikt). Alleen bij afbeeldingen van één pagina.
+
 ## [0.17.0] - 2026-11-04
 
 ### Toegevoegd

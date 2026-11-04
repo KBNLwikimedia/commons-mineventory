@@ -84,21 +84,14 @@ export function objectName(obj, language = "nl", t = null) {
   return obj.label_nl || obj.label;
 }
 
-// CropTool (croptool2.toolforge.org) opened on the original with this object's
-// box as its selection (README of wpmed/croptool2: title, left, top, width,
-// height). Only for single images: there the box is in pixels of the original;
-// for PDF, DjVu and multi-page TIFF it is in pixels of a rendered page.
+// CropTool (croptool2.toolforge.org) opened on the whole file. Its README
+// mentions left/top/width/height for a preselected crop, but in practice it
+// showed the whole image, so the app links to the file only (main screen).
+// Only for single images: PDF, DjVu and multi-page TIFF are pages.
 export const CROPTOOL = "https://croptool2.toolforge.org/";
 
-export function cropToolLink(file, obj) {
-  if (!file || !obj?.box || (file.paginas || 1) > 1 || !String(file.mime || "").startsWith("image/")) return null;
-  const { x, y, w, h } = obj.box;
-  const params = new URLSearchParams({
-    title: file.naam || String(file.titel || "").replace(/^File:/, ""),
-    left: Math.round(x),
-    top: Math.round(y),
-    width: Math.round(w),
-    height: Math.round(h),
-  });
-  return `${CROPTOOL}?${params}`;
+export function cropToolLink(file) {
+  if (!file || (file.paginas || 1) > 1 || !String(file.mime || "").startsWith("image/")) return null;
+  const title = file.naam || String(file.titel || "").replace(/^File:/, "");
+  return `${CROPTOOL}?${new URLSearchParams({ title })}`;
 }

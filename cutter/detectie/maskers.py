@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from ..opruimen import mark_used
+
 
 def decode_raster(mask_data):
     """Row-major uint8 array (height, width) of 0/1 for a mask description.
@@ -52,6 +54,7 @@ class MaskCache:
         key = hashlib.sha1(repr(sorted((mask_data or {}).items())).encode()).hexdigest()
         path = self.directory / key[:2] / f"{key}.png"
         if path.exists():
+            mark_used(path)
             return path.read_bytes()
         data = mask_png(mask_data)
         path.parent.mkdir(parents=True, exist_ok=True)

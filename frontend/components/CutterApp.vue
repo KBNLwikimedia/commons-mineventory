@@ -79,7 +79,7 @@
           @draw-mode="setMode('draw', $event)"
         />
         <div class="cc-acties">
-          <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }}</p>
+          <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }} <retention-info /></p>
           <cdx-button action="progressive" weight="primary" :disabled="!selectedCount || busy" @click="saveSelection">
             {{ t("actions.save", { n: selectedCount }) }}
           </cdx-button>
@@ -123,6 +123,7 @@ import DetectionPanel from "./DetectionPanel.vue";
 import FileBar from "./FileBar.vue";
 import Magnifier from "./Magnifier.vue";
 import NoticeList from "./NoticeList.vue";
+import RetentionInfo from "./RetentionInfo.vue";
 import ObjectList from "./ObjectList.vue";
 import PageList from "./PageList.vue";
 import ViewerPane from "./ViewerPane.vue";

@@ -552,6 +552,13 @@ API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-s
   | Detecties en beschrijvingen (de antwoorden van SAM en Muse Spark, klein) | 1 jaar | Opnieuw vragen kost geld; met de cache kost het nog eens openen van een bestand niets |
 
   Instelbaar met `BEWAAR_ORIGINELEN_DAGEN=7`, `BEWAAR_UITSNEDEN_DAGEN=30` en `BEWAAR_CACHE_DAGEN=365`. Hoeveel ruimte een tool mag gebruiken, bij de bouw nagaan; dat kan de termijnen nog veranderen.
+
+  Gebouwd in 0.18.0 (`cutter/opruimen.py`): het commando `flask --app app opruimen` telt wat weg zou gaan; met `--echt` wordt het verwijderd. Op Toolforge draait het dagelijks als `toolforge jobs`-taak met `--echt`. Het laatste gebruik is de toegangstijd van een bestand, die de app bij elk lezen zet (de wijzigingstijd blijft staan, want de Commons-cache gebruikt die voor de versheid). Precies:
+  - **7 dagen**: `cache/originelen` en `cache/commons` (API-antwoorden en paginabeelden; allebei gratis opnieuw op te halen).
+  - **30 dagen**: opgeslagen uitsneden en maskers (`uitvoer/<mid>/pagina_<n>/jpg`, `png`, `maskers`); het object vergeet dan dat het opgeslagen was, en opnieuw opslaan maakt ze weer aan. Ook voorbeelden en maskerafbeeldingen in de cache. Objecten die op Commons staan, houden hun gegevens.
+  - **1 jaar**: de antwoorden van SAM en Muse Spark in de cache, en een hele pagina (objecten en beschrijvingen) die zo lang niet geopend is.
+  - Nooit: het verbruikslog (`uitvoer/verbruik`).
+  - Nog niet: de app toont nog niet bij elke uitsnede wanneer die verloopt.
 - **Sessies**: server-side, in Redis van Toolforge of in bestanden; tokens versleuteld.
 - **Lange taken** (Alles beschrijven, uploads van tientallen bestanden): pagina voor pagina vanuit de browser, zoals nu, of als `toolforge jobs`-taak. Voorstel: vanuit de browser, met de knop Stoppen.
 - **Werkgeheugen**: een webservice heeft standaard een beperkt geheugen; grote scans (5.4) kunnen dat overschrijden. Bij de bouw meten en zo nodig meer aanvragen.

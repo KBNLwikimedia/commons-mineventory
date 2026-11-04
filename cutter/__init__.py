@@ -1,6 +1,6 @@
 """Commons Cutter: detect and cut out objects in images on Wikimedia Commons (experiment)."""
 
-__version__ = "0.17.0"
+__version__ = "0.18.0"
 
 
 def create_app(config=None, commons_client=None, detector=None, vision=None):
@@ -65,7 +65,22 @@ def create_app(config=None, commons_client=None, detector=None, vision=None):
 
     app.register_blueprint(api)
     app.register_blueprint(web)
+    _register_commands(app, config)
     return app
+
+
+def _register_commands(app, config):
+    """flask --app app opruimen [--echt]: the cleanup by retention period (12.1);
+    on Toolforge a daily `toolforge jobs` task."""
+    import click
+
+    @app.cli.command("opruimen")
+    @click.option("--echt", is_flag=True, help="Echt verwijderen; zonder deze optie alleen tellen.")
+    def cleanup_command(echt):
+        """Ruim originelen, uitsneden en cache op volgens de bewaartermijnen."""
+        from .opruimen import Cleanup, summary
+
+        click.echo(summary(Cleanup.from_config(config).run(apply=echt)))
 
 
 def _use_os_trust_store():

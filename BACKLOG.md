@@ -23,7 +23,8 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 10. [x] "Wat staat hierop?" met Commons-context en `wikidata_suggesties` (fixtures).
 11. [x] Commons-concept per object, keuzemenu, controle vooraf, proefweergave; nog geen upload.
 12. [x] REST-API, OpenAPI, `/docs`, sitemap.
-   - Open uit fase 1 (3-11-2026): mobiel als tabbladen (nu stapelen de kolommen), "Openen in CropTool", de opruimtaak voor de bewaartermijnen, `{{Artwork}}`-velden per sjabloon nalopen met Olaf, tegels voor bestanden boven 100 megapixel.
+   - Open uit fase 1 (3-11-2026): mobiel als tabbladen (nu stapelen de kolommen), `{{Artwork}}`-velden per sjabloon nalopen met Olaf, tegels voor bestanden boven 100 megapixel.
+   - Gedaan (4-11-2026): "Bijsnijden in CropTool" als uitklapblok in het detectiepaneel (0.18.0; een vooringevuld kader nam CropTool niet over); de opruimtaak voor de bewaartermijnen, `flask --app app opruimen [--echt]` (0.18.0). Nog niet: bij elke uitsnede tonen wanneer die verloopt.
 12a. [x] Verfijning op aanwijzing van Olaf (3 en 4-11-2026, versies 0.2.0 tot en met 0.9.0; details in CHANGELOG.md):
    - Live-modus lokaal getest door Olaf, met zijn eigen sleutel.
    - AI-teksten: onderwerp en beschrijving met de hand aan te passen (Ongedaan maken, Terug naar de AI-tekst); AI-merkjes met uitleg (model, score, wat te controleren); soort, zekerheid en paginaoverzicht in beide talen; de modelkeuze in gewone woorden.
@@ -41,6 +42,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 13. [ ] OAuth 2.0 server-side, owner-only consumer voor ontwikkeling.
 14. [ ] Upload via de stash, waarschuwingen tonen, SDC, `{{Image extracted}}` op het origineel; eerst op een testwiki. Daarbij de regio van de uitsnede op het origineel (P180 met P2677), zoals de proefweergave al toont (FO 9.4), als Olaf dat bij de upload wil.
 15. [ ] Beheerpaneel `/beheer` (FO 8.4): beheerders (start: `BEHEERDERS_START`), toegangslijst met aanvragen, daglimieten (100 per gebruiker; 500 aanroepen en $2 per dag in totaal), noodknoppen, modellen, bewaartermijnen, logboek. Opslag: SQLite lokaal, ToolsDB op Toolforge.
+14a. [ ] Na de upload bij elke uitsnede een link "Openen in CropTool" (FO 9, stap 6): CropTool werkt alleen op bestanden die al op Commons staan, dus pas na de upload.
 15a. [ ] Een categorie als invoer: bladeren door de bestanden van `Category:…`.
 
 ## Fase 3: live

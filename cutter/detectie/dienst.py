@@ -26,6 +26,7 @@ from PIL import Image
 from .. import export, prompts, regios
 from ..commons import public as public_file
 from .basis import DetectionError
+from ..opruimen import mark_used
 from .maskers import MaskCache, decode_raster
 
 MIN_IOU = 0.5
@@ -212,6 +213,7 @@ class DetectionService:
         """Objects for one English term: from the cache or from the detector."""
         path = self._cache_path(page["id"], term["en"])
         if path.exists():
+            mark_used(path)
             stored = json.loads(path.read_text(encoding="utf-8"))
         else:
             if self.detector.betaald:
@@ -381,6 +383,8 @@ class DetectionService:
         Objects in the trash keep their data and can be restored; while they
         are there, a repeated search does not put them back on the page."""
         path = self._store_path(file, n)
+        if path.exists():
+            mark_used(path)  # the page's objects count as used (cleanup, 12.1)
         store = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
         store.setdefault("objecten", [])
         store.setdefault("prullenbak", [])
@@ -675,6 +679,7 @@ class DetectionService:
         obj = self._find(file, n, object_id)
         path = (obj.get("opgeslagen") or {}).get(kind)
         if path and (self._file_dir(file) / path).exists():
+            mark_used(self._file_dir(file) / path)
             return (self._file_dir(file) / path).read_bytes()
         page = self.client.load_page(file, n)
         image = self.client.original_image(file, n)
@@ -730,6 +735,7 @@ class DetectionService:
         key = hashlib.sha1(f"{file['sha1']}|{n}|{object_id}|{box}|{width}".encode()).hexdigest()
         path = self.cache_dir.parent / "uitsneden" / key[:2] / f"{key}.jpg"
         if path.exists():
+            mark_used(path)
             return path.read_bytes()
         page = self.client.load_page(file, n)
         if width and width <= 400:

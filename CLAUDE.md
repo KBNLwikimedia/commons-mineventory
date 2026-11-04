@@ -42,6 +42,7 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 - Lokaal draaien: flask --app app run --debug, en in een tweede terminal npm run dev
 - Frontend bouwen: npm run build
 - Tests: pytest en npm test
+- Opruimen (bewaartermijnen): flask --app app opruimen (telt), met --echt (verwijdert)
 - Deploy: Toolforge Build Service (zie docs/deploy-toolforge.md, nog te schrijven).
 
 ## Werkwijze

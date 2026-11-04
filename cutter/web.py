@@ -160,6 +160,12 @@ def _client_config(page, **extra):
             {"sleutel": key, "label": label, "termen": terms} for key, (label, terms) in prompts.CATEGORIEEN.items()
         ],
         "alles": [{"en": term, "nl": prompts.dutch(term)} for term in prompts.ALLES],
+        # Retention periods in days (12.1), so the interface can say that not everything is kept.
+        "bewaren": {
+            "originelen": config["BEWAAR_ORIGINELEN_DAGEN"],
+            "uitsneden": config["BEWAAR_UITSNEDEN_DAGEN"],
+            "cache": config["BEWAAR_CACHE_DAGEN"],
+        },
         **extra,
     }
     text = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")

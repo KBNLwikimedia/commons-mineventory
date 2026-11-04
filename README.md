@@ -8,7 +8,7 @@ De app is afgeleid van de [Delpher Uitsnijder](https://github.com/ookgezellig/de
 
 ## Status
 
-Fase 1 is klaar (versie 0.17.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
+Fase 1 is klaar (versie 0.18.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
 
 ## Lokaal draaien
 
@@ -29,6 +29,8 @@ npm run dev
 ```
 
 en open http://localhost:5000. Zonder `npm run dev` gebruikt Flask de gebouwde bestanden (`npm run build`). Tests: `pytest` en `npm test`.
+
+Opruimen volgens de bewaartermijnen (originelen 7 dagen, uitsneden 30 dagen, detecties en beschrijvingen 1 jaar, telkens vanaf het laatste gebruik): `flask --app app opruimen` telt wat weg zou gaan, `flask --app app opruimen --echt` verwijdert het. Op Toolforge wordt dat een dagelijkse taak.
 
 ## Wat de app nu doet
 

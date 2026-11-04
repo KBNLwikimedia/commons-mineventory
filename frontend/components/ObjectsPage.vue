@@ -5,6 +5,8 @@
 -->
 <template>
   <div class="cc-pagina-objecten">
+    <!-- Not everything is kept forever: say so where the saved cut-outs are. -->
+    <p class="cc-klein cc-bewaren">{{ t("retention.short", { n: config.bewaren?.uitsneden ?? 30 }) }} <retention-info /></p>
     <cdx-tabs v-model:active="tab" :framed="true">
       <cdx-tab name="objecten" :label="t('objects.tab_objects', { n: objects.length })">
         <!-- Facets on the left, stacked; the objects on the right. -->
@@ -87,10 +89,12 @@ import { API, del, errorText, get, objectPath, patch } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import RetentionInfo from "./RetentionInfo.vue";
 import { objectName } from "../state.js";
 
 const t = useT();
 const language = inject("language", "nl");
+const config = inject("config", {});
 // ?tab=prullenbak opens the trash directly (the link after "Naar de prullenbak").
 const tab = ref(new URLSearchParams(window.location.search).get("tab") === "prullenbak" ? "prullenbak" : "objecten");
 const objects = ref([]);

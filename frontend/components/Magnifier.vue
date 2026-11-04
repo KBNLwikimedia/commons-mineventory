@@ -78,15 +78,6 @@
             <cdx-button action="progressive" weight="quiet" @click="viewFull('jpg')"><cdx-icon :icon="cdxIconLinkExternal" /> JPG</cdx-button>
             <cdx-button action="progressive" weight="quiet" @click="viewFull('png')"><cdx-icon :icon="cdxIconLinkExternal" /> PNG</cdx-button>
           </span>
-          <!-- CropTool with this box as its selection (only for single images: the box is in pixels of the original). -->
-          <a
-            v-if="cropToolUrl"
-            class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--action-progressive cdx-button--weight-quiet"
-            :href="cropToolUrl"
-            target="_blank"
-            rel="noopener"
-            :title="t('magnifier.croptool_help')"
-          ><cdx-icon :icon="cdxIconLinkExternal" /> {{ t("magnifier.croptool") }}</a>
           <cdx-button action="progressive" v-if="!object.masker" @click="emit('refine', object)">{{ t("magnifier.refine_mask") }}</cdx-button>
           <cdx-button action="destructive" @click="emit('trashed', object.id)"><cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}</cdx-button>
         </div>
@@ -285,7 +276,7 @@ import { API, del, errorText, get, objectPath, patch, post, query } from "../api
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { forgetPlacement, makeMovable } from "../movable.js";
-import { cropToolLink, objectName } from "../state.js";
+import { objectName } from "../state.js";
 import AiBadge from "./AiBadge.vue";
 import ConceptEditor from "./ConceptEditor.vue";
 import CutoutPreview from "./CutoutPreview.vue";
@@ -303,7 +294,6 @@ const language = inject("language", "nl");
 const config = inject("config");
 const tab = ref("uitsnede");
 const caption = ref(props.object.bijschrift?.tekst || "");
-const cropToolUrl = computed(() => cropToolLink(props.file, props.object));
 const captionInfo = ref(false);
 const plan = ref(null);
 const busy = ref(false);

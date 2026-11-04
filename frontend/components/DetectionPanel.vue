@@ -125,14 +125,29 @@
       </div>
       <busy-note v-if="busy && where === 'bulk'" :message="t('busy.general')" />
     </cdx-accordion>
+
+    <!-- CropTool: the usual tool for cropping on Commons, for the whole file (single images only). -->
+    <cdx-accordion v-if="cropTool" v-model="open.croptool">
+      <!-- The CropTool2 logo is the Codex "cut" icon, so it is the same here. -->
+      <template #title><cdx-icon :icon="cdxIconCut" size="small" class="cc-croptool-logo" /> {{ t("panel.croptool") }} <info-dialog v-bind="info('croptool', 'panel.croptool')" /></template>
+      <p class="cc-klein">{{ t("panel.croptool_help") }}</p>
+      <a
+        class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--action-progressive"
+        :href="cropTool"
+        target="_blank"
+        rel="noopener"
+      ><cdx-icon :icon="cdxIconCut" /> {{ t("panel.croptool_button") }} <cdx-icon :icon="cdxIconLinkExternal" size="small" /></a>
+    </cdx-accordion>
   </div>
 </template>
 
 <script setup>
 import { computed, inject, reactive, ref, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxIcon, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
+import { cdxIconCut, cdxIconLinkExternal } from "@wikimedia/codex-icons";
 import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import { cropToolLink } from "../state.js";
 import AiBadge from "./AiBadge.vue";
 import BusyNote from "./BusyNote.vue";
 import InfoDialog from "./InfoDialog.vue";
@@ -166,7 +181,8 @@ function info(section, titleKey) {
     paragraphs: [1, 2, 3].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
   };
 }
-const open = reactive({ commons: true, search: false, suggestions: true, point: false, bulk: false });
+const open = reactive({ commons: true, search: false, suggestions: true, point: false, bulk: false, croptool: false });
+const cropTool = computed(() => cropToolLink(props.file));
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 
 const SAM_PER_CALL = 0.0025;

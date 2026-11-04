@@ -34,6 +34,7 @@ from PIL import Image, ImageDraw
 
 from . import __version__
 from .detectie.basis import DetectionError
+from .opruimen import mark_used
 
 logger = logging.getLogger(__name__)
 
@@ -629,6 +630,7 @@ class DescriptionService:
         page_text = self._page_text(file, n)
         path = self._cache_path(file, n, obj, choice["model"], hint, margin, page_text)
         if path.exists() and not again:
+            mark_used(path)
             description = json.loads(path.read_text(encoding="utf-8"))
             description["uit_cache"] = True
             return self._store(file, n, object_id, description, user)
@@ -836,6 +838,7 @@ class DescriptionService:
         choice = self._model(file, model)
         path = self._inventory_cache_path(file, n, choice["model"])
         if path.exists() and not again:
+            mark_used(path)
             overview = json.loads(path.read_text(encoding="utf-8"))
             return self._store_inventory(file, n, overview, cached=True, user=user)
 
