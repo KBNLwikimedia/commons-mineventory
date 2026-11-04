@@ -1,6 +1,6 @@
 # Functioneel ontwerp – Commons Cutter
 
-Naam: **Commons Cutter** (Engels, zoals de tool op Toolforge en de repo; besluit Olaf 3-11-2026). Status: concept v0.6, 4 november 2026 (v0.6: bijgewerkt tot app-versie 0.24.2; zie CHANGELOG.md voor alles wat sinds 0.9.0 gebouwd is; v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
+Naam: **Commons Cutter** (Engels, zoals de tool op Toolforge en de repo; besluit Olaf 3-11-2026). Status: concept v0.7, 4 november 2026 (v0.7: voorstel 9.7, *beeldt af* en caption voor de hele afbeelding; v0.6: bijgewerkt tot app-versie 0.24.2; zie CHANGELOG.md voor alles wat sinds 0.9.0 gebouwd is; v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
 
 Dit FO beschrijft een variant van de [Delpher Uitsnijder](https://github.com/ookgezellig/delpher-uitsnijder) (versie 0.18.13, lokaal in `D:\KB-OPEN\github-repos\delpher-uitsnijder`) voor afbeeldingen op Wikimedia Commons. Waar dit document "de Delpher Uitsnijder" zegt, gaat het om die app: haar FO, `docs/api.md`, `docs/commons-beschrijving.md`, `docs/beeld-taalmodel.md` en `docs/meta-sam-api.md`. Die documenten blijven de bron voor alles wat ongewijzigd wordt overgenomen. Dit FO beschrijft vooral wat anders is.
 
@@ -24,7 +24,7 @@ Voorbeelden:
 
 | | CropTool | Commons Cutter |
 | --- | --- | --- |
-| Selectie | Eén rechthoek, met de hand getrokken; randdetectie | Veel objecten tegelijk, gevonden met AI (zoekterm, AI-suggesties per afbeelding, Aanwijzen, Alles detecteren), met maskers; handmatige rechthoek als terugvaloptie |
+| Selectie | Eén rechthoek, met de hand getrokken; randdetectie | Veel objecten tegelijk, gevonden met AI (zoekterm, AI-suggesties per afbeelding, Aanwijzen), met maskers; handmatige rechthoek als terugvaloptie |
 | Vorm van de uitsnede | Rechthoek | Rechthoek (JPG) of de vorm van het object (transparante PNG) |
 | Bewerkingen | Rechtzetten, draaien, spiegelen, helderheid/contrast, verliesloos JPEG (jpegtran) | Geen beeldbewerking in fase 1. Wel: rand eromheen instelbaar, keuze PNG of JPG |
 | Bestandstypen | JPEG, PNG, TIFF, SVG, WebP, GIF; één pagina uit PDF/DjVu | JPEG, PNG, TIFF, WebP; pagina's uit PDF/DjVu/TIFF (zie 5.4). Geen SVG en geen geanimeerde GIF |
@@ -204,7 +204,7 @@ Op basis van de metingen in de Delpher Uitsnijder:
 | Alles detecteren | 8 SAM | $0,02 |
 | Wat staat hierop? (`low`) | 1 Muse | $0,005 (Standard), $0,0003 (Contributor) |
 | Wat staat op deze pagina? (`low`) | 1 Muse | $0,007 |
-| Slim detecteren | 1 Muse + n SAM | ±$0,03 |
+| AI-suggesties en dan Alle objecten detecteren | 1 Muse + n SAM | ±$0,03 |
 | Een typische sessie: één bestand, Alles detecteren, tien beschrijvingen | 8 SAM + 10 Muse | ±$0,07 |
 
 Limieten:
@@ -235,7 +235,9 @@ Klikken op een plek zonder bekend object: een puntprompt aan SAM (één betaalde
 
 ### 7.4 Bulk-operaties
 
-Alles detecteren, Slim detecteren (eerst het paginaoverzicht, dan SAM met de voorgestelde termen), Alles beschrijven, Dubbelingen samenvoegen. Elke stap met bevestiging en kosten.
+Selectie beschrijven (de aangevinkte objecten zonder beschrijving) en Dubbelingen samenvoegen. Elke betaalde stap met bevestiging en kosten. Een knop is uitgeschakeld als er niets te doen is: geen aangevinkte objecten zonder beschrijving, of minder dan twee objecten.
+
+Sinds 0.28.0 uit de interface (besluit Olaf, 4-11-2026): *Alles detecteren* (SAM met een vaste lijst soorten beeld, zoals illustratie, portret en wapen) en *Slim detecteren* (eerst het paginaoverzicht, dan SAM met de voorgestelde termen). *Alle objecten detecteren* bij de AI-suggesties doet hetzelfde met termen die bij deze afbeelding passen. In de API blijft `modus: "alles"` bestaan.
 
 ### 7.5 Uit Commons (gratis, zonder SAM)
 
@@ -441,6 +443,114 @@ Na de upload, in één `wbeditentity` op `M<pageid>`:
 - Daarna echte uploads op een testwiki: `test-commons.wikimedia.org` of de bètacluster (`commons.wikimedia.beta.wmcloud.org`). **Bij de bouw nagaan** welke van de twee OAuth en SDC ondersteunt.
 - `COMMONS_UPLOAD=uit` (standaard): alles werkt behalve de uploadknop; dan kun je de wikitekst kopiëren of een zip downloaden met bestanden en wikitekst.
 
+### 9.7 Beeldt af en caption voor de hele afbeelding
+
+Voorstel (4-11-2026, op verzoek van Olaf). Nog niet gebouwd. Punten met **[Vraag]** wachten op een keuze van Olaf.
+
+**Doel.** Wat de AI op de hele afbeelding vond, ook vastleggen in de gestructureerde gegevens van het origineel:
+- de herkende dingen (boy, girl, vintage car, …) als *beeldt af* (P180);
+- de samenvatting van het paginaoverzicht (7.6) als caption.
+
+Er gaat alleen iets naar Commons wat de gebruiker heeft gecontroleerd en aangevinkt, en pas na een bevestiging. Het is een bewerking van het origineel, de bestandspagina van iemand anders. Het opslaan komt daarom in fase 2, na OAuth, en eerst op de testwiki (9.6). Het samenstellen en bekijken kan eerder: dat is gratis en verandert niets op Commons.
+
+**Waar.** In een eigen venster (een brede `CdxDialog`), niet in het uitklapblok *AI-suggesties voor deze afbeelding*: dat wordt anders te vol.
+- In dat blok komt onder de zoektermen één knop: *Toevoegen aan de gegevens van deze afbeelding…*. Die knop is blauw maar niet gevuld; *Alle objecten detecteren* blijft de hoofdactie.
+- De knop verschijnt zodra er een paginaoverzicht is, of minstens één object met een gekozen *beeldt af*-item.
+
+**Indeling.**
+
+```
+┌ Gegevens van deze afbeelding ─────────────────────────────── ✕ ┐
+│ [mini-afbeelding ]  003-KW XKZ 0214-…-page3.jpg ↗               │
+│ [met de kaders   ]  [ Beeldt af (P180) ]  [ Captions ]          │
+│                                                                 │
+│  Al op Commons: …                                 (alleen lezen)│
+│  Voorstellen                                                    │
+│  ☑ boy (Q3010) – young male human     1 object ▣  door jou      │
+│  ☐ girl (Q3031) – young female human  1 object ▣  AI ✎          │
+│  ☐ automobile (Q1420)                 1 object ▣  AI ✎          │
+│  ▸ Zoektermen zonder gevonden object (door, lawn)               │
+│  + Ander item toevoegen [zoeken op Wikidata…]                   │
+├─────────────────────────────────────────────────────────────────┤
+│ 3 × beeldt af toevoegen · 1 caption toevoegen                   │
+│                           [Annuleren]  [Op Commons opslaan…]    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- In de kop staan de naam van het bestand (met link naar Commons) en een kleine weergave van de hele afbeelding met de kaders. Wijs je een regel in het venster aan, dan lichten de kaders van die objecten op, net als bij de lijst links.
+- Er zijn twee tabbladen: *Beeldt af (P180)* en *Captions*.
+- Onderaan staat wat er gaat veranderen, met *Annuleren* en de hoofdknop *Op Commons opslaan…*. Tot fase 2 heet die knop *Concept bewaren*.
+- Vóór het opslaan volgt een bevestiging met precies de wijzigingen en de bewerkingssamenvatting.
+
+**Tabblad Beeldt af (P180).**
+
+1. ***Al op Commons*** (grijs, alleen lezen): de P180-items die het origineel al heeft, met hun label. Heeft een item een positie (P2677), dan staat er een merkje bij. Hier verandert niets aan.
+2. ***Voorstellen***: één regel per Wikidata-item. Elke regel heeft:
+   - een vinkje;
+   - het item: label, Q-id, korte beschrijving en een link naar Wikidata;
+   - de objecten op de afbeelding die erbij horen: het aantal en de kleur van hun kader;
+   - de bron.
+
+   Er zijn drie bronnen:
+   - ***Door jou gekozen bij een uitsnede***: de *beeldt af*-items uit het Commons-concept van de objecten (9.1). Die heb je al gecontroleerd, dus ze staan aangevinkt.
+   - ***AI-zoekterm***: de chips uit het paginaoverzicht. De app zoekt elke term gratis op Wikidata op (`wbsearchentities`, in het Engels) en stelt het beste resultaat voor. Met het potloodje kies je een ander item, via dezelfde zoeker met autosuggestie als bij de uitsnede. Deze regels krijgen een AI-merkje en staan **niet** aangevinkt: je vinkt pas aan na controle.
+   - ***AI-suggestie bij een uitsnede***: de `wikidata_suggesties` van "Wat staat hierop?" die je nog niet koos. Ook met AI-merkje, niet aangevinkt.
+
+   Waar die bronnen samenkomen:
+   - Hetzelfde item uit meer bronnen wordt één regel.
+   - Een item dat het origineel al heeft, staat alleen bij *Al op Commons*.
+   - Objecten in de prullenbak of met de status *uitgesloten* tellen niet mee.
+   - Zoektermen waarbij geen object is gevonden (in het voorbeeld door en lawn), staan ingeklapt onderaan. Ze komen alleen mee als je ze openklapt en aanvinkt.
+3. ***Ander item toevoegen***: een zoekveld met autosuggestie, voor wat de AI niet vond.
+
+**Positie (P2677).** Per regel kies je *met positie*, standaard aan:
+- **Met positie** wordt elk object een eigen verklaring: P180 met P2677 `pct:x,y,b,h`, uit het kader van het object in het hele beeld. Zo werkt ook het Book of Hours (7.5). Commons tekent die regio's op de bestandspagina, en de app leest ze de volgende keer gratis terug als objecten (7.5).
+- **Zonder positie** wordt het één verklaring zonder kwalificator.
+
+**[Vraag]** Positie standaard aan of uit?
+
+**Tabblad Captions.** Per taal, Nederlands en Engels, een kaart met drie delen:
+- ***Nu op Commons***: de bestaande caption, of "nog geen caption".
+- ***AI-voorstel***: de samenvatting van het paginaoverzicht (`samenvatting` en `samenvatting_en`), met een AI-merkje.
+  - Zonder de paginasoort ervoor ("prentenboekpagina —"), want dat is geen beschrijving.
+  - Is het voorstel langer dan 250 tekens, dan zegt het venster dat het moet worden ingekort.
+- ***De keuze***:
+  - Zonder bestaande caption: *Toevoegen*, aangevinkt. Het AI-voorstel staat in een tekstvak dat je kunt aanpassen, met *Ongedaan maken* en een teller tot 250 tekens.
+  - Met een bestaande caption: *Bestaande houden* (standaard), *Vervangen door het AI-voorstel* of *Zelf schrijven* (een tekstvak dat begint met het AI-voorstel). Bij vervangen staan de oude en de nieuwe tekst onder elkaar.
+
+Captions in andere talen staan eronder, alleen lezen; die blijven zoals ze zijn.
+
+Is er nog geen paginaoverzicht, dan legt het venster uit dat het voorstel uit *AI-suggesties voor deze afbeelding* komt (betaald, met bevestiging). Zelf een caption schrijven kan altijd.
+
+**Opslaan op Commons (fase 2).**
+- **Eén bewerking**: `wbeditentity` op `M<pageid>`, met alleen de nieuwe verklaringen en de gekozen captions. De app stuurt `baserevid` mee: de versie die het venster las. Is het origineel intussen gewijzigd, dan leest de app het opnieuw en toont het venster de nieuwe stand. Zo gaat er nooit iets over de wijziging van een ander heen.
+- **Alleen toevoegen.** Bestaande verklaringen, kwalificatoren en captions in andere talen blijven zoals ze zijn. Een caption verandert alleen bij de keuze *Vervangen* of *Zelf schrijven*; de oude tekst blijft in de geschiedenis van de pagina staan.
+- **Bewerkingssamenvatting** (in het Engels), bijvoorbeeld: `Added depicts (3) and caption (nl) with Commons Cutter; AI suggestions checked by the user`.
+- **Daarna** leest de app het origineel opnieuw; de cache van dit bestand vervalt. Objecten met een positie staan voortaan ook als regio van Commons (7.5).
+- **Rechten**: de grant *Edit existing pages* (8.2). Die is al nodig voor `{{Image extracted}}`.
+- **Kosten**: geen. Er is geen AI-aanroep, alleen leesverzoeken aan Wikidata en één bewerking op Commons.
+
+**Bewaren.** Wat je in het venster kiest, bewaart de app per pagina in `uitvoer/<mid>/pagina_<n>/origineel.json`, net als het Commons-concept per object. Zo kun je later verder. Na het opslaan op Commons staat daar wanneer en door wie.
+
+**API (voorstel).**
+
+| Methode | Pad | Wat |
+| --- | --- | --- |
+| GET | `/bestand/{mid}/pagina/{n}/origineel` | De voorstellen, de stand op Commons en de bewaarde keuzes. Gratis; de Wikidata-zoekopdrachten voor de zoektermen zijn leesverzoeken en worden gecachet |
+| PUT | `/bestand/{mid}/pagina/{n}/origineel` | De keuzes bewaren (concept). Gratis |
+| POST | `/bestand/{mid}/pagina/{n}/origineel/opslaan` | Naar Commons (fase 2): ingelogd, na bevestiging, met `baserevid` |
+
+**Verhouding tot 9.4.** De regio op het origineel per geüploade uitsnede (9.4) en dit venster schrijven dezelfde soort verklaringen, P180 met P2677, met dezelfde code. Fase 4 punt 15 (regio's terugschrijven, ook los van een upload) valt hiermee samen.
+
+**Niet in dit venster.** De gelezen tekst in en onder het beeld. Op het origineel zou dat wikitekst zijn (`{{Inscription}}`), geen SDC, en dat is een andere bewerking.
+
+**[Vraag] voor Olaf:**
+1. **Positie**: standaard één verklaring per object, met P2677 (voorstel)? Of standaard één verklaring per item, zonder positie?
+2. **Item al aanwezig zonder positie**: een AI-voorstel voor een item dat het origineel al heeft, maar zonder positie. Overslaan (voorstel)? Of de positie als kwalificator toevoegen aan die bestaande verklaring? Dat laatste wijzigt de verklaring van een ander.
+3. **AI-herkomst**: moet een verklaring of caption die uit een AI-voorstel komt dat ook in de SDC tonen, met een kwalificator of referentie ("gevonden met AI, gecontroleerd door een mens")? Of is de bewerkingssamenvatting genoeg? Voorstel: alleen de samenvatting. Een vaste Commons-conventie hiervoor is niet bekend (zie 16).
+4. **Bestaande caption**: standaard *Bestaande houden* (voorstel)?
+5. **Bestanden met meer pagina's** (PDF, TIFF, DjVu): de SDC hoort bij het hele bestand, niet bij één pagina. Het venster dan uitzetten? Of alleen P180 zonder positie en zonder caption toestaan?
+
 ## 10. Interface met Codex
 
 ### 10.1 Welke Codex
@@ -609,7 +719,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 **Fase 4: verdieping**
 
 14. Batch over meerdere bestanden (een hele categorie in één keer).
-15. Regio's terugschrijven naar het origineel (P180 met P2677); het voorbeeld staat al in de proefweergave (9.4).
+15. Regio's terugschrijven naar het origineel (P180 met P2677); het voorbeeld staat al in de proefweergave (9.4). Valt samen met het venster *Beeldt af en caption voor de hele afbeelding* (9.7), dat al in fase 2 kan, na de upload.
 16. Een link vanuit Commons: gadget of een item in het menu Hulpmiddelen ("Openen in de Commons Cutter"), zoals CropTool.
 17. IIIF-annotaties exporteren.
 18. Eigen API-sleutel per gebruiker voor scripts.
@@ -684,6 +794,7 @@ Geen vragen die de bouw van fase 1 en 2 tegenhouden. Later:
 - De minimale set OAuth-grants (8.2).
 - Of de testwiki OAuth 2.0 en SDC ondersteunt (9.6).
 - Welke SDC-eigenschap de relatie uitsnede → origineel vastlegt (9.4).
+- Of Commons afspraken heeft over *beeldt af* en captions die met AI zijn gevonden, en hoe ander gereedschap dat P2677 schrijft (zoals Wikidata Image Positions) dat vastlegt (9.7).
 - Of Commons-bots P1163, P4092, P3575, P2048 en P2049 na een upload zelf toevoegen, zodat de app ze niet dubbel zet (9.4).
 - Of de Toolforge Build Service een Node-stap (`npm ci && npm run build`) vóór de Python-build kan draaien, of dat de frontend in een GitHub Action wordt gebouwd (12.1).
 - Welke Vue-versie Codex 2.x vraagt, en of Codex-componenten die zich in een Jinja-pagina mounten goed samengaan met de CSS van Flask-pagina's (10.2).

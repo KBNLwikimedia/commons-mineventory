@@ -66,13 +66,24 @@
             <dt>{{ t("file.rights_reasons") }}</dt>
             <dd v-for="(reason, i) in file.rechten.redenen" :key="`r${i}`">{{ reason }}</dd>
             <dd v-if="!file.rechten.redenen.length">{{ t("rights.in_orde") }}</dd>
+            <!-- The work on Wikidata, as {{Artwork}} shows it on Commons (|wikidata= or the file's P6243). -->
             <template v-if="file.werk">
               <dt>{{ t("file.work") }}</dt>
               <dd>
-                <a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener">{{ file.werk.label || file.werk.wikidata }}</a>
+                <a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener">{{ workName }}</a>
                 <small class="cc-qid">{{ file.werk.wikidata }}</small>
-                <template v-if="file.werk.datum"> · <code>{{ file.werk.datum }}</code></template>
+                <small class="cc-werk-via">{{ t(file.werk.via === "sdc" ? "file.work_via_sdc" : "file.work_via_template") }}</small>
               </dd>
+              <template v-for="row in workRows" :key="row.key">
+                <dt class="cc-werk-veld">{{ t(`file.work_${row.key}`) }}</dt>
+                <dd>
+                  <template v-for="(part, i) in row.parts" :key="i">
+                    <template v-if="i"> · </template>
+                    <a v-if="part.href" :href="part.href" target="_blank" rel="noopener">{{ part.text }}</a>
+                    <template v-else>{{ part.text }}</template>
+                  </template>
+                </dd>
+              </template>
             </template>
             <dt>{{ t("file.licence_templates") }}</dt>
             <dd><code v-for="(tpl, i) in file.licentie.sjablonen" :key="i">{{ tpl }}</code></dd>
@@ -84,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconLinkExternal, cdxIconSearch } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
@@ -97,7 +108,52 @@ const props = defineProps({
 });
 const emit = defineEmits(["open"]);
 const t = useT();
+const language = inject("language", "nl");
 const text = ref(props.initial);
+
+// The work's fields in the order of {{Artwork}} on Commons; empty ones are left out.
+const workName = computed(() => {
+  const work = props.file?.werk || {};
+  return (language === "en" ? work.label_en || work.label : work.label || work.label_en) || work.wikidata;
+});
+const WIKIDATA = "https://www.wikidata.org/wiki/";
+function itemParts(items) {
+  return (items || []).map((item) => ({
+    text: (language === "en" ? item.en || item.nl : item.nl || item.en) || item.id,
+    href: WIKIDATA + item.id,
+  }));
+}
+const workRows = computed(() => {
+  const work = props.file?.werk;
+  if (!work) return [];
+  const description = language === "en" ? work.beschrijving?.en || work.beschrijving?.nl : work.beschrijving?.nl || work.beschrijving?.en;
+  const sizes = (work.afmetingen || []).map((s) => `${t(`file.work_${s.maat}`)} ${Number(s.waarde).toLocaleString(language)}${s.eenheid ? ` ${s.eenheid}` : ""}`);
+  const inventory = [...(work.collectie || []).flatMap((c) => c.inventarisnummers || []), ...(work.inventarisnummers || [])];
+  const host = (url) => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return url;
+    }
+  };
+  const rows = [
+    ["titel", work.titel && work.titel !== workName.value ? [{ text: work.titel }] : []],
+    ["makers", (work.makers || []).map((text) => ({ text }))],
+    ["datum", work.datum ? [{ text: work.datum }] : []],
+    ["beschrijving", description ? [{ text: description }] : []],
+    ["soort", itemParts(work.soort)],
+    ["onderdeel_van", itemParts(work.onderdeel_van)],
+    ["beeldt_af", itemParts(work.beeldt_af)],
+    ["materiaal", itemParts(work.materiaal)],
+    ["afmetingen", sizes.length ? [{ text: sizes.join(" × ") }] : []],
+    ["collectie", itemParts(work.collectie)],
+    ["inventarisnummer", inventory.map((text) => ({ text }))],
+    ["locatie", itemParts(work.locatie)],
+    ["plaats", itemParts(work.plaats)],
+    ["links", (work.links || []).map((url) => ({ text: host(url), href: url }))],
+  ];
+  return rows.filter(([, parts]) => parts.length).map(([key, parts]) => ({ key, parts }));
+});
 
 watch(
   () => props.file,

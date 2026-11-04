@@ -45,6 +45,13 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 14a. [ ] Na de upload bij elke uitsnede een link "Openen in CropTool" (FO 9, stap 6): CropTool werkt alleen op bestanden die al op Commons staan, dus pas na de upload.
 15. [ ] Beheerpaneel `/beheer` (FO 8.4): beheerders (start: `BEHEERDERS_START`), toegangslijst met aanvragen, daglimieten (100 per gebruiker; 500 aanroepen en $2 per dag in totaal), noodknoppen, modellen, bewaartermijnen, logboek. Opslag: SQLite lokaal, ToolsDB op Toolforge.
 15a. [ ] Een categorie als invoer: bladeren door de bestanden van `Category:…`.
+15b. [ ] Venster *Beeldt af en caption voor de hele afbeelding* (FO 9.7): de herkende objecten als P180 (met P2677) en de samenvatting van het paginaoverzicht als caption op het origineel, na controle en bevestiging. Het samenstellen kan al zonder OAuth (gratis, concept); het opslaan op Commons pas na 13 en 14, eerst op de testwiki. Wacht op Olafs antwoorden (hij komt hier later op terug); de voorstellen staan in FO 9.7:
+   1. Positie standaard aan, met één verklaring P180 met P2677 per object? (Voorstel: ja.)
+   2. Een item dat het origineel al heeft, maar zonder positie: overslaan, of de positie toevoegen aan die bestaande verklaring van een ander? (Voorstel: overslaan.)
+   3. Moet in de gegevens zelf staan dat iets met AI is gevonden, of is de bewerkingssamenvatting genoeg? (Voorstel: de samenvatting.)
+   4. Bij een bestaande caption standaard *Bestaande houden*? (Voorstel: ja.)
+   5. Wat doen we met bestanden met meer pagina's (PDF, TIFF, DjVu), waar de gegevens bij het hele bestand horen: venster uit, of alleen P180 zonder positie en zonder caption?
+   - Bij de bouw nagaan: of Commons afspraken heeft over *beeldt af*-verklaringen en captions die met AI zijn gevonden (FO 16).
 
 ## Fase 3: live
 
@@ -55,7 +62,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 ## Fase 4: verdieping
 
 19. [ ] Batch over meerdere bestanden (een hele categorie in één keer).
-20. [ ] Regio's terugschrijven naar het origineel (P180 met P2677), ook los van een upload; het voorbeeld per uitsnede staat al in de proefweergave.
+20. [ ] Regio's terugschrijven naar het origineel (P180 met P2677), ook los van een upload; het voorbeeld per uitsnede staat al in de proefweergave. Valt samen met 15b.
 21. [ ] Gadget of menu-item "Openen in de Commons Cutter" op Commons (de CropTool-link bij geüploade uitsneden is 14a).
 22. [ ] IIIF-annotaties exporteren.
 23. [ ] Meer talen in de interface (translatewiki.net).

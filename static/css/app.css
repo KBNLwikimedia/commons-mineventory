@@ -44,7 +44,13 @@ h2, h3, h4 { margin: 0.5rem 0; }
   font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--color-warning, #ac6600); border: 1px solid currentColor; border-radius: 2px; padding: 0 0.35em;
 }
+.cc-tagline { font-size: 0.875rem; font-style: italic; }
 .cc-werkt-met { color: var(--cc-tekst-zacht); font-size: 0.8125rem; }
+.cc-tagline + .cc-werkt-met::before { content: "· "; }
+/* The header of a workspace column: title with (i), one line on what the column is for. */
+.cc-kolomkop { margin: 0 0 0.5rem; padding-bottom: 0.375rem; border-bottom: 1px solid var(--border-color-subtle, #c8ccd1); }
+.cc-kolomkop h2 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 0.125rem; }
+.cc-kolomkop p { margin: 0.125rem 0 0; font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
 .cc-kop-rechts { margin-left: auto; display: flex; align-items: center; gap: 1rem; }
 .cc-talen { display: inline-flex; gap: 0.4rem; }
 .cc-inventaris-tekst blockquote { margin: 0.2rem 0 0.5rem; padding-left: 0.6rem; border-left: 3px solid var(--cc-rand); white-space: pre-line; font-style: italic; }
@@ -96,6 +102,9 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-metadata dl, .cc-gegevens { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem; }
 .cc-metadata dt, .cc-gegevens dt { font-weight: bold; grid-column: 1; }
 .cc-metadata dd, .cc-gegevens dd { margin: 0; grid-column: 2; }
+/* The fields of the work on Wikidata: indented under "Work on Wikidata", as on Commons. */
+.cc-metadata dt.cc-werk-veld { font-weight: normal; padding-left: 0.75rem; color: var(--cc-tekst-zacht); }
+.cc-werk-via { color: var(--cc-tekst-zacht); font-style: italic; }
 .cc-depicts::after { content: " · "; }
 .cc-depicts:last-child::after { content: ""; }
 
@@ -281,7 +290,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
   .cc-splitter { display: none; }
   .cc-midden { height: 70vh; order: -1; }
   .cc-links, .cc-rechts { overflow: visible; }
-  .cc-werkt-met { display: none; }
+  .cc-werkt-met, .cc-tagline { display: none; }
 }
 .cc-tekst-acties { align-items: center; }
 .cc-inventaris-knop { margin-top: 0.75rem; }

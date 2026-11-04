@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 from flask import Blueprint, Response, current_app, g, render_template, request, session, url_for
 from markupsafe import Markup
 
-from . import __version__, beschrijving, verbruik, changelog as changelog_parser, i18n, markdown_lite, prompts
+from . import __version__, beschrijving, verbruik, changelog as changelog_parser, i18n, markdown_lite
 from .config import ROOT_DIR
 
 web = Blueprint("web", __name__)
@@ -158,7 +158,6 @@ def _client_config(page, **extra):
         "sam_model": config["SAM_MODEL"],
         "sam_usd": verbruik.KOSTEN_PER_AFBEELDING,  # one SAM call (per image), for the cost in buttons
         "muse": _muse_info(),
-        "alles": [{"en": term, "nl": prompts.dutch(term)} for term in prompts.ALLES],
         # Retention periods in days (12.1), so the interface can say that not everything is kept.
         "bewaren": {
             "originelen": config["BEWAAR_ORIGINELEN_DAGEN"],

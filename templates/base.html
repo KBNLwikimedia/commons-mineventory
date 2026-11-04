@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if titel %}{{ titel }} – {% endif %}Commons Cutter</title>
+  <meta name="description" content="Commons Cutter: {{ t('header.tagline') }}, {{ t('header.works_with') }}.">
   <link rel="icon" href="{{ url_for('static', filename='img/icoon.svg') }}" type="image/svg+xml">
   {{ vite_tags("frontend/main-base.js") }}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ app_versie }}">
@@ -16,6 +17,7 @@
       <span class="cc-naam">Commons Cutter</span>
     </a>
     <span class="cc-experiment">{{ t("header.experiment") }}</span>
+    <span class="cc-tagline">{{ t("header.tagline") }}</span>
     <span class="cc-werkt-met">{{ t("header.works_with") }}</span>
     <nav class="cc-kop-rechts" aria-label="{{ t('header.menu') }}">
       {# Compact Commons logo (Codex icon, no external request), linking to Commons itself. #}

@@ -3,6 +3,24 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.28.0] - 2026-11-04
+
+### Toegevoegd
+
+- Metadata: het werk op Wikidata zoals `{{Artwork}}` het op Commons toont. Het item komt uit `|wikidata=` in het sjabloon of, als dat er niet is, uit *digitale weergave van* (P6243) in de gestructureerde gegevens van het bestand, zoals `{{Artwork}}` zelf doet. Getoond worden titel, maker, datum, beschrijving, soort object, onderdeel van, beeldt af, materiaal, afmetingen, collectie, inventarisnummer, locatie, plaats van vervaardiging en links. Datum en maker uit dat item gaan nu ook mee in het Commons-concept als het bestand zelf ze niet heeft.
+- Een kop boven de linker- en de rechterkolom: *Wat je vond* en *Zoeken en bewaren*, met één regel uitleg en een (i)-venster dat opsomt wat je in die kolom kunt doen (`ColumnHeader.vue`).
+- Een tagline in de kop van de pagina: "Objecten vinden, uitsnijden en beschrijven" (Engels: "Find, cut out and describe objects"), vóór "werkt met Wikimedia Commons"; ook als beschrijving van de pagina (`<meta name="description">`).
+- Functioneel ontwerp 9.7 (voorstel, nog niet gebouwd): *beeldt af* en caption voor de hele afbeelding, in een eigen venster; backlogpunt 15b.
+
+### Gewijzigd
+
+- *Selectie beschrijven* is uitgeschakeld zolang er geen aangevinkte objecten zonder beschrijving zijn, en toont hoeveel het er zijn; *Dubbelingen samenvoegen* is uitgeschakeld bij minder dan twee objecten. Een korte regel zegt wat je eerst moet doen.
+
+### Verwijderd
+
+- De knop *Slim detecteren* in *Bulk-operaties*: eerst AI-suggesties vragen en dan *Alle objecten detecteren* doet hetzelfde.
+- De knop *Alles detecteren* in *Bulk-operaties*: *Alle objecten detecteren* bij de AI-suggesties doet hetzelfde, met termen die bij de afbeelding passen in plaats van een vaste lijst. In de API blijft `modus: "alles"` bestaan.
+
 ## [0.27.2] - 2026-11-04
 
 ### Opgelost

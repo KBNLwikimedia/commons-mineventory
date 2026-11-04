@@ -39,6 +39,7 @@
 
     <div v-else-if="file && page" class="cc-werkblad" :class="`cc-mobiel-${mobileTab}`">
       <aside id="cc-kolom-links" class="cc-links" role="tabpanel" aria-labelledby="cc-tab-links" :aria-label="t('layout.left')">
+        <column-header column="left" />
         <cdx-accordion v-if="visited.length > 1" class="cc-geschiedenis-blok">
           <template #title>{{ t("history.title") }} <small>({{ visited.length }})</small></template>
           <history-list :entries="visited" :current="file.mid" @remove="forget" @clear="forgetAll" />
@@ -80,6 +81,7 @@
       <column-splitter variable="--cc-paneel-breedte" side="right" storage-key="cc-breedte-rechts" :label="t('layout.resize_right')" :max="800" />
 
       <aside id="cc-kolom-rechts" class="cc-rechts" role="tabpanel" aria-labelledby="cc-tab-rechts" :aria-label="t('layout.right')">
+        <column-header column="right" />
         <detection-panel
           :file="file"
           :page="page"
@@ -89,7 +91,6 @@
           :trash-terms="trashTerms"
           :point-mode="pointMode"
           @detect="detect"
-          @smart="smartDetect"
           @inventory="askInventory(Boolean(inventory))"
           @merge="mergeDuplicates"
           @describe-all="describeAll"
@@ -134,6 +135,7 @@ import { cdxIconDownload, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import ColumnHeader from "./ColumnHeader.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { addToHistory, appUrl, clearHistory, objectName, readHistory, readStart, removeFromHistory } from "../state.js";
@@ -311,13 +313,6 @@ async function askInventory(again = false) {
   } finally {
     busy.value = false;
   }
-}
-
-// Slim detecteren (7.4): first the page overview, then SAM with the suggested terms.
-async function smartDetect() {
-  await askInventory();
-  const terms = (inventory.value?.zoektermen || []).map((term) => term.en);
-  if (terms.length) await detect({ modus: "prompt", prompt: terms.join(", ") });
 }
 
 async function mergeDuplicates() {

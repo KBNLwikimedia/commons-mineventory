@@ -220,7 +220,7 @@ class CommonsClient:
         mid = f"M{page['pageid']}"
         parsed_sdc = self.entity(mid)
         labels = self.labels(sdc.item_ids(parsed_sdc))
-        work = self._work_for(text)
+        work = self._work_for(text, parsed_sdc)
         width, height = info.get("width", 0), info.get("height", 0)
         pages_count = info.get("pagecount") or 1
         supported, reason = self._supported(mime, width, height)
@@ -273,16 +273,22 @@ class CommonsClient:
         }
         return file
 
-    def _work_for(self, text):
-        """The Wikidata item named in the information template (|wikidata=), looked up; None without one."""
+    def _work_for(self, text, parsed_sdc=None):
+        """The Wikidata item of the work, looked up; None without one. Like
+        {{Artwork}} itself: |wikidata= in the information template, else the
+        file's SDC "digital representation of" (P6243)."""
         info = wikitekst.info_template(text)
         qid = (info.params.get("wikidata") or "").strip() if info else ""
+        source = "wikitekst"
         if not re.fullmatch(r"Q\d+", qid):
+            qid = next((s["waarde"] for s in (parsed_sdc or {}).get("digitale_weergave_van", []) if s["soort"] == "item"), "")
+            source = "sdc"
+        if not re.fullmatch(r"Q\d+", qid or ""):
             return None
         try:
-            return self.work(qid)
+            return {**self.work(qid), "via": source}
         except (FetchError, CommonsError):
-            return {"wikidata": qid, "label": None, "datum": None, "datum_eigenschap": None,
+            return {"wikidata": qid, "via": source, "label": None, "datum": None, "datum_eigenschap": None,
                     "makers": [], "maker_eigenschap": None, "maker_onbekend": False}
 
     def _supported(self, mime, width, height):
@@ -359,13 +365,28 @@ class CommonsClient:
         return (body.get("parse") or {}).get("text") or ""
 
     MAKER_PROPERTIES = ("P170", "P50", "P110")  # creator, author, illustrator
+    # What {{Artwork}} shows from the item of the work, for the Metadata block:
+    # key → property; each becomes a list of items {"id", "nl", "en"}.
+    WORK_ITEMS = {
+        "soort": "P31",  # instance of (object type)
+        "onderdeel_van": "P361",  # part of
+        "beeldt_af": "P180",  # depicts
+        "materiaal": "P186",  # made from material (medium)
+        "collectie": "P195",  # collection (with its P217 inventory number)
+        "locatie": "P276",  # location
+        "plaats": "P1071",  # location of creation
+    }
+    UNITS = {"Q174728": "cm", "Q174789": "mm", "Q11573": "m"}
 
     def work(self, qid):
         """The Wikidata item of the work the file shows (|wikidata= in {{Book}},
-        {{Artwork}} …): its label, date (P577 publication date, else P571
-        inception) and makers (P170 creator, P50 author, P110 illustrator).
-        Used when the file page itself leaves date or maker empty."""
-        data = self._json({"action": "wbgetentities", "ids": qid, "props": "labels|claims", "languages": "nl|en"}, api=self.wikidata_api)
+        {{Artwork}} …, or the file's P6243): its label, date (P577 publication
+        date, else P571 inception) and makers (P170 creator, P50 author, P110
+        illustrator), used when the file page itself leaves date or maker empty;
+        and for the Metadata block what {{Artwork}} shows from it: title,
+        description, object type, part of, depicts, material, dimensions,
+        collection with inventory number, location, place of creation, links."""
+        data = self._json({"action": "wbgetentities", "ids": qid, "props": "labels|descriptions|claims", "languages": "nl|en"}, api=self.wikidata_api)
         entity = (data.get("entities") or {}).get(qid) or {}
         claims = entity.get("claims") or {}
 
@@ -386,16 +407,78 @@ class CommonsClient:
                 maker_ids, maker_prop = [i for i in ids if i], prop
                 break
             unknown = unknown or any(s.get("snaktype") in ("somevalue", "novalue") for s in snaks)
+        def values(prop):
+            """The values of a property (preferred and normal rank), as plain data."""
+            result = []
+            for claim in claims.get(prop, []):
+                snak = claim.get("mainsnak") or {}
+                if claim.get("rank") == "deprecated" or snak.get("snaktype") != "value":
+                    continue
+                result.append(((snak.get("datavalue") or {}).get("value"), claim.get("qualifiers") or {}))
+            return result
+
+        def item_id(value):
+            return value.get("id") if isinstance(value, dict) else None
+
+        found = {key: [(item_id(v), q) for v, q in values(prop) if item_id(v)] for key, prop in self.WORK_ITEMS.items()}
+        units = {}
+        sizes = []
+        for prop, key in (("P2048", "hoogte"), ("P2049", "breedte")):
+            for value, _ in values(prop)[:1]:
+                if isinstance(value, dict) and value.get("amount"):
+                    unit = str(value.get("unit") or "").rsplit("/", 1)[-1]
+                    units[key] = unit
+                    sizes.append((key, value["amount"].lstrip("+"), unit))
+        # The makers first (needed for the concept), then the rest in one more lookup.
         labels = self.labels(maker_ids) if maker_ids else {}
+        other_ids = [i for pairs in found.values() for i, _ in pairs] + [u for u in units.values() if u not in self.UNITS and u != "1"]
+        other_ids = [i for i in dict.fromkeys(other_ids) if i not in labels]
+        if other_ids:
+            labels = {**labels, **self.labels(other_ids)}
+
+        def item(i):
+            names = labels.get(i) or {}
+            return {"id": i, "nl": names.get("nl"), "en": names.get("en")}
+
+        def inventory(qualifiers):
+            return [((s.get("datavalue") or {}).get("value")) for s in qualifiers.get("P217", []) if s.get("snaktype") == "value"]
+
+        collections = [{**item(i), "inventarisnummers": inventory(q)} for i, q in found.pop("collectie")]
+        # P217 as a statement of its own (with P195 as qualifier): add it to that collection, or on its own.
+        loose = []
+        for value, qualifiers in values("P217"):
+            where = [item_id(((s.get("datavalue") or {}).get("value"))) for s in qualifiers.get("P195", [])]
+            target = next((c for c in collections if c["id"] in where), None)
+            if target is not None:
+                if value not in target["inventarisnummers"]:
+                    target["inventarisnummers"].append(value)
+            elif isinstance(value, str):
+                loose.append(value)
+        titles = {}
+        for value, _ in values("P1476"):
+            if isinstance(value, dict) and value.get("text"):
+                titles.setdefault(value.get("language") or "", value["text"])
         names = entity.get("labels") or {}
+        descriptions = entity.get("descriptions") or {}
         return {
             "wikidata": qid,
             "label": (names.get("nl") or names.get("en") or {}).get("value"),
+            "label_en": (names.get("en") or names.get("nl") or {}).get("value"),
+            "titel": titles.get("nl") or titles.get("en") or next(iter(titles.values()), None),
+            "beschrijving": {lang: (descriptions.get(lang) or {}).get("value") for lang in ("nl", "en")},
             "datum": date,
             "datum_eigenschap": date_prop,
             "makers": [(labels.get(i) or {}).get("nl") or (labels.get(i) or {}).get("en") or i for i in maker_ids],
             "maker_eigenschap": maker_prop,
             "maker_onbekend": not maker_ids and unknown,
+            **{key: [item(i) for i, _ in pairs] for key, pairs in found.items()},
+            "collectie": collections,
+            "inventarisnummers": loose,
+            "afmetingen": [
+                {"maat": key, "waarde": amount, "eenheid": self.UNITS.get(unit) or ("" if unit == "1" else (labels.get(unit) or {}).get("en") or unit)}
+                for key, amount, unit in sizes
+            ],
+            "links": [v for v, _ in values("P973") if isinstance(v, str) and v.startswith(("https://", "http://"))][:3],
         }
 
     def search_items(self, text, language="en", limit=7):

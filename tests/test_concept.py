@@ -157,6 +157,19 @@ def test_wikitext_date(value, expected):
     assert sdc.wikitext_date(value) == expected
 
 
+def test_the_work_comes_from_p6243_when_the_template_has_no_wikidata(client):
+    # {{Artwork}} without |wikidata= takes its item from the file's "digital representation of" (P6243).
+    parsed = {"digitale_weergave_van": [{"waarde": "Q72752528", "soort": "item"}]}
+    artwork = "{{Artwork\n|Source=x\n}}"
+    work = client._work_for(artwork, parsed)
+    assert work["wikidata"] == "Q72752528" and work["via"] == "sdc"
+    assert work["datum"] == "{{other date|decade|1920}}"
+    assert {"soort", "onderdeel_van", "collectie", "inventarisnummers", "afmetingen", "links", "beschrijving"} <= work.keys()
+    # |wikidata= in the template goes first.
+    assert client._work_for("{{Book\n|Wikidata=Q72752528\n}}", {})["via"] == "wikitekst"
+    assert client._work_for(artwork, {}) is None
+
+
 def test_picture_book_gets_date_and_maker_from_wikidata(client):
     page = client.load_file("M90890204")  # {{Book}} with |Date= empty and |Wikidata=Q72752528
     assert page["werk"]["wikidata"] == "Q72752528"

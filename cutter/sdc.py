@@ -14,6 +14,8 @@ PROPERTIES = {
     "P571": "datum",
     "P195": "collectie",
     "P7482": "bron",
+    # The work the file is a picture of; {{Artwork}} without |wikidata= takes its item from here.
+    "P6243": "digitale_weergave_van",
 }
 
 

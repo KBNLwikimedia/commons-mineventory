@@ -116,13 +116,15 @@
     <cdx-accordion v-model="open.bulk">
       <template #title>{{ t("panel.bulk") }} <info-dialog v-bind="info('bulk', 'panel.bulk')" /></template>
       <div class="cc-knoppen cc-knoppen-rij">
-        <cdx-button action="progressive" :disabled="busy" :title="config.alles.map((a) => a.en).join(', ')" @click="act('bulk', 'detect', { modus: 'alles' })">
-          {{ t("panel.all") }} <small>{{ cost(config.alles.length) }}</small>
+        <!-- Only usable when there is something to do: ticked objects without a description, or two objects or more. -->
+        <cdx-button action="progressive" :disabled="busy || !toDescribe" @click="act('bulk', 'describe-all')">
+          {{ t("panel.describe_all") }}<template v-if="toDescribe"> ({{ toDescribe }})</template>
         </cdx-button>
-        <cdx-button action="progressive" :disabled="busy" @click="act('bulk', 'smart')">{{ t("panel.smart") }}</cdx-button>
-        <cdx-button action="progressive" :disabled="busy" @click="act('bulk', 'describe-all')">{{ t("panel.describe_all") }}</cdx-button>
-        <cdx-button action="progressive" :disabled="busy" @click="act('bulk', 'merge')">{{ t("panel.merge") }}</cdx-button>
+        <cdx-button action="progressive" :disabled="busy || objects.length < 2" @click="act('bulk', 'merge')">{{ t("panel.merge") }}</cdx-button>
       </div>
+      <p v-if="!toDescribe || objects.length < 2" class="cc-klein">
+        {{ objects.length < 2 ? t("panel.bulk_hint_objects") : t("panel.bulk_hint_select") }}
+      </p>
       <busy-note v-if="busy && where === 'bulk'" :message="t('busy.general')" />
     </cdx-accordion>
 
@@ -163,7 +165,9 @@ const props = defineProps({
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
 });
-const emit = defineEmits(["detect", "smart", "inventory", "merge", "describe-all", "point-mode", "draw-mode"]);
+const emit = defineEmits(["detect", "inventory", "merge", "describe-all", "point-mode", "draw-mode"]);
+// Ticked objects that have no description yet: what "Describe selection" would describe.
+const toDescribe = computed(() => props.objects.filter((o) => o.status === "geselecteerd" && !o.beschrijving).length);
 const t = useT();
 const config = inject("config");
 // The two models in the live-mode line link to Meta's own pages. Muse Spark
