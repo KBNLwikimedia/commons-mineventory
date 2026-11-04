@@ -301,60 +301,47 @@ class CommonsClient:
         data = json.loads(self.fetcher.get(self.api_url({"action": "wbgetentities", "ids": mid}), max_age=self.max_age))
         return sdc.parse_entity((data.get("entities") or {}).get(mid))
 
-    def labels(self, ids):
-        """{Q-id: {"nl": label, "en": label}} from Wikidata, 50 ids per request."""
-        result = {}
-        ids = [i for i in ids if re.fullmatch(r"Q\d+", i or "")]
+    def _wikidata_entities(self, ids, props, pattern=r"Q\d+", fallback=False):
+        """(id, entity) from Wikidata's wbgetentities, 50 ids per request, cached.
+        A batch that cannot be fetched is skipped: labels and descriptions are a
+        nicety, the id itself stays readable."""
+        ids = [i for i in dict.fromkeys(ids) if re.fullmatch(pattern, i or "")]
         for start in range(0, len(ids), 50):
-            chunk = ids[start : start + 50]
-            params = {"action": "wbgetentities", "ids": "|".join(chunk), "props": "labels", "languages": "nl|en"}
-            try:
-                data = self._json(params, api=self.wikidata_api)
-            except (FetchError, CommonsError):
-                continue  # labels are a nicety; the Q-id stays readable
-            for qid, entity in (data.get("entities") or {}).items():
-                names = entity.get("labels") or {}
-                result[qid] = {lang: (names.get(lang) or {}).get("value") for lang in ("nl", "en")}
-        return result
-
-    def item_info(self, ids):
-        """{Q-id: {"label": {nl, en}, "beschrijving": {nl, en}}} from Wikidata
-        (50 per request, cached); items that cannot be fetched are left out."""
-        result = {}
-        ids = [i for i in dict.fromkeys(ids) if re.fullmatch(r"Q\d+", i or "")]
-        for start in range(0, len(ids), 50):
-            chunk = ids[start : start + 50]
-            params = {"action": "wbgetentities", "ids": "|".join(chunk), "props": "labels|descriptions", "languages": "nl|en"}
+            params = {"action": "wbgetentities", "ids": "|".join(ids[start : start + 50]), "props": props, "languages": "nl|en"}
+            if fallback:
+                params["languagefallback"] = "1"
             try:
                 data = self._json(params, api=self.wikidata_api)
             except (FetchError, CommonsError):
                 continue
-            for qid, entity in (data.get("entities") or {}).items():
-                labels, descriptions = entity.get("labels") or {}, entity.get("descriptions") or {}
-                result[qid] = {
-                    "label": {lang: (labels.get(lang) or {}).get("value") for lang in ("nl", "en")},
-                    "beschrijving": {lang: (descriptions.get(lang) or {}).get("value") for lang in ("nl", "en")},
-                }
-        return result
+            yield from (data.get("entities") or {}).items()
+
+    @staticmethod
+    def _texts(values):
+        """{"nl": …, "en": …} from Wikibase labels or descriptions."""
+        return {lang: ((values or {}).get(lang) or {}).get("value") for lang in ("nl", "en")}
+
+    def labels(self, ids):
+        """{Q-id: {"nl": label, "en": label}} from Wikidata."""
+        return {qid: self._texts(entity.get("labels")) for qid, entity in self._wikidata_entities(ids, "labels")}
+
+    def item_info(self, ids):
+        """{Q-id: {"label": {nl, en}, "beschrijving": {nl, en}}} from Wikidata;
+        items that cannot be fetched are left out."""
+        return {
+            qid: {"label": self._texts(entity.get("labels")), "beschrijving": self._texts(entity.get("descriptions"))}
+            for qid, entity in self._wikidata_entities(ids, "labels|descriptions")
+        }
 
     def entity_labels(self, ids):
         """{id: {"nl": label, "en": label}} for Wikidata items and properties
-        (Q… and P…), with Wikidata's language fallback; 50 per request,
-        cached. Ids that cannot be fetched are left out (the id stays readable)."""
+        (Q… and P…), with Wikidata's language fallback. Ids without a label are
+        left out (the id stays readable)."""
         result = {}
-        ids = [i for i in dict.fromkeys(ids) if re.fullmatch(r"[QP]\d+", i or "")]
-        for start in range(0, len(ids), 50):
-            chunk = ids[start : start + 50]
-            params = {"action": "wbgetentities", "ids": "|".join(chunk), "props": "labels", "languages": "nl|en", "languagefallback": "1"}
-            try:
-                data = self._json(params, api=self.wikidata_api)
-            except (FetchError, CommonsError):
-                continue
-            for eid, entity in (data.get("entities") or {}).items():
-                labels = entity.get("labels") or {}
-                names = {lang: (labels.get(lang) or {}).get("value") for lang in ("nl", "en")}
-                if any(names.values()):
-                    result[eid] = names
+        for eid, entity in self._wikidata_entities(ids, "labels", pattern=r"[QP]\d+", fallback=True):
+            names = self._texts(entity.get("labels"))
+            if any(names.values()):
+                result[eid] = names
         return result
 
     def render_wikitext(self, text, title):

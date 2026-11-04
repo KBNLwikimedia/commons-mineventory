@@ -30,7 +30,7 @@ ENDPOINTS = [
     ("get", PAGE + "/inventaris", "Paginaoverzicht (opgeslagen) en de kosten van een nieuw", [MID, N], None, 200, False),
     ("post", PAGE + "/inventaris", "Wat staat op deze pagina? (Muse Spark)", [MID, N], '{"model": "auto|standaard|contributor", "opnieuw": false}', 200, True),
     ("get", OBJECT + "/beschrijving/geschiedenis", "Eerdere beschrijvingen van het object, nieuwste eerst", [MID, N, OID], None, 200, False),
-    ("post", OBJECT + "/beschrijving/terugzetten", "Een eerdere beschrijving weer de huidige maken (gratis)", [MID, N, OID], '{"tijdstempel": "…", "bewerkt": false}', 200, False),
+    ("post", OBJECT + "/beschrijving/terugzetten", "Een eerdere versie (AI of met de hand) weer de huidige maken (gratis)", [MID, N, OID], '{"versie": "…"} | {"tijdstempel": "…", "bewerkt": false}', 200, False),
     ("get", OBJECT + "/beschrijving/invoer.jpg", "Wat de AI-beeldbeschrijving zou zien, met ?marge= (0-1), het kader in rood; ?max= (tot 4000 px) voor een grotere versie", [MID, N, OID, _q("marge", "Ruimte rond het kader, 0-1"), _q("max", "Langste zijde in pixels, 1024-4000")], None, 200, False),
     ("patch", PAGE + "/objecten", "Selectie of status wijzigen, of dubbelingen samenvoegen", [MID, N], '{"geselecteerd": [ids]} | {"objecten": [{id, status}]} | {"samenvoegen": true}', 200, False),
     ("get", OBJECT, "Eén object (ook in de prullenbak)", [MID, N, OID], None, 200, False),

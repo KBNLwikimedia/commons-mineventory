@@ -255,10 +255,12 @@
           <template #title>{{ t("describe.history", { n: history.length }) }}</template>
           <template #description>{{ t("describe.history_short") }}</template>
           <ul class="cc-geschiedenis-lijst">
-            <li v-for="entry in history" :key="entry.tijdstempel + (entry.bewerkt ? 'b' : '')">
+            <li v-for="entry in history" :key="entry.versie">
               <div>
                 <strong>{{ language === "en" ? entry.onderwerp_en || entry.onderwerp : entry.onderwerp || entry.onderwerp_en }}</strong>
                 <span class="cc-klein cc-geschiedenis-beschrijving">{{ language === "en" ? entry.beschrijving_en || entry.beschrijving : entry.beschrijving || entry.beschrijving_en }}</span>
+                <span v-if="entry.tekst_in_beeld" class="cc-klein cc-geschiedenis-beschrijving">{{ t("describe.field_tekst_in_beeld") }}: {{ entry.tekst_in_beeld }}</span>
+                <span v-if="entry.tekst_rond_beeld" class="cc-klein cc-geschiedenis-beschrijving">{{ t("describe.field_tekst_rond_beeld") }}: {{ entry.tekst_rond_beeld }}</span>
                 <span class="cc-klein cc-geschiedenis-meta">{{ historyMeta(entry) }}</span>
               </div>
               <cdx-button action="progressive" size="small" :disabled="busy" @click="restoreDescription(entry)">{{ t("describe.history_use") }}</cdx-button>
@@ -616,8 +618,11 @@ async function loadHistory() {
 }
 loadHistory();
 
+// When and how a version was made: by hand (the time of the edit) or by the AI (time, model, question).
 function historyMeta(entry) {
-  const when = entry.tijdstempel ? new Date(entry.tijdstempel).toLocaleString(language, { dateStyle: "short", timeStyle: "short" }) : "";
+  const time = (value) => (value ? new Date(value).toLocaleString(language, { dateStyle: "short", timeStyle: "short" }) : "");
+  if (entry.bewerkt_op) return [t("describe.history_by_hand", { when: time(entry.bewerkt_op) }), entry.model].filter(Boolean).join(" · ");
+  const when = time(entry.tijdstempel);
   const parts = [when, entry.model];
   if (entry.aanwijzing) parts.push(t("describe.history_hint", { hint: entry.aanwijzing }));
   parts.push(t("describe.history_margin", { pct: Math.round((entry.marge ?? DEFAULT_MARGIN) * 100) }));
@@ -629,7 +634,7 @@ function historyMeta(entry) {
 async function restoreDescription(entry) {
   error.value = "";
   try {
-    const changed = await post(`${base.value}/beschrijving/terugzetten`, { tijdstempel: entry.tijdstempel, bewerkt: Boolean(entry.bewerkt) });
+    const changed = await post(`${base.value}/beschrijving/terugzetten`, { versie: entry.versie });
     emit("changed", changed);
     cancelEditing();
     undoTexts.value = null;
@@ -703,6 +708,7 @@ async function saveTexts(texts, { undoable = true } = {}) {
   try {
     emit("changed", await patch(`${base.value}/beschrijving`, texts));
     cancelEditing();
+    loadHistory(); // the version before this edit is now in Eerdere beschrijvingen
     undoTexts.value = undoable ? before : null;
     editor.value?.reload();
   } catch (e) {

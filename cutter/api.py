@@ -448,12 +448,12 @@ def description_history(mid, n, object_id):
 
 @api.post("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/terugzetten")
 def restore_description(mid, n, object_id):
-    """Make an earlier description current again. Body: {"tijdstempel": …,
-    "bewerkt": true|false (optional)}. Free."""
+    """Make an earlier version current again. Body: {"versie": …} (from the history),
+    or the older {"tijdstempel": …, "bewerkt": true|false}. Free."""
     body = _body()
-    if not isinstance(body.get("tijdstempel"), str):
-        raise DetectionError("Geef de 'tijdstempel' van de eerdere beschrijving.", status=400, code="invalid_body")
-    return jsonify(_descriptions().restore(_page_file(mid, n), n, object_id, body["tijdstempel"], body.get("bewerkt")))
+    if not isinstance(body.get("versie"), str) and not isinstance(body.get("tijdstempel"), str):
+        raise DetectionError("Geef de 'versie' van de eerdere beschrijving.", status=400, code="invalid_body")
+    return jsonify(_descriptions().restore(_page_file(mid, n), n, object_id, body.get("tijdstempel"), body.get("bewerkt"), body.get("versie")))
 
 
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/invoer.jpg")

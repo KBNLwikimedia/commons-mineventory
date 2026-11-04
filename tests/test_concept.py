@@ -397,3 +397,15 @@ def test_free_text_cannot_inject_wikitext():
 def test_concept_patch_refuses_wrong_types(body):
     with pytest.raises(ValueError):
         concept.validate_patch(body)
+
+
+def test_art_photo_is_taken_over_as_art_photo():
+    text = ("{{Art Photo\n|artist={{Creator:Rembrandt}}\n|title=Nachtwacht\n|location=Zaal 1\n|photo description=De hele zaal\n"
+            "|photographer=Jan\n|photo date=2001\n|artwork license={{PD-old}}\n|photo license={{CC-BY-4.0}}\n|source=Rijks\n}}\n"
+            "== {{int:license-header}} ==\n{{PD-old}}")
+    out = concept.concept(kb_file(text), {"id": "o", "label": "x", "beschrijving": {"onderwerp": "hond", "onderwerp_en": "dog"}})["wikitekst"]
+    assert out.startswith("=={{int:filedesc}}==\n{{Art Photo\n")
+    for kept in ("|artist={{Creator:Rembrandt}}", "|location=Zaal 1", "|photographer=Jan", "|photo date=2001", "|artwork license={{PD-old}}", "|photo license={{CC-BY-4.0}}"):
+        assert kept in out, kept
+    assert "De hele zaal" not in out and "Nachtwacht" not in out
+    assert "|title={{nl|1=hond}}{{en|1=dog}}" in out

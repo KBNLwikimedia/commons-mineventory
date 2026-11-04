@@ -45,6 +45,10 @@ Legenda: **overnemen** = letterlijk van het origineel · **nieuw** = voor de uit
 | `photographer` | overnemen | zo laten | De fotograaf van de reproductie |
 | `other_fields`, `strict`, `demo`, `wikidata_cat` | weg | weg | Technisch of te vrij |
 
+## {{Art Photo}}
+
+Sinds 0.27.0 als `{{Art Photo}}` overgenomen, met dezelfde regel als `{{Artwork}}`: `artist`, `location` (plaats van het werk), `photographer`, `photo date`, `artwork license` en `photo license` gaan mee; `photo description` (de beschrijving van de hele foto) niet; de `title` wordt de caption van de uitsnede.
+
 ## {{Photograph}}
 
 Zelfde principe. Afwijkend van {{Artwork}}:

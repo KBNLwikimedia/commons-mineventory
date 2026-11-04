@@ -241,3 +241,22 @@ def test_inventory_keeps_text_lines():
     answer = r'{"paginasoort": "prent", "samenvatting": "x", "tekst": "Gaarne  helpen zij\n\nAlles gaat de auto in.", "zoektermen": []}'
     assert parse_inventory(answer)["tekst"] == "Gaarne helpen zij\nAlles gaat de auto in."
     assert parse_inventory("geen json")["tekst"] == ""
+
+
+def test_hand_edits_are_versions_in_the_history(objects, album, tmp_path):
+    """Earlier descriptions as version history: every hand edit keeps the version before it."""
+    obj = objects.rectangle(album, 1, {"x": 0, "y": 0, "w": 300, "h": 300})["object"]
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    ai = service.describe(album, 1, obj["id"])["object"]["beschrijving"]
+    service.edit(album, 1, obj["id"], {"tekst_in_beeld": "Eerste lezing"})
+    service.edit(album, 1, obj["id"], {"tekst_in_beeld": "Tweede lezing"})
+    service.edit(album, 1, obj["id"], {"tekst_in_beeld": "Tweede lezing"})  # unchanged: no new version
+    history = service.history(album, 1, obj["id"])
+    texts = [h.get("tekst_in_beeld") for h in history]
+    assert "Eerste lezing" in texts and ai.get("tekst_in_beeld") in texts and "Tweede lezing" not in texts
+    assert len({h["versie"] for h in history}) == len(history)  # every version has its own id
+    hand = next(h for h in history if h.get("tekst_in_beeld") == "Eerste lezing")
+    assert hand["bewerkt_op"] and hand["versie"] == hand["bewerkt_op"]
+    restored = service.restore(album, 1, obj["id"], version=hand["versie"])
+    assert restored["beschrijving"]["tekst_in_beeld"] == "Eerste lezing"
+    assert "Tweede lezing" in [h.get("tekst_in_beeld") for h in service.history(album, 1, obj["id"])]

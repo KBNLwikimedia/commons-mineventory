@@ -705,9 +705,14 @@ class DescriptionService:
 
     @staticmethod
     def _same(a, b):
-        """Whether two descriptions are the same answer (same time, question and texts)."""
-        keys = ("tijdstempel", "aanwijzing", "marge", "paginatekst", *EDITABLE)
+        """Whether two descriptions are the same version (same answer, question, edit and texts)."""
+        keys = ("tijdstempel", "bewerkt_op", "aanwijzing", "marge", "paginatekst", *EDITABLE)
         return all((a or {}).get(k) == (b or {}).get(k) for k in keys)
+
+    @staticmethod
+    def version(description):
+        """The id of a version: when it was made, by the AI (tijdstempel) or by hand (bewerkt_op)."""
+        return (description or {}).get("bewerkt_op") or (description or {}).get("tijdstempel") or ""
 
     def _keep_in_history(self, obj):
         """Put the current description on top of the object's history (not twice)."""
@@ -760,16 +765,21 @@ class DescriptionService:
         for variant in self._cached_variants(file, n, obj):
             if not any(self._same(variant, e) or e.get("tijdstempel") == variant.get("tijdstempel") for e in entries):
                 entries.append({k: v for k, v in variant.items() if k != "uit_cache"})
-        entries = [e for e in entries if not (current and e.get("tijdstempel") == current.get("tijdstempel") and self._same(e, current))]
-        return sorted(entries, key=lambda e: e.get("tijdstempel") or "", reverse=True)
+        entries = [e for e in entries if not (current and self._same(e, current))]
+        # Every version, by the AI or by hand, with its own id ("versie"), newest first.
+        return sorted(({**e, "versie": self.version(e)} for e in entries), key=lambda e: e["versie"], reverse=True)
 
-    def restore(self, file, n, object_id, timestamp, edited=None):
-        """Make an earlier description (by its tijdstempel; `edited` picks the
-        hand-edited or the AI version when both exist) the current one again;
-        the current one goes into the history. Free."""
-        candidates = [e for e in self.history(file, n, object_id) if e.get("tijdstempel") == timestamp]
-        if edited is not None:
-            candidates = [e for e in candidates if bool(e.get("bewerkt")) == bool(edited)] or candidates
+    def restore(self, file, n, object_id, timestamp=None, edited=None, version=None):
+        """Make an earlier version the current one again: by its `version` (see
+        version()), or by its tijdstempel (`edited` picks the hand-edited or the
+        AI version when both exist). The current one goes into the history. Free."""
+        entries = self.history(file, n, object_id)
+        if version:
+            candidates = [e for e in entries if e["versie"] == version]
+        else:
+            candidates = [e for e in entries if e.get("tijdstempel") == timestamp]
+            if edited is not None:
+                candidates = [e for e in candidates if bool(e.get("bewerkt")) == bool(edited)] or candidates
         if not candidates:
             raise DetectionError("Die eerdere beschrijving bestaat niet (meer).", status=404, code="not_found")
         chosen = candidates[0]
@@ -777,6 +787,7 @@ class DescriptionService:
             store = self.objects._load_store(file, n)
             obj = self.objects._find_in(store, object_id)
             self._keep_in_history(obj)
+            chosen = {k: v for k, v in chosen.items() if k != "versie"}
             obj["beschrijving_geschiedenis"] = [h for h in obj.get("beschrijving_geschiedenis", []) if not self._same(h, chosen)]
             obj["beschrijving"] = chosen
             self.objects._write_store(file, n, store)
@@ -807,6 +818,13 @@ class DescriptionService:
             description = obj.get("beschrijving")
             if not description:
                 raise DetectionError("Dit object heeft nog geen beschrijving.", status=409, code="no_description")
+            if all((description.get(field) or "") == value.strip() for field, value in changes.items()):
+                return self.objects.public(file, n, obj)  # nothing changes: no new version
+            # Version history: the version as it was goes into the history first, so
+            # a hand edit can be undone later, like an AI answer (Eerdere beschrijvingen).
+            self._keep_in_history(obj)
+            obj["beschrijving_geschiedenis"][0] = json.loads(json.dumps(obj["beschrijving_geschiedenis"][0]))
+            description = obj["beschrijving"] = json.loads(json.dumps(description))
             original = description.setdefault("ai_origineel", {})
             for field, value in changes.items():
                 value = value.strip()
@@ -818,6 +836,7 @@ class DescriptionService:
             if not original:
                 description.pop("ai_origineel")
             description["bewerkt"] = bool(original)
+            description["bewerkt_op"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds")  # unique per version
             self.objects._write_store(file, n, store)
         return self.objects.public(file, n, obj)
 

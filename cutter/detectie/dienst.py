@@ -7,7 +7,9 @@ the Delpher Uitsnijder without zones, ALTO, captions from OCR and hierarchy.
   nothing, and a new version of the file gives a new detection (6.1).
 - EN/AND combines terms; an object of a MIN/NOT term excludes a candidate when
   their boxes overlap with IoU >= MIN_IOU.
-- "Alles detecteren" merges overlapping duplicates (IoU >= DUPLICATE_IOU).
+- "Alles detecteren", "Dubbelingen samenvoegen" and saving all use one rule for
+  "the same picture" (same_picture, via _one_per_picture); regions from Commons
+  are never merged.
 - Regions from Commons (P180 with P2677, file notes) are free objects of their
   own; they are never merged, also not when they overlap (7.5).
 - Paid calls are checked against the limits first and logged.
@@ -262,13 +264,10 @@ class DetectionService:
         obj["label"] = term["en"]
         return obj
 
-    @staticmethod
-    def _merge_duplicates(objects):
-        kept = []
-        for obj in sorted(objects, key=lambda o: -(o["score"] or 0)):
-            if all(iou(obj["box"], other["box"]) < DUPLICATE_IOU for other in kept):
-                kept.append(obj)
-        return kept
+    @classmethod
+    def _merge_duplicates(cls, objects):
+        """New finds that show the same picture count once (the preferred one stays)."""
+        return cls._one_per_picture(objects)[0]
 
     def _commons_objects(self, file, page):
         """Regions that already exist on Commons (7.5): depicts with a position
@@ -497,13 +496,14 @@ class DetectionService:
         """Merge objects on a page that show the same picture ("Dubbelingen
         samenvoegen", 7.4). Returns how many objects were merged away."""
         store = self._load_store(file, n)
-        merged = []
-        for obj in sorted(store["objecten"], key=_preference):
-            twin = next((o for o in merged if _mergeable(o, obj)), None)
-            if twin is None:
-                merged.append(obj)
-            else:
-                merged[merged.index(twin)] = self._absorb(file, n, twin, obj)
+        # The same grouping as everywhere (_one_per_picture); each duplicate goes into
+        # the object that is kept, which keeps its id, status and texts.
+        kept, duplicates = self._one_per_picture(store["objecten"])
+        by_id = {o["id"]: o for o in store["objecten"]}
+        heads = {o["id"]: o for o in kept}
+        for duplicate, head in duplicates.items():
+            heads[head] = self._absorb(file, n, heads[head], by_id[duplicate])
+        merged = list(heads.values())
         count = len(store["objecten"]) - len(merged)
         if count:
             order = {o["id"]: i for i, o in enumerate(store["objecten"])}

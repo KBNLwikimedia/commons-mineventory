@@ -1,6 +1,6 @@
 {
   "name": "commons-cutter",
-  "version": "0.26.0",
+  "version": "0.27.0",
   "private": true,
   "description": "Commons Cutter frontend: Vue 3 components with Codex, built by Vite into static/dist/",
   "license": "MIT",

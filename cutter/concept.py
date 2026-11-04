@@ -39,6 +39,8 @@ TEMPLATE_FIELDS = {
         "translator", "editor", "title", "subtitle", "series title", "volume", "edition", "city",
         "language", "isbn", "lccn", "oclc", "wikisource",
     ),
+    # {{Art Photo}}: an artwork and the photo of it; both licences and the photo's date hold for a detail.
+    "art photo": ("photo date", "artwork license", "photo license"),
     # A detail of a map has the same map date, sheet and scale; not its centre (latitude/longitude).
     "map": ("map date", "print date", "location", "wikidata location", "set", "sheet", "scale", "projection", "heading", "language"),
 }
@@ -58,6 +60,7 @@ FIELD_ORDER = (
     "wikidata location", "set", "sheet", "scale", "projection", "heading", "camera coord", "object history",
     "credit line", "inscriptions", "notes", "references", "isbn", "lccn", "oclc", "wikisource", "source",
     "permission", "other_versions", "wikidata", "other_fields",
+    "photo date", "artwork license", "photo license",
 )
 # {{Information field}} rows in other_fields that are about the whole picture, not the object.
 PICTURE_FIELD_NAMES = ("depicted", "persons related")
@@ -372,7 +375,7 @@ def _languages(texts):
 def canonical_fields(info):
     """The template's fields under one name per field (aliases resolved, "_" as a
     space), and per name the original's own spelling. The first one wins."""
-    aliases = {**ALIASES, **(ARTWORK_ALIASES if info.name in ("artwork", "photograph") else {})}
+    aliases = {**ALIASES, **(ARTWORK_ALIASES if info.name in ("artwork", "photograph", "art photo") else {})}
     params, spelling = {}, {}
     for raw, value in info.params.items():
         if raw.isdigit():
@@ -432,8 +435,8 @@ def wikitext(file, c):
     source = f"{{{{Extracted from|{original}}}}}" + "".join(
         f" {{{{{PARTNER_TEMPLATES[name]}|category=[[Category:{name}]]}}}}" for name in partner_categories
     )
-    if info and info.name in ("artwork", "photograph", "book", "map"):
-        name = {"artwork": "Artwork", "photograph": "Photograph", "book": "Book", "map": "Map"}[info.name]
+    if info and info.name in ("artwork", "photograph", "book", "map", "art photo"):
+        name = {"artwork": "Artwork", "photograph": "Photograph", "book": "Book", "map": "Map", "art photo": "Art Photo"}[info.name]
         params, spelling = canonical_fields(info)
         capitals = any(k[:1].isupper() for k in info.keys.values())
 

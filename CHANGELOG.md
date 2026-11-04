@@ -3,6 +3,18 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.27.0] - 2026-11-04
+
+### Toegevoegd
+
+- *Eerdere beschrijvingen* is nu versiebeheer, voor AI-antwoorden én je eigen aanpassingen: elke keer dat je een tekst met de hand wijzigt (onderwerp, naam, beschrijving, tekst in of rond het beeld; ook in de lightbox en op het tabblad Commons-concept), gaat de versie zoals die was eerst naar de geschiedenis. Elke versie heeft een eigen tijd (`bewerkt_op` voor een aanpassing, tot op de milliseconde) en is met *Deze gebruiken* terug te zetten. De lijst toont "met de hand aangepast op …" en ook de tekst in en rond het beeld. Een wijziging die niets verandert, maakt geen nieuwe versie. API: de geschiedenis geeft per versie `versie`; terugzetten met `{"versie": …}`.
+- `{{Art Photo}}` wordt overgenomen als `{{Art Photo}}` (viel terug op `{{Information}}`): kunstenaar, plaats, fotograaf, fotodatum en beide licenties gaan mee, de beschrijving van de hele foto niet; de titel wordt de caption van de uitsnede.
+
+### Gewijzigd
+
+- Eén regel voor "hetzelfde beeld": *Alles detecteren*, *Dubbelingen samenvoegen* en het opslaan gebruiken nu allemaal `same_picture` (ook een kleiner kader dat bijna helemaal in een groter ligt); regio's van Commons worden nooit samengevoegd. *Alles detecteren* gebruikte eerder alleen de overlap (IoU).
+- Eén functie haalt labels en beschrijvingen van Wikidata op (`_wikidata_entities`), in plaats van drie bijna gelijke lussen; de verzoeken zelf zijn ongewijzigd.
+
 ## [0.26.0] - 2026-11-04
 
 Backlog 12c: de open punten uit de code-review.
