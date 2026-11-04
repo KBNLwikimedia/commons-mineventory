@@ -18,13 +18,21 @@ What goes when (defaults; BEWAAR_* in the configuration):
 
 The usage log (uitvoer/verbruik) is never removed. Without `apply` nothing is
 deleted: the result only says what would go.
+
+With `apply` each file's folder is cleaned under the lock of the object stores
+(cutter/slot.py), the same lock the app writes under: reading objecten.json,
+removing files and writing it back is one step, so an edit made in the app at
+the same time is never overwritten with an older copy.
 """
 
+import contextlib
 import json
 import os
 import shutil
 import time
 from pathlib import Path
+
+from .slot import store_lock
 
 DAY = 86400
 # Objects that are on Commons keep their record; the file on Commons is the lasting copy.
@@ -53,6 +61,7 @@ class Cleanup:
         self.now = now if now is not None else time.time()
         self.report = {kind: {"bestanden": 0, "bytes": 0} for kind in self.days}
         self.apply = False
+        self.lock = store_lock(self.output_dir)
 
     @classmethod
     def from_config(cls, config, now=None):
@@ -90,7 +99,9 @@ class Cleanup:
                         self._remove(path, kind)
         if self.output_dir.is_dir():
             for file_dir in sorted(p for p in self.output_dir.iterdir() if p.is_dir() and p.name != "verbruik"):
-                self._clean_file_dir(file_dir)
+                # Counting only reads (the app writes atomically); deleting takes the lock.
+                with self.lock if apply else contextlib.nullcontext():
+                    self._clean_file_dir(file_dir)
         if apply:
             self._remove_empty_dirs(self.cache_dir)
         return {"verwijderd": apply, "dagen": dict(self.days), **self.report}
@@ -134,7 +145,7 @@ class Cleanup:
             for path in self._files(page / sub):
                 if path not in known and self._expired(path, "uitsneden"):
                     self._remove(path, "uitsneden")
-        if changed and self.apply:
+        if changed and self.apply:  # under the lock (see run)
             tmp = store_path.with_suffix(".tmp")
             tmp.write_text(json.dumps(store, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp.replace(store_path)

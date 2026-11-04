@@ -19,7 +19,6 @@ import functools
 import hashlib
 import io
 import json
-import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,6 +28,7 @@ from .. import export, prompts, regios
 from ..commons import public as public_file
 from .basis import DetectionError
 from ..opruimen import last_used, mark_used
+from ..slot import store_lock
 from ..verbruik import KOSTEN_PER_AFBEELDING
 from .maskers import MaskCache, decode_raster
 
@@ -139,8 +139,9 @@ class DetectionService:
         self.verbruik = verbruik
         self.keep_cutout_days = 30  # BEWAAR_UITSNEDEN_DAGEN; set by create_app
         self.masks = MaskCache(Path(cache_dir) / "maskers")
-        # One lock for all object stores (re-entrant: locked methods call each other).
-        self.lock = threading.RLock()
+        # One lock for all object stores (re-entrant: locked methods call each other),
+        # shared with other workers and the cleanup task (see cutter/slot.py).
+        self.lock = store_lock(self.output_dir)
         # Size and checksum of cut-out files, by what makes the file (see file_facts).
         self._facts = {}
 

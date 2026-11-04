@@ -36,7 +36,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 
 12c. [x] Open punten uit de code-review (4-11-2026), opgepakt in 0.26.0: budget vooraf geboekt en een grens aan zoektermen; 400 in plaats van 500 bij foute invoer of vreemde Commons-gegevens; atomisch schrijven; cache voor zware gratis verzoeken; één Wikidata-zoeker zonder late antwoorden; timers en observers opgeruimd; vastlopende facetten; minder dubbele code; toegankelijkheid. Wat overblijft:
    - Per gebruiker scheiden (prullenbak, objecten, verbruik) kan pas met OAuth (13 en 15); tot dan zijn verbruikslog en het legen van de hele prullenbak op een server alleen voor de toegangslijst.
-   - Kleiner: de opruimtaak schrijft zonder het slot van de dienst (wel atomisch). De drie `wbgetentities`-lussen, de samenvoegroutines en `{{Art Photo}}` zijn in 0.27.0 opgelost.
+   - Opgelost: de opruimtaak schreef zonder het slot van de dienst; sinds 0.27.2 delen de app en de opruimtaak een slot dat ook tussen processen werkt (`cutter/slot.py`). De drie `wbgetentities`-lussen, de samenvoegroutines en `{{Art Photo}}` zijn in 0.27.0 opgelost.
 
 ## Fase 2: OAuth, upload naar een testwiki, categorieën
 

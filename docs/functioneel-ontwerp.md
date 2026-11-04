@@ -552,7 +552,7 @@ API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-s
   | Uitsneden die op Commons staan | Het bestand gaat weg na de upload; de gegevens (Commons-URL, datum, gebruiker) blijven | Het bestand op Commons is de blijvende kopie |
   | Detecties en beschrijvingen (de antwoorden van SAM en Muse Spark, klein) | 1 jaar | Opnieuw vragen kost geld; met de cache kost het nog eens openen van een bestand niets |
 
-  Instelbaar met `BEWAAR_ORIGINELEN_DAGEN=7`, `BEWAAR_UITSNEDEN_DAGEN=30` en `BEWAAR_CACHE_DAGEN=365`. Hoeveel ruimte een tool mag gebruiken, bij de bouw nagaan; dat kan de termijnen nog veranderen.
+  Instelbaar met `BEWAAR_ORIGINELEN_DAGEN=7`, `BEWAAR_UITSNEDEN_DAGEN=30` en `BEWAAR_CACHE_DAGEN=365`. De opruimtaak en de app (ook met meerdere workers) schrijven de objecten van een pagina onder één gedeeld slot, een slot op het bestand `uitvoer/.slot` dat ook tussen processen werkt (`cutter/slot.py`). Zo overschrijft de opruimtaak nooit een wijziging die iemand op hetzelfde moment in de app maakt. Hoeveel ruimte een tool mag gebruiken, bij de bouw nagaan; dat kan de termijnen nog veranderen.
 
   Gebouwd in 0.18.0 (`cutter/opruimen.py`): het commando `flask --app app opruimen` telt wat weg zou gaan; met `--echt` wordt het verwijderd. Op Toolforge draait het dagelijks als `toolforge jobs`-taak met `--echt`. Het laatste gebruik is de toegangstijd van een bestand, die de app bij elk lezen zet (de wijzigingstijd blijft staan, want de Commons-cache gebruikt die voor de versheid). Precies:
   - **7 dagen**: `cache/originelen` en `cache/commons` (API-antwoorden en paginabeelden; allebei gratis opnieuw op te halen).

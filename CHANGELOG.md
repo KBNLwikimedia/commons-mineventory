@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.27.2] - 2026-11-04
+
+### Opgelost
+
+- De opruimtaak (`flask --app app opruimen --echt`) schreef `objecten.json` zonder het slot van de app. Als je op hetzelfde moment in de app iets op die pagina wijzigde, kon die wijziging verloren gaan. De app en de opruimtaak delen nu één slot dat ook tussen processen werkt (`cutter/slot.py`, een slot op `uitvoer/.slot`; ook voor meerdere workers op Toolforge). Alleen tellen (zonder `--echt`) wacht niet op het slot.
+
 ## [0.27.1] - 2026-11-04
 
 ### Toegevoegd
