@@ -267,15 +267,29 @@
         </cdx-accordion>
 
         <!-- Suggestions for depicts: the next step after a description. -->
-        <section class="cc-blok">
+        <section class="cc-blok" :class="{ 'cc-menu-open': lookupItems.length && ownTerm.trim().length >= 2 }">
           <h3 class="cc-blok-kop">
             {{ t("describe.suggestions") }}
             (<a href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">P180</a>)
           </h3>
           <p v-if="description?.wikidata_suggesties?.length" class="cc-klein">{{ t("describe.suggestions_help") }}</p>
           <!-- Search Wikidata yourself (free, only reading). -->
+          <!-- Autosuggest while typing (Codex Lookup); choosing an item adds it to 'beeldt af'.
+               Enter or Zoeken shows all results as a list below. -->
           <form class="cc-zoek cc-wikidata-zoek" @submit.prevent="searchWikidata(ownTerm)">
-            <cdx-text-input v-model="ownTerm" :start-icon="cdxIconSearch" :placeholder="t('describe.search_placeholder')" :aria-label="t('describe.search_label')" clearable />
+            <cdx-lookup
+              v-model:selected="lookupChoice"
+              v-model:input-value="ownTerm"
+              :menu-items="lookupItems"
+              :menu-config="{ visibleItemLimit: 8 }"
+              :start-icon="cdxIconSearch"
+              :placeholder="t('describe.search_placeholder')"
+              :aria-label="t('describe.search_label')"
+              @input="onLookupInput"
+              @update:selected="onLookupSelect"
+            >
+              <template #no-results><template v-if="lookupDone">{{ t("describe.search_none", { term: ownTerm }) }}</template><template v-else>{{ t("describe.search_busy") }}</template></template>
+            </cdx-lookup>
             <cdx-button type="submit" action="progressive" :disabled="!ownTerm.trim()">{{ t("describe.search_button") }}</cdx-button>
           </form>
           <div v-if="description?.wikidata_suggesties?.length" class="cc-knoppen">
@@ -312,7 +326,7 @@
       </cdx-tab>
 
       <cdx-tab name="commons" :label="t('concept.tab')">
-        <concept-editor ref="editor" :mid="file.mid" :n="n" :object-id="object.id" />
+        <concept-editor ref="editor" :mid="file.mid" :n="n" :object-id="object.id" @edit-texts="tab = 'beschrijving'" />
       </cdx-tab>
     </cdx-tabs>
     <cdx-message v-if="error" type="error" :inline="true">{{ error }}</cdx-message>
@@ -321,7 +335,7 @@
 
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxLookup, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
 import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post, query } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
@@ -720,6 +734,38 @@ async function saveCaption() {
 
 const ownTerm = ref("");
 const searched = ref("");
+// Autosuggest: Wikidata items as you type, after 2 letters and a short pause.
+const lookupItems = ref([]);
+const lookupChoice = ref(null);
+const lookupDone = ref(false); // "nothing found" only after an answer, not while waiting
+let lookupTimer = null;
+let lookupSeq = 0;
+function onLookupInput(value) {
+  clearTimeout(lookupTimer);
+  const term = (value || "").trim();
+  lookupDone.value = false;
+  if (term.length < 2) {
+    lookupItems.value = [];
+    return;
+  }
+  lookupTimer = setTimeout(async () => {
+    const seq = ++lookupSeq;
+    try {
+      const found = (await get(`${API}/wikidata/zoek${query({ q: term, taal: language })}`)).resultaten;
+      if (seq !== lookupSeq) return; // an older answer after a newer question
+      lookupItems.value = found.map((hit) => ({ value: hit.q, label: hit.label, description: [hit.q, hit.beschrijving].filter(Boolean).join(" · "), hit }));
+    } catch {
+      lookupItems.value = [];
+    }
+    if (seq === lookupSeq) lookupDone.value = true;
+  }, 300);
+}
+async function onLookupSelect(q) {
+  const item = lookupItems.value.find((entry) => entry.value === q);
+  if (!item) return;
+  await addDepicts(item.hit);
+  lookupChoice.value = null;
+}
 async function searchWikidata(term) {
   term = (term || "").trim();
   if (!term) return;

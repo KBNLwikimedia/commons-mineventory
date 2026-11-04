@@ -8,6 +8,7 @@ the browser of the user then never contacts Wikimedia for this preview
 (privacy on Toolforge). Links point to Commons and open in a new tab.
 """
 
+import re
 from html import escape
 from html.parser import HTMLParser
 from urllib.parse import urljoin
@@ -65,6 +66,11 @@ class _Cleaner(HTMLParser):
             return
         kept = []
         for name, value in attrs:
+            # The row ids of the information templates (fileinfotpl_desc, …): the
+            # interface puts its pencils there. No other ids.
+            if name == "id" and value and re.fullmatch(r"fileinfotpl_[a-z_]{1,40}", value):
+                kept.append(f' id="{value}"')
+                continue
             if name not in ATTRIBUTES or value is None:
                 continue
             if name == "style" and not _safe_style(value):

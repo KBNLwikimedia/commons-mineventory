@@ -1,6 +1,6 @@
 <!-- The objects of the page with checkboxes (functional design 10.4). -->
 <template>
-  <section class="cc-objecten">
+  <section ref="root" class="cc-objecten">
     <header class="cc-objecten-kop">
       <h3>{{ t("objects.title") }} <small>({{ objects.length }})</small></h3>
       <span v-if="objects.length" class="cc-objecten-alles">
@@ -20,6 +20,7 @@
       <li
         v-for="obj in sorted"
         :key="obj.id"
+        :data-id="obj.id"
         :class="[`cc-object-${obj.status}`, `cc-bron-${obj.bron}`, { focus: obj.id === focused, hover: obj.id === hovered, 'cc-nieuw': newIds.includes(obj.id) }]"
         @mouseenter="emit('hover', obj.id, true)"
         @mouseleave="emit('hover', obj.id, false)"
@@ -56,7 +57,7 @@
 </template>
 
 <script setup>
-import { computed, inject } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { CdxButton, CdxCheckbox, CdxIcon } from "@wikimedia/codex";
 import { cdxIconEye, cdxIconTrash } from "@wikimedia/codex-icons";
 import { objectPath } from "../api.js";
@@ -75,6 +76,59 @@ const props = defineProps({
 const emit = defineEmits(["toggle", "select", "focus", "open", "hover", "trash"]);
 const t = useT();
 const language = inject("language", "nl");
+
+// The mouse on an object in the image: its row scrolls into view in the list, if it
+// is out of view. Only the list's own column scrolls (never the page), after a short
+// pause, so moving the mouse across the image does not make the list jump.
+const root = ref(null);
+let scrollTimer = null;
+function scrollContainer(element) {
+  for (let node = element?.parentElement; node; node = node.parentElement) {
+    const overflow = getComputedStyle(node).overflowY;
+    if ((overflow === "auto" || overflow === "scroll") && node.scrollHeight > node.clientHeight) return node;
+  }
+  return null;
+}
+function revealRow(id) {
+  const row = root.value?.querySelector(`li[data-id="${CSS.escape(id)}"]`);
+  const box = scrollContainer(row);
+  if (!row || !box) return;
+  const rowRect = row.getBoundingClientRect();
+  const boxRect = box.getBoundingClientRect();
+  const margin = 8;
+  let delta = 0;
+  if (rowRect.top < boxRect.top + margin) delta = rowRect.top - boxRect.top - margin;
+  else if (rowRect.bottom > boxRect.bottom - margin) delta = rowRect.bottom - boxRect.bottom + margin;
+  if (!delta) return;
+  animateScroll(box, box.scrollTop + delta);
+}
+
+// A short glide of our own (native smooth scrolling is not reliable everywhere);
+// it always ends at the target, also when the browser does not animate.
+function animateScroll(box, target) {
+  const start = box.scrollTop;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || !window.requestAnimationFrame) {
+    box.scrollTop = target;
+    return;
+  }
+  const duration = 200;
+  const began = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - began) / duration);
+    box.scrollTop = start + (target - start) * (1 - (1 - k) ** 3);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  setTimeout(() => (box.scrollTop = target), duration + 50);
+}
+watch(
+  () => props.hovered,
+  (id) => {
+    clearTimeout(scrollTimer);
+    if (id) scrollTimer = setTimeout(() => props.hovered === id && revealRow(id), 150);
+  }
+);
+onBeforeUnmount(() => clearTimeout(scrollTimer));
 const name = (obj) => objectName(obj, language, t);
 // A small cut-out; the box in the URL makes a changed object load anew.
 const thumbnail = (obj) => `${objectPath(props.mid, props.n, obj.id)}/uitsnede.jpg?w=96&v=${obj.box.x}-${obj.box.y}-${obj.box.w}-${obj.box.h}`;

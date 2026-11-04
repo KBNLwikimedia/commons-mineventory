@@ -8,7 +8,12 @@
 <template>
   <div class="cc-sdc">
     <section v-if="captionsShown" class="cc-sdc-groep">
-      <h5 class="cc-sdc-kop">{{ t("sdc.captions") }}</h5>
+      <h5 class="cc-sdc-kop">
+        {{ t("sdc.captions") }}
+        <cdx-button v-if="editable" class="cc-veld-potlood" weight="quiet" action="progressive" size="small" :aria-label="t('concept.edit_caption')" :title="t('concept.edit_caption')" @click="emit('edit-captions')">
+          <cdx-icon :icon="cdxIconEdit" size="small" />
+        </cdx-button>
+      </h5>
       <ul v-if="captions.length" class="cc-sdc-waarden">
         <li v-for="caption in captions" :key="caption.language">
           <span class="cc-sdc-taal">{{ caption.language }}</span> {{ caption.value }}
@@ -25,6 +30,16 @@
       <ul class="cc-sdc-waarden">
         <li v-for="(claim, i) in group.claims" :key="i">
           <sdc-value :snak="claim.mainsnak" />
+          <!-- Editable: a depicts item can be removed (the others come from the original). -->
+          <cdx-button
+            v-if="editable && group.property === 'P180' && claim.mainsnak?.datavalue?.value?.id"
+            size="small"
+            weight="quiet"
+            action="destructive"
+            :aria-label="`${t('actions.remove')}: ${label(claim.mainsnak.datavalue.value.id)}`"
+            :title="t('actions.remove')"
+            @click="emit('remove-depicts', claim.mainsnak.datavalue.value.id)"
+          >×</cdx-button>
           <dl v-if="claim.qualifiers" class="cc-sdc-kwalificaties">
             <template v-for="(snaks, prop) in claim.qualifiers" :key="prop">
               <dt>{{ label(prop) }}</dt>
@@ -33,6 +48,12 @@
           </dl>
         </li>
       </ul>
+      <slot v-if="editable && group.property === 'P180'" name="depicts-add" />
+    </section>
+    <!-- No depicts yet: the group with only the field to add one. -->
+    <section v-if="editable && !groups.some((g) => g.property === 'P180')" class="cc-sdc-groep">
+      <h5 class="cc-sdc-kop">{{ t("sdc.depicts_title") }}<br /><a class="cc-sdc-eigenschap" href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">{{ label("P180") }}</a></h5>
+      <slot name="depicts-add" />
     </section>
     <p v-if="!groups.length" class="cc-klein cc-leeg">{{ t("sdc.no_statements") }}</p>
   </div>
@@ -40,6 +61,8 @@
 
 <script setup>
 import { computed, h, inject } from "vue";
+import { CdxButton, CdxIcon } from "@wikimedia/codex";
+import { cdxIconEdit } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 
 const props = defineProps({
@@ -47,7 +70,10 @@ const props = defineProps({
   labels: { type: Object, default: () => ({}) },
   // Without captions: for statements added to an existing file (the original).
   captionsShown: { type: Boolean, default: true },
+  // Editable (the concept): a pencil for the captions, × per depicts item, and a slot to add one.
+  editable: { type: Boolean, default: false },
 });
+const emit = defineEmits(["edit-captions", "remove-depicts"]);
 const t = useT();
 const language = inject("language", "nl");
 

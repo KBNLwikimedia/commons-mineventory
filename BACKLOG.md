@@ -32,7 +32,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
    - Commons-concept: per-veld invulmenu met Ongedaan maken, Wikidata-beschrijving bij *beeldt af*, aparte knoppen Downloaden en Bekijken, proefweergave van wikitekst en SDC zoals op Commons (Weergave/Broncode), extra SDC (P31, P1163, P4092, P3575, P2048, P2049), voorbeeld van de regio op het origineel.
 12b. [ ] Kleine punten die nog open staan:
    - Bestaande paginaoverzichten hebben alleen Nederlands; *Opnieuw vragen* (betaald) haalt ook het Engels op.
-   - De objectenlijst scrollt niet mee als de muis in het beeld op een object staat dat buiten beeld in de lijst staat (bewust: de lijst zou springen). Eventueel alleen bij een klik.
+   - Gedaan (0.22.2): de objectenlijst scrolt mee als de muis in het beeld op een object staat dat buiten beeld in de lijst staat, na een korte pauze.
    - Nagaan of Commons-bots P1163, P4092, P3575, P2048 en P2049 na een upload zelf zetten (FO 16), zodat de upload ze niet dubbel zet.
    - Grote antwoorden (meer dan ongeveer 320 KB) worden op Olafs machine over loopback soms afgekapt; lokaal probleem, niet in de app.
 

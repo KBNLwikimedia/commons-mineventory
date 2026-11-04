@@ -448,3 +448,25 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-veld-bewerken .cdx-field { margin: 0 0 0.5rem; }
 .cc-veld-bewerken .cc-knoppen { margin-top: 0.25rem; }
 .cc-wikidata-zoek { margin: 0.5rem 0; max-width: 32rem; }
+.cc-wikidata-zoek .cdx-lookup { flex: 1; min-width: 0; }
+/* Wikidata autosuggest: compact (one line per item, small text), and room below the
+   block while the menu is open, so it fits at the bottom of the magnifier. */
+.cc-wikidata-zoek .cdx-menu-item { padding: 3px 8px; min-height: 0; font-size: 0.8125rem; line-height: 1.3; }
+.cc-wikidata-zoek .cdx-menu-item .cdx-menu-item__text__description { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.cc-wikidata-zoek .cdx-menu-item__content { min-width: 0; }
+.cc-wikidata-zoek .cdx-menu-item__text { min-width: 0; overflow: hidden; }
+.cc-blok.cc-menu-open { margin-bottom: 14rem; }
+/* The Commons page in the concept tab, editable (ConceptEditor.vue). */
+.cc-commons-pagina { margin-top: 1rem; }
+.cc-weergave-potlood { border: 0; background: none; padding: 0 2px; margin-left: 2px; color: var(--color-progressive, #36c); cursor: pointer; vertical-align: middle; line-height: 0; }
+.cc-weergave-potlood:hover { background: var(--background-color-progressive-subtle, #eaf3ff); border-radius: 2px; }
+.cc-weergave-potlood:focus-visible { outline: 2px solid var(--color-progressive, #36c); }
+.cc-categorie-balk { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; border: 1px solid var(--cc-rand); background: var(--background-color-interactive-subtle, #f8f9fa); padding: 0.4rem 0.6rem; margin: 0.5rem 0; font-size: 0.875rem; }
+.cc-categorie { display: inline-flex; align-items: center; gap: 0.15rem; }
+.cc-categorie + .cc-categorie::before { content: "|"; color: var(--cc-tekst-zacht); margin-right: 0.35rem; }
+.cc-categorie-weg { border: 0; background: none; color: var(--color-destructive, #d73333); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px; }
+.cc-categorie-erbij { display: inline-flex; gap: 0.25rem; }
+.cc-categorie-erbij .cdx-text-input { width: 14rem; }
+.cc-categorie-uit { flex-basis: 100%; }
+.cc-sdc-erbij { max-width: 24rem; margin-top: 0.25rem; }
+.cc-veld-dialoog.cdx-dialog { max-width: 48rem; }

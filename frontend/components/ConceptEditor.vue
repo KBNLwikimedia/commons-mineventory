@@ -26,73 +26,6 @@
       </div>
       <cutout-preview :src="previewUrl" :caption="t('concept.preview_image')" />
     </div>
-    <div class="cc-twee">
-      <!-- Caption and description, NL and EN. Filling a field from the caption
-           or the AI description sits in one small menu beside it; "Ongedaan
-           maken" shows only right after such a fill. -->
-      <cdx-field v-for="[field, lang] in TEXT_FIELDS" :key="`${field}.${lang}`">
-        <template #label>{{ t(field === "caption" ? "concept.caption" : "concept.description") }} ({{ lang }})</template>
-        <template v-if="canUndo(field, lang)" #help-text>
-          <button type="button" class="cc-link" @click="undoFill(field, lang)">↶ {{ t("magnifier.undo") }}</button>
-        </template>
-        <div class="cc-veld-met-menu">
-          <cdx-text-input v-if="field === 'caption'" v-model="draft.caption[lang]" />
-          <cdx-text-area v-else v-model="draft.beschrijving[lang]" :autosize="true" />
-          <cdx-menu-button
-            v-if="fillOptions(field, lang).length"
-            :selected="null"
-            :menu-items="fillOptions(field, lang)"
-            :aria-label="t('concept.fill_from')"
-            :title="t('concept.fill_from')"
-            @update:selected="(value) => fillField(field, lang, value)"
-          >
-            <cdx-icon :icon="cdxIconEllipsis" />
-          </cdx-menu-button>
-        </div>
-      </cdx-field>
-      <cdx-field>
-        <template #label>{{ t("concept.date") }}</template>
-        <template v-if="concept.herkomst?.datum" #help-text><source-note :source="concept.herkomst.datum" /></template>
-        <cdx-text-input v-model="draft.datum" />
-      </cdx-field>
-      <cdx-field>
-        <template #label>{{ t("concept.maker") }}</template>
-        <template v-if="concept.herkomst?.maker" #help-text><source-note :source="concept.herkomst.maker" /></template>
-        <cdx-text-input v-model="draft.maker" />
-      </cdx-field>
-    </div>
-
-    <cdx-field :is-fieldset="true">
-      <template #label>{{ t("concept.categories") }}</template>
-      <cdx-checkbox v-for="(category, i) in draft.categorieen" :key="category.naam + i" v-model="category.gekozen">{{ category.naam }}</cdx-checkbox>
-      <form class="cc-zoek" @submit.prevent="addCategory">
-        <cdx-text-input v-model="newCategory" :placeholder="t('concept.category_add')" :aria-label="t('concept.category_add')" />
-        <cdx-button action="progressive" type="submit" :disabled="!newCategory.trim()">+</cdx-button>
-      </form>
-    </cdx-field>
-
-    <cdx-field :is-fieldset="true">
-      <template #label>{{ t("concept.depicts") }}</template>
-      <ul class="cc-beeldt-af">
-        <li v-for="(item, i) in draft.beeldt_af" :key="item.q">
-          <a :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.label || item.q }}</a>
-          <small class="cc-qid"><a :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.q }}</a></small>
-          <cdx-button size="small" weight="quiet" action="destructive" :aria-label="t('actions.remove')" @click="draft.beeldt_af.splice(i, 1)">×</cdx-button>
-          <span v-if="itemDescription(item.q) !== null" class="cc-item-beschrijving" :class="{ leeg: !itemDescription(item.q) }">
-            {{ itemDescription(item.q) || t("concept.no_item_description") }}
-          </span>
-        </li>
-      </ul>
-      <cdx-lookup
-        v-model:selected="lookupSelected"
-        v-model:input-value="lookupText"
-        :menu-items="lookupItems"
-        :placeholder="t('concept.depicts_add')"
-        @input="lookup"
-        @update:selected="pickLookup"
-      />
-    </cdx-field>
-
     <cdx-checkbox v-model="draft.image_extracted">{{ t("concept.image_extracted") }}</cdx-checkbox>
     <cdx-field v-if="concept.rechten.labels.includes('merk')">
       <template #label>{{ t("concept.trademark") }}</template>
@@ -106,8 +39,9 @@
     <p class="cc-klein cc-opslagstatus" role="status">{{ saving ? t("concept.saving") : t("concept.autosave") }}</p>
     <cdx-message v-if="message" :type="messageType" :inline="true">{{ message }}</cdx-message>
 
-    <cdx-accordion v-model="previewOpen">
-      <template #title>{{ t("concept.preview") }}</template>
+    <!-- The Commons page itself, editable: a pencil on every row that comes from the concept. -->
+    <section class="cc-commons-pagina">
+      <h3 class="cc-blok-kop">{{ t("concept.preview") }}</h3>
       <p class="cc-klein">{{ concept.samenvatting }}</p>
       <!-- Wikitext: as Commons renders it, or the source. -->
       <div class="cc-voorbeeld-kop">
@@ -115,15 +49,35 @@
         <cdx-toggle-button-group v-model="wikitextView" :buttons="views" :aria-label="t('concept.view')" />
       </div>
       <template v-if="wikitextView === 'weergave'">
-        <p class="cc-klein">{{ t("concept.rendered_note") }}</p>
+        <p class="cc-klein">{{ t("concept.rendered_note_edit") }}</p>
         <p v-if="rendering && !renderedHtml" class="cc-klein">{{ t("concept.rendering") }}</p>
         <cdx-message v-if="renderError" type="error" :inline="true">{{ renderError }}</cdx-message>
         <!-- Made by Commons, cleaned by the server (cutter/weergave.py): safe tags only. -->
-        <div v-if="renderedHtml" ref="renderedBox" class="cc-weergave-commons" :class="{ bezig: rendering }" v-html="renderedHtml"></div>
+        <div v-if="renderedHtml" ref="renderedBox" class="cc-weergave-commons" :class="{ bezig: rendering }" @click="onRenderedClick" v-html="renderedHtml"></div>
       </template>
       <template v-else>
         <pre class="cc-wikitekst">{{ concept.wikitekst }}</pre>
       </template>
+      <!-- Categories, as at the bottom of a Commons page: remove with ×, add below. -->
+      <div class="cc-categorie-balk">
+        <strong>{{ t("concept.categories") }}:</strong>
+        <template v-for="(category, i) in draft.categorieen" :key="category.naam + i">
+          <span v-if="category.gekozen" class="cc-categorie">
+            <a :href="`https://commons.wikimedia.org/wiki/Category:${encodeURIComponent(category.naam.replace(/ /g, '_'))}`" target="_blank" rel="noopener">{{ category.naam }}</a>
+            <button type="button" class="cc-categorie-weg" :aria-label="`${t('actions.remove')}: ${category.naam}`" :title="t('actions.remove')" @click="category.gekozen = false">×</button>
+          </span>
+        </template>
+        <form class="cc-categorie-erbij" @submit.prevent="addCategory">
+          <cdx-text-input v-model="newCategory" :placeholder="t('concept.category_add')" :aria-label="t('concept.category_add')" />
+          <cdx-button action="progressive" type="submit" :disabled="!newCategory.trim()">+</cdx-button>
+        </form>
+        <span v-if="draft.categorieen.some((c) => !c.gekozen)" class="cc-klein cc-categorie-uit">
+          {{ t("concept.categories_removed") }}
+          <template v-for="(category, i) in draft.categorieen.filter((c) => !c.gekozen)" :key="'uit' + i">
+            <button type="button" class="cc-link" :title="t('concept.category_back')" @click="category.gekozen = true">↶ {{ category.naam }}</button>{{ " " }}
+          </template>
+        </span>
+      </div>
       <cdx-button action="progressive" size="small" @click="copy(concept.wikitekst)"><cdx-icon :icon="cdxIconCopy" /> {{ t("concept.copy") }}</cdx-button>
 
       <!-- Structured data: as the Structured data tab on Commons shows it, or the JSON. -->
@@ -132,8 +86,20 @@
         <cdx-toggle-button-group v-model="sdcView" :buttons="views" :aria-label="t('concept.view')" />
       </div>
       <template v-if="sdcView === 'weergave'">
-        <p class="cc-klein">{{ t("concept.sdc_note") }}</p>
-        <sdc-preview :sdc="concept.sdc" :labels="concept.sdc_labels || {}" />
+        <p class="cc-klein">{{ t("concept.sdc_note_edit") }}</p>
+        <sdc-preview :sdc="concept.sdc" :labels="concept.sdc_labels || {}" :editable="true" @edit-captions="openEdit('caption')" @remove-depicts="removeDepicts">
+          <template #depicts-add>
+            <cdx-lookup
+              v-model:selected="lookupSelected"
+              v-model:input-value="lookupText"
+              :menu-items="lookupItems"
+              :placeholder="t('concept.depicts_add')"
+              class="cc-sdc-erbij"
+              @input="lookup"
+              @update:selected="pickLookup"
+            />
+          </template>
+        </sdc-preview>
       </template>
       <pre v-else class="cc-wikitekst">{{ JSON.stringify(concept.sdc, null, 2) }}</pre>
 
@@ -154,7 +120,48 @@
           <pre v-else class="cc-wikitekst">{{ JSON.stringify(concept.origineel.sdc, null, 2) }}</pre>
         </template>
       </template>
-    </cdx-accordion>
+    </section>
+
+    <!-- Editing one row of the Commons page: Opslaan or Annuleren. -->
+    <cdx-dialog
+      v-model:open="editOpen"
+      class="cc-veld-dialoog"
+      :title="editTitle"
+      :use-close-button="true"
+      :close-button-label="t('actions.close')"
+      :primary-action="{ label: t('actions.save_short'), actionType: 'progressive' }"
+      :default-action="{ label: t('actions.cancel') }"
+      @primary="saveEdit"
+      @default="editOpen = false"
+    >
+      <template v-if="editField === 'caption' || editField === 'beschrijving'">
+        <cdx-field v-for="lang in ['nl', 'en']" :key="lang">
+          <template #label>{{ t(editField === "caption" ? "concept.caption" : "concept.description") }} ({{ lang }})</template>
+          <template v-if="canUndo(editField, lang, editDraft)" #help-text>
+            <button type="button" class="cc-link" @click="undoFill(editField, lang, editDraft)">↶ {{ t("magnifier.undo") }}</button>
+          </template>
+          <div class="cc-veld-met-menu">
+            <cdx-text-input v-if="editField === 'caption'" v-model="editDraft[editField][lang]" />
+            <cdx-text-area v-else v-model="editDraft[editField][lang]" :autosize="true" />
+            <cdx-menu-button
+              v-if="fillOptions(editField, lang, editDraft).length"
+              :selected="null"
+              :menu-items="fillOptions(editField, lang, editDraft)"
+              :aria-label="t('concept.fill_from')"
+              :title="t('concept.fill_from')"
+              @update:selected="(value) => fillField(editField, lang, value, editDraft)"
+            >
+              <cdx-icon :icon="cdxIconEllipsis" />
+            </cdx-menu-button>
+          </div>
+        </cdx-field>
+      </template>
+      <cdx-field v-else-if="editField === 'datum' || editField === 'maker'">
+        <template #label>{{ t(editField === "datum" ? "concept.date" : "concept.maker") }}</template>
+        <template v-if="concept.herkomst?.[editField]" #help-text><source-note :source="concept.herkomst[editField]" /></template>
+        <cdx-text-input v-model="editDraft[editField]" />
+      </cdx-field>
+    </cdx-dialog>
   </div>
   <p v-else class="cc-klein">{{ t("concept.loading") }}</p>
 </template>
@@ -162,7 +169,7 @@
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import {
-  CdxAccordion, CdxButton, CdxCheckbox, CdxField, CdxIcon, CdxLookup, CdxMenuButton, CdxMessage, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
+  CdxButton, CdxCheckbox, CdxDialog, CdxField, CdxIcon, CdxLookup, CdxMenuButton, CdxMessage, CdxToggleButtonGroup, CdxTextArea, CdxTextInput,
 } from "@wikimedia/codex";
 import { cdxIconCopy, cdxIconEllipsis } from "@wikimedia/codex-icons";
 import { API, errorText, get, objectPath, patch, query } from "../api.js";
@@ -175,7 +182,7 @@ import SdcPreview from "./SdcPreview.vue";
 import SourceNote from "./SourceNote.vue";
 
 const props = defineProps({ mid: { type: String, required: true }, n: { type: Number, required: true }, objectId: { type: String, required: true } });
-const emit = defineEmits(["saved"]);
+const emit = defineEmits(["saved", "edit-texts"]);
 const t = useT();
 const language = inject("language", "nl");
 const concept = ref(null);
@@ -195,18 +202,89 @@ const views = [
   { value: "weergave", label: t("concept.view_rendered") },
   { value: "broncode", label: t("concept.view_source") },
 ];
-// Only rendered while the preview is open: no request to Commons otherwise.
-const previewOpen = ref(false);
+// The Commons page is always shown now (it is where you edit): rendered by Commons, a read.
+const previewOpen = ref(true);
 const wikitextView = ref("weergave");
 const sdcView = ref("weergave");
 const originalView = ref("weergave");
 const renderedHtml = ref("");
 const renderedBox = ref(null);
-// Boxes that start closed on Commons (institution, creator) start closed here too.
+// Boxes that start closed on Commons (institution, creator) start closed here too;
+// and every row that comes from the concept gets a pencil.
 watch(renderedHtml, async () => {
   await nextTick();
-  if (renderedBox.value) makeCollapsible(renderedBox.value, { open: t("concept.box_open"), close: t("concept.box_close") });
+  if (!renderedBox.value) return;
+  makeCollapsible(renderedBox.value, { open: t("concept.box_open"), close: t("concept.box_close") });
+  addPencils(renderedBox.value);
 });
+
+// Rows of the information templates (their ids, kept by cutter/weergave.py) and what edits them.
+const ROW_FIELDS = {
+  fileinfotpl_desc: "beschrijving",
+  fileinfotpl_art_title: "caption",
+  fileinfotpl_date: "datum",
+  fileinfotpl_publication_date: "datum",
+  fileinfotpl_aut: "maker",
+  fileinfotpl_art_inscriptions: "teksten",
+};
+const INSCRIPTION_LABELS = ["inscriptions", "inscripties", "inscription", "inscriptie"];
+const PENCIL =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="m16.77 8 1.94-2a1 1 0 000-1.41l-3.34-3.3a1 1 0 00-1.41 0L12 3.23zM1 14.25V19h4.75l9.96-9.96-4.75-4.75z"/></svg>';
+
+function pencilFor(field) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "cc-weergave-potlood";
+  button.dataset.veld = field;
+  const label = t(`concept.edit_${field}`);
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  button.innerHTML = PENCIL;
+  return button;
+}
+
+function addPencils(box) {
+  const book = /\{\{\s*book\b/i.test(concept.value?.wikitekst || "");
+  for (const [id, field] of Object.entries(ROW_FIELDS)) {
+    if (book && field === "caption") continue; // {{Book}}: the title is the book's
+    const cell = box.querySelector(`#${id}`);
+    if (cell && !cell.querySelector(".cc-weergave-potlood")) cell.append(" ", pencilFor(field));
+  }
+  // {{Information}} and {{Book}}: the inscriptions are an extra row without an id.
+  box.querySelectorAll("td, th").forEach((cell) => {
+    // The visible label only ({{Information field}} adds a hidden "InfoField").
+    const text = (cell.firstChild?.nodeType === 3 ? cell.firstChild.textContent : cell.textContent).trim().toLowerCase();
+    if (INSCRIPTION_LABELS.includes(text) && !cell.querySelector(".cc-weergave-potlood")) cell.append(" ", pencilFor("teksten"));
+  });
+}
+
+function onRenderedClick(event) {
+  const button = event.target.closest(".cc-weergave-potlood");
+  if (!button) return;
+  event.preventDefault();
+  if (button.dataset.veld === "teksten") emit("edit-texts");
+  else openEdit(button.dataset.veld);
+}
+
+// The small window for one row: a copy of those fields, back into the draft on Opslaan.
+const editOpen = ref(false);
+const editField = ref("");
+const editDraft = ref(null);
+const editTitle = computed(() => (editField.value ? t(`concept.edit_${editField.value}`) : ""));
+function openEdit(field) {
+  editField.value = field;
+  editDraft.value = JSON.parse(JSON.stringify({ [field]: draft.value[field] }));
+  editOpen.value = true;
+}
+function saveEdit() {
+  draft.value[editField.value] = JSON.parse(JSON.stringify(editDraft.value[editField.value]));
+  editOpen.value = false;
+  save();
+}
+
+function removeDepicts(q) {
+  draft.value.beeldt_af = draft.value.beeldt_af.filter((item) => item.q !== q);
+}
 const rendering = ref(false);
 const renderError = ref("");
 let renderTimer = null;
@@ -348,37 +426,34 @@ async function reset() {
 }
 
 // Back to what "Wat staat hierop?" (the AI image description) said, per field.
-function differsFromAi(field, language) {
+function differsFromAi(field, language, target = draft.value) {
   const ai = concept.value?.ai?.[field]?.[language];
-  return Boolean(ai) && draft.value[field][language].trim() !== ai.trim();
+  return Boolean(ai) && target[field][language].trim() !== ai.trim();
 }
 
 // (undoValues, declared at the top, keeps what a field held before an action.)
 
-function setValue(field, language, value) {
-  undoValues[`${field}.${language}`] = { before: draft.value[field][language], after: value };
-  draft.value[field][language] = value;
+function setValue(field, language, value, target = draft.value) {
+  undoValues[`${field}.${language}`] = { before: target[field][language], after: value };
+  target[field][language] = value;
 }
 
-function backToAi(field, language) {
-  setValue(field, language, concept.value.ai[field][language].slice(0, field === "caption" ? 250 : undefined));
+function backToAi(field, language, target = draft.value) {
+  setValue(field, language, concept.value.ai[field][language].slice(0, field === "caption" ? 250 : undefined), target);
 }
 
 // The caption (from the Cut-out tab) as an extra sentence under the description.
-function addCaptionToDescription() {
-  const current = draft.value.beschrijving.nl.trim();
+function addCaptionToDescription(target = draft.value) {
+  const current = target.beschrijving.nl.trim();
   setValue("beschrijving", "nl", current ? `${current}
-${concept.value.bijschrift}` : concept.value.bijschrift);
+${concept.value.bijschrift}` : concept.value.bijschrift, target);
 }
 
-/* The links under a caption or description field: undo the last action,
-   take over the caption, go back to the AI image description. */
-const TEXT_FIELDS = [["caption", "nl"], ["caption", "en"], ["beschrijving", "nl"], ["beschrijving", "en"]];
 
 // What the menu beside a field can fill it with; only what would change it.
-function fillOptions(field, language) {
+function fillOptions(field, language, target = draft.value) {
   const options = [];
-  const current = draft.value[field][language];
+  const current = target[field][language];
   const caption = concept.value?.bijschrift;
   if (caption && language === "nl" && field === "caption" && current !== caption) {
     options.push({ value: "caption", label: t("concept.use_caption") });
@@ -386,26 +461,26 @@ function fillOptions(field, language) {
   if (caption && language === "nl" && field === "beschrijving" && !current.includes(caption)) {
     options.push({ value: "caption", label: t("concept.use_caption_description") });
   }
-  if (differsFromAi(field, language)) options.push({ value: "ai", label: t("concept.back_to_ai") });
+  if (differsFromAi(field, language, target)) options.push({ value: "ai", label: t("concept.back_to_ai") });
   return options;
 }
 
-function fillField(field, language, value) {
-  if (value === "ai") backToAi(field, language);
-  else if (field === "caption") setValue("caption", "nl", concept.value.bijschrift.slice(0, 250));
-  else addCaptionToDescription();
+function fillField(field, language, value, target = draft.value) {
+  if (value === "ai") backToAi(field, language, target);
+  else if (field === "caption") setValue("caption", "nl", concept.value.bijschrift.slice(0, 250), target);
+  else addCaptionToDescription(target);
 }
 
 // Undo only while the field still holds what the fill put there; typing
 // afterwards has the browser's own undo.
-function canUndo(field, language) {
+function canUndo(field, language, target = draft.value) {
   const saved = undoValues[`${field}.${language}`];
-  return Boolean(saved) && draft.value[field][language] === saved.after;
+  return Boolean(saved) && target[field][language] === saved.after;
 }
 
-function undoFill(field, language) {
+function undoFill(field, language, target = draft.value) {
   const key = `${field}.${language}`;
-  draft.value[field][language] = undoValues[key].before;
+  target[field][language] = undoValues[key].before;
   delete undoValues[key];
 }
 
@@ -465,5 +540,5 @@ async function copy(text) {
   }
 }
 
-defineExpose({ reload, addDepicts });
+defineExpose({ reload, addDepicts, openEdit });
 </script>

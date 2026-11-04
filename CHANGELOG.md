@@ -3,6 +3,15 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.23.0] - 2026-11-04
+
+### Toegevoegd
+
+- Commons-concept: je bewerkt de uitsnede nu op de Commons-pagina zelf. In de weergave zoals Commons die toont, heeft elke rij die uit het concept komt een potloodje (Description, Title, Date, Author/Maker); dat opent een klein venster met *Opslaan* en *Annuleren*, waarna Commons de weergave opnieuw maakt. Het potloodje bij *Inscriptions* gaat naar *Wat staat hierop?*. De categorieën staan eronder in een balk zoals op Commons, met × om weg te halen, *Terugzetten* en een veld om er een toe te voegen. In de gestructureerde gegevens pas je de captions aan met een potloodje, haal je een 'beeldt af'-item weg met × en zoek je er een bij. Het aparte formulier (Caption, Beschrijving, Datum, Maker, Inscripties, Categorieën, Beeldt af) is weg; bovenaan staan nog Bestandsnaam, Formaat en de rechten. De broncode (wikitekst en JSON) blijft alleen-lezen. Rijen van de informatiesjablonen houden daarvoor hun id (`fileinfotpl_…`) in de opgeschoonde HTML.
+- *Voorstellen voor 'beeldt af' (P180)*: het zoekveld geeft suggesties terwijl je typt (na twee letters en een korte pauze): Wikidata-items met Q-nummer en beschrijving. Kies er een en hij komt in *beeldt af* van het Commons-concept. Enter of *Zoeken* toont alle treffers als lijst. De suggesties staan compact (kleine letter, één regel per item), en zolang ze open zijn is er ruimte onder het blok, zodat ze onderaan de vergroter passen.
+- Commons-concept: een blok *Inscripties* (na Datum en Maker) toont welke gelezen teksten als `{{Inscription}}` meegaan (type `text` en `caption`) en waar: in `inscriptions` of, bij `{{Information}}` en `{{Book}}`, als extra rij in `other fields`. Met een link naar het sjabloon en naar *Wat staat hierop?* om de tekst aan te passen.
+- Staat de muis in het beeld op een object waarvan de rij in de objectenlijst buiten beeld staat, dan scrolt de lijst mee tot die rij zichtbaar is (alleen de lijst, niet de pagina; na een korte pauze, zodat de lijst niet springt als je de muis over het beeld beweegt).
+
 ## [0.22.1] - 2026-11-04
 
 ### Gewijzigd

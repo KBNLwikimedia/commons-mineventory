@@ -306,7 +306,7 @@ describe("links in a confirmation", async () => {
 });
 
 describe("ConceptEditor component", () => {
-  it("opens, takes over the caption and can undo it", async () => {
+  it("edits a row in its own window: takes over the caption, can undo it, and saves", async () => {
     const { default: ConceptEditor } = await import("./components/ConceptEditor.vue");
     const { flushPromises } = await import("@vue/test-utils");
     const draft = {
@@ -318,19 +318,32 @@ describe("ConceptEditor component", () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => draft })));
     const wrapper = mount(ConceptEditor, {
       props: { mid: "M1", n: 1, objectId: "obj-1" },
-      global: { provide: { t: (key) => key, language: "nl" } },
+      global: { provide: { t: (key) => key, language: "nl" }, stubs: { teleport: true } },
     });
     await flushPromises();
-    // The caption field's menu offers the caption; choosing it fills the field.
+    // The pencil of the caption row opens a window with the caption fields.
+    wrapper.vm.openEdit("caption");
+    await wrapper.vm.$nextTick();
+    const field = () => wrapper.find(".cc-veld-dialoog input");
+    expect(field().element.value).toBe("rechthoek");
+    // Its menu offers the caption; choosing it fills the field.
     const menu = wrapper.findComponent({ name: "CdxMenuButton" });
     expect(menu.props("menuItems").map((item) => item.value)).toEqual(["caption"]);
     menu.vm.$emit("update:selected", "caption");
     await wrapper.vm.$nextTick();
-    expect(wrapper.find(".cc-twee input").element.value).toBe("Man met pijp");
+    expect(field().element.value).toBe("Man met pijp");
     const undo = wrapper.findAll("button.cc-link").find((b) => b.text().includes("magnifier.undo"));
     expect(undo).toBeTruthy();
     await undo.trigger("click");
-    expect(wrapper.find(".cc-twee input").element.value).toBe("rechthoek");
+    expect(field().element.value).toBe("rechthoek");
+    // Opslaan sends the edited caption.
+    wrapper.findComponent({ name: "CdxMenuButton" }).vm.$emit("update:selected", "caption");
+    await wrapper.vm.$nextTick();
+    expect(field().element.value).toBe("Man met pijp");
+    wrapper.findComponent({ name: "CdxDialog" }).vm.$emit("primary");
+    await flushPromises();
+    const sent = fetch.mock.calls.map(([, options]) => options?.body).filter(Boolean).map((body) => JSON.parse(body));
+    expect(sent.at(-1).caption.nl).toBe("Man met pijp");
     vi.unstubAllGlobals();
   });
 });
