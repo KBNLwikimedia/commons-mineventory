@@ -260,3 +260,18 @@ def test_hand_edits_are_versions_in_the_history(objects, album, tmp_path):
     restored = service.restore(album, 1, obj["id"], version=hand["versie"])
     assert restored["beschrijving"]["tekst_in_beeld"] == "Eerste lezing"
     assert "Tweede lezing" in [h.get("tekst_in_beeld") for h in service.history(album, 1, obj["id"])]
+
+
+def test_an_earlier_version_can_be_deleted(objects, album, tmp_path):
+    obj = objects.rectangle(album, 1, {"x": 0, "y": 0, "w": 300, "h": 300})["object"]
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    service.describe(album, 1, obj["id"])
+    service.edit(album, 1, obj["id"], {"tekst_in_beeld": "Mijn lezing"})
+    history = service.history(album, 1, obj["id"])
+    ai = history[0]  # the AI answer before the edit (also still in the cache)
+    left = service.forget_version(album, 1, obj["id"], ai["versie"])
+    assert ai["versie"] not in [h["versie"] for h in left]
+    assert ai["versie"] not in [h["versie"] for h in service.history(album, 1, obj["id"])]  # not back from the cache
+    assert objects._find(album, 1, obj["id"])["beschrijving"]["tekst_in_beeld"] == "Mijn lezing"  # the current one stays
+    with pytest.raises(DetectionError):
+        service.forget_version(album, 1, obj["id"], "nooit")

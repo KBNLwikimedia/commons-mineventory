@@ -134,6 +134,8 @@
   "describe.hint_used": "Aanwijzing bij deze vraag: “{hint}”",
   "describe.history": "Eerdere beschrijvingen ({n})",
   "describe.history_by_hand": "met de hand aangepast op {when}",
+  "describe.history_delete": "Deze versie verwijderen",
+  "describe.history_delete_confirm": "Deze eerdere versie verwijderen? Je kunt haar daarna niet meer terugzetten. De huidige beschrijving blijft staan.",
   "describe.history_hint": "aanwijzing “{hint}”",
   "describe.history_margin": "ruimte {pct}%",
   "describe.history_short": "AI-antwoorden en je eigen aanpassingen; terugzetten is gratis",

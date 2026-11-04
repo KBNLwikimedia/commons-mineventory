@@ -263,7 +263,20 @@
                 <span v-if="entry.tekst_rond_beeld" class="cc-klein cc-geschiedenis-beschrijving">{{ t("describe.field_tekst_rond_beeld") }}: {{ entry.tekst_rond_beeld }}</span>
                 <span class="cc-klein cc-geschiedenis-meta">{{ historyMeta(entry) }}</span>
               </div>
-              <cdx-button action="progressive" size="small" :disabled="busy" @click="restoreDescription(entry)">{{ t("describe.history_use") }}</cdx-button>
+              <span class="cc-geschiedenis-knoppen">
+                <cdx-button action="progressive" size="small" :disabled="busy" @click="restoreDescription(entry)">{{ t("describe.history_use") }}</cdx-button>
+                <cdx-button
+                  action="destructive"
+                  weight="quiet"
+                  size="small"
+                  :disabled="busy"
+                  :aria-label="t('describe.history_delete')"
+                  :title="t('describe.history_delete')"
+                  @click="deleteVersion(entry)"
+                >
+                  <cdx-icon :icon="cdxIconTrash" size="small" />
+                </cdx-button>
+              </span>
             </li>
           </ul>
         </cdx-accordion>
@@ -628,6 +641,18 @@ function historyMeta(entry) {
   parts.push(t("describe.history_margin", { pct: Math.round((entry.marge ?? DEFAULT_MARGIN) * 100) }));
   if (entry.bewerkt) parts.push(t("describe.edited"));
   return parts.filter(Boolean).join(" · ");
+}
+
+// Delete one earlier version (after a confirmation); the list follows the server.
+async function deleteVersion(entry) {
+  const ok = await askConfirm(t("describe.history_delete_confirm"), { title: t("describe.history_delete"), go: t("describe.history_delete"), destructive: true });
+  if (!ok) return;
+  error.value = "";
+  try {
+    history.value = (await del(`${base.value}/beschrijving/geschiedenis${query({ versie: entry.versie })}`)).geschiedenis;
+  } catch (e) {
+    error.value = errorText(t, e);
+  }
 }
 
 // Make an earlier description current again; the current one goes into the history.

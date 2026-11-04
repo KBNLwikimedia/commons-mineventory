@@ -134,6 +134,8 @@
   "describe.hint_used": "Hint for this question: “{hint}”",
   "describe.history": "Earlier descriptions ({n})",
   "describe.history_by_hand": "edited by hand on {when}",
+  "describe.history_delete": "Delete this version",
+  "describe.history_delete_confirm": "Delete this earlier version? You can no longer restore it afterwards. The current description stays.",
   "describe.history_hint": "hint “{hint}”",
   "describe.history_margin": "space {pct}%",
   "describe.history_short": "AI answers and your own edits; restoring is free",

@@ -766,8 +766,28 @@ class DescriptionService:
             if not any(self._same(variant, e) or e.get("tijdstempel") == variant.get("tijdstempel") for e in entries):
                 entries.append({k: v for k, v in variant.items() if k != "uit_cache"})
         entries = [e for e in entries if not (current and self._same(e, current))]
+        # Versions the user deleted stay away, also when the answer is still in the cache.
+        hidden = set(obj.get("beschrijving_verborgen", []))
+        entries = [e for e in entries if self.version(e) not in hidden]
         # Every version, by the AI or by hand, with its own id ("versie"), newest first.
         return sorted(({**e, "versie": self.version(e)} for e in entries), key=lambda e: e["versie"], reverse=True)
+
+    def forget_version(self, file, n, object_id, version):
+        """Delete one earlier version from the history. An AI answer still in the
+        cache is hidden for this object (the cache itself is shared and stays).
+        The current description cannot be deleted this way. Free."""
+        if not any(e["versie"] == version for e in self.history(file, n, object_id)):
+            raise DetectionError("Die eerdere versie bestaat niet (meer).", status=404, code="not_found")
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            obj["beschrijving_geschiedenis"] = [h for h in obj.get("beschrijving_geschiedenis", []) if self.version(h) != version]
+            hidden = obj.setdefault("beschrijving_verborgen", [])
+            if version not in hidden:
+                hidden.append(version)
+            del hidden[:-200]  # the most recent 200 are plenty
+            self.objects._write_store(file, n, store)
+        return self.history(file, n, object_id)
 
     def restore(self, file, n, object_id, timestamp=None, edited=None, version=None):
         """Make an earlier version the current one again: by its `version` (see

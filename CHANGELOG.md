@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.27.1] - 2026-11-04
+
+### Toegevoegd
+
+- *Eerdere beschrijvingen*: een prullenbakje per versie om die (na bevestiging) te verwijderen. Een AI-antwoord dat nog in de cache staat, blijft voor dit object weg; de cache zelf blijft. API: `DELETE …/beschrijving/geschiedenis?versie=…`.
+
+### Opgelost
+
+- De knop *Deze gebruiken* in *Eerdere beschrijvingen* werd bij een lange tekst afgekapt; de knoppen houden nu hun volle breedte.
+
 ## [0.27.0] - 2026-11-04
 
 ### Toegevoegd

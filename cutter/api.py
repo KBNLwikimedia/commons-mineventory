@@ -446,6 +446,15 @@ def description_history(mid, n, object_id):
     return jsonify({"geschiedenis": _descriptions().history(_page_file(mid, n), n, object_id)})
 
 
+@api.delete("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/geschiedenis")
+def forget_description_version(mid, n, object_id):
+    """Delete one earlier version: ?versie=… (from the history). Free."""
+    version = request.args.get("versie", "")
+    if not version:
+        raise DetectionError("Geef de 'versie' die weg moet.", status=400, code="invalid_body")
+    return jsonify({"geschiedenis": _descriptions().forget_version(_page_file(mid, n), n, object_id, version)})
+
+
 @api.post("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/terugzetten")
 def restore_description(mid, n, object_id):
     """Make an earlier version current again. Body: {"versie": …} (from the history),

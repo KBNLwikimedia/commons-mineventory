@@ -338,7 +338,9 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-ai-sturing .cc-marge { margin-top: 0.75rem; }
 .cc-geschiedenis-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .cc-geschiedenis-lijst li { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 0.4rem 0.6rem; background: var(--background-color-interactive-subtle, #f8f9fa); }
-.cc-geschiedenis-lijst li > div { display: flex; flex-direction: column; min-width: 0; }
+.cc-geschiedenis-lijst li > div { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+/* The buttons keep their full width; the text beside them wraps. */
+.cc-geschiedenis-knoppen { flex: none; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
 .cc-geschiedenis-beschrijving { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-geschiedenis-meta { color: var(--cc-tekst-zacht); }
 /* "Wat staat hierop?": answer, ask button, then folded blocks. */
