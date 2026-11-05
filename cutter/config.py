@@ -91,6 +91,7 @@ class Config:
 
         # Links in the footer.
         self.BRONCODE_URL = _env("BRONCODE_URL", "https://github.com/KBNLwikimedia/commons-mineventory")
+        self.PROJECTSITE_URL = _env("PROJECTSITE_URL", "https://kbnlwikimedia.github.io/commons-mineventory/")
 
     def as_flask_config(self):
         return {k: v for k, v in vars(self).items() if k.isupper()}

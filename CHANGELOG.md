@@ -3,6 +3,19 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.1] - 2026-11-05
+
+### Toegevoegd
+
+- Link naar de projectsite (GitHub Pages) in de footer van de app, tussen Documentatie en API; instelbaar met `PROJECTSITE_URL` (`.env.example`).
+
+### Gewijzigd
+
+- Functioneel ontwerp 8.5 *Werk per gebruiker* (besluit Olaf 5-11-2026): op Toolforge een eigen uitvoermap per ingelogde gebruiker, de cache en de AI-antwoorden gedeeld; met voorstellen voor de mapnaam, werk zonder inloggen, de verhuizing van de lokale mappen, het slot, de bewaartermijnen en de privacyverklaring. Nieuw backlogpunt 13a, bij OAuth (13).
+- Functioneel ontwerp hoofdstuk 17 *Dashboard: collecties uit categorieën* (voorstel, op verzoek van Olaf): een categorie openen als raster van miniaturen, per bestand kiezen of er objecten in staan, een voorscan met SAM die de keuze voorstelt, en de gekozen bestanden als werkset één voor één in de bewerker; met schetsen, API, opslag, een volgorde voor de eerste bouw en negen vragen (17.10). Backlog 15a verwijst ernaar. Collecties zijn per gebruiker (besluit Olaf, 5-11-2026; FO 8.5 en 17.7). Merkjes en filters voor afbeeldingen die al bewerkt zijn, door jou in de app of op Commons (met de Mineventory of ander gereedschap), zodat je geen werk dubbel doet (17.4); twee vragen erbij (17.10).
+- Functioneel ontwerp 8.6 *Starttegoed en een eigen Meta-sleutel* (voorstel, wens Olaf): op Toolforge ±$0,25 tegoed per ingelogde gebruiker, daarna een eigen sleutel voor de Meta Model API die versleuteld op de server staat en nooit via de API, logs of bestanden terugkomt; met API, beheer, verbruik en zes vragen (8.6.6). Nieuw backlogpunt 15c.
+- Overdracht en backlog 12f: de code staat op GitHub; wat overblijft is `.env` bijwerken en de oude map verwijderen (Olaf).
+
 ## [0.32.0] - 2026-11-05
 
 ### Toegevoegd

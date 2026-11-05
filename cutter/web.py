@@ -109,6 +109,7 @@ def _globals():
         "app_versie": __version__,
         "detectie_modus": current_app.config["DETECTIE_MODUS"],
         "broncode_url": current_app.config["BRONCODE_URL"],
+        "projectsite_url": current_app.config["PROJECTSITE_URL"],
         "taal": g.get("taal", i18n.DEFAULT),
         "talen": i18n.LANGUAGES,
         "taal_url": _language_url,
