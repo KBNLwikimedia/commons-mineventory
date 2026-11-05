@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.31.4] - 2026-11-05
+
+### Toegevoegd
+
+- README: badges (versie, status, licentie, laatste commit, techniek) en een rondleiding langs de schermen: een geanimeerde carrousel (`docs/screenshots/carrousel.gif`) en een galerij van negen schermafbeeldingen met bijschriften (`docs/screenshots/`).
+
 ## [0.31.3] - 2026-11-05
 
 ### Gewijzigd

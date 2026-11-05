@@ -1,6 +1,6 @@
 """Commons Mineventory: detect and cut out objects in images on Wikimedia Commons (experiment)."""
 
-__version__ = "0.31.3"
+__version__ = "0.31.4"
 
 
 def create_app(config=None, commons_client=None, detector=None, vision=None):
