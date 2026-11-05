@@ -3,6 +3,17 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.0] - 2026-11-05
+
+### Toegevoegd
+
+- Projectsite voor GitHub Pages (besluit Olaf 5-11-2026: Pages is de documentatie en uitleg, de werkende app komt op Toolforge). `site/index.html` is een tweetalige landingspagina (NL/EN) met een klikbare carrousel van de schermafbeeldingen (pijlen, stippen, toetsen, pauze, vergroten), de functies, de werkwijze, de vergelijking met CropTool en de status per fase. `site/build.py` zet de documentatie (functioneel ontwerp, API, velden per sjabloon, privacy, overdracht, backlog, changelog) om naar webpagina's met menu en inhoudsopgave, met python-markdown in plaats van Jekyll, zodat de `{{…}}`-sjablonen in de docs heel blijven. De GitHub Action `.github/workflows/pages.yml` bouwt en publiceert de site bij elke push naar `main`. Geen externe lettertypen, scripts of CDN's.
+- README: badge en alinea over de projectsite.
+
+### Gewijzigd
+
+- De verouderde API-paden van vóór 0.29.0 werken nog tot 0.33.0 (was 0.32.0, die werd de projectsite); OpenAPI, `docs/api.md`, de overdracht en backlog 12e zeggen dat.
+
 ## [0.31.4] - 2026-11-05
 
 ### Toegevoegd

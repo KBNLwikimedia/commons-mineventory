@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.31.4, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.32.0, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -8,7 +8,7 @@ Stand: versie 0.31.4, 5 november 2026. Voor wie (mens of Claude-sessie) het werk
 - **De map is hernoemd** van `D:\KB-OPEN\github-repos\commons-cutter` naar `D:\KB-OPEN\github-repos\commons-mineventory` (Olaf, 5-11-2026, na 0.31.2); `.venv` is opnieuw gemaakt en de tests zijn groen. De repo staat openbaar op [GitHub](https://github.com/KBNLwikimedia/commons-mineventory), ook met CLAUDE.md, deze overdracht en de backlog (besluit Olaf).
 - **Fase 1 (lokaal, zonder kosten) is klaar** en sinds 0.9.0 op aanwijzing van Olaf verfijnd. Olaf draait de app zelf in live-modus, met zijn eigen sleutel voor de Meta Model API.
 - **Fase 2 (OAuth, upload naar een testwiki, beheerpaneel) is nog niet begonnen.** Uploaden en inloggen zijn knoppen zonder werking.
-- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.31.4.
+- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.0.
 
 ## De interface in het kort
 
@@ -30,7 +30,7 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 - **Uitleg en AI-resultaat zien er anders uit**: uitleg is klein en grijs (`cc-uitleg`), wat de AI zei staat in een kader (`cc-ai-resultaat`), een uitkomst (gevonden, niets gevonden) als Codex-melding onder de knop die erom vroeg.
 - **Knoppen met kosten** dragen het bedrag; elke betaalde actie vraagt eerst om bevestiging. Een knop zonder iets te doen is uitgeschakeld (niet verborgen).
 - **Tweetalig**: alle tekst in `frontend/i18n/nl.json` en `en.json`, dezelfde sleutels en invulplekken. Foutmeldingen: in het Nederlands de eigen melding van de server, in het Engels de vertaling van de code (`error.<code>`); een nieuwe foutcode krijgt dus altijd een vertaling. Tekst die de server meestuurt (rechtenredenen, controle vooraf, niet-ondersteunde bestanden) gaat als code met detail mee, niet als Nederlandse zin.
-- **REST**: zelfstandige naamwoorden, meervoud voor lijsten (`…/objecten/{id}`), geen werkwoorden in paden; een GET kost nooit geld en verandert niets. De oude paden van vóór 0.29.0 werken nog tot 0.32.0 (`Deprecation`-kop) en gaan dan weg (backlog 12e). OpenAPI (`cutter/openapi.py`) en `docs/api.md` lopen gelijk met de routes; een test controleert dat.
+- **REST**: zelfstandige naamwoorden, meervoud voor lijsten (`…/objecten/{id}`), geen werkwoorden in paden; een GET kost nooit geld en verandert niets. De oude paden van vóór 0.29.0 werken nog tot 0.33.0 (`Deprecation`-kop) en gaan dan weg (backlog 12e). OpenAPI (`cutter/openapi.py`) en `docs/api.md` lopen gelijk met de routes; een test controleert dat.
 - **Gegevens van Olaf**: test op zijn server nooit een betaalde knop (Zoeken, Aanwijzen, Beschrijf, Opnieuw, Transparante PNG maken). Wat je wél test, zet je terug (ongedaan maken, versie terugzetten, testversies verwijderen).
 
 ## Na het hernoemen van de map
@@ -59,11 +59,12 @@ Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie
 - **Git**: altijd `git -c safe.directory=D:/KB-OPEN/github-repos/commons-mineventory …`; niet pushen zonder opdracht.
 - **Commit-routine**: versie ophogen in `cutter/__init__.py` en `package.json` (dan `npm install --package-lock-only`), README "Fase 1 is klaar (versie …)" en CLAUDE.md "Klaar (stand …)", de Unreleased-sectie van CHANGELOG.md een versie en datum geven, `pytest`, `npm test` en `npm run build` draaien, en de commit afsluiten met de Co-Authored-By-regel.
 - Grote antwoorden over loopback worden op Olafs machine soms afgekapt (`ERR_CONNECTION_RESET`); dat ligt niet aan de app.
+- **Projectsite (GitHub Pages)**: documentatie en uitleg, niet de app (die komt op Toolforge). Bronnen in `site/` (`index.html`, `docs.css`, `build.py`); de Action `.github/workflows/pages.yml` bouwt bij een push naar `main` die `site/`, `docs/`, BACKLOG.md of CHANGELOG.md raakt. Een nieuw document voeg je toe aan `DOCS` in `site/build.py`; nieuwe schermafbeeldingen aan `docs/screenshots/` en aan `SLIDES` in `site/index.html` (met bijschrift in beide talen). Op Windows kan de indexer `_site/` vergrendelen; bouw dan naar een andere map (`python site/build.py <map>`).
 
 ## Wat openstaat
 
 - **Nu**: de code naar GitHub pushen (de repo is openbaar, maar bevat alleen een README van GitHub) en `.env` bijwerken (Olaf). Daarmee is backlog 12f af, op de Toolforge-naam na.
 - **Een terminal starten**: Flask staat alleen in `.venv`. Zet de omgeving aan met `.venv\Scripts\Activate.ps1`, of start met `.venv\Scripts\flask --app app run --debug`.
 - **Wacht op Olaf**: de vijf vragen bij backlog 15b (venster *Beeldt af en caption voor de hele afbeelding*, FO 9.7).
-- **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten) en 12e (verouderde API-paden weghalen in 0.32.0).
+- **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten) en 12e (verouderde API-paden weghalen in 0.33.0).
 - **Fase 2**: OAuth (13), upload via de stash op een testwiki (14), beheerpaneel (15), categorie als invoer (15a). Pas daarna kan per gebruiker gescheiden worden (12c).

@@ -1,0 +1,62 @@
+/* Documentation pages of the GitHub Pages site. Same colours as the app (Codex tokens). */
+:root {
+  --progressive: #36c; --progressive-hover: #447ff5;
+  --text: #202122; --subtle: #54595d; --border: #c8ccd1; --border-subtle: #eaecf0;
+  --bg: #fff; --bg-subtle: #f8f9fa; --warning-border: #a66200; --max: 1240px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Lato, Helvetica, Arial, sans-serif;
+       color: var(--text); background: var(--bg); line-height: 1.6; font-size: 16px; }
+a { color: var(--progressive); }
+a:hover { color: var(--progressive-hover); }
+:focus-visible { outline: 2px solid var(--progressive); outline-offset: 2px; }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+
+header.top { border-bottom: 1px solid var(--border-subtle); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+header.top .wrap { display: flex; align-items: center; gap: 12px; min-height: 56px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; color: var(--text); text-decoration: none; }
+.brand img { width: 30px; height: 30px; }
+.tag { border: 1px solid var(--warning-border); color: var(--warning-border); font-size: .7rem; letter-spacing: .06em;
+       text-transform: uppercase; padding: 0 6px; border-radius: 2px; }
+nav.links { margin-left: auto; display: flex; gap: 18px; }
+nav.links a { text-decoration: none; }
+
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 36px; padding-top: 24px; }
+.menu { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow: auto; font-size: .9rem; padding-bottom: 20px; }
+.menu-title { font-weight: 700; margin: 0 0 6px; color: var(--subtle); text-transform: uppercase; font-size: .75rem; letter-spacing: .05em; }
+.menu ul { list-style: none; margin: 0 0 18px; padding: 0; }
+.menu li { margin: 2px 0; }
+.menu a { text-decoration: none; display: block; padding: 2px 8px; border-left: 2px solid transparent; }
+.menu a[aria-current="page"] { border-left-color: var(--progressive); font-weight: 700; color: var(--text); }
+.menu .toc ul { margin: 0; padding-left: 10px; }
+.menu .toc > ul { padding-left: 0; }
+.menu .toc a { padding: 1px 8px; color: var(--subtle); }
+.menu .toc a:hover { color: var(--progressive); }
+
+main.doc { min-width: 0; padding-bottom: 40px; }
+.source { font-size: .85rem; color: var(--subtle); margin: 0 0 8px; }
+main.doc h1, main.doc h2 { font-family: "Linux Libertine", Georgia, Times, serif; font-weight: 400; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+main.doc h1 { font-size: 2.1rem; margin: 0 0 16px; }
+main.doc h2 { font-size: 1.6rem; margin: 36px 0 12px; }
+main.doc h3 { font-size: 1.15rem; margin: 26px 0 8px; }
+main.doc .headerlink { visibility: hidden; text-decoration: none; margin-left: 6px; color: var(--subtle); font-size: .8em; }
+main.doc :is(h1, h2, h3, h4):hover .headerlink { visibility: visible; }
+main.doc table { border-collapse: collapse; margin: 12px 0 18px; font-size: .92rem; display: block; overflow-x: auto; }
+main.doc th, main.doc td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+main.doc th { background: var(--bg-subtle); }
+main.doc code { background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 2px; padding: 0 4px; font-size: .9em; }
+main.doc pre { background: var(--bg-subtle); border: 1px solid var(--border-subtle); padding: 12px 14px; overflow-x: auto; line-height: 1.4; }
+main.doc pre code { background: none; border: none; padding: 0; }
+main.doc blockquote { margin: 12px 0; padding: 4px 16px; border-left: 4px solid var(--border); color: var(--subtle); }
+main.doc img { max-width: 100%; }
+ul.doclist .file { color: var(--subtle); font-size: .85rem; font-family: monospace; }
+
+footer { border-top: 1px solid var(--border); padding: 20px 0 32px; color: var(--subtle); font-size: .88rem; margin-top: 20px; }
+footer p { margin: 4px 0; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .menu { position: static; max-height: none; border-bottom: 1px solid var(--border-subtle); }
+  .menu .toc { display: none; }
+}

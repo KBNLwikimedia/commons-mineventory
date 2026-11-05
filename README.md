@@ -5,6 +5,7 @@
 [![Fase 1 klaar](https://img.shields.io/badge/fase%201-klaar-brightgreen)](BACKLOG.md)
 [![Licentie: MIT](https://img.shields.io/badge/licentie-MIT-blue)](LICENSE)
 [![Laatste commit](https://img.shields.io/github/last-commit/KBNLwikimedia/commons-mineventory?label=laatste%20commit)](https://github.com/KBNLwikimedia/commons-mineventory/commits/main)
+[![Website](https://img.shields.io/badge/website-GitHub%20Pages-222?logo=github&logoColor=white)](https://kbnlwikimedia.github.io/commons-mineventory/)
 <br>
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
@@ -28,7 +29,7 @@ De app is afgeleid van de [Delpher Uitsnijder](https://github.com/ookgezellig/de
 
 ## Status
 
-Fase 1 is klaar (versie 0.31.4): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
+Fase 1 is klaar (versie 0.32.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
 
 ## Lokaal draaien
 
@@ -94,6 +95,8 @@ Klik op een afbeelding voor de volledige grootte. Afbeelding 4 tot en met 9 kome
 - Regio's terugschrijven naar het origineel, batches over een categorie, en meer (fase 4; zie de [backlog](BACKLOG.md)).
 
 ## Documentatie
+
+De projectsite op [kbnlwikimedia.github.io/commons-mineventory](https://kbnlwikimedia.github.io/commons-mineventory/) bundelt de uitleg (Nederlands en Engels), de rondleiding langs de schermen en de documentatie hieronder als webpagina's. De werkende app komt op Wikimedia Toolforge. De site staat in `site/` en wordt bij elke push naar `main` gebouwd door [een GitHub Action](.github/workflows/pages.yml); lokaal: `pip install -r site/requirements.txt` en `python site/build.py` (uitvoer in `_site/`).
 
 - [Functioneel ontwerp](docs/functioneel-ontwerp.md)
 - [REST-API](docs/api.md)

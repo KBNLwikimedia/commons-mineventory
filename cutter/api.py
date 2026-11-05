@@ -27,7 +27,7 @@ IMAGE_DEFAULT_WIDTH = 1280
 @api.after_request
 def _no_indexing(response):
     """Search engines and crawlers have no business in the API. An old path
-    (deprecated since 0.29.0, gone in 0.32.0) says so, with its successor."""
+    (deprecated since 0.29.0, gone in 0.33.0) says so, with its successor."""
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
     successor = g.get("successor")
     rule = request.url_rule.rule if request.url_rule else ""

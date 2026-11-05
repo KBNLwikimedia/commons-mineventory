@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="nl" data-lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commons Mineventory</title>
+<meta name="description" content="Detect objects in a Commons image. Find, cut out and describe them with AI. An experiment by the KB, national library of the Netherlands.">
+<link rel="icon" href="icoon.svg" type="image/svg+xml">
+<!-- Self-contained on purpose: no external fonts, scripts or CDNs (same privacy rule as the app). -->
+<style>
+  :root {
+    --progressive: #36c; --progressive-hover: #447ff5; --progressive-active: #233566;
+    --text: #202122; --subtle: #54595d; --border: #c8ccd1; --border-subtle: #eaecf0;
+    --bg: #fff; --bg-subtle: #f8f9fa; --bg-progressive: #eaf3ff; --warning-bg: #fef6e7; --warning-border: #a66200;
+    --radius: 2px; --max: 1120px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Lato, Helvetica, Arial, sans-serif;
+         color: var(--text); background: var(--bg); line-height: 1.6; font-size: 16px; }
+  a { color: var(--progressive); }
+  a:hover { color: var(--progressive-hover); }
+  :focus-visible { outline: 2px solid var(--progressive); outline-offset: 2px; }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+
+  /* Language: show only the spans for the current language. */
+  html[data-lang="nl"] [lang="en"]:not(html), html[data-lang="en"] [lang="nl"]:not(html) { display: none !important; }
+
+  header.top { border-bottom: 1px solid var(--border-subtle); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+  header.top .wrap { display: flex; align-items: center; gap: 12px; min-height: 56px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; color: var(--text); text-decoration: none; }
+  .brand img { width: 30px; height: 30px; }
+  .tag { border: 1px solid var(--warning-border); color: var(--warning-border); font-size: .7rem; letter-spacing: .06em;
+         text-transform: uppercase; padding: 0 6px; border-radius: var(--radius); }
+  nav.links { margin-left: auto; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; font-size: .95rem; }
+  nav.links a { text-decoration: none; }
+  .langswitch { display: flex; gap: 2px; }
+  .langswitch button { border: 1px solid var(--border); background: var(--bg); color: var(--progressive); font: inherit; font-size: .85rem;
+                       padding: 2px 8px; cursor: pointer; border-radius: var(--radius); }
+  .langswitch button[aria-pressed="true"] { background: var(--progressive); border-color: var(--progressive); color: #fff; font-weight: 700; }
+
+  .hero { padding: 48px 0 24px; text-align: center; }
+  .hero img.logo { width: 72px; height: 72px; }
+  .hero h1 { font-family: "Linux Libertine", Georgia, Times, serif; font-weight: 400; font-size: 2.6rem; margin: 8px 0 4px; }
+  .hero p.tagline { font-size: 1.25rem; color: var(--subtle); margin: 0 auto 20px; max-width: 46rem; }
+  .buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 7px 14px; border-radius: var(--radius); font-weight: 700; text-decoration: none;
+         border: 1px solid var(--progressive); color: var(--progressive); background: var(--bg); }
+  .btn:hover { background: var(--bg-progressive); }
+  .btn.primary { background: var(--progressive); color: #fff; }
+  .btn.primary:hover { background: var(--progressive-hover); border-color: var(--progressive-hover); color: #fff; }
+  .notice { max-width: 46rem; margin: 22px auto 0; background: var(--warning-bg); border: 1px solid var(--warning-border);
+            padding: 10px 14px; border-radius: var(--radius); font-size: .92rem; text-align: left; }
+
+  /* Carousel */
+  .carousel { margin: 28px auto 8px; max-width: 1000px; }
+  .viewport { position: relative; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--bg-subtle);
+              aspect-ratio: 1440 / 900; box-shadow: 0 4px 18px rgba(0,0,0,.08); }
+  .slide { position: absolute; inset: 0; opacity: 0; transition: opacity .45s ease; }
+  .slide.active { opacity: 1; }
+  .slide img { width: 100%; height: 100%; object-fit: contain; display: block; cursor: zoom-in; }
+  .arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%;
+           border: 1px solid var(--border); background: rgba(255,255,255,.92); color: var(--text); font-size: 1.4rem; cursor: pointer;
+           display: grid; place-items: center; }
+  .arrow:hover { background: #fff; color: var(--progressive); }
+  .arrow.prev { left: 10px; } .arrow.next { right: 10px; }
+  .caption { min-height: 3.4em; text-align: center; margin: 12px auto 4px; max-width: 52rem; color: var(--subtle); }
+  .caption b { color: var(--text); }
+  .controls { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .dots { display: flex; gap: 8px; }
+  .dots button { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--progressive); background: var(--bg); padding: 0; cursor: pointer; }
+  .dots button[aria-current="true"] { background: var(--progressive); }
+  .playpause { border: none; background: none; color: var(--progressive); font: inherit; font-size: .88rem; cursor: pointer; }
+
+  section { padding: 44px 0; }
+  section.alt { background: var(--bg-subtle); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
+  h2 { font-family: "Linux Libertine", Georgia, Times, serif; font-weight: 400; font-size: 1.8rem; margin: 0 0 18px;
+       border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card { background: var(--bg); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 16px 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 1.02rem; }
+  .card p { margin: 0; color: var(--subtle); font-size: .95rem; }
+  ol.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  ol.steps li { counter-increment: step; position: relative; padding: 14px 16px 14px 56px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--bg); }
+  ol.steps li::before { content: counter(step); position: absolute; left: 14px; top: 14px; width: 30px; height: 30px; border-radius: 50%;
+                        background: var(--progressive); color: #fff; font-weight: 700; display: grid; place-items: center; }
+  ol.steps b { display: block; }
+  ol.steps span.d { color: var(--subtle); font-size: .95rem; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: .95rem; background: var(--bg); }
+  table.cmp th, table.cmp td { border: 1px solid var(--border-subtle); padding: 8px 10px; text-align: left; vertical-align: top; }
+  table.cmp th { background: var(--bg-subtle); }
+  .phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .phase { border-left: 4px solid var(--border); padding: 6px 12px; background: var(--bg); }
+  .phase.done { border-color: #14866d; } .phase.next { border-color: var(--progressive); }
+  .phase .st { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--subtle); }
+  .phase.done .st { color: #14866d; } .phase.next .st { color: var(--progressive); }
+  .phase h3 { margin: 2px 0 4px; font-size: 1rem; }
+  .phase p { margin: 0; font-size: .92rem; color: var(--subtle); }
+  .tech { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .tech li { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: .9rem; background: var(--bg); }
+  .doclinks { columns: 2 260px; padding-left: 1.2em; }
+
+  footer { border-top: 1px solid var(--border); padding: 24px 0 36px; color: var(--subtle); font-size: .88rem; }
+  footer p { margin: 4px 0; }
+
+  /* Lightbox */
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 100%; box-shadow: 0 0 40px rgba(0,0,0,.5); background: #fff; }
+  .lightbox button { position: absolute; top: 14px; right: 18px; font-size: 2rem; color: #fff; background: none; border: none; cursor: pointer; }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 2rem; }
+    .arrow { width: 36px; height: 36px; font-size: 1.1rem; }
+    nav.links .hide-sm { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .slide { transition: none; } html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icoon.svg" alt="">Commons Mineventory</a>
+    <span class="tag"><span lang="nl">experiment</span><span lang="en">experiment</span></span>
+    <nav class="links" aria-label="Site">
+      <a class="hide-sm" href="#rondleiding"><span lang="nl">Rondleiding</span><span lang="en">Tour</span></a>
+      <a class="hide-sm" href="#functies"><span lang="nl">Functies</span><span lang="en">Features</span></a>
+      <a class="hide-sm" href="#status">Status</a>
+      <a href="docs/index.html"><span lang="nl">Documentatie</span><span lang="en">Docs</span></a>
+      <a href="https://github.com/KBNLwikimedia/commons-mineventory">GitHub</a>
+      <div class="langswitch" role="group" aria-label="Taal / Language">
+        <button type="button" data-set-lang="nl" aria-pressed="true">NL</button>
+        <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero wrap">
+    <img class="logo" src="icoon.svg" alt="">
+    <h1>Commons Mineventory</h1>
+    <p class="tagline">
+      <span lang="nl">Detecteer objecten in een Commons-afbeelding. Vind ze, snijd ze uit en beschrijf ze met AI.</span>
+      <span lang="en">Detect objects in a Commons image. Find, cut out and describe them with AI.</span>
+    </p>
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/KBNLwikimedia/commons-mineventory"><span lang="nl">Broncode op GitHub</span><span lang="en">Source code on GitHub</span></a>
+      <a class="btn" href="#rondleiding"><span lang="nl">Bekijk de rondleiding</span><span lang="en">Take the tour</span></a>
+      <a class="btn" href="docs/index.html"><span lang="nl">Documentatie</span><span lang="en">Documentation (Dutch)</span></a>
+    </div>
+    <div class="notice">
+      <span lang="nl"><b>Dit is een experiment</b> en nog geen openbare dienst: de app draait voorlopig alleen lokaal. Deze pagina laat zien wat hij doet; de app zelf heeft een Python-server nodig en draait straks op Wikimedia Toolforge.</span>
+      <span lang="en"><b>This is an experiment</b> and not yet a public service: for now the app only runs locally. This page shows what it does; the app itself needs a Python server and will later run on Wikimedia Toolforge.</span>
+    </div>
+  </div>
+
+  <div class="wrap" id="rondleiding">
+    <div class="carousel" aria-roledescription="carousel" aria-label="Rondleiding / Tour">
+      <div class="viewport" id="viewport" aria-live="polite"></div>
+      <p class="caption" id="caption"></p>
+      <div class="controls">
+        <div class="dots" id="dots" role="group" aria-label="Dia's / Slides"></div>
+        <button type="button" class="playpause" id="playpause"></button>
+      </div>
+    </div>
+  </div>
+
+  <section id="functies">
+    <div class="wrap">
+      <h2><span lang="nl">Wat de app doet</span><span lang="en">What the app does</span></h2>
+      <div class="grid">
+        <div class="card">
+          <h3><span lang="nl">Elk Commons-bestand openen</span><span lang="en">Open any Commons file</span></h3>
+          <p><span lang="nl">Via de URL, de titel of de M-id. Ook pagina's uit PDF, DjVu en TIFF, en originelen boven 100 megapixel.</span>
+             <span lang="en">By URL, title or M-id. Also pages from PDF, DjVu and TIFF, and originals above 100 megapixels.</span></p>
+        </div>
+        <div class="card">
+          <h3><span lang="nl">Objecten vinden met SAM 3.1</span><span lang="en">Find objects with SAM 3.1</span></h3>
+          <p><span lang="nl">Met een zoekterm, met AI-suggesties voor de hele afbeelding, of door aan te wijzen. Elk object krijgt een kader en de vorm (masker).</span>
+             <span lang="en">With a search term, with AI suggestions for the whole image, or by pointing. Every object gets a box and its shape (mask).</span></p>
+        </div>
+        <div class="card">
+          <h3><span lang="nl">Regio's die al op Commons staan</span><span lang="en">Regions already on Commons</span></h3>
+          <p><span lang="nl">De gele rechthoeken van <i>beeldt af</i> met positie en bestandsnotities worden gratis objecten, elk apart uit te snijden.</span>
+             <span lang="en">The yellow <i>depicts</i> rectangles with a position, and file notes, become free objects, each to be cut out separately.</span></p>
+        </div>
+        <div class="card">
+          <h3><span lang="nl">Beschrijven met Muse Spark</span><span lang="en">Describe with Muse Spark</span></h3>
+          <p><span lang="nl">Wat staat hierop? In het Nederlands en Engels, met de tekst in het beeld. AI-teksten zijn herkenbaar en met de hand aan te passen, met versies.</span>
+             <span lang="en">What is on this? In Dutch and English, with the text in the image. AI texts are marked and can be edited by hand, with versions.</span></p>
+        </div>
+        <div class="card">
+          <h3><span lang="nl">Uitsnijden in volle resolutie</span><span lang="en">Cut out at full resolution</span></h3>
+          <p><span lang="nl">Als JPG (de rechthoek) of transparante PNG (de vorm), los of als zip, altijd uit het origineel.</span>
+             <span lang="en">As JPG (the rectangle) or transparent PNG (the shape), one by one or as a zip, always from the original.</span></p>
+        </div>
+        <div class="card">
+          <h3><span lang="nl">Klaar voor Commons</span><span lang="en">Ready for Commons</span></h3>
+          <p><span lang="nl">Per uitsnede een concept zoals de bestandspagina: bestandsnaam, captions, licentie, categorieën, <code>{{Extracted from}}</code> en gestructureerde gegevens.</span>
+             <span lang="en">For each cut-out a draft like the file page: file name, captions, licence, categories, <code>{{Extracted from}}</code> and structured data.</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
+      <h2><span lang="nl">Zo werkt het</span><span lang="en">How it works</span></h2>
+      <ol class="steps">
+        <li><b><span lang="nl">Open</span><span lang="en">Open</span></b>
+          <span class="d"><span lang="nl">Plak een bestand van Wikimedia Commons.</span><span lang="en">Paste a file from Wikimedia Commons.</span></span></li>
+        <li><b><span lang="nl">Vind</span><span lang="en">Find</span></b>
+          <span class="d"><span lang="nl">Laat de AI objecten zoeken, neem regio's van Commons over, of teken zelf.</span><span lang="en">Let the AI find objects, take over regions from Commons, or draw your own.</span></span></li>
+        <li><b><span lang="nl">Beschrijf</span><span lang="en">Describe</span></b>
+          <span class="d"><span lang="nl">Vraag een beschrijving, controleer en verbeter hem.</span><span lang="en">Ask for a description, check it and improve it.</span></span></li>
+        <li><b><span lang="nl">Publiceer</span><span lang="en">Publish</span></b>
+          <span class="d"><span lang="nl">Sla uitsneden op en zet ze na je bevestiging als nieuwe bestanden op Commons (fase 2).</span><span lang="en">Save cut-outs and, after your confirmation, put them on Commons as new files (phase 2).</span></span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2><span lang="nl">Een verdieping op CropTool</span><span lang="en">Going beyond CropTool</span></h2>
+      <table class="cmp">
+        <thead><tr><th></th><th><a href="https://commons.wikimedia.org/wiki/Commons:CropTool">CropTool</a></th><th>Commons Mineventory</th></tr></thead>
+        <tbody>
+          <tr><th><span lang="nl">Selectie</span><span lang="en">Selection</span></th>
+              <td><span lang="nl">Eén rechthoek, met de hand</span><span lang="en">One rectangle, by hand</span></td>
+              <td><span lang="nl">Veel objecten tegelijk, gevonden met AI</span><span lang="en">Many objects at once, found with AI</span></td></tr>
+          <tr><th><span lang="nl">Vorm</span><span lang="en">Shape</span></th>
+              <td><span lang="nl">Rechthoek</span><span lang="en">Rectangle</span></td>
+              <td><span lang="nl">Rechthoek (JPG) of de vorm van het object (PNG)</span><span lang="en">Rectangle (JPG) or the object's shape (PNG)</span></td></tr>
+          <tr><th><span lang="nl">Resultaat</span><span lang="en">Result</span></th>
+              <td><span lang="nl">Origineel overschrijven of één nieuw bestand</span><span lang="en">Overwrite the original or one new file</span></td>
+              <td><span lang="nl">Altijd nieuwe bestanden, nooit het origineel overschrijven</span><span lang="en">Always new files, never overwriting the original</span></td></tr>
+          <tr><th><span lang="nl">Beschrijving</span><span lang="en">Description</span></th>
+              <td><span lang="nl">Die van het origineel</span><span lang="en">The original's</span></td>
+              <td><span lang="nl">Een nieuwe per uitsnede, plus de gegevens van het origineel</span><span lang="en">A new one per cut-out, plus the original's data</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="alt" id="status">
+    <div class="wrap">
+      <h2>Status</h2>
+      <div class="phases">
+        <div class="phase done"><div class="st"><span lang="nl">Klaar</span><span lang="en">Done</span></div>
+          <h3><span lang="nl">Fase 1: lokaal</span><span lang="en">Phase 1: local</span></h3>
+          <p><span lang="nl">Openen, detecteren, beschrijven, uitsnijden, Commons-concept, REST-API, tweetalige interface.</span><span lang="en">Open, detect, describe, cut out, Commons draft, REST API, bilingual interface.</span></p></div>
+        <div class="phase next"><div class="st"><span lang="nl">Volgende</span><span lang="en">Next</span></div>
+          <h3><span lang="nl">Fase 2: inloggen en uploaden</span><span lang="en">Phase 2: log in and upload</span></h3>
+          <p><span lang="nl">OAuth met je Wikimedia-account, uploaden naar een testwiki, beheerpaneel.</span><span lang="en">OAuth with your Wikimedia account, uploads to a test wiki, admin panel.</span></p></div>
+        <div class="phase"><div class="st"><span lang="nl">Later</span><span lang="en">Later</span></div>
+          <h3><span lang="nl">Fase 3: live</span><span lang="en">Phase 3: live</span></h3>
+          <p><span lang="nl">Op Wikimedia Toolforge, en de eerste echte uploads.</span><span lang="en">On Wikimedia Toolforge, and the first real uploads.</span></p></div>
+        <div class="phase"><div class="st"><span lang="nl">Later</span><span lang="en">Later</span></div>
+          <h3><span lang="nl">Fase 4: verdieping</span><span lang="en">Phase 4: going further</span></h3>
+          <p><span lang="nl">Regio's terugschrijven, hele categorieën, IIIF-annotaties.</span><span lang="en">Writing regions back, whole categories, IIIF annotations.</span></p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2><span lang="nl">Techniek en documentatie</span><span lang="en">Technology and documentation</span></h2>
+      <ul class="tech">
+        <li>Python 3.11+ · Flask</li><li>Vue 3</li><li><a href="https://doc.wikimedia.org/codex/latest/">Codex 2</a></li><li>Vite</li>
+        <li>SAM 3.1 · Muse Spark (Meta Model API)</li><li>libvips</li><li>REST API · OpenAPI</li>
+      </ul>
+      <ul class="doclinks">
+        <li><a href="docs/functioneel-ontwerp.html"><span lang="nl">Functioneel ontwerp</span><span lang="en">Functional design (Dutch)</span></a></li>
+        <li><a href="docs/api.html">REST-API</a></li>
+        <li><a href="docs/artwork-velden.html"><span lang="nl">Velden per sjabloon</span><span lang="en">Fields per template (Dutch)</span></a></li>
+        <li><a href="docs/privacy.html" lang="nl">Privacy (concept)</a><a href="docs/privacy.en.html" lang="en">Privacy (draft)</a></li>
+        <li><a href="docs/overdracht.html"><span lang="nl">Overdracht</span><span lang="en">Handover (Dutch)</span></a></li>
+        <li><a href="backlog.html">Backlog</a></li>
+        <li><a href="changelog.html">Changelog</a></li>
+        <li><a href="https://github.com/KBNLwikimedia/commons-mineventory#readme"><span lang="nl">README op GitHub</span><span lang="en">README on GitHub</span></a></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><span lang="nl">Dit is een experiment. Het is geen officiële dienst van de KB, nationale bibliotheek, of van de Wikimedia Foundation. Aan deze toepassing kunnen geen rechten worden ontleend.</span>
+       <span lang="en">This is an experiment. It is not an official service of the KB, national library of the Netherlands, or of the Wikimedia Foundation. No rights can be derived from this application.</span></p>
+    <p><span lang="nl">Code onder de MIT-licentie. De schermafbeeldingen tonen bestanden van Wikimedia Commons in het publieke domein. Deze pagina laadt niets van derden.</span>
+       <span lang="en">Code under the MIT licence. The screenshots show public-domain files from Wikimedia Commons. This page loads nothing from third parties.</span></p>
+  </div>
+</footer>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Schermafbeelding / Screenshot">
+  <button type="button" id="lightbox-close" aria-label="Sluiten / Close">×</button>
+  <img id="lightbox-img" alt="">
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var SLIDES = [
+    { file: "01-werkblad-ai.png",
+      nl: ["Het werkblad", "Bekeken, Beeld, Objecten zoeken en Wat je vond: de AI-beschrijving van de hele afbeelding en de gevonden objecten met hun maskers."],
+      en: ["The worksheet", "Viewed, Image, Find objects and What you found: the AI description of the whole image and the objects found, with their masks."] },
+    { file: "02-album-maskers.png",
+      nl: ["Veel objecten tegelijk", "23 objecten op een blad uit een album amicorum, met kaders en maskers."],
+      en: ["Many objects at once", "23 objects on a leaf from an album amicorum, with boxes and masks."] },
+    { file: "03-zoektermen-engels.png",
+      nl: ["AI-zoektermen", "Per zoekterm hoeveel objecten er gevonden zijn, en alles in één keer detecteren. Hier in de Engelse interface."],
+      en: ["AI search terms", "How many objects were found per search term, and detecting them all at once. Shown in the English interface."] },
+    { file: "04-regios-uit-commons.png",
+      nl: ["Regio's uit Commons", "De dertien heiligen die op Commons al als ‘beeldt af’ met positie staan, gratis als objecten. (Proefmodus)"],
+      en: ["Regions from Commons", "The thirteen saints already on Commons as ‘depicts’ with a position, as free objects. (Demo mode)"] },
+    { file: "05-wat-staat-hierop.png",
+      nl: ["Wat staat hierop?", "Soort, onderwerp en beschrijving in het Nederlands en Engels, met AI-merkjes en voorstellen voor ‘beeldt af’."],
+      en: ["What is on this?", "Type, subject and description in Dutch and English, with AI badges and suggestions for ‘depicts’."] },
+    { file: "06-vergroter.png",
+      nl: ["De vergroter", "De uitsnede in volledige resolutie, bron en positie, bijschrift, downloaden als JPG of PNG. (Proefmodus)"],
+      en: ["The magnifier", "The cut-out at full resolution, source and position, caption, download as JPG or PNG. (Demo mode)"] },
+    { file: "07-commons-concept.png",
+      nl: ["Het Commons-concept", "Bestandsnaam, formaat en captions, zoals de uitsnede op Commons komt. (Proefmodus)"],
+      en: ["The Commons draft", "File name, format and captions, as the cut-out will appear on Commons. (Demo mode)"] },
+    { file: "08-gestructureerde-gegevens.png",
+      nl: ["Gestructureerde gegevens", "‘Beeldt af’, auteursrechtstatus, collectie en meer, te bewerken zoals op Commons. (Proefmodus)"],
+      en: ["Structured data", "‘Depicts’, copyright status, collection and more, editable as on Commons. (Demo mode)"] },
+    { file: "09-objecten.png",
+      nl: ["Objecten", "Alle opgeslagen uitsneden, met hoe lang ze nog bewaard worden, en de prullenbak. (Proefmodus)"],
+      en: ["Objects", "All saved cut-outs, with how long they will still be kept, and the bin. (Demo mode)"] }
+  ];
+  var UI = {
+    nl: { prev: "Vorige", next: "Volgende", pause: "❚❚ Pauze", play: "▶ Afspelen", slide: "Dia", of: "van", enlarge: "Klik om te vergroten" },
+    en: { prev: "Previous", next: "Next", pause: "❚❚ Pause", play: "▶ Play", slide: "Slide", of: "of", enlarge: "Click to enlarge" }
+  };
+  var root = document.documentElement;
+  var viewport = document.getElementById("viewport");
+  var caption = document.getElementById("caption");
+  var dots = document.getElementById("dots");
+  var playpause = document.getElementById("playpause");
+  var lightbox = document.getElementById("lightbox");
+  var lightboxImg = document.getElementById("lightbox-img");
+  var current = 0, timer = null, playing = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function lang() { return root.getAttribute("data-lang"); }
+  // A dropped connection should not leave a broken image: try twice more.
+  function retryOnError(img) {
+    var tries = 0;
+    img.addEventListener("error", function () {
+      if (tries++ >= 2) return;
+      var base = img.src.split("?")[0];
+      setTimeout(function () { img.src = base + "?retry=" + tries; }, 800 * tries);
+    });
+  }
+  function sentence(title) { return /[.?!]$/.test(title) ? title + " " : title + ". "; }
+
+  SLIDES.forEach(function (s, i) {
+    var div = document.createElement("div");
+    div.className = "slide";
+    var img = document.createElement("img");
+    img.src = "screenshots/" + s.file;
+    img.loading = i === 0 ? "eager" : "lazy";
+    img.addEventListener("click", function () { openLightbox(i); });
+    retryOnError(img);
+    div.appendChild(img);
+    viewport.appendChild(div);
+    var dot = document.createElement("button");
+    dot.type = "button";
+    dot.addEventListener("click", function () { show(i); restart(); });
+    dots.appendChild(dot);
+  });
+  var prev = document.createElement("button"); prev.className = "arrow prev"; prev.type = "button"; prev.textContent = "‹";
+  var next = document.createElement("button"); next.className = "arrow next"; next.type = "button"; next.textContent = "›";
+  prev.addEventListener("click", function () { show(current - 1); restart(); });
+  next.addEventListener("click", function () { show(current + 1); restart(); });
+  viewport.appendChild(prev); viewport.appendChild(next);
+
+  function render() {
+    var l = lang(), t = UI[l];
+    [].forEach.call(viewport.querySelectorAll(".slide"), function (el, i) {
+      el.classList.toggle("active", i === current);
+      el.setAttribute("aria-hidden", i === current ? "false" : "true");
+      var img = el.querySelector("img");
+      img.alt = sentence(SLIDES[i][l][0]) + SLIDES[i][l][1];
+      img.title = t.enlarge;
+    });
+    [].forEach.call(dots.children, function (d, i) {
+      d.setAttribute("aria-current", i === current ? "true" : "false");
+      d.setAttribute("aria-label", t.slide + " " + (i + 1) + " " + t.of + " " + SLIDES.length + ": " + SLIDES[i][l][0]);
+    });
+    prev.setAttribute("aria-label", t.prev); next.setAttribute("aria-label", t.next);
+    caption.innerHTML = "";
+    var b = document.createElement("b"); b.textContent = (current + 1) + ". " + sentence(SLIDES[current][l][0]);
+    caption.appendChild(b); caption.appendChild(document.createTextNode(SLIDES[current][l][1]));
+    playpause.textContent = playing ? t.pause : t.play;
+  }
+  function show(i) { current = (i + SLIDES.length) % SLIDES.length; render(); }
+  function restart() { clearInterval(timer); if (playing) timer = setInterval(function () { show(current + 1); }, 5000); }
+  playpause.addEventListener("click", function () { playing = !playing; restart(); render(); });
+  viewport.addEventListener("mouseenter", function () { clearInterval(timer); });
+  viewport.addEventListener("mouseleave", restart);
+  document.addEventListener("keydown", function (e) {
+    if (lightbox.classList.contains("open")) {
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowRight") { show(current + 1); openLightbox(current); }
+      if (e.key === "ArrowLeft") { show(current - 1); openLightbox(current); }
+      return;
+    }
+    var tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea") return;
+    if (e.key === "ArrowRight" && viewport.matches(":hover, :focus-within")) { show(current + 1); restart(); }
+    if (e.key === "ArrowLeft" && viewport.matches(":hover, :focus-within")) { show(current - 1); restart(); }
+  });
+
+  function openLightbox(i) {
+    lightboxImg.src = viewport.querySelectorAll(".slide img")[i].src;
+    lightboxImg.alt = SLIDES[i][lang()][0];
+    lightbox.classList.add("open"); clearInterval(timer);
+    document.getElementById("lightbox-close").focus();
+  }
+  function closeLightbox() { lightbox.classList.remove("open"); restart(); }
+  lightbox.addEventListener("click", function (e) { if (e.target !== lightboxImg) closeLightbox(); });
+
+  // Language: ?lang=, then the earlier choice, then the browser, else English (as in the app).
+  function setLang(l) {
+    root.setAttribute("data-lang", l); root.setAttribute("lang", l);
+    [].forEach.call(document.querySelectorAll("[data-set-lang]"), function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-set-lang") === l ? "true" : "false");
+    });
+    try { localStorage.setItem("mineventory-lang", l); } catch (e) { /* private mode */ }
+    render();
+  }
+  [].forEach.call(document.querySelectorAll("[data-set-lang]"), function (b) {
+    b.addEventListener("click", function () { setLang(b.getAttribute("data-set-lang")); });
+  });
+  var fromUrl = new URLSearchParams(location.search).get("lang");
+  var stored = null; try { stored = localStorage.getItem("mineventory-lang"); } catch (e) { /* ignore */ }
+  var browser = (navigator.language || "").slice(0, 2).toLowerCase();
+  var start = [fromUrl, stored, browser].filter(function (x) { return x === "nl" || x === "en"; })[0] || "en";
+  setLang(start);
+  restart();
+})();
+</script>
+</body>
+</html>

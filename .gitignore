@@ -13,6 +13,9 @@ node_modules/
 static/dist/
 coverage/
 
+# GitHub Pages build output (site/build.py)
+_site/
+
 # Configuration with secrets (only the example is shared)
 .env
 .env.*
