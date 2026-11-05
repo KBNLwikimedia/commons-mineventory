@@ -214,6 +214,20 @@ def test_description_with_dummy(http):
     assert http.delete(PAGE + "/inventaris/zoektermen").get_json()["inventaris"]["zoektermen"] == []
     assert http.post(PAGE + "/inventaris/zoektermen", json={}).get_json()["inventaris"]["zoektermen"]
     assert http.delete(PAGE + "/inventaris/alles").status_code == 404
+    # The description of the image by hand, with its earlier versions.
+    first = http.get(PAGE + "/inventaris").get_json()["inventaris"]
+    edited = http.patch(PAGE + "/inventaris", json={"samenvatting": "Met de hand."}).get_json()["inventaris"]
+    assert edited["samenvatting"] == "Met de hand." and edited["bewerkt"] and edited["ai_origineel"]["samenvatting"] == first["samenvatting"]
+    assert edited["zoektermen"] == first["zoektermen"] or edited["zoektermen"]
+    history = http.get(PAGE + "/inventaris/geschiedenis").get_json()["geschiedenis"]
+    assert history[0]["samenvatting"] == first["samenvatting"]
+    assert http.patch(PAGE + "/inventaris", json={"onbekend": "x"}).status_code == 400
+    back = http.put(PAGE + "/inventaris/beschrijving", json={"versie": history[0]["versie"]}).get_json()
+    assert back["inventaris"]["samenvatting"] == first["samenvatting"] and not back["inventaris"].get("bewerkt")
+    assert any(h["samenvatting"] == "Met de hand." for h in back["geschiedenis"])
+    assert http.put(PAGE + "/inventaris/zoektermen", json={"versie": "x"}).status_code == 404
+    gone = http.delete(f"{PAGE}/inventaris/geschiedenis/{quote(back['geschiedenis'][0]['versie'], safe='')}").get_json()["geschiedenis"]
+    assert len(gone) == len(back["geschiedenis"]) - 1
 
 
 def test_merge_duplicates_and_overviews(http):
@@ -286,6 +300,11 @@ def test_docs_api_md_mentions_every_path(app):
 
 
 # -- Pages -------------------------------------------------------------------------------------
+
+
+def test_privacy_statement_in_both_languages(http):
+    assert "Wat de app van jou verwerkt" in http.get("/privacy?uselang=nl").get_data(as_text=True)
+    assert "What the app processes about you" in http.get("/privacy?uselang=en").get_data(as_text=True)
 
 
 @pytest.mark.parametrize("path", ["/", "/objecten", "/commons?mid=M1", "/verbruik", "/docs", "/privacy", "/changelog", "/sitemap"])

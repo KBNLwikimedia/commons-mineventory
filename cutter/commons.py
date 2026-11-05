@@ -241,6 +241,8 @@ class CommonsClient:
             "paginas": pages_count if mime in PAGED else 1,
             "ondersteund": supported,
             "niet_ondersteund": reason,
+            # The same as a code (svg, gif, media, type), for the interface in any language.
+            "niet_ondersteund_code": self._unsupported_code(mime),
             # Above MAX_MEGAPIXELS: cut-outs in pieces with libvips (cutter/tegels.py), when installed.
             "uitsnijden_mogelijk": supported and (mime in RENDERED or width * height <= self.max_megapixels * 1e6 or tegels.available()),
             "tegels": supported and mime not in RENDERED and width * height > self.max_megapixels * 1e6 and tegels.available(),
@@ -291,16 +293,30 @@ class CommonsClient:
             return {"wikidata": qid, "via": source, "label": None, "datum": None, "datum_eigenschap": None,
                     "makers": [], "maker_eigenschap": None, "maker_onbekend": False}
 
-    def _supported(self, mime, width, height):
+    UNSUPPORTED = {
+        "svg": "SVG wordt niet ondersteund: snijd een vectorbestand liever uit in een tekenprogramma.",
+        "gif": "GIF wordt niet ondersteund (vaak geanimeerd).",
+        "media": "Video en audio worden niet ondersteund.",
+        "type": "Bestandstype {mime} wordt niet ondersteund.",
+    }
+
+    def _unsupported_code(self, mime):
+        """Why a file type is not supported, as a code for the interface (None: supported)."""
         if mime in SUPPORTED:
-            return True, None
+            return None
         if mime == "image/svg+xml":
-            return False, "SVG wordt niet ondersteund: snijd een vectorbestand liever uit in een tekenprogramma."
+            return "svg"
         if mime == "image/gif":
-            return False, "GIF wordt niet ondersteund (vaak geanimeerd)."
+            return "gif"
         if mime.startswith(("video/", "audio/", "application/ogg")):
-            return False, "Video en audio worden niet ondersteund."
-        return False, f"Bestandstype {mime or 'onbekend'} wordt niet ondersteund."
+            return "media"
+        return "type"
+
+    def _supported(self, mime, width, height):
+        code = self._unsupported_code(mime)
+        if code is None:
+            return True, None
+        return False, self.UNSUPPORTED[code].format(mime=mime or "onbekend")
 
     def entity(self, mid):
         """The parsed MediaInfo entity (SDC) of a file; empty when it has none."""

@@ -219,6 +219,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .viewer { position: relative; overflow: hidden; flex: 1; background: #eaecf0; cursor: grab; touch-action: none; user-select: none; }
 .viewer.pannen { cursor: grabbing; }
 .viewer.aanwijzen, .viewer.tekenen { cursor: crosshair; }
+/* Pointing or drawing: the crosshair stays, also above a frame (no hand). */
+.viewer.aanwijzen .object-rand, .viewer.tekenen .object-rand { cursor: crosshair; }
 .viewer-podium { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .viewer-podium img { display: block; width: 100%; height: 100%; }
 .viewer-podium svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -374,8 +376,11 @@ h2, h3, h4 { margin: 0.5rem 0; }
   #339966 8px 10px, transparent 10px 11px, #339966 11px 12px, transparent 12px 13px,
   #006699 13px 15px, transparent 15px 16px, #006699 16px 17px, transparent 17px 18px, #006699 18px 20px); }
 .cc-ikoon-bewerken::before { content: "✎"; color: var(--color-progressive, #36c); font-size: 0.95em; }
-.cc-melding-object { display: flex; gap: 0.5rem; align-items: flex-start; margin-bottom: 0.25rem; }
-.cc-melding-object img { width: 3rem; height: 3rem; object-fit: contain; border: 1px solid var(--cc-rand); background: var(--background-color-interactive-subtle, #f8f9fa); flex-shrink: 0; }
+/* A notice about one object (e.g. "Naar de prullenbak"): one compact line. */
+.cc-melding-object { display: inline-flex; gap: 0.4rem; align-items: center; margin-right: 0.5rem; vertical-align: middle; }
+.cc-melding-object img { width: 1.5rem; height: 1.5rem; object-fit: cover; border: 1px solid var(--cc-rand); background: var(--background-color-interactive-subtle, #f8f9fa); flex-shrink: 0; }
+.cc-melding-compact.cdx-message { padding-top: 0.2rem; padding-bottom: 0.2rem; min-height: 0; font-size: 0.875rem; align-items: center; }
+.cc-meldingen:has(.cc-melding-compact) { gap: 0.25rem; }
 .cc-melding-beschrijving { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-bulk { margin: 0 0 0.75rem; }
 .cc-facet-bestand { display: inline-block; max-width: 11rem; vertical-align: bottom; }
@@ -552,3 +557,20 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bevestig-blok p { margin: 0; }
 .cc-bevestig-blok ul { margin: 0; padding-left: 1.25rem; }
 .cc-mid-link { font-weight: bold; }
+/* The description of the whole image: Dutch, English (italic), the text read; editable in place. */
+.cc-ai-groep + .cc-ai-groep, .cc-ai-resultaat .cc-veld-bewerken + .cc-ai-groep, .cc-ai-groep + .cc-veld-bewerken { margin-top: 0.4rem; }
+.cc-ai-groep .cc-ai-en { font-style: italic; }
+.cc-ai-groep blockquote { margin: 0.2rem 0 0; padding-left: 0.6rem; border-left: 3px solid var(--cc-rand); white-space: pre-line; font-style: italic; }
+.cc-pagina-beschrijving .cc-tekst-acties { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0 0 0.5rem; }
+/* Earlier versions: two lines each; hover shows the whole text, a click unfolds it. */
+.cc-geschiedenis-tekstblok { cursor: pointer; border-radius: 2px; }
+.cc-geschiedenis-tekstblok:hover .cc-geschiedenis-meer, .cc-geschiedenis-tekstblok:focus-visible .cc-geschiedenis-meer { text-decoration: underline; }
+.cc-geschiedenis-tekstblok:focus-visible { outline: 2px solid var(--color-progressive, #36c); outline-offset: 2px; }
+.cc-geschiedenis-tekstblok.open .cc-geschiedenis-beschrijving { display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-line; }
+.cc-geschiedenis-tekstblok .cc-geschiedenis-meer { align-self: flex-start; font-size: 0.75rem; margin-top: 0.1rem; }
+.cc-geschiedenis-lijst li strong { font-size: 0.8125rem; line-height: 1.3; }
+.cc-acties-rij { display: flex; flex-wrap: wrap; gap: 0.4rem; padding-bottom: 0.6rem; margin-bottom: 0.2rem; border-bottom: 1px solid var(--cc-rand); }
+.cc-acties-rij .cdx-button { flex: 1 1 auto; max-width: 100%; white-space: normal; height: auto; min-height: 32px; }
+.cc-zoekresultaat { margin: 0.4rem 0; }
+.cc-niet-vragen { margin-top: 0.75rem; }
+.cc-vergroter-nav { display: inline-flex; align-items: center; gap: 0.15rem; flex: none; white-space: nowrap; }

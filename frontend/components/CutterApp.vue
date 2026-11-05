@@ -34,7 +34,7 @@
     </div>
 
     <div v-if="file && !file.ondersteund" class="cc-unsupported">
-      <cdx-message type="warning">{{ file.niet_ondersteund }}</cdx-message>
+      <cdx-message type="warning">{{ file.niet_ondersteund_code ? t(`file.unsupported_${file.niet_ondersteund_code}`, { mime: file.mime || "?" }) : file.niet_ondersteund }}</cdx-message>
     </div>
 
     <div v-else-if="file && page" class="cc-werkblad" :class="`cc-mobiel-${mobileTab}`" :style="{ '--cc-kolommen': gridColumns }">
@@ -87,12 +87,12 @@
           :inventory="inventory"
           :objects="objects"
           :trash-terms="trashTerms"
+          :last-result="lastResult"
           :point-mode="pointMode"
           @detect="detect"
           @inventory="askInventory(Boolean(inventory), $event?.deel || null)"
           @forget-inventory="forgetInventory($event?.deel || null)"
-          @merge="mergeDuplicates"
-          @describe-all="describeAll"
+          @inventory-changed="inventory = $event"
           :draw-mode="drawMode"
           @point-mode="setMode('point', $event)"
           @draw-mode="setMode('draw', $event)"
@@ -121,6 +121,17 @@
         />
         <div class="cc-acties">
           <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }} <retention-info /></p>
+          <!-- What you do with what you found: describe the ticked ones, merge duplicates,
+               save. A button is disabled when there is nothing to do. -->
+          <span class="cc-acties-rij">
+            <cdx-button action="progressive" :disabled="busy || !toDescribe" :title="t('objects.describe_help')" @click="describeAll">
+              {{ t("panel.describe_all") }}<template v-if="toDescribe"> ({{ toDescribe }}) <span class="cc-kosten">{{ describeCost }}</span></template>
+            </cdx-button>
+            <cdx-button action="progressive" weight="quiet" :disabled="busy || objects.length < 2" :title="t('objects.merge_help')" @click="mergeDuplicates">
+              {{ t("panel.merge") }}
+            </cdx-button>
+          </span>
+          <busy-note v-if="busy && busyAt === 'objecten'" :message="t('busy.describe')" />
           <cdx-button action="progressive" weight="primary" :disabled="!selectedCount || busy" @click="saveSelection">
             {{ t("actions.save", { n: selectedCount }) }}
           </cdx-button>
@@ -142,6 +153,9 @@
       :file="file"
       :n="pageN"
       :object="magnified"
+      :position="{ index: magnifiedIndex + 1, total: listOrder.length }"
+      :list-name="listNames[magnifiedId] || ''"
+      @step="stepMagnifier"
       @changed="replaceObject"
       @trashed="trashObject($event)"
       @refine="refineMask"
@@ -158,11 +172,12 @@ import { cdxIconDownload, cdxIconPrevious, cdxIconUpload } from "@wikimedia/code
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { askConfirm } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import BusyNote from "./BusyNote.vue";
 import ColumnHeader from "./ColumnHeader.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
 import ColumnStrip from "./ColumnStrip.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { addToHistory, appUrl, clearHistory, objectName, readHistory, readStart, removeFromHistory, setAside } from "../state.js";
+import { addToHistory, appUrl, clearHistory, numberedNames, objectName, readHistory, readStart, removeFromHistory, setAside } from "../state.js";
 import ViewedPanel from "./ViewedPanel.vue";
 import DetectionPanel from "./DetectionPanel.vue";
 import FileBar from "./FileBar.vue";
@@ -331,7 +346,11 @@ function replaceObject(changed) {
 
 // -- Detection (7) ----------------------------------------------------------------------
 
+// The outcome of the last detection, for the panel ({found, excluded, prompt, modus}).
+const lastResult = ref(null);
+
 async function detect(request) {
+  lastResult.value = null;
   const base = pagePath(file.value.mid, pageN.value);
   busy.value = true;
   try {
@@ -341,8 +360,9 @@ async function detect(request) {
     }
     const result = await post(`${base}/detecties`, request);
     replaceObjects(result.objecten, result.nieuw);
-    if (result.niets_gevonden) notify("notice", t("detect.nothing"));
-    else notify("success", t("detect.found", { n: result.nieuw.length }));
+    // The outcome is shown in the panel, under the button that asked for it.
+    const excluded = result.objecten.filter((o) => result.nieuw.includes(o.id) && o.status === "uitgesloten").length;
+    lastResult.value = { found: result.nieuw.length - excluded, excluded, prompt: request.prompt || "", modus: request.modus, at: Date.now() };
   } catch (error) {
     fail(error);
   } finally {
@@ -391,7 +411,14 @@ async function mergeDuplicates() {
   }
 }
 
+// Ticked objects without a description: what "Describe selection" describes, and its price.
+const toDescribe = computed(() => objects.value.filter((o) => o.status === "geselecteerd" && !o.beschrijving).length);
+const describeCost = computed(() => (props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * toDescribe.value, props.config.taal)})` : t("panel.free")));
+// Where the waiting feedback goes for actions in the objects column.
+const busyAt = ref(null);
+
 async function describeAll() {
+  busyAt.value = "objecten";
   const chosen = objects.value.filter((o) => o.status === "geselecteerd" && !o.beschrijving);
   if (!chosen.length) return notify("notice", t("describe.nothing_to_do"));
   const usd = props.config.muse.beschrijving_usd * chosen.length;
@@ -407,13 +434,15 @@ async function describeAll() {
     fail(error);
   } finally {
     busy.value = false;
+    busyAt.value = null;
   }
 }
 
 async function onPoint({ x, y }) {
   if (!pointMode.value) return;
-  const hit = objects.value.find((o) => o.box.x <= x && x <= o.box.x + o.box.w && o.box.y <= y && y <= o.box.y + o.box.h);
-  if (!hit && !(await confirmCost(1, props.config.sam_usd))) return;
+  // Always the price first: only a click on the shape of a known object is free,
+  // and the shapes are on the server (a click in a box beside its shape is a new search).
+  if (!(await confirmCost(1, props.config.sam_usd))) return;
   busy.value = true;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { punt: { x, y } });
@@ -489,6 +518,7 @@ async function trashObject(id) {
     go: t("objects.trash"),
     destructive: true,
     links: objectsLinks(),
+    dontAsk: "trash", // the trash can be undone (notice with Undo), so this may be switched off
   });
   if (!ok) return;
   const n = pageN.value;
@@ -500,11 +530,23 @@ async function trashObject(id) {
     name: objectName(obj, props.config.taal, t),
     description: (props.config.taal === "en" ? obj.beschrijving?.beschrijving_en : obj.beschrijving?.beschrijving) || obj.beschrijving?.beschrijving || obj.bijschrift?.tekst || "",
   };
+  // Trashed from the magnifier: it stays open, on the next object of the list
+  // (or the previous one at the end); without objects left it closes.
+  const order = listOrder.value;
+  const at = order.indexOf(id);
+  const neighbour = order[at + 1] || order[at - 1] || null;
   try {
     const result = await del(objectPath(file.value.mid, n, id));
+    if (magnifiedId.value === id) {
+      if (neighbour && result.objecten.some((o) => o.id === neighbour)) {
+        magnifiedId.value = neighbour; // before the list changes, so the magnifier is not closed in between
+        focusedId.value = neighbour;
+      } else {
+        magnifierOpen.value = false;
+      }
+    }
     objects.value = result.objecten;
     refreshTrashTerms(n);
-    if (magnifiedId.value === id) magnifierOpen.value = false;
     notify("notice", t("objects.trashed"), {
       object: shown,
       actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreObject(id, n, mid) }],
@@ -573,6 +615,17 @@ async function forgetAll() {
 function openMagnifier(id) {
   magnifiedId.value = id;
   magnifierOpen.value = true;
+}
+
+// Previous and next in the magnifier: the order of the list "Wat je vond".
+const listNames = computed(() => numberedNames(objects.value, props.config.taal, t));
+const listOrder = computed(() => Object.keys(listNames.value));
+const magnifiedIndex = computed(() => listOrder.value.indexOf(magnifiedId.value));
+function stepMagnifier(step) {
+  const next = listOrder.value[magnifiedIndex.value + step];
+  if (!next) return;
+  magnifiedId.value = next;
+  focusedId.value = next; // the list and the image follow
 }
 
 // -- Saving and export (9.5) ---------------------------------------------------------------

@@ -5,19 +5,18 @@
       v-for="notice in notices"
       :key="notice.id"
       :type="notice.type"
+      :class="{ 'cc-melding-compact': notice.object }"
       :allow-user-dismiss="true"
       :dismiss-button-label="t('actions.close')"
       :auto-dismiss="notice.type === 'success' ? 4000 : false"
       @user-dismissed="emit('dismiss', notice.id)"
       @auto-dismissed="emit('dismiss', notice.id)"
     >
-      <!-- Optionally the object it is about: a small cut-out, its name and description. -->
-      <span v-if="notice.object" class="cc-melding-object">
+      <!-- Optionally the object it is about: on one line, a small cut-out and its name
+           (the description as a tooltip), then the text and the actions. -->
+      <span v-if="notice.object" class="cc-melding-object" :title="notice.object.description !== notice.object.name ? notice.object.description : ''">
         <img :src="notice.object.image" alt="" />
-        <span>
-          <strong>{{ notice.object.name }}</strong>
-          <span v-if="notice.object.description && notice.object.description !== notice.object.name" class="cc-klein cc-melding-beschrijving">{{ notice.object.description }}</span>
-        </span>
+        <strong>{{ notice.object.name }}</strong>
       </span>
       {{ notice.text }}
       <span v-if="notice.actions?.length || notice.link" class="cc-melding-acties">

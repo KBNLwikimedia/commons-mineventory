@@ -25,7 +25,7 @@
             <p class="cc-klein">{{ item.caption[language] || item.caption.nl || item.caption.en }}</p>
             <ul v-if="check[item.id]" class="cc-controle">
               <li v-if="check[item.id].in_orde" class="goed">{{ t("upload.check_ok") }}</li>
-              <li v-for="warning in check[item.id].waarschuwingen" :key="warning.code" class="fout">{{ t(`check.${warning.code}`) }} — {{ warning.tekst }}</li>
+              <li v-for="warning in check[item.id].waarschuwingen" :key="warning.code" class="fout">{{ t(`check.${warning.code}`) }} — {{ t(`check.${warning.code}_text`, { detail: warning.detail ?? "" }) }}</li>
             </ul>
             <details v-if="preview">
               <summary>{{ t("concept.preview") }}</summary>

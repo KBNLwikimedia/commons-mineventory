@@ -41,6 +41,7 @@ def file_labels(wikitext, extmetadata=None, parsed_sdc=None):
     """Rights signals of the original file.
 
     Returns {"labels": [...], "label": main label, "redenen": [Dutch reasons],
+    "reden_codes": [{"code", "detail"}] (the same, for translation),
     "upload_toegestaan": bool, "publiek_domein": bool, "naamsvermelding_verplicht": bool}.
     """
     extmetadata = extmetadata or {}
@@ -49,7 +50,7 @@ def file_labels(wikitext, extmetadata=None, parsed_sdc=None):
     names = {t.name for t in calls}
     restrictions = (extmetadata.get("Restrictions") or "").lower()
     short = (extmetadata.get("LicenseShortName") or "").strip()
-    labels, reasons = set(), []
+    labels, reasons, codes = set(), [], []
 
     disputed = sorted(names & DISPUTED)
     pending = [t.name for t in calls if t.name in REVIEWS and _pending_review(t)]
@@ -57,17 +58,22 @@ def file_labels(wikitext, extmetadata=None, parsed_sdc=None):
         labels.add("ter_discussie")
         if disputed:
             reasons.append("Het origineel staat ter discussie: " + ", ".join("{{%s}}" % n for n in disputed) + ".")
+            codes.append({"code": "ter_discussie", "detail": ", ".join("{{%s}}" % n for n in disputed)})
         if pending:
             reasons.append("De licentiecontrole is nog niet bevestigd: " + ", ".join("{{%s}}" % n for n in pending) + ".")
+            codes.append({"code": "controle_open", "detail": ", ".join("{{%s}}" % n for n in pending)})
     if names & TRADEMARK or "trademark" in restrictions:
         labels.add("merk")
         reasons.append("Het origineel bevat een merk ({{Trademarked}}).")
+        codes.append({"code": "merk", "detail": ""})
     if names & PERSONALITY or "personality" in restrictions:
         labels.add("persoonlijkheidsrechten")
         reasons.append("Op het origineel staan persoonlijkheidsrechten ({{Personality rights}}).")
+        codes.append({"code": "persoonlijkheidsrechten", "detail": ""})
     if any(n == "pd-us-only" or n.endswith("-us-only") for n in names):
         labels.add("alleen_vs")
         reasons.append("Alleen in de Verenigde Staten vrij ({{PD-US-only}}); dat mag op Commons niet.")
+        codes.append({"code": "alleen_vs", "detail": ""})
     attribution = (
         str(extmetadata.get("AttributionRequired", "")).lower() == "true"
         or bool(re.match(r"cc[ -]by", short, re.I))
@@ -76,6 +82,7 @@ def file_labels(wikitext, extmetadata=None, parsed_sdc=None):
     if attribution:
         labels.add("naamsvermelding")
         reasons.append(f"Naamsvermelding verplicht ({short or 'CC BY'}): maker en licentie komen in de nieuwe pagina.")
+        codes.append({"code": "naamsvermelding", "detail": short or "CC BY"})
     if not labels - {"naamsvermelding"} and not attribution:
         labels.add("in_orde")
     raw_licenses = [
@@ -92,6 +99,8 @@ def file_labels(wikitext, extmetadata=None, parsed_sdc=None):
         "labels": ordered,
         "label": ordered[0] if ordered else "in_orde",
         "redenen": reasons,
+        # The same reasons as codes with their detail, for the interface in any language.
+        "reden_codes": codes,
         "upload_toegestaan": "ter_discussie" not in labels,
         "publiek_domein": sdc.is_public_domain(parsed_sdc) and pd_template,
         "naamsvermelding_verplicht": attribution,

@@ -187,6 +187,7 @@ def test_svg_is_not_supported_and_redirects_are_reported(tmp_path):
     file = client.load_file("File:Old logo.svg")
     assert file["doorverwezen_van"] == "File:Old logo.svg"
     assert not file["ondersteund"] and "SVG" in file["niet_ondersteund"]
+    assert file["niet_ondersteund_code"] == "svg"  # translated in the interface
     assert "merk" in file["rechten"]["labels"]
     with pytest.raises(CommonsError) as exc:
         client.original_image(file, 1)

@@ -50,7 +50,7 @@ import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, shallowRef
 import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon } from "@wikimedia/codex";
 import { cdxIconZoomIn, cdxIconZoomOut } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
-import { objectName } from "../state.js";
+import { numberedNames, objectName } from "../state.js";
 import { PageViewer } from "../viewer/viewer.js";
 
 const props = defineProps({
@@ -117,7 +117,7 @@ function describe(obj) {
   if (obj.score != null) details.push(`${Math.round(obj.score * 100)}%`);
   if (obj.wikidata) details.push(obj.wikidata);
   // The caption (in quotes) and the description by the AI image description, when there are.
-  const title = objectName(obj, language, t);
+  const title = numbered.value[obj.id] || objectName(obj, language, t);
   const caption = obj.bijschrift?.tekst && obj.bijschrift.tekst !== title ? `“${obj.bijschrift.tekst}”` : "";
   // The AI description in the interface language, else the other one.
   const description = obj.beschrijving && ((language === "en" ? obj.beschrijving.beschrijving_en : obj.beschrijving.beschrijving) || obj.beschrijving.beschrijving || obj.beschrijving.beschrijving_en);
@@ -125,9 +125,11 @@ function describe(obj) {
   return { title, details, text, hint: t("viewer.tooltip_hint") };
 }
 
-// The name above an object when names are on (the score is in the tooltip).
+// The name above an object when names are on (the score is in the tooltip):
+// numbered like in the list ("man 1", "man 2") when a name occurs more than once.
+const numbered = computed(() => numberedNames(props.objects, language, t));
 function label(obj) {
-  return objectName(obj, language, t);
+  return numbered.value[obj.id] || objectName(obj, language, t);
 }
 
 function load() {

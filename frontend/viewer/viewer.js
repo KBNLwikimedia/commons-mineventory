@@ -157,7 +157,7 @@ export class PageViewer {
         label.setAttribute("x", obj.box.x + 4);
         label.setAttribute("y", obj.box.y + 4);
         label.setAttribute("class", "object-naam");
-        label.textContent = obj.label_nl || obj.label;
+        label.textContent = this.label(obj) || obj.label_nl || obj.label;
         group.append(label);
       } else if (this.showLabels) {
         // The name above the box (in the colour of its frame), like the regions on Commons.
@@ -264,12 +264,14 @@ export class PageViewer {
   setPointMode(on) {
     this.pointMode = on;
     this.el.classList.toggle("aanwijzen", on);
+    if (on) this.tooltip.hidden = true;
   }
 
   /* Draw mode ("Rechthoek tekenen"): dragging draws a rectangle instead of panning. */
   setDrawMode(on) {
     this.drawMode = on;
     this.el.classList.toggle("tekenen", on);
+    if (on) this.tooltip.hidden = true;
   }
 
   /* Viewer coordinates of a pointer event, in native page pixels. */
@@ -284,7 +286,8 @@ export class PageViewer {
   _hoverObject(obj, event) {
     if (this.panning || this.drawing) return;
     this.hoverObject = obj;
-    if (obj) {
+    // While pointing or drawing, the tooltip would be in the way of the crosshair.
+    if (obj && !this.pointMode && !this.drawMode) {
       const info = this.describe(obj);
       this.tooltip.replaceChildren();
       const title = document.createElement("strong");

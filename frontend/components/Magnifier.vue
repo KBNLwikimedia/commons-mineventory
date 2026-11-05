@@ -14,7 +14,7 @@
     <!-- Own header (the Codex classes), so the subtitle can link to the original on Commons, on every tab. -->
     <template #header>
       <div class="cdx-dialog__header__title-group">
-        <h2 class="cdx-dialog__header__title">{{ name }}</h2>
+        <h2 class="cdx-dialog__header__title">{{ listName || name }}</h2>
         <p class="cdx-dialog__header__subtitle">
           {{ subtitle }}
           <template v-if="file.url">
@@ -24,6 +24,16 @@
           </template>
         </p>
       </div>
+      <!-- Previous and next object, in the order of the list "Wat je vond" (also ← and →). -->
+      <span v-if="position.total > 1" class="cc-vergroter-nav" role="group" :aria-label="t('magnifier.nav')">
+        <cdx-button weight="quiet" type="button" :disabled="position.index <= 1" :aria-label="t('magnifier.previous')" :title="t('magnifier.previous')" @click="emit('step', -1)">
+          <cdx-icon :icon="cdxIconPrevious" />
+        </cdx-button>
+        <span class="cc-klein">{{ t("magnifier.position", { n: position.index, total: position.total }) }}</span>
+        <cdx-button weight="quiet" type="button" :disabled="position.index >= position.total" :aria-label="t('magnifier.next')" :title="t('magnifier.next')" @click="emit('step', 1)">
+          <cdx-icon :icon="cdxIconNext" />
+        </cdx-button>
+      </span>
       <cdx-button
         class="cdx-dialog__header__close-button"
         weight="quiet"
@@ -256,12 +266,23 @@
           <template #description>{{ t("describe.history_short") }}</template>
           <ul class="cc-geschiedenis-lijst">
             <li v-for="entry in history" :key="entry.versie">
-              <div>
+              <!-- Clamped to two lines; hover shows the whole text, a click unfolds it. -->
+              <div
+                class="cc-geschiedenis-tekstblok"
+                :class="{ open: expanded[entry.versie] }"
+                role="button"
+                tabindex="0"
+                :aria-expanded="expanded[entry.versie] ? 'true' : 'false'"
+                :title="expanded[entry.versie] ? '' : fullText(entry)"
+                @click="expanded[entry.versie] = !expanded[entry.versie]"
+                @keydown.enter.space.prevent="expanded[entry.versie] = !expanded[entry.versie]"
+              >
                 <strong>{{ language === "en" ? entry.onderwerp_en || entry.onderwerp : entry.onderwerp || entry.onderwerp_en }}</strong>
                 <span class="cc-klein cc-geschiedenis-beschrijving">{{ language === "en" ? entry.beschrijving_en || entry.beschrijving : entry.beschrijving || entry.beschrijving_en }}</span>
                 <span v-if="entry.tekst_in_beeld" class="cc-klein cc-geschiedenis-beschrijving">{{ t("describe.field_tekst_in_beeld") }}: {{ entry.tekst_in_beeld }}</span>
                 <span v-if="entry.tekst_rond_beeld" class="cc-klein cc-geschiedenis-beschrijving">{{ t("describe.field_tekst_rond_beeld") }}: {{ entry.tekst_rond_beeld }}</span>
                 <span class="cc-klein cc-geschiedenis-meta">{{ historyMeta(entry) }}</span>
+                <span class="cc-link cc-klein cc-geschiedenis-meer">{{ expanded[entry.versie] ? t("describe.history_less") : t("describe.history_more") }}</span>
               </div>
               <span class="cc-geschiedenis-knoppen">
                 <cdx-button action="progressive" size="small" :disabled="busy" @click="restoreDescription(entry)">{{ t("describe.history_use") }}</cdx-button>
@@ -349,9 +370,9 @@
 </template>
 
 <script setup>
-import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxLookup, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
-import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
+import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconNext, cdxIconPrevious, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post, put } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
@@ -371,8 +392,23 @@ const props = defineProps({
   file: { type: Object, required: true },
   n: { type: Number, required: true },
   object: { type: Object, required: true },
+  // Where this object is in the list: {index (1-based), total}.
+  position: { type: Object, default: () => ({ index: 1, total: 1 }) },
+  // The name as the list shows it ("boom 2"), for the title only.
+  listName: { type: String, default: "" },
 });
-const emit = defineEmits(["update:open", "changed", "trashed", "refine"]);
+const emit = defineEmits(["update:open", "changed", "trashed", "refine", "step"]);
+
+// ← and → go to the previous and next object, except while typing or on a slider.
+function onStepKey(event) {
+  if (!props.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  const target = event.target;
+  if (target?.closest?.("input, textarea, select, [contenteditable='true'], [role='slider'], [role='tab'], [role='tablist']")) return;
+  event.preventDefault();
+  emit("step", event.key === "ArrowLeft" ? -1 : 1);
+}
+onMounted(() => window.addEventListener("keydown", onStepKey));
 const t = useT();
 const language = inject("language", "nl");
 const config = inject("config");
@@ -489,6 +525,7 @@ watch(
 );
 // Closing: no timer, interval or search keeps running.
 onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onStepKey);
   undoMovable?.();
   clearTimeout(marginTimer);
   clearInterval(ticker);
@@ -630,6 +667,17 @@ async function loadHistory() {
   }
 }
 loadHistory();
+
+// Earlier versions: unfolded ones (by versie), and the whole text for the hover popup.
+const expanded = reactive({});
+function fullText(entry) {
+  return [
+    [entry.onderwerp, entry.beschrijving].filter(Boolean).join(" — "),
+    [entry.onderwerp_en, entry.beschrijving_en].filter(Boolean).join(" — "),
+    entry.tekst_in_beeld && `${t("describe.field_tekst_in_beeld")}: ${entry.tekst_in_beeld}`,
+    entry.tekst_rond_beeld && `${t("describe.field_tekst_rond_beeld")}: ${entry.tekst_rond_beeld}`,
+  ].filter(Boolean).join("\n\n");
+}
 
 // When and how a version was made: by hand (the time of the edit) or by the AI (time, model, question).
 function historyMeta(entry) {

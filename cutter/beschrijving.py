@@ -215,6 +215,32 @@ PART_INTRO = {
 PART_LOG = {"beschrijving": " – beschrijving opnieuw", "zoektermen": " – zoektermen opnieuw"}
 
 
+# The description of the image (the "beschrijving" part), and what says how it was made.
+PAGE_DESCRIPTION = INVENTORY_PARTS["beschrijving"]
+DESCRIPTION_META = ("bewerkt", "bewerkt_op", "ai_origineel")
+
+
+def page_description_made(overview):
+    """Model and time of the AI description: of the part asked anew, else of the overview."""
+    overview = overview or {}
+    return (overview.get("delen") or {}).get("beschrijving") or overview
+
+
+def page_description_version(overview):
+    """The id of the current description: when it was edited by hand, else made."""
+    overview = overview or {}
+    return overview.get("bewerkt_op") or page_description_made(overview).get("tijdstempel") or ""
+
+
+def page_description_snapshot(overview):
+    """The description of the overview as a version for the history."""
+    made = page_description_made(overview)
+    snapshot = {k: overview.get(k) or "" for k in PAGE_DESCRIPTION}
+    snapshot.update({"model": made.get("model"), "tijdstempel": made.get("tijdstempel"), "versie": page_description_version(overview)})
+    snapshot.update({k: overview[k] for k in DESCRIPTION_META if overview.get(k)})
+    return json.loads(json.dumps(snapshot))
+
+
 def inventory_schema(part=None):
     """The answer format for the whole overview, or for one part of it."""
     if part is None:
@@ -990,7 +1016,7 @@ class DescriptionService:
                 "kosten_usd": amount,
                 "verstuurde_afmetingen": list(image.size),
                 "versie": INVENTORY_VERSION,
-                "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                 "appversie": __version__,
             }
             if self.vision.betaald:
@@ -1001,6 +1027,7 @@ class DescriptionService:
                         "titel": file["titel"],
                         "pagina": n,
                         "term": f"Wat staat op deze pagina?{PART_LOG.get(part, '')} ({choice['model']})",
+                        "deel": part,
                         "model": choice["model"],
                         "redeneren": effort,
                         "tokens": overview["tokens"],
@@ -1029,9 +1056,14 @@ class DescriptionService:
             overview = store.get("inventaris")
             if not overview:
                 return {"verwijderd": False, "inventaris": None}
+            if part in (None, "beschrijving"):
+                self._keep_page_description(store)
             if part is None:
                 store.pop("inventaris")
             else:
+                if part == "beschrijving":
+                    for key in DESCRIPTION_META:
+                        overview.pop(key, None)
                 for key in INVENTORY_PARTS[part]:
                     overview[key] = [] if key == "zoektermen" else ""
                 (overview.get("delen") or {}).pop(part, None)
@@ -1047,8 +1079,13 @@ class DescriptionService:
         meta = {k: v for k, v in answer.items() if k not in fields}
         with self.objects.lock:
             store = self.objects._load_store(file, n)
+            current = dict(store.get("inventaris") or {})
+            if part == "beschrijving":
+                self._keep_page_description(store)
+                for key in DESCRIPTION_META:  # a new AI description: no hand edits on top
+                    current.pop(key, None)
             empty = {k: [] if k == "zoektermen" else "" for keys in INVENTORY_PARTS.values() for k in keys}
-            overview = {**empty, **meta, **(store.get("inventaris") or {}), **fields}
+            overview = {**empty, **meta, **current, **fields}
             overview["delen"] = {**(overview.get("delen") or {}), part: meta}
             store["inventaris"] = overview
             self.objects._write_store(file, n, store)
@@ -1057,6 +1094,96 @@ class DescriptionService:
     def _store_inventory(self, file, n, overview, cached, user=None):
         with self.objects.lock:
             store = self.objects._load_store(file, n)
+            if page_description_version(store.get("inventaris")) != page_description_version(overview):
+                self._keep_page_description(store)
             store["inventaris"] = overview
             self.objects._write_store(file, n, store)
         return {"inventaris": overview, "uit_cache": cached, "budget": self.objects.verbruik.status(user)}
+
+    # -- The description of the whole image: by hand, and its earlier versions --
+
+    def _keep_page_description(self, store):
+        """Put the current description of the page overview into its history
+        ("inventaris_geschiedenis", newest first, at most 30), once per version."""
+        overview = store.get("inventaris") or {}
+        if not any(overview.get(k) for k in PAGE_DESCRIPTION):
+            return
+        snapshot = page_description_snapshot(overview)
+        history = [h for h in store.get("inventaris_geschiedenis", []) if h.get("versie") != snapshot["versie"]]
+        store["inventaris_geschiedenis"] = [snapshot, *history][:30]
+
+    def edit_inventory(self, file, n, changes):
+        """Change the description of the overview by hand (kind, summary, text
+        read). The first time a field changes, its AI text is kept in
+        "ai_origineel"; the version before goes into the history. Free."""
+        unknown = set(changes) - set(PAGE_DESCRIPTION)
+        if not changes or unknown or not all(isinstance(v, str) for v in changes.values()):
+            raise DetectionError(f"Alleen deze velden zijn te bewerken: {', '.join(PAGE_DESCRIPTION)}.", status=400, code="invalid_body")
+        if any(len(v) > MAX_FIELD for v in changes.values()):
+            raise DetectionError(f"Een tekst is hooguit {MAX_FIELD} tekens.", status=400, code="invalid_body")
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            overview = store.get("inventaris")
+            if not overview:
+                raise DetectionError("Deze pagina heeft nog geen AI-overzicht.", status=409, code="no_overview")
+            changes = {field: value.strip() for field, value in changes.items()}
+            if all((overview.get(field) or "") == value for field, value in changes.items()):
+                return {"inventaris": overview}  # nothing changes: no new version
+            self._keep_page_description(store)
+            overview = store["inventaris"] = json.loads(json.dumps(overview))
+            original = overview.setdefault("ai_origineel", {})
+            for field, value in changes.items():
+                if field not in original:
+                    original[field] = overview.get(field) or ""
+                overview[field] = value
+                if value == original[field]:
+                    original.pop(field)
+            if not original:
+                overview.pop("ai_origineel")
+            overview["bewerkt"] = bool(original)
+            overview["bewerkt_op"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+            self.objects._write_store(file, n, store)
+        return {"inventaris": overview}
+
+    def inventory_history(self, file, n):
+        """Earlier descriptions of the image (by the AI or by hand), newest first,
+        each with its "versie"; the current one is left out. Free."""
+        store = self.objects._load_store(file, n)
+        overview = store.get("inventaris") or {}
+        # Only a description that is there counts as current (a removed one is all history).
+        current = page_description_version(overview) if any(overview.get(k) for k in PAGE_DESCRIPTION) else None
+        entries = [h for h in store.get("inventaris_geschiedenis", []) if h.get("versie") != current]
+        return sorted(entries, key=lambda h: h.get("versie") or "", reverse=True)
+
+    def restore_inventory(self, file, n, version):
+        """Make an earlier description of the image the current one again; the
+        current one goes into the history. The search terms stay. Free."""
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            chosen = next((h for h in store.get("inventaris_geschiedenis", []) if h.get("versie") == version), None)
+            if chosen is None:
+                raise DetectionError("Die eerdere beschrijving bestaat niet (meer).", status=404, code="not_found")
+            self._keep_page_description(store)
+            overview = dict(store.get("inventaris") or {"zoektermen": []})
+            for key in DESCRIPTION_META:
+                overview.pop(key, None)
+            overview.update({k: chosen.get(k) or "" for k in PAGE_DESCRIPTION})
+            overview.update({k: chosen[k] for k in DESCRIPTION_META if chosen.get(k)})
+            overview["delen"] = {**(overview.get("delen") or {}), "beschrijving": {"model": chosen.get("model"), "tijdstempel": chosen.get("tijdstempel")}}
+            overview.setdefault("model", chosen.get("model"))
+            overview.setdefault("tijdstempel", chosen.get("tijdstempel"))
+            store["inventaris"] = overview
+            store["inventaris_geschiedenis"] = [h for h in store["inventaris_geschiedenis"] if h.get("versie") != version]
+            self.objects._write_store(file, n, store)
+        return {"inventaris": overview, "geschiedenis": self.inventory_history(file, n)}
+
+    def forget_inventory_version(self, file, n, version):
+        """Delete one earlier description of the image. Free."""
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            history = store.get("inventaris_geschiedenis", [])
+            if not any(h.get("versie") == version for h in history):
+                raise DetectionError("Die eerdere beschrijving bestaat niet (meer).", status=404, code="not_found")
+            store["inventaris_geschiedenis"] = [h for h in history if h.get("versie") != version]
+            self.objects._write_store(file, n, store)
+        return {"geschiedenis": self.inventory_history(file, n)}

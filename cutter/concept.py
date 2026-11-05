@@ -676,15 +676,15 @@ def check(client, concepts, sha1s):
         missing = [cat["naam"] for cat in c["categorieen"] if cat.get("gekozen") and not existing_categories.get(f"Category:{cat['naam'].removeprefix('Category:')}", False)]
         warnings = []
         if existing_names.get(name):
-            warnings.append({"code": "exists", "tekst": f"Er bestaat al een bestand met de naam '{name}'."})
+            warnings.append({"code": "exists", "detail": name, "tekst": f"Er bestaat al een bestand met de naam '{name}'."})
         if taken[name] > 1:
-            warnings.append({"code": "duplicate_name", "tekst": "Twee uitsneden hebben dezelfde naam; geef er een een volgnummer."})
+            warnings.append({"code": "duplicate_name", "detail": "", "tekst": "Twee uitsneden hebben dezelfde naam; geef er een een volgnummer."})
         if duplicates:
-            warnings.append({"code": "duplicate", "tekst": "Dezelfde afbeelding staat al op Commons: " + ", ".join(duplicates) + "."})
+            warnings.append({"code": "duplicate", "detail": ", ".join(duplicates), "tekst": "Dezelfde afbeelding staat al op Commons: " + ", ".join(duplicates) + "."})
         if missing:
-            warnings.append({"code": "missing_category", "tekst": "Deze categorieën bestaan niet: " + ", ".join(missing) + "."})
+            warnings.append({"code": "missing_category", "detail": ", ".join(missing), "tekst": "Deze categorieën bestaan niet: " + ", ".join(missing) + "."})
         if not c["upload_toegestaan"]:
-            warnings.append({"code": "not_allowed", "tekst": "Uploaden is voor deze uitsnede uitgeschakeld (rechtenlabel)."})
+            warnings.append({"code": "not_allowed", "detail": "", "tekst": "Uploaden is voor deze uitsnede uitgeschakeld (rechtenlabel)."})
         result[oid] = {
             "bestandsnaam": c["bestandsnaam"],
             "naam_bestaat": bool(existing_names.get(name)),

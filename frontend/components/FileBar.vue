@@ -64,7 +64,10 @@
               </span>
             </dd>
             <dt>{{ t("file.rights_reasons") }}</dt>
-            <dd v-for="(reason, i) in file.rechten.redenen" :key="`r${i}`">{{ reason }}</dd>
+            <template v-if="file.rechten.reden_codes">
+              <dd v-for="(reason, i) in file.rechten.reden_codes" :key="`r${i}`">{{ t(`rights_reason.${reason.code}`, { detail: reason.detail }) }}</dd>
+            </template>
+            <dd v-for="(reason, i) in file.rechten.reden_codes ? [] : file.rechten.redenen" :key="`o${i}`">{{ reason }}</dd>
             <dd v-if="!file.rechten.redenen.length">{{ t("rights.in_orde") }}</dd>
             <!-- The work on Wikidata, as {{Artwork}} shows it on Commons (|wikidata= or the file's P6243). -->
             <template v-if="file.werk">

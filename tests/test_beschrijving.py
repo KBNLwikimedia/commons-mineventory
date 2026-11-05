@@ -231,6 +231,24 @@ def test_one_part_of_the_overview_is_asked_again_or_removed_on_its_own(objects, 
         service.inventory(album, 1, part="alles")
 
 
+def test_the_description_of_the_image_keeps_its_versions(objects, album, tmp_path):
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    first = service.inventory(album, 1)["inventaris"]
+    service.edit_inventory(album, 1, {"tekst": "Andere tekst."})
+    assert service.edit_inventory(album, 1, {"tekst": "Andere tekst."})["inventaris"]["tekst"] == "Andere tekst."  # no change: no version
+    assert len(service.inventory_history(album, 1)) == 1
+    # A new description (part asked anew) keeps the edited one; its edits do not carry over.
+    new = service.inventory(album, 1, part="beschrijving")["inventaris"]
+    assert not new.get("bewerkt") and not new.get("ai_origineel")
+    versions = service.inventory_history(album, 1)
+    assert [v["tekst"] for v in versions][:2] == ["Andere tekst.", first["tekst"]]
+    # Removing the description keeps it in the history as well.
+    service.forget_inventory(album, 1, "beschrijving")
+    assert len(service.inventory_history(album, 1)) == 3
+    restored = service.restore_inventory(album, 1, versions[0]["versie"])["inventaris"]
+    assert restored["tekst"] == "Andere tekst." and restored["bewerkt"]
+
+
 def test_caption_goes_into_the_question_and_the_cache_key(objects, album, tmp_path):
     obj = objects.rectangle(album, 1, {"x": 0, "y": 0, "w": 300, "h": 300})["object"]
     prompts = []

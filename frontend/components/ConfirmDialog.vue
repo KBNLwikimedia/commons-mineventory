@@ -33,12 +33,14 @@
         </template>
       </p>
     </div>
+    <!-- For questions that may be switched off for this session ("Niet meer vragen"). -->
+    <cdx-checkbox v-if="state.dontAsk" v-model="state.dontAskChecked" class="cc-niet-vragen">{{ t("confirm.dont_ask") }}</cdx-checkbox>
   </cdx-dialog>
 </template>
 
 <script setup>
 import { computed } from "vue";
-import { CdxDialog } from "@wikimedia/codex";
+import { CdxCheckbox, CdxDialog } from "@wikimedia/codex";
 import { answerConfirm, confirmState as state, textParts } from "../confirm.js";
 import { useT } from "../i18n.js";
 

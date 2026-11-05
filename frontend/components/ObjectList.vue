@@ -63,7 +63,7 @@ import { cdxIconEye, cdxIconTrash } from "@wikimedia/codex-icons";
 import { objectPath } from "../api.js";
 import { useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
-import { objectName } from "../state.js";
+import { numberedNames, objectName } from "../state.js";
 
 const props = defineProps({
   objects: { type: Array, required: true },
@@ -137,18 +137,8 @@ const thumbnail = (obj) => `${objectPath(props.mid, props.n, obj.id)}/uitsnede.j
 const sorted = computed(() =>
   [...props.objects].sort((a, b) => name(a).localeCompare(name(b), language, { sensitivity: "base" }) || a.box.y - b.box.y || a.box.x - b.box.x)
 );
-// Names that occur more than once get a number in this list only ("house 1",
-// "house 2"), so they can be told apart; the magnifier and Commons keep the name.
-const numbers = computed(() => {
-  const counts = {};
-  const result = {};
-  for (const obj of sorted.value) {
-    const key = name(obj).toLocaleLowerCase(language);
-    counts[key] = (counts[key] || 0) + 1;
-    result[obj.id] = counts[key];
-  }
-  for (const obj of sorted.value) if (counts[name(obj).toLocaleLowerCase(language)] === 1) delete result[obj.id];
-  return result;
-});
-const listName = (obj) => (numbers.value[obj.id] ? `${name(obj)} ${numbers.value[obj.id]}` : name(obj));
+// Names that occur more than once get a number ("house 1", "house 2"), the same
+// as the names in the image (numberedNames); the magnifier and Commons keep the name.
+const numbered = computed(() => numberedNames(props.objects, language, t));
+const listName = (obj) => numbered.value[obj.id] || name(obj);
 </script>

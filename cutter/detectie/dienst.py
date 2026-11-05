@@ -288,10 +288,28 @@ class DetectionService:
     # -- Click search, box prompt and manual rectangle ----------------------------
 
     @_locked
+    def _on_shape(self, file, n, obj, x, y):
+        """Whether (x, y) lies on the object itself: on its mask, not just in its
+        box. An object without a mask (a region from Commons, a rectangle drawn
+        by hand) is only its box, which may hold other things: it never counts."""
+        box = obj["box"]
+        if not _contains(box, x, y) or not obj.get("masker"):
+            return False
+        try:
+            raster = decode_raster(self._mask_data(file, n, obj))
+        except (OSError, ValueError, KeyError):
+            return True  # unreadable mask: treat the box as the object, as before
+        rows, cols = raster.shape
+        col = min(cols - 1, max(0, int((x - box["x"]) / max(box["w"], 1) * cols)))
+        row = min(rows - 1, max(0, int((y - box["y"]) / max(box["h"], 1) * rows)))
+        return bool(raster[row, col])
+
     def point(self, file, n, x, y, user=None):
-        """The smallest known object under (x, y); otherwise a point prompt."""
+        """The smallest known object whose shape (mask) is under (x, y);
+        otherwise a point prompt. A click inside a known box but beside its
+        shape (a bird in front of the box of a tree) asks the detector."""
         objects = self.page_objects(file, n)
-        hits = [o for o in objects if o["status"] != "uitgesloten" and _contains(o["box"], x, y)]
+        hits = [o for o in objects if o["status"] != "uitgesloten" and self._on_shape(file, n, o, x, y)]
         if hits:
             best = min(hits, key=lambda o: o["box"]["w"] * o["box"]["h"])
             return {"object": self.public(file, n, best), "nieuw": False, "budget": self.verbruik.status(user)}

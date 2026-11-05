@@ -71,8 +71,12 @@ def test_regions_from_commons_are_never_merged(service, book):
 def test_point_finds_known_object_or_asks_detector(service, album):
     obj = service.detect(album, 1, "portret")["objecten"][0]
     box = obj["box"]
-    hit = service.point(album, 1, box["x"] + 1, box["y"] + 1)
+    # On the shape (the middle of the dummy's oval mask): the known object, free.
+    hit = service.point(album, 1, box["x"] + box["w"] // 2, box["y"] + box["h"] // 2)
     assert hit["object"]["id"] == obj["id"] and not hit["nieuw"]
+    # In the box but beside the shape (a corner of the oval): the detector is asked.
+    corner = service.point(album, 1, box["x"] + 1, box["y"] + 1)
+    assert corner["object"]["label"] == "klik"
     miss = service.point(album, 1, 1, 1) if not (box["x"] <= 1 and box["y"] <= 1) else service.point(album, 1, 1999, 1428)
     assert miss["object"]["label"] == "klik" and miss["object"]["status"] == "kandidaat"
 

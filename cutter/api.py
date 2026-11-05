@@ -304,6 +304,37 @@ def forget_inventory(mid, n):
     return jsonify(_descriptions().forget_inventory(_page_file(mid, n), n))
 
 
+@api.patch("/bestand/<mid>/pagina/<int:n>/inventaris")
+def edit_inventory(mid, n):
+    """Change the description of the image by hand: paginasoort, paginasoort_en,
+    samenvatting, samenvatting_en, tekst. Free."""
+    return jsonify(_descriptions().edit_inventory(_page_file(mid, n), n, _body()))
+
+
+@api.get("/bestand/<mid>/pagina/<int:n>/inventaris/geschiedenis")
+def inventory_history(mid, n):
+    """Earlier descriptions of the image, newest first (free)."""
+    return jsonify({"geschiedenis": _descriptions().inventory_history(_page_file(mid, n), n)})
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/inventaris/geschiedenis/<versie>")
+def delete_inventory_version(mid, n, versie):
+    """Delete one earlier description of the image. Free."""
+    return jsonify(_descriptions().forget_inventory_version(_page_file(mid, n), n, versie))
+
+
+@api.put("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>")
+def put_inventory_part(mid, n, deel):
+    """Make an earlier description of the image current again: {"versie": …}
+    (only the part "beschrijving" has versions). Free."""
+    if deel != "beschrijving":
+        raise DetectionError("Alleen de beschrijving heeft eerdere versies.", status=404, code="not_found")
+    body = _body()
+    if not isinstance(body.get("versie"), str) or not body["versie"]:
+        raise DetectionError("Geef de 'versie' uit de geschiedenis.", status=400, code="invalid_body")
+    return jsonify(_descriptions().restore_inventory(_page_file(mid, n), n, body["versie"]))
+
+
 @api.delete("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>")
 def forget_inventory_part(mid, n, deel):
     """Remove one part of the overview: beschrijving or zoektermen. Free."""

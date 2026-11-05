@@ -81,6 +81,25 @@ export function appUrl(mid, n = 1, objectId) {
 // drawn rectangle, a region) are translated when `t` is given.
 const OWN_LABELS = ["klik", "rechthoek", "regio"];
 
+/* Names that occur more than once get a number ("man 1", "man 2"), in reading
+   order of the list (alphabetical, then top to bottom, left to right), so the
+   list and the names in the image say the same. {id: name}; the magnifier and
+   Commons keep the plain name. */
+export function numberedNames(objects, language = "nl", t = null) {
+  const name = (obj) => objectName(obj, language, t);
+  const sorted = [...objects].sort((a, b) => name(a).localeCompare(name(b), language, { sensitivity: "base" }) || a.box.y - b.box.y || a.box.x - b.box.x);
+  const counts = {};
+  const numbers = {};
+  for (const obj of sorted) {
+    const key = name(obj).toLocaleLowerCase(language);
+    counts[key] = (counts[key] || 0) + 1;
+    numbers[obj.id] = counts[key];
+  }
+  return Object.fromEntries(
+    sorted.map((obj) => [obj.id, counts[name(obj).toLocaleLowerCase(language)] > 1 ? `${name(obj)} ${numbers[obj.id]}` : name(obj)])
+  );
+}
+
 export function objectName(obj, language = "nl", t = null) {
   if (obj.beschrijving) {
     const subject = language === "en" ? obj.beschrijving.onderwerp_en : obj.beschrijving.onderwerp;

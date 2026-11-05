@@ -214,7 +214,10 @@ def docs():
 
 @web.get("/privacy")
 def privacy():
-    return _markdown_page("docs/privacy.md", _t("footer.privacy"))
+    """The privacy statement in the interface language (docs/privacy.<taal>.md), else in Dutch."""
+    language = g.get("taal", i18n.DEFAULT)
+    translated = f"docs/privacy.{language}.md"
+    return _markdown_page(translated if (ROOT_DIR / translated).exists() else "docs/privacy.md", _t("footer.privacy"))
 
 
 @web.get("/changelog")

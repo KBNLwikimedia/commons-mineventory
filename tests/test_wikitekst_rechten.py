@@ -111,6 +111,9 @@ def test_rights_signals(text, label):
     assert result["label"] == label
     assert result["upload_toegestaan"] == (label != "ter_discussie")
     assert result["redenen"]
+    # The same reasons as codes, for the interface in English too (one per reason).
+    assert len(result["reden_codes"]) == len(result["redenen"])
+    assert all(set(r) == {"code", "detail"} for r in result["reden_codes"])
 
 
 def test_confirmed_flickr_review_is_fine():

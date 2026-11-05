@@ -61,10 +61,13 @@ describe("api", () => {
     expect(fetchImpl.mock.calls[0][1].headers["Content-Type"]).toBe("application/json");
   });
 
-  it("translates a known error code, else shows the API's message", () => {
-    const t = (key) => ({ "error.daily_limit": "Daily limit reached." })[key] ?? key;
-    expect(errorText(t, new ApiError(429, { fout: "x", code: "daily_limit" }))).toBe("Daily limit reached.");
-    expect(errorText(t, new ApiError(500, { fout: "Iets anders", code: "weird" }))).toBe("Iets anders");
+  it("in English translates the error code (never the Dutch message); in Dutch shows the API's own message", () => {
+    const en = (key) => ({ "meta.language": "en", "error.daily_limit": "Daily limit reached.", "error.error": "Something went wrong." })[key] ?? key;
+    expect(errorText(en, new ApiError(429, { fout: "x", code: "daily_limit" }))).toBe("Daily limit reached.");
+    expect(errorText(en, new ApiError(500, { fout: "Iets anders", code: "weird" }))).toBe("Something went wrong.");
+    const nl = (key) => ({ "meta.language": "nl", "error.daily_limit": "Daglimiet bereikt.", "error.error": "Er ging iets mis." })[key] ?? key;
+    expect(errorText(nl, new ApiError(429, { fout: "De daglimiet is bereikt; nog 3 uur.", code: "daily_limit" }))).toBe("De daglimiet is bereikt; nog 3 uur.");
+    expect(errorText(nl, new ApiError(500, null))).toBe("Er ging iets mis.");
   });
 });
 
@@ -481,5 +484,45 @@ describe("savedLabel", () => {
     expect(later.soon).toBe(false);
     expect(later.title).toContain("27 november 2026");
     expect(savedLabel({ opgeslagen: { verloopt: "2026-11-05T10:00:00Z" } }, t, "nl", now)).toMatchObject({ left: "objects.saved_one_day:", soon: true });
+  });
+});
+
+describe("numbered names", async () => {
+  const { numberedNames } = await import("./state.js");
+  it("numbers names that occur more than once, in reading order, the same for list and image", () => {
+    const box = (x, y) => ({ x, y, w: 10, h: 10 });
+    const objects = [
+      { id: "a", label: "man", box: box(50, 10) },
+      { id: "b", label: "horse", box: box(0, 0) },
+      { id: "c", label: "man", box: box(0, 5) },
+    ];
+    expect(numberedNames(objects, "en")).toEqual({ c: "man 1", a: "man 2", b: "horse" });
+  });
+});
+
+describe("confirmation that may be switched off", async () => {
+  const { askConfirm, answerConfirm, confirmState } = await import("./confirm.js");
+  const memory = () => {
+    const data = {};
+    return { getItem: (k) => data[k] ?? null, setItem: (k, v) => (data[k] = String(v)) };
+  };
+  it("asks until a yes with the box ticked, then answers yes at once", async () => {
+    const store = memory();
+    let answer = askConfirm("x", { dontAsk: "trash", store });
+    expect(confirmState.open && confirmState.dontAsk).toBe("trash");
+    answerConfirm(true); // yes, box not ticked: ask again next time
+    expect(await answer).toBe(true);
+    answer = askConfirm("x", { dontAsk: "trash", store });
+    expect(confirmState.open).toBe(true);
+    confirmState.dontAskChecked = true;
+    answerConfirm(false); // cancelled with the box ticked: still ask
+    expect(await answer).toBe(false);
+    answer = askConfirm("x", { dontAsk: "trash", store });
+    confirmState.dontAskChecked = true;
+    answerConfirm(true);
+    expect(await answer).toBe(true);
+    confirmState.open = false;
+    expect(await askConfirm("x", { dontAsk: "trash", store })).toBe(true);
+    expect(confirmState.open).toBe(false); // not asked
   });
 });

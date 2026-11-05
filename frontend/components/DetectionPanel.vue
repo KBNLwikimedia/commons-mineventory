@@ -32,28 +32,17 @@
         <busy-note v-if="busy && where === 'inventory'" :message="t('busy.muse_page')" />
       </template>
       <template v-else>
-        <!-- (2) The AI's description: Dutch, and English below it in italics, as in the magnifier. -->
-        <div v-if="hasDescription" class="cc-ai-resultaat">
-          <p>
-            {{ inventory.paginasoort }} — {{ inventory.samenvatting }}
-            <template v-if="inventory.samenvatting_en"><br /><i>{{ inventory.paginasoort_en }} — {{ inventory.samenvatting_en }}</i></template>
-            <ai-badge kind="pagina" :model="inventory.model" />
-          </p>
-          <!-- The text the model read in and under the image (overviews since 0.16 only). -->
-          <div v-if="inventory.tekst" class="cc-inventaris-tekst">
-            <strong>{{ t("panel.inventory_text") }}</strong>
-            <blockquote>{{ inventory.tekst }}</blockquote>
-          </div>
-        </div>
-        <p v-else class="cc-uitleg">{{ t("panel.part_none_beschrijving") }}</p>
-        <div class="cc-deel-acties">
-          <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="t('panel.part_again_help_beschrijving')" @click="act('beschrijving', 'inventory', { deel: 'beschrijving' })">
-            {{ t(hasDescription ? "panel.part_again_beschrijving" : "panel.part_ask_beschrijving") }} <span class="cc-kosten">{{ museCost(config.muse.pagina_usd) }}</span>
-          </cdx-button>
-          <cdx-button v-if="hasDescription" action="destructive" weight="quiet" size="small" :disabled="busy" @click="act('beschrijving', 'forget-inventory', { deel: 'beschrijving' })">
-            <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget") }}
-          </cdx-button>
-        </div>
+        <!-- (2) The AI's description of the image: editable, with its earlier versions (PageDescription.vue). -->
+        <page-description
+          :mid="file.mid"
+          :n="page.n"
+          :inventory="inventory"
+          :busy="busy"
+          :cost="museCost(config.muse.pagina_usd)"
+          @changed="emit('inventory-changed', $event)"
+          @again="act('beschrijving', 'inventory', { deel: 'beschrijving' })"
+          @forget="act('beschrijving', 'forget-inventory', { deel: 'beschrijving' })"
+        />
         <busy-note v-if="busy && where === 'beschrijving'" :message="t('busy.muse_page')" />
 
         <!-- (3) The search terms. -->
@@ -65,6 +54,8 @@
             <button type="button" class="cc-link" :disabled="busy" @click="setExcluded([])">{{ t("panel.terms_all") }}</button>
             ·
             <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en))">{{ t("panel.terms_none") }}</button>
+            ·
+            <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en).filter((term) => !excluded.includes(term)))">{{ t("panel.terms_invert") }}</button>
           </p>
           <div class="cc-knoppen">
             <!-- Each term: a tick (does it go along with "Detect all"?) and the term itself (detect only this one). -->
@@ -102,6 +93,7 @@
             </cdx-button>
           </div>
           <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
+          <cdx-message v-if="lastResult && resultAt === 'suggestions' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
           <!-- What of these suggestions is on the image now, and what went to the trash. -->
           <p class="cc-status">
             {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: inventory.zoektermen.length }) }}
@@ -129,6 +121,7 @@
         {{ t("panel.regions_button", { n: regionCount }) }}
       </cdx-button>
       <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
+      <cdx-message v-if="lastResult && resultAt === 'commons' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
     </cdx-accordion>
 
     <cdx-accordion v-model="open.search">
@@ -138,6 +131,7 @@
         <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
       </form>
       <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
+      <cdx-message v-if="lastResult && resultAt === 'search' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
       <p class="cc-uitleg">{{ t("panel.search_help") }} {{ cost(1) }}</p>
     </cdx-accordion>
 
@@ -159,21 +153,6 @@
       </div>
     </cdx-accordion>
 
-    <cdx-accordion v-model="open.bulk">
-      <template #title>{{ t("panel.bulk") }} <info-dialog v-bind="info('bulk', 'panel.bulk')" /></template>
-      <div class="cc-knoppen cc-knoppen-rij">
-        <!-- Only usable when there is something to do: ticked objects without a description, or two objects or more. -->
-        <cdx-button action="progressive" :disabled="busy || !toDescribe" @click="act('bulk', 'describe-all')">
-          {{ t("panel.describe_all") }}<template v-if="toDescribe"> ({{ toDescribe }})</template>
-        </cdx-button>
-        <cdx-button action="progressive" :disabled="busy || objects.length < 2" @click="act('bulk', 'merge')">{{ t("panel.merge") }}</cdx-button>
-      </div>
-      <p v-if="!toDescribe || objects.length < 2" class="cc-uitleg">
-        {{ objects.length < 2 ? t("panel.bulk_hint_objects") : t("panel.bulk_hint_select") }}
-      </p>
-      <busy-note v-if="busy && where === 'bulk'" :message="t('busy.general')" />
-    </cdx-accordion>
-
     <!-- CropTool: the usual tool for cropping on Commons, for the whole file (single images only). -->
     <cdx-accordion v-if="cropTool" v-model="open.croptool">
       <!-- The CropTool2 logo is the Codex "cut" icon, so it is the same here. -->
@@ -191,13 +170,14 @@
 
 <script setup>
 import { computed, inject, reactive, ref, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxIcon, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconCut, cdxIconLinkExternal, cdxIconTrash } from "@wikimedia/codex-icons";
 import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { cropToolLink } from "../state.js";
 import AiBadge from "./AiBadge.vue";
 import BusyNote from "./BusyNote.vue";
+import PageDescription from "./PageDescription.vue";
 import InfoDialog from "./InfoDialog.vue";
 
 const props = defineProps({
@@ -210,10 +190,10 @@ const props = defineProps({
   trashTerms: { type: Object, default: () => ({}) },
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
+  // The outcome of the last detection: shown in the section whose button asked for it.
+  lastResult: { type: Object, default: null },
 });
-const emit = defineEmits(["detect", "inventory", "forget-inventory", "merge", "describe-all", "point-mode", "draw-mode"]);
-// Ticked objects that have no description yet: what "Describe selection" would describe.
-const toDescribe = computed(() => props.objects.filter((o) => o.status === "geselecteerd" && !o.beschrijving).length);
+const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode"]);
 const t = useT();
 const config = inject("config");
 // The two models in the live-mode line link to Meta's own pages. Muse Spark
@@ -231,7 +211,7 @@ function info(section, titleKey) {
     paragraphs: [1, 2, 3].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
   };
 }
-const open = reactive({ commons: true, search: false, suggestions: true, point: false, bulk: false, croptool: false });
+const open = reactive({ commons: true, search: false, suggestions: true, point: false, croptool: false });
 const cropTool = computed(() => cropToolLink(props.file));
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 
@@ -248,11 +228,6 @@ function termCount(term) {
 }
 
 const termLabel = (term) => (config.taal === "nl" ? term.nl : term.en);
-// The description part of the overview (kind, summary, text read); it can be removed on its own.
-const hasDescription = computed(() => {
-  const o = props.inventory || {};
-  return Boolean(o.paginasoort || o.samenvatting || o.samenvatting_en || o.tekst);
-});
 
 // Terms left out of "Detect all" (by their English term), per file and page,
 // remembered in this browser only (a convenience; nothing is stored on the server).
@@ -310,6 +285,23 @@ watch(
     where.value = recent ? clicked.section : props.pointMode ? "point" : "top";
   }
 );
+
+// Which section shows the last outcome: the one clicked last before it came.
+const resultAt = ref(null);
+watch(
+  () => props.lastResult,
+  (result) => {
+    resultAt.value = result ? clicked.section : null;
+  }
+);
+watch(() => [props.file.mid, props.page.n], () => (resultAt.value = null));
+function resultText(result) {
+  const terms = result.prompt.split(",").map((s) => s.trim()).filter(Boolean);
+  const what = result.modus === "commons" ? t("panel.result_commons") : terms.length > 1 ? t("panel.result_terms", { n: terms.length }) : t("panel.result_term", { term: terms[0] || "" });
+  if (!result.found && !result.excluded) return t("panel.result_none", { what });
+  const found = result.found === 1 ? t("panel.result_one", { what }) : t("panel.result_found", { n: result.found, what });
+  return result.excluded ? `${found} ${t("panel.result_excluded", { n: result.excluded })}` : found;
+}
 
 function search() {
   if (prompt.value.trim()) act("search", "detect", { modus: "prompt", prompt: prompt.value.trim() });

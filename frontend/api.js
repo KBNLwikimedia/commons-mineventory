@@ -42,7 +42,13 @@ export const objectPath = (mid, n, id) => `${pagePath(mid, n)}/objecten/${encode
 // A translated message for an error: the code's text when there is one,
 // otherwise the API's own (Dutch) message.
 export function errorText(t, error) {
+  // The server writes its messages in Dutch, specific to the case: in the Dutch
+  // interface they are shown as they are. Otherwise the translation of the code,
+  // or a general message, so no Dutch text appears in another language.
+  const serverText = error?.body?.fout;
+  if (t("meta.language") === "nl" && serverText) return serverText;
   const key = `error.${error.code}`;
   const text = t(key);
-  return text !== key ? text : error.message;
+  if (text !== key) return text;
+  return error instanceof ApiError ? t("error.error") : error.message;
 }

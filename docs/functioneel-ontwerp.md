@@ -239,6 +239,8 @@ Klikken op een plek zonder bekend object: een puntprompt aan SAM (één betaalde
 
 ### 7.4 Bulk-operaties
 
+Sinds 0.30.0 (besluit Olaf, 5-11-2026) staan *Selectie beschrijven* en *Dubbelingen samenvoegen* niet meer in de kolom *Objecten zoeken*, maar onderaan *Wat je vond*, boven *Selectie opslaan*: ze werken op wat je gevonden en aangevinkt hebt. Het blok *Bulk-operaties* is daarmee vervallen.
+
 Selectie beschrijven (de aangevinkte objecten zonder beschrijving) en Dubbelingen samenvoegen. Elke betaalde stap met bevestiging en kosten. Een knop is uitgeschakeld als er niets te doen is: geen aangevinkte objecten zonder beschrijving, of minder dan twee objecten.
 
 Sinds 0.28.0 uit de interface (besluit Olaf, 4-11-2026): *Alles detecteren* (SAM met een vaste lijst soorten beeld, zoals illustratie, portret en wapen) en *Slim detecteren* (eerst het paginaoverzicht, dan SAM met de voorgestelde termen). *Alle objecten detecteren* bij de AI-suggesties doet hetzelfde met termen die bij deze afbeelding passen. In de API blijft `modus: "alles"` bestaan.
@@ -600,8 +602,8 @@ Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 Sinds 0.29.0 van links naar rechts in de volgorde van het werk, zoals in de Delpher Uitsnijder (besluit Olaf, 4-11-2026): beeld, objecten zoeken, wat je vond.
 
 - **Links**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
-- **Midden**: *Objecten zoeken*, het detectiepaneel in uitklapbare blokken (Codex *Accordion*), sinds 0.14.0 in deze volgorde: AI-suggesties voor deze afbeelding, Uit Commons, Zoeken, Aanwijzen of tekenen, Bulk-operaties, Bijsnijden in CropTool (0.18.0).
-- **Rechts**: *Wat je vond*: laatst bezocht › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › de objecten met vinkjes, en onderaan (blijft in beeld) de knoppen **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
+- **Midden**: *Objecten zoeken*, het detectiepaneel in uitklapbare blokken (Codex *Accordion*), sinds 0.14.0 in deze volgorde: AI-suggesties voor deze afbeelding, Uit Commons, Zoeken, Aanwijzen of tekenen, Bijsnijden in CropTool (0.18.0).
+- **Rechts**: *Wat je vond*: laatst bezocht › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › de objecten met vinkjes, en onderaan (blijft in beeld) de knoppen **Selectie beschrijven**, **Dubbelingen samenvoegen**, **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
 - Elke kolom heeft een kop met één regel uitleg en een (i)-venster (0.28.0).
 - **Vergroter**: de uitsnede, "Wat staat hierop?", het bijschrift en het Commons-concept (tab).
 - **Gebouwd in fase 1 (stand 0.9.0)**: de randen tussen de drie kolommen zijn versleepbaar (ook met de pijltjestoetsen; breedte per browser onthouden); de objectenlijst toont een miniatuur per object, en een regel licht op als de muis erboven of boven die uitsnede in het beeld staat; alle knoppen zijn Codex-blauw (*progressive*), verwijderen blijft rood; in het Commons-concept zitten de invulacties per veld in een klein menu (⋯) met *Ongedaan maken* direct erna; de namen die de app zelf geeft (klik, rechthoek, regio) en soort en zekerheid volgen de taal van de interface.

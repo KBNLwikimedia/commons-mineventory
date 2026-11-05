@@ -3,6 +3,29 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.30.0] - 2026-11-05
+
+### Gewijzigd
+
+- *Naar de prullenbak* in de vergroter laat de vergroter open: hij gaat door naar het volgende object van de lijst (aan het eind het vorige), en sluit alleen als er geen objecten meer zijn. Ongedaan maken in de melding blijft.
+- Met *Aanwijzen* of *Tekenen* aan blijft de muis een vizier (kruisje), ook boven een kader; eerder werd het daar een handje. Ook de tooltip met de naam van een object blijft dan weg.
+- De vergroter heeft in de kop *Vorige* en *Volgende* (ook met ← en →, behalve tijdens het typen), met "3 / 31" ertussen: in de volgorde van de lijst *Wat je vond*; de lijst en het beeld lopen mee. De titel toont de naam zoals de lijst (*boom 2*).
+- *Aanwijzen*: een klik telt alleen als een bestaand object als hij op de vorm (het masker) van dat object valt, niet al binnen zijn kader. Een vogel vóór het kader van een boom is nu aan te wijzen. Objecten zonder masker (regio's van Commons, getekende rechthoeken) houden een klik niet meer tegen. De kosten worden daarom bij elke klik vooraf gemeld.
+- Meldingen over één object (zoals *Naar de prullenbak verplaatst* met *Ongedaan maken*) passen op één compacte regel: een kleine miniatuur, de naam, de tekst en de acties; de beschrijving staat in de tooltip.
+- *Naar de prullenbak* (in de app en op de pagina Objecten) heeft in de bevestiging een vinkje *Niet meer vragen*: met dat vinkje en *Naar de prullenbak* vraagt de app het in dit tabblad niet meer, tot je het sluit (sessionStorage). Ongedaan maken in de melding erna blijft.
+- Na een zoekactie staat de uitkomst in het blok waar je zocht (Zoeken, AI-suggesties of Uit Commons): hoeveel objecten er gevonden zijn voor welke term, hoeveel uitgesloten met MIN, of dat er niets is gevonden, met een tip. Eerder kwam dat alleen als melding bovenaan de pagina.
+- *Selectie beschrijven* (met het bedrag op de knop) en *Dubbelingen samenvoegen* staan nu onderaan *Wat je vond*, boven *Selectie opslaan*: ze werken op wat je gevonden en aangevinkt hebt. Het blok *Bulk-operaties* in *Objecten zoeken* is vervallen.
+
+### Toegevoegd
+
+- De beschrijving van de hele afbeelding (*AI-suggesties voor deze afbeelding*) is met de hand aan te passen, net als bij een uitsnede: een potloodje achter het Nederlands, het Engels en de gelezen tekst, met Opslaan en Annuleren, *Met de hand aangepast*, *Terug naar de AI-tekst* en *Ongedaan maken*. API: `PATCH …/pagina/{n}/inventaris`.
+- *Eerdere beschrijvingen* van de afbeelding: elke versie, van de AI of met de hand, blijft bewaard (hooguit 30), ook bij *Beschrijving opnieuw* of *Verwijderen*; met *Deze gebruiken* terug te zetten (de zoektermen blijven) en per versie te verwijderen. API: `GET …/inventaris/geschiedenis`, `PUT …/inventaris/beschrijving`, `DELETE …/inventaris/geschiedenis/{versie}`.
+- Bij de zoektermen naast *alle aan · alle uit* ook *omkeren*.
+- De privacyverklaring ook in het Engels (`docs/privacy.en.md`): `/privacy` volgt de taal van de interface, met een link naar de andere taal. Beide bijgewerkt met wat er nu in de browser bewaard wordt (*Bekeken*, *Opzij gezet*, ingeschoven kolommen, uitgezette zoektermen).
+- Tweetaligheid nagelopen: in de Engelse interface verschijnt geen Nederlandse tekst van de server meer. Foutmeldingen: in het Nederlands de eigen melding van de server, in het Engels de vertaling van de foutcode (alle codes vertaald, ook de algemene per HTTP-status). Niet-ondersteunde bestanden (`niet_ondersteund_code`), de rechtenredenen in Metadata (`reden_codes`), de controle vooraf (`detail` per waarschuwing) en de kolom Term in het verbruik (bij AI-beschrijvingen het model en het deel) worden nu vertaald.
+- De namen bij de kaders in het beeld (en in de tooltip) krijgen dezelfde nummers als in de lijst als een naam vaker voorkomt: *man 1*, *man 2*, … (`numberedNames` in state.js).
+- *Eerdere beschrijvingen* (van de afbeelding en van een uitsnede): de hele tekst als popup bij aanwijzen, en *Hele tekst tonen* (klik op de versie) klapt hem uit. Het kopje van elke versie is kleiner.
+
 ## [0.29.0] - 2026-11-05
 
 ### Toegevoegd
