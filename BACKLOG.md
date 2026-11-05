@@ -31,12 +31,14 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
    - Werkblad: versleepbare kolomranden, miniaturen en hover in de objectenlijst, Rechthoek tekenen, alle knoppen Codex-blauw, prullenbak met bevestiging en Ongedaan maken.
    - Commons-concept: per-veld invulmenu met Ongedaan maken (sinds 0.23.0 bewerken op de weergave zelf), Wikidata-beschrijving bij *beeldt af*, aparte knoppen Downloaden en Bekijken, proefweergave van wikitekst en SDC zoals op Commons (Weergave/Broncode), extra SDC (P31, P1163, P4092, P3575, P2048, P2049), voorbeeld van de regio op het origineel.
 12b. [ ] Kleine punten die nog open staan:
-   - Bestaande paginaoverzichten hebben alleen Nederlands; *Opnieuw vragen* (betaald) haalt ook het Engels op.
+   - Bestaande paginaoverzichten van vóór 0.9.0 hebben alleen Nederlands; *Beschrijving opnieuw* (betaald) haalt ook het Engels op.
    - Nagaan of Commons-bots P1163, P4092, P3575, P2048 en P2049 na een upload zelf zetten (FO 16), zodat de upload ze niet dubbel zet.
 
 12c. [x] Open punten uit de code-review (4-11-2026), opgepakt in 0.26.0: budget vooraf geboekt en een grens aan zoektermen; 400 in plaats van 500 bij foute invoer of vreemde Commons-gegevens; atomisch schrijven; cache voor zware gratis verzoeken; één Wikidata-zoeker zonder late antwoorden; timers en observers opgeruimd; vastlopende facetten; minder dubbele code; toegankelijkheid. Wat overblijft:
    - Per gebruiker scheiden (prullenbak, objecten, verbruik) kan pas met OAuth (13 en 15); tot dan zijn verbruikslog en het legen van de hele prullenbak op een server alleen voor de toegangslijst.
    - Opgelost: de opruimtaak schreef zonder het slot van de dienst; sinds 0.27.2 delen de app en de opruimtaak een slot dat ook tussen processen werkt (`cutter/slot.py`). De drie `wbgetentities`-lussen, de samenvoegroutines en `{{Art Photo}}` zijn in 0.27.0 opgelost.
+12d. [x] Verfijning op aanwijzing van Olaf (4 en 5-11-2026, versies 0.28.0 tot en met 0.30.1; details in CHANGELOG.md): werk uit Wikidata in Metadata; kolommen in werkvolgorde (Bekeken met Opzij gezet, Beeld, Objecten zoeken, Wat je vond), elk inschuifbaar; RESTful API; AI-suggesties per deel opnieuw of weg, beschrijving van de afbeelding met de hand en met versies, zoektermen aan/uit/omkeren; uitkomst van elke actie in het paneel; Aanwijzen op de vorm in plaats van het kader; vergroter met Vorige/Volgende en automatisch opslaan van het bijschrift; Selectie beschrijven en Samenvoegen onder de objecten; uitleg object/uitsnede; volledige tweetaligheid en Engelse privacyverklaring. Stand en werkwijze staan in docs/overdracht.md.
+12e. [ ] De verouderde API-paden van vóór 0.29.0 (`…/object/{id}`, `…/beschrijving/terugzetten`, `…/geschiedenis?versie=`, `samenvoegen` in de PATCH, POST `…/commons/controle`) weghalen in 0.31.0, met de tabel in docs/api.md en `DEPRECATED` in cutter/openapi.py.
 
 ## Fase 2: OAuth, upload naar een testwiki, categorieën
 

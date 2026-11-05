@@ -144,12 +144,14 @@
         </cdx-toggle-switch>
         <p class="cc-uitleg">{{ t("panel.point_help") }} {{ cost(1) }}</p>
         <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
+        <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" :type="lastResult.outcome === 'niets' ? 'warning' : 'success'" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
       </div>
       <div class="cc-modus-keuze">
         <cdx-toggle-switch :model-value="drawMode" @update:model-value="emit('draw-mode', $event)">
           {{ t("panel.draw_switch") }}
         </cdx-toggle-switch>
         <p class="cc-uitleg">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
+        <cdx-message v-if="lastResult && resultAt === 'point' && lastResult.modus === 'rechthoek'" type="success" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
       </div>
     </cdx-accordion>
 
@@ -291,11 +293,17 @@ const resultAt = ref(null);
 watch(
   () => props.lastResult,
   (result) => {
-    resultAt.value = result ? clicked.section : null;
+    resultAt.value = result ? result.section || clicked.section : null;
   }
 );
 watch(() => [props.file.mid, props.page.n], () => (resultAt.value = null));
 function resultText(result) {
+  // Pointing and drawing: about one object.
+  if (result.modus === "punt") {
+    if (result.outcome === "niets") return t("panel.result_point_none");
+    return t(result.outcome === "bekend" ? "panel.result_point_known" : "panel.result_point_new", { name: result.name });
+  }
+  if (result.modus === "rechthoek") return t("panel.result_rectangle", { name: result.name });
   const terms = result.prompt.split(",").map((s) => s.trim()).filter(Boolean);
   const what = result.modus === "commons" ? t("panel.result_commons") : terms.length > 1 ? t("panel.result_terms", { n: terms.length }) : t("panel.result_term", { term: terms[0] || "" });
   if (!result.found && !result.excluded) return t("panel.result_none", { what });

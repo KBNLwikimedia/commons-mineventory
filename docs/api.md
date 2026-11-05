@@ -118,9 +118,9 @@ Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{o
 
 ## Verouderde paden
 
-Deze paden werken nog tot versie 0.30.0. Het antwoord heeft dan `Deprecation: true` en een `Link` naar het nieuwe pad (`rel="successor-version"`); in `/api/v1/openapi.json` staan ze als `deprecated`.
+Deze paden werken nog tot versie 0.31.0 (eerst was 0.30.0 genoemd). Het antwoord heeft dan `Deprecation: true` en een `Link` naar het nieuwe pad (`rel="successor-version"`); in `/api/v1/openapi.json` staan ze als `deprecated`.
 
-| Oud (tot 0.30.0) | Nieuw (sinds 0.29.0) |
+| Oud (tot 0.31.0) | Nieuw (sinds 0.29.0) |
 | --- | --- |
 | `/bestand/{mid}/pagina/{n}/object/{object_id}` en alles daaronder (`…/uitsnede.jpg`, `…/uitsnede.png`, `…/masker.png`, `…/beschrijving`, `…/beschrijving/geschiedenis`, `…/beschrijving/invoer.jpg`, `…/commons`, `…/commons/weergave`) | hetzelfde onder `/bestand/{mid}/pagina/{n}/objecten/{object_id}` |
 | POST `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/terugzetten` | PUT `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` |

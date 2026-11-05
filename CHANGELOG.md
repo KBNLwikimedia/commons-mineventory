@@ -3,6 +3,22 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.30.1] - 2026-11-05
+
+### Toegevoegd
+
+- `docs/overdracht.md`: de stand van zaken, de interface in het kort, afspraken die je niet uit de code haalt, werkwijze en valkuilen (zoals testen op een dummy-server), en wat openstaat.
+
+### Gewijzigd
+
+- De verouderde API-paden van vóór 0.29.0 werken nog tot 0.31.0 (eerst stond er 0.30.0); backlog 12e.
+- Documentatie bijgewerkt: README (wat de app nu doet), CLAUDE.md (overdracht, testen op een dummy-server, vormafspraken), BACKLOG.md (12d, 12e), functioneel ontwerp (status v0.8).
+- *Wat staat hierop?*: de regel bij het bijschrift zegt nu dat het meegaat als je hieronder op *Beschrijf deze afbeelding* klikt.
+- In de vergroter heet *De vorm laten vinden* nu *Transparante PNG maken (omtrek vinden met AI, US$ 0,0025)*, met een tooltip met uitleg.
+- Een bijschrift dat je in de vergroter typt maar niet opslaat, wordt toch opgeslagen als je naar een ander tabblad gaat (zoals *Wat staat hierop?*, dat het dan meteen gebruikt), naar een ander object gaat of de vergroter sluit.
+- De uitleg bij *Bijschrift* in de vergroter staat nu als grijze tekst in het lege invoerveld: "Hint voor de AI: met een bijschrift geeft ‘Wat staat hierop?’ een betere beschrijving." Het (i)-knopje erbij is weg.
+- *Aanwijzen of tekenen* geeft nu ook een uitkomst in het paneel, net als *Zoeken*: welk object er gevonden is, dat je op een bekend object klikte (gratis), of dat er op die plek niets is, met een tip; en bij een rechthoek onder welke naam hij is toegevoegd.
+
 ## [0.30.0] - 2026-11-05
 
 ### Gewijzigd

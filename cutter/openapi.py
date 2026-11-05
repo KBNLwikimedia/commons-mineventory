@@ -15,7 +15,7 @@ def _q(name, description, kind="string"):
 
 PAGE = "/bestand/{mid}/pagina/{n}"
 OBJECT = PAGE + "/objecten/{object_id}"
-OLD_OBJECT = PAGE + "/object/{object_id}"  # deprecated since 0.29.0, gone in 0.30.0
+OLD_OBJECT = PAGE + "/object/{object_id}"  # deprecated since 0.29.0, gone in 0.31.0
 VERSIE = {"name": "versie", "in": "path", "required": True, "schema": {"type": "string"}, "description": "De versie uit de geschiedenis (een tijd, bijv. 2026-11-04T10:12:03.123+00:00)"}
 DEEL = {"name": "deel", "in": "path", "required": True, "schema": {"type": "string", "enum": ["beschrijving", "zoektermen"]}, "description": "Het deel van het paginaoverzicht"}
 
@@ -76,7 +76,7 @@ ENDPOINTS = [
     ("get", "/openapi.json", "Deze beschrijving", [], None, 200, False),
 ]
 
-# Old paths that still work until 0.30.0 (Deprecation header, Link to the successor).
+# Old paths that still work until 0.31.0 (Deprecation header, Link to the successor).
 DEPRECATED = [
     *[(method, OLD_OBJECT + path[len(OBJECT):], summary, parameters, body, status, paid)
       for method, path, summary, parameters, body, status, paid in ENDPOINTS
@@ -110,7 +110,7 @@ def openapi_spec():
             operation["description"] = "Kost geld in live-modus (SAM of Muse Spark); vraag eerst de raming op. Gratis met de dummydetector."
         if deprecated:
             operation["deprecated"] = True
-            operation["description"] = (operation.get("description", "") + " Verouderd sinds 0.29.0, vervalt in 0.30.0.").strip()
+            operation["description"] = (operation.get("description", "") + " Verouderd sinds 0.29.0, vervalt in 0.31.0.").strip()
         paths.setdefault(path, {})[method] = operation
     return {
         "openapi": "3.1.0",

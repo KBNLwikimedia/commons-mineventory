@@ -26,11 +26,11 @@
       </div>
       <!-- Previous and next object, in the order of the list "Wat je vond" (also ← and →). -->
       <span v-if="position.total > 1" class="cc-vergroter-nav" role="group" :aria-label="t('magnifier.nav')">
-        <cdx-button weight="quiet" type="button" :disabled="position.index <= 1" :aria-label="t('magnifier.previous')" :title="t('magnifier.previous')" @click="emit('step', -1)">
+        <cdx-button weight="quiet" type="button" :disabled="position.index <= 1" :aria-label="t('magnifier.previous')" :title="t('magnifier.previous')" @click="step(-1)">
           <cdx-icon :icon="cdxIconPrevious" />
         </cdx-button>
         <span class="cc-klein">{{ t("magnifier.position", { n: position.index, total: position.total }) }}</span>
-        <cdx-button weight="quiet" type="button" :disabled="position.index >= position.total" :aria-label="t('magnifier.next')" :title="t('magnifier.next')" @click="emit('step', 1)">
+        <cdx-button weight="quiet" type="button" :disabled="position.index >= position.total" :aria-label="t('magnifier.next')" :title="t('magnifier.next')" @click="step(1)">
           <cdx-icon :icon="cdxIconNext" />
         </cdx-button>
       </span>
@@ -69,19 +69,14 @@
             <dd><saved-label :object="object" /> <retention-info /><br /><span class="cc-klein">{{ savedInfo.title }}</span></dd>
           </template>
           <template v-if="object.herkomst?.p2677"><dt>P2677</dt><dd><code>{{ object.herkomst.p2677 }}</code></dd></template>
-          <dt>
-            {{ t("magnifier.caption") }}
-            <info-button v-model:open="captionInfo" :label="t('magnifier.caption_info')" />
-          </dt>
-          <dd v-if="captionInfo" class="cc-info-tekst">
-            <cdx-message type="notice" :inline="true">{{ t("magnifier.caption_help") }}</cdx-message>
-          </dd>
+          <dt>{{ t("magnifier.caption") }}</dt>
           <dd class="cc-bijschrift">
             <span class="cc-invoer-met-knop" :class="{ 'met-tekstknop': removedCaption && !caption }">
               <cdx-text-input
                 v-model="caption"
                 :aria-label="t('magnifier.caption')"
-                :placeholder="removedCaption ? t('magnifier.caption_removed', { text: removedCaption }) : ''"
+                :placeholder="removedCaption ? t('magnifier.caption_removed', { text: removedCaption }) : t('magnifier.caption_placeholder')"
+                :title="t('magnifier.caption_placeholder')"
               />
               <cdx-button
                 v-if="removedCaption && !caption"
@@ -120,7 +115,10 @@
             <cdx-button action="progressive" weight="quiet" @click="viewFull('jpg')"><cdx-icon :icon="cdxIconLinkExternal" /> JPG</cdx-button>
             <cdx-button action="progressive" weight="quiet" @click="viewFull('png')"><cdx-icon :icon="cdxIconLinkExternal" /> PNG</cdx-button>
           </span>
-          <cdx-button action="progressive" v-if="!object.masker" @click="emit('refine', object)">{{ t("magnifier.refine_mask") }}</cdx-button>
+          <!-- No shape yet (a rectangle): the AI image detection finds the outline, for a transparent PNG. -->
+          <cdx-button action="progressive" v-if="!object.masker" :title="t('magnifier.refine_mask_help')" @click="emit('refine', object)">
+            {{ t("magnifier.refine_mask", { cost: config.betaald ? money(config.sam_usd, config.taal) : t("panel.free").replace(/[()]/g, "") }) }}
+          </cdx-button>
           <cdx-button action="destructive" @click="emit('trashed', object.id)"><cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}</cdx-button>
         </div>
       </cdx-tab>
@@ -384,7 +382,6 @@ import { fitToText } from "../autosize.js";
 import AiBadge from "./AiBadge.vue";
 import ConceptEditor from "./ConceptEditor.vue";
 import CutoutPreview from "./CutoutPreview.vue";
-import InfoButton from "./InfoButton.vue";
 import RetentionInfo from "./RetentionInfo.vue";
 
 const props = defineProps({
@@ -406,7 +403,7 @@ function onStepKey(event) {
   const target = event.target;
   if (target?.closest?.("input, textarea, select, [contenteditable='true'], [role='slider'], [role='tab'], [role='tablist']")) return;
   event.preventDefault();
-  emit("step", event.key === "ArrowLeft" ? -1 : 1);
+  step(event.key === "ArrowLeft" ? -1 : 1);
 }
 onMounted(() => window.addEventListener("keydown", onStepKey));
 const t = useT();
@@ -415,7 +412,6 @@ const config = inject("config");
 const tab = ref("uitsnede");
 const caption = ref(props.object.bijschrift?.tekst || "");
 const savedInfo = computed(() => savedLabel(props.object, t, language));
-const captionInfo = ref(false);
 const plan = ref(null);
 const busy = ref(false);
 const seconds = ref(0);
@@ -514,6 +510,7 @@ watch(
   () => props.open,
   async (open) => {
     if (!open) {
+      saveCaptionIfChanged();
       undoMovable?.();
       undoMovable = null;
       return;
@@ -812,6 +809,21 @@ async function undoRemoveCaption() {
   caption.value = removedCaption.value;
   removedCaption.value = "";
   await saveCaption();
+}
+
+// A caption typed but not saved is saved anyway when you leave the tab
+// "Uitsnede", go to another object or close the magnifier: "Wat staat hierop?"
+// then sees it at once.
+const captionDirty = computed(() => caption.value.trim() !== (props.object.bijschrift?.tekst || "").trim());
+async function saveCaptionIfChanged() {
+  if (captionDirty.value) await saveCaption();
+}
+watch(tab, (now, before) => {
+  if (before === "uitsnede" && now !== "uitsnede") saveCaptionIfChanged();
+});
+async function step(direction) {
+  await saveCaptionIfChanged();
+  emit("step", direction);
 }
 
 async function saveCaption() {

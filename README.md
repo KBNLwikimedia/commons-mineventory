@@ -10,7 +10,7 @@ De app is afgeleid van de [Delpher Uitsnijder](https://github.com/ookgezellig/de
 
 ## Status
 
-Fase 1 is klaar (versie 0.30.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
+Fase 1 is klaar (versie 0.30.1): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
 
 ## Lokaal draaien
 
@@ -36,15 +36,15 @@ Opruimen volgens de bewaartermijnen (originelen 7 dagen, uitsneden 30 dagen, det
 
 ## Wat de app nu doet
 
-- Een Commons-bestand openen via de URL, de titel of de M-id; ook PDF- en DjVu-pagina's, en originelen boven 100 megapixel (die worden met libvips stuk voor stuk gelezen). *Laatst bezocht* onthoudt je bestanden in deze browser. Op een telefoon zijn de kolommen tabbladen.
-- Objecten en maskers detecteren met SAM 3.1 (Meta Model API): zoeken met een zoekterm, AI-suggesties voor de afbeelding (met Alle objecten detecteren), Aanwijzen. Of zelf een rechthoek tekenen (gratis).
+- Een Commons-bestand openen via de URL, de titel of de M-id; ook PDF- en DjVu-pagina's, en originelen boven 100 megapixel (die worden met libvips stuk voor stuk gelezen). Het werkblad heeft vier kolommen in de volgorde van het werk: *Bekeken* (je geopende afbeeldingen, met *Opzij gezet*), *Beeld*, *Objecten zoeken* en *Wat je vond*; elke kolom schuift in tot een strook. Op een telefoon zijn de kolommen tabbladen.
+- Objecten en maskers detecteren met SAM 3.1 (Meta Model API): zoeken met een zoekterm, AI-suggesties voor de afbeelding (de aangevinkte zoektermen in één keer), Aanwijzen (ook binnen het kader van een ander object). Of zelf een rechthoek tekenen (gratis) en er later een transparante PNG van laten maken. Na elke actie staat de uitkomst in het paneel.
 - Regio's overnemen die al op Commons staan (de gele rechthoeken van *beeldt af* met positie, en bestandsnotities), gratis, en elke regio als apart bestand uitsnijden.
-- "Wat staat hierop?" en "Wat staat op deze pagina?" met Muse Spark, in het Nederlands en het Engels, ook met de tekst die in het beeld staat. AI-teksten zijn herkenbaar aan een AI-merkje met uitleg, en per veld met de hand aan te passen (met *Ongedaan maken* en *Terug naar de AI-tekst*), ook in een lightbox naast het grote beeld. Met AI-bijsturing (een aanwijzing, meer ruimte rond de uitsnede) stuur je de volgende vraag bij.
-- Uitsneden opslaan in volledige resolutie, als JPG (rechthoek) of transparante PNG (vorm), los of als zip; een overzicht van alle uitsneden en een prullenbak. Bij elke opgeslagen uitsnede staat hoe lang die nog bewaard wordt.
+- "Wat staat hierop?" en "Wat staat op deze pagina?" met Muse Spark, in het Nederlands en het Engels, ook met de tekst die in het beeld staat. Van de hele afbeelding zijn beschrijving en zoektermen elk apart opnieuw te vragen of te verwijderen; de beschrijving is met de hand aan te passen en houdt *Eerdere beschrijvingen* bij, net als die van een uitsnede. AI-teksten zijn herkenbaar aan een AI-merkje met uitleg, en per veld met de hand aan te passen (met *Ongedaan maken* en *Terug naar de AI-tekst*), ook in een lightbox naast het grote beeld. Met AI-bijsturing (een aanwijzing, meer ruimte rond de uitsnede) stuur je de volgende vraag bij.
+- Uitsneden opslaan in volledige resolutie, als JPG (rechthoek) of transparante PNG (vorm), los of als zip; een overzicht van alle uitsneden en een prullenbak (met *Ongedaan maken*). Bij elke opgeslagen uitsnede staat hoe lang die nog bewaard wordt. De vergroter bladert met *Vorige* en *Volgende* door de objecten.
 - Een Commons-concept per uitsnede, te bewerken op een weergave zoals de bestandspagina op Commons: tabbladen *Bestandsinformatie* en *Gestructureerde gegevens*, met *Bewerken* en potloodjes. Bestandsnaam, caption en beschrijving (nl/en), datum, maker, inscripties (`{{Inscription}}`), licentie, categorieën, *beeldt af* (zoeken op Wikidata), de waarden van de overgenomen uitspraken, en een voorbeeld van de regio die het origineel zou krijgen. De velden van `{{Artwork}}`, `{{Book}}`, `{{Photograph}}` en `{{Map}}` volgen docs/artwork-velden.md.
 - *Bijsnijden in CropTool* voor het hele bestand.
-- Een tweetalige interface (Nederlands en Engels) in de stijl van Wikimedia, met [Codex](https://doc.wikimedia.org/codex/latest/) en Vue 3, gebouwd met Vite. De server is Python (Flask); Node.js is alleen nodig om de frontend te bouwen.
-- Een REST-API onder `/api/v1`, met OpenAPI-beschrijving.
+- Een volledig tweetalige interface (Nederlands en Engels, ook de foutmeldingen en de privacyverklaring) in de stijl van Wikimedia, met [Codex](https://doc.wikimedia.org/codex/latest/) en Vue 3, gebouwd met Vite. De server is Python (Flask); Node.js is alleen nodig om de frontend te bouwen.
+- Een RESTful API onder `/api/v1`, met OpenAPI-beschrijving.
 
 ## Wat nog komt
 
@@ -57,7 +57,8 @@ Opruimen volgens de bewaartermijnen (originelen 7 dagen, uitsneden 30 dagen, det
 
 - [Functioneel ontwerp](docs/functioneel-ontwerp.md)
 - [REST-API](docs/api.md)
-- [Privacy (concept)](docs/privacy.md)
+- [Privacy (concept)](docs/privacy.md), ook [in het Engels](docs/privacy.en.md)
+- [Overdracht](docs/overdracht.md): de stand van zaken en de werkwijze, voor wie het werk overneemt
 - [Backlog](BACKLOG.md)
 - [Changelog](CHANGELOG.md)
 

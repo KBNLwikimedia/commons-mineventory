@@ -440,16 +440,22 @@ async function describeAll() {
 
 async function onPoint({ x, y }) {
   if (!pointMode.value) return;
+  lastResult.value = null;
   // Always the price first: only a click on the shape of a known object is free,
   // and the shapes are on the server (a click in a box beside its shape is a new search).
   if (!(await confirmCost(1, props.config.sam_usd))) return;
   busy.value = true;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { punt: { x, y } });
-    if (!result.object) return notify("notice", t("detect.nothing"));
+    // The outcome in the panel, under "Aanwijzen of tekenen": new, already known, or nothing.
+    if (!result.object) {
+      lastResult.value = { section: "point", modus: "punt", outcome: "niets", at: Date.now() };
+      return;
+    }
     if (result.nieuw) objects.value = [...objects.value.filter((o) => o.id !== result.object.id), result.object];
     newIds.value = [result.object.id];
     focusedId.value = result.object.id;
+    lastResult.value = { section: "point", modus: "punt", outcome: result.nieuw ? "nieuw" : "bekend", name: listNames.value[result.object.id] || objectName(result.object, props.config.taal, t), at: Date.now() };
   } catch (error) {
     fail(error);
   } finally {
@@ -463,7 +469,7 @@ async function onRectangle(rect) {
     objects.value = [...objects.value.filter((o) => o.id !== result.object.id), result.object];
     newIds.value = [result.object.id];
     focusedId.value = result.object.id;
-    notify("success", t("detect.rectangle"));
+    lastResult.value = { section: "point", modus: "rechthoek", outcome: "nieuw", name: listNames.value[result.object.id] || objectName(result.object, props.config.taal, t), at: Date.now() };
   } catch (error) {
     fail(error);
   }
