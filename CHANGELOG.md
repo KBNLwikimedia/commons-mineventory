@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.31.1] - 2026-11-05
+
+### Gewijzigd
+
+- Technische naam `commons-mineventory` in plaats van `commons-cutter` (backlog 12f, stap 1): de URL's in `.env.example` en de standaardwaarden in `cutter/config.py` (broncode, User-Agent), het npm-pakket, het sleeptype in de Bekeken-kolom, het pad in CLAUDE.md, README en het functioneel ontwerp (Toolforge-tool, repo, map). Het Python-package `cutter/` en de `cc-`-voorvoegsels blijven. De map hernoemen en de GitHub-repo aanmaken doet Olaf.
+
 ## [0.31.0] - 2026-11-05
 
 ### Gewijzigd

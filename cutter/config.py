@@ -62,7 +62,7 @@ class Config:
         self.COMMONS_CACHE_SECONDEN = _env_int("COMMONS_CACHE_SECONDEN", 86400)
         self.COMMONS_USER_AGENT = _env(
             "COMMONS_USER_AGENT",
-            "CommonsMineventory/0.1 (https://github.com/KBNLwikimedia/commons-cutter; experiment) python-requests",
+            "CommonsMineventory/0.1 (https://github.com/KBNLwikimedia/commons-mineventory; experiment) python-requests",
         )
         self.COMMONS_UPLOAD = _env_bool("COMMONS_UPLOAD", "uit")
         self.MAX_MEGAPIXELS = _env_int("MAX_MEGAPIXELS", 100)
@@ -90,7 +90,7 @@ class Config:
         self.VITE_DEV_SERVER = _env("VITE_DEV_SERVER", "http://localhost:5173")
 
         # Links in the footer.
-        self.BRONCODE_URL = _env("BRONCODE_URL", "https://github.com/KBNLwikimedia/commons-cutter")
+        self.BRONCODE_URL = _env("BRONCODE_URL", "https://github.com/KBNLwikimedia/commons-mineventory")
 
     def as_flask_config(self):
         return {k: v for k, v in vars(self).items() if k.isupper()}

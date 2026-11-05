@@ -11,7 +11,7 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 - Werk na elke afgeronde taak CHANGELOG.md bij (Keep a Changelog, semver).
 
 ## Fasering (strikt)
-- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.31.0); zie BACKLOG.md voor wat nog open staat.
+- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.31.1); zie BACKLOG.md voor wat nog open staat.
 - GEEN live aanroepen naar de Meta Model API zonder expliciete opdracht van Olaf. MetaSamDetector en de beschrijving alleen testen met fixtures. Olaf draait zelf lokaal in live-modus (`DETECTIE_MODUS=live` in zijn .env); test in de browser dus nooit een knop die betaalt (Zoeken, Aanwijzen, Beschrijf deze afbeelding, Opnieuw vragen) zonder zijn opdracht.
 - Commons alleen lezen (ook `action=parse` voor de proefweergave is een leesverzoek). Bewerkingen op Commons, ook SDC of regio's op het origineel, pas in fase 2 en alleen na een klik en bevestiging van de gebruiker.
 - Uploaden naar Commons alleen na een klik en een bevestiging van de gebruiker. Eerst op een testwiki; de eerste echte upload doet Olaf zelf.
@@ -51,7 +51,7 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 - Kleine, afgeronde stappen; na elke stap draaien de tests.
 - Vraag Olaf bij twijfel over scope, kosten, rechten of bewerkingen op Commons.
 - Commit alleen als Olaf erom vraagt; bij elke commit de versie ophogen (cutter/__init__.py, package.json, package-lock.json) en de Unreleased-sectie van CHANGELOG.md een versie geven.
-- Git in deze map heeft `-c safe.directory=D:/KB-OPEN/github-repos/commons-cutter` nodig; wijzig de globale git-config niet.
+- Git in deze map heeft `-c safe.directory=D:/KB-OPEN/github-repos/commons-mineventory` nodig; wijzig de globale git-config niet.
 - Grote antwoorden (meer dan ongeveer 320 KB) worden op Olafs machine over loopback soms afgekapt; dat ligt niet aan de app.
 - Betaalde stromen test je op een tweede server in dummy-modus met eigen mappen (poort 5055, zie docs/overdracht.md), nooit op Olafs server; ruim die daarna op.
 - Nieuwe vertalingen ziet Olaf pas na herladen van de pagina (Vite werkt alleen de code live bij).

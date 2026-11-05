@@ -13,7 +13,7 @@ export function readStart(search) {
 export const HISTORY_KEY = "cc-geschiedenis";
 export const MAX_HISTORY = 50;
 // A row of "Bekeken" being dragged carries its M-id under this type.
-export const DRAG_TYPE = "application/x-commons-cutter-mid";
+export const DRAG_TYPE = "application/x-commons-mineventory-mid";
 
 function storage() {
   try {

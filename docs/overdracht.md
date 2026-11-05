@@ -1,13 +1,13 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.31.0, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.31.1, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
-- **Naam**: sinds 0.31.0 heet de app *Commons Mineventory* (eerst Commons Cutter); de technische namen (`commons-cutter`, `cutter/`) zijn nog niet mee veranderd, backlog 12f.
+- **Naam**: sinds 0.31.0 heet de app *Commons Mineventory* (eerst Commons Cutter). Sinds 0.31.1 heten ook map, repo, npm-pakket en Toolforge-tool `commons-mineventory`; het Python-package heet nog `cutter/` en de CSS-klassen beginnen nog met `cc-` (bewust, backlog 12f).
 - **Fase 1 (lokaal, zonder kosten) is klaar** en sinds 0.9.0 op aanwijzing van Olaf verfijnd. Olaf draait de app zelf in live-modus, met zijn eigen sleutel voor de Meta Model API.
 - **Fase 2 (OAuth, upload naar een testwiki, beheerpaneel) is nog niet begonnen.** Uploaden en inloggen zijn knoppen zonder werking.
-- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.31.0.
+- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.31.1.
 
 ## De interface in het kort
 
@@ -43,7 +43,7 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
   De dummy vindt altijd iets; "niets gevonden" is daar niet na te bootsen.
 - **Teksten verversen**: Olaf draait `npm run dev`; Vite werkt de code live bij, maar de vertalingen zitten in de pagina en komen pas mee na herladen. Een stijlbestand met hetzelfde versienummer kan in de browsercache blijven (Ctrl+F5).
 - **Bestanden wijzigen**: grote of meervoudige wijzigingen gingen het betrouwbaarst met een klein Python-script (`.venv/Scripts/python -I script.py`); heredocs in de shell braken op aanhalingstekens.
-- **Git**: altijd `git -c safe.directory=D:/KB-OPEN/github-repos/commons-cutter …`; niet pushen zonder opdracht.
+- **Git**: altijd `git -c safe.directory=D:/KB-OPEN/github-repos/commons-mineventory …`; niet pushen zonder opdracht.
 - **Commit-routine**: versie ophogen in `cutter/__init__.py` en `package.json` (dan `npm install --package-lock-only`), README "Fase 1 is klaar (versie …)" en CLAUDE.md "Klaar (stand …)", de Unreleased-sectie van CHANGELOG.md een versie en datum geven, `pytest`, `npm test` en `npm run build` draaien, en de commit afsluiten met de Co-Authored-By-regel.
 - Grote antwoorden over loopback worden op Olafs machine soms afgekapt (`ERR_CONNECTION_RESET`); dat ligt niet aan de app.
 

@@ -1,6 +1,6 @@
 # Functioneel ontwerp – Commons Mineventory
 
-Naam: **Commons Mineventory** (besluit Olaf 5-11-2026; *mine* + *inventory*: een inventaris van wat er in een afbeelding staat, gedolven met AI; tot en met 0.30.1 heette de app *Commons Cutter*, besluit 3-11-2026). Tagline: *Detect objects in a Commons image. Find, cut out and describe them with AI.* De technische namen (tool, repo, map, package `cutter/`) zijn nog `commons-cutter`; of die meeverhuizen, is backlog 12f. Status: concept v0.8, 5 november 2026 (v0.8: bijgewerkt tot app-versie 0.30.1: Begrippen, kolommen in werkvolgorde (10.4), bulk onder de objecten (7.4), paginaoverzicht per deel (7.6); de stand van zaken staat in docs/overdracht.md; v0.7: voorstel 9.7, *beeldt af* en caption voor de hele afbeelding; v0.6: bijgewerkt tot app-versie 0.24.2; zie CHANGELOG.md voor alles wat sinds 0.9.0 gebouwd is; v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
+Naam: **Commons Mineventory** (besluit Olaf 5-11-2026; *mine* + *inventory*: een inventaris van wat er in een afbeelding staat, gedolven met AI; tot en met 0.30.1 heette de app *Commons Cutter*, besluit 3-11-2026). Tagline: *Detect objects in a Commons image. Find, cut out and describe them with AI.* Tool, repo en map heten sinds 0.31.1 `commons-mineventory`; het Python-package heet nog `cutter/` (backlog 12f). Status: concept v0.8, 5 november 2026 (v0.8: bijgewerkt tot app-versie 0.30.1: Begrippen, kolommen in werkvolgorde (10.4), bulk onder de objecten (7.4), paginaoverzicht per deel (7.6); de stand van zaken staat in docs/overdracht.md; v0.7: voorstel 9.7, *beeldt af* en caption voor de hele afbeelding; v0.6: bijgewerkt tot app-versie 0.24.2; zie CHANGELOG.md voor alles wat sinds 0.9.0 gebouwd is; v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
 
 Dit FO beschrijft een variant van de [Delpher Uitsnijder](https://github.com/ookgezellig/delpher-uitsnijder) (versie 0.18.13, lokaal in `D:\KB-OPEN\github-repos\delpher-uitsnijder`) voor afbeeldingen op Wikimedia Commons. Waar dit document "de Delpher Uitsnijder" zegt, gaat het om die app: haar FO, `docs/api.md`, `docs/commons-beschrijving.md`, `docs/beeld-taalmodel.md` en `docs/meta-sam-api.md`. Die documenten blijven de bron voor alles wat ongewijzigd wordt overgenomen. Dit FO beschrijft vooral wat anders is.
 
@@ -658,13 +658,13 @@ API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-s
 
 ### 12.1 Opzet
 
-- Een tool-account op Toolforge: **`commons-cutter`** (URL `https://commons-cutter.toolforge.org/`). De naam moet Engels zijn; de repo heet hetzelfde (besluit Olaf, 3-11-2026). Op 3-11-2026 nagekeken: de naam is vrij op Toolforge (toolsadmin) en Toolhub, en `KBNLwikimedia/commons-cutter` bestaat nog niet op GitHub. Ook `commonscutter`, `commons-cut`, `cutter` en `image-cutter` zijn vrij. Olaf is de enige maintainer; andere maintainers voegt hij toe op toolsadmin. Beheerders in de app staan los daarvan (8.4).
+- Een tool-account op Toolforge: **`commons-mineventory`** (URL `https://commons-mineventory.toolforge.org/`). De naam moet Engels zijn; de repo heet hetzelfde (besluit Olaf, 3-11-2026; naam gewijzigd 5-11-2026, eerst `commons-cutter`). Op 5-11-2026 nagekeken: `KBNLwikimedia/commons-mineventory` bestaat nog niet op GitHub; of de naam vrij is op Toolforge (toolsadmin) en Toolhub, wordt nagekeken bij de deploy (backlog 12f). Olaf is de enige maintainer; andere maintainers voegt hij toe op toolsadmin. Beheerders in de app staan los daarvan (8.4).
 - **Build Service** met een `Procfile` (`web: gunicorn --workers 2 --bind 0.0.0.0:$PORT wsgi:app`) en `requirements.txt`; deployen met `toolforge build start <git-url>` en `toolforge webservice buildservice restart`. Alternatief: de klassieke `webservice python3.11` met een venv. Voorstel: Build Service.
 - **De frontend bouwen** (Vite, zie 10.2). Op Toolforge draait alleen Python; Node.js is alleen nodig om `static/dist/` te maken. Twee routes, bij de bouw kiezen:
   1. **In de Build Service zelf**: als die naast Python ook een Node-stap kan draaien (`npm ci && npm run build`). Het eenvoudigst, als het kan.
   2. **In een GitHub Action** (terugvaloptie): bij elke push naar `main` bouwt de Action de frontend en zet het resultaat in een aparte branch (bijv. `deploy`), die de Build Service ophaalt. `static/dist/` komt dan nooit in `main`.
 - **Configuratie** met `toolforge envvars create …` (`MODEL_API_KEY`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `FLASK_SECRET_KEY`). Nooit in de repo.
-- **Opslag**: cache en uitvoer op de gedeelde schijf van de tool (`/data/project/commons-cutter/`). Die schijf is gedeeld en niet bedoeld voor veel of blijvende opslag, dus een dagelijkse opruimtaak (`toolforge jobs`) ruimt op. Bewaartermijnen, besloten door Olaf (3-11-2026); ze tellen vanaf het **laatste gebruik**, niet vanaf het aanmaken:
+- **Opslag**: cache en uitvoer op de gedeelde schijf van de tool (`/data/project/commons-mineventory/`). Die schijf is gedeeld en niet bedoeld voor veel of blijvende opslag, dus een dagelijkse opruimtaak (`toolforge jobs`) ruimt op. Bewaartermijnen, besloten door Olaf (3-11-2026); ze tellen vanaf het **laatste gebruik**, niet vanaf het aanmaken:
 
   | Wat | Termijn | Waarom |
   | --- | --- | --- |
@@ -683,7 +683,7 @@ API-gebruik zonder browser: met de sessiecookie na het inloggen. Een eigen API-s
 - **Sessies**: server-side, in Redis van Toolforge of in bestanden; tokens versleuteld.
 - **Lange taken** (Alles beschrijven, uploads van tientallen bestanden): pagina voor pagina vanuit de browser, zoals nu, of als `toolforge jobs`-taak. Voorstel: vanuit de browser, met de knop Stoppen.
 - **Werkgeheugen**: een webservice heeft standaard een beperkt geheugen; grote scans (5.4) kunnen dat overschrijden. Bij de bouw meten en zo nodig meer aanvragen.
-- **Broncode**: openbaar, met een open-sourcelicentie (verplicht op Toolforge). Licentie: **MIT** (besloten door Olaf, 3-11-2026). Let op: Codex (GPL-2.0-or-later), Vue (MIT) en `meta-sam-parser` (SAM License) houden hun eigen licentie; dat staat in de README, en Vite zet de licentieteksten bij de gebouwde bundel. De code komt op GitHub onder **`KBNLwikimedia/commons-cutter`** (besluit 3-11-2026).
+- **Broncode**: openbaar, met een open-sourcelicentie (verplicht op Toolforge). Licentie: **MIT** (besloten door Olaf, 3-11-2026). Let op: Codex (GPL-2.0-or-later), Vue (MIT) en `meta-sam-parser` (SAM License) houden hun eigen licentie; dat staat in de README, en Vite zet de licentieteksten bij de gebouwde bundel. De code komt op GitHub onder **`KBNLwikimedia/commons-mineventory`** (besluit 3-11-2026, naam 5-11-2026).
 
 ### 12.2 Lokaal ontwikkelen
 
@@ -724,7 +724,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 **Fase 3: live**
 
 11. Detectie en beschrijving live (`DETECTIE_MODUS=live`), alleen na een opdracht van Olaf. Kalibratie op Commons-materiaal (albums, prenten, kaarten).
-12. Deploy naar Toolforge als `commons-cutter`, publieke consumer aanvragen, privacyverklaring. Olaf maakt de projectpagina `Commons:Commons Mineventory` en de volgcategorie aan.
+12. Deploy naar Toolforge als `commons-mineventory`, publieke consumer aanvragen, privacyverklaring. Olaf maakt de projectpagina `Commons:Commons Mineventory` en de volgcategorie aan.
 13. De eerste echte uploads op Commons, door Olaf zelf.
 
 **Fase 4: verdieping**
@@ -739,7 +739,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 ## 14. Repo-structuur (doel)
 
 ```
-commons-cutter/
+commons-mineventory/
   app.py  wsgi.py  Procfile  requirements.txt  .env.example  .gitignore
   cutter/ (beheer.py, opslag.py, commons.py, regios.py, oauth.py, upload.py, wikitekst.py, sdc.py, rechten.py, weergave.py,
                detectie/{basis,dummy,meta_sam,maskers,dienst}.py, beschrijving.py,
@@ -759,7 +759,7 @@ commons-cutter/
 
 | Onderwerp | Besluit | Waar |
 | --- | --- | --- |
-| Naam | **Commons Mineventory** (5-11-2026; eerder Commons Cutter); tool, repo en map heten (nog) `commons-cutter` (lokaal `D:\KB-OPEN\github-repos\commons-cutter`, op GitHub `KBNLwikimedia/commons-cutter`). `commons-cutter` was op 3-11-2026 vrij op Toolforge, Toolhub en GitHub; of de technische namen meeverhuizen, is backlog 12f | 12.1 |
+| Naam | **Commons Mineventory** (5-11-2026; eerder Commons Cutter); tool, repo en map heten `commons-mineventory` (lokaal `D:\KB-OPEN\github-repos\commons-mineventory`, op GitHub `KBNLwikimedia/commons-mineventory`); het Python-package heet nog `cutter/`. Backlog 12f | 12.1 |
 | Kosten | Eén API-sleutel van de KB voor de Meta-aanroepen | 3, 6.4 |
 | Codex | 2.x met Vue 3 | 10.1 |
 | Build-stap | Vite (Node.js alleen bij het ontwikkelen en bouwen); de viewer blijft een gewone JS-module; op Toolforge draait alleen Python | 10.2, 12.1 |
