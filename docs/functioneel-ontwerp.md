@@ -108,7 +108,7 @@ De gebruiker plakt in het invoerveld een van:
 
 Eén verzoek normaliseert dit naar de canonieke titel en de page-id. Een redirect (hernoemd bestand) wordt gevolgd en gemeld. Bestaat het bestand niet, of staat het niet op Commons maar op een andere wiki, dan meldt de app dat met een voorbeeld-URL.
 
-Een **categorie** als invoer (alle bestanden in `Category:…` als lijst om door te bladeren, net als een aflevering in Delpher) komt in **fase 2** (besluit Olaf, 3-11-2026). Sinds 5-11-2026 uitgewerkt als dashboard met collecties, vóór de bewerker: zie hoofdstuk 17 (voorstel).
+Een **categorie** als invoer (alle bestanden in `Category:…` als lijst om door te bladeren, net als een aflevering in Delpher) komt in **fase 2** (besluit Olaf, 3-11-2026). Sinds 5-11-2026 uitgewerkt als dashboard met collecties, vóór de bewerker: zie hoofdstuk 17. Besluit Olaf (5-11-2026): dat wordt nu gebouwd, vóór OAuth.
 
 ### 5.2 Gegevens ophalen (MediaWiki Action API)
 
@@ -382,12 +382,12 @@ Besluit Olaf (5-11-2026): op Toolforge werkt elke ingelogde gebruiker aan zijn e
 
 ### 8.6 Starttegoed en een eigen Meta-sleutel (bring your own key)
 
-Wens van Olaf (5-11-2026). Nog niet gebouwd. Punten met **[Vraag]** staan ook in 8.6.6.
+Wens van Olaf (5-11-2026). Nog niet gebouwd. Zijn besluiten (5-11-2026) staan in 8.6.6.
 
 #### 8.6.1 Het idee
 
-- Op Toolforge krijgt **elke ingelogde gebruiker een starttegoed** van ongeveer **$0,25**. Dat is ongeveer **100 zoekopdrachten** met SAM ($0,0025 per stuk, 6.4). Dit tegoed betaalt de KB, met de sleutel van de KB (3).
-- Is het tegoed op, dan voert de gebruiker zijn **eigen sleutel voor de Meta Model API** in. Vanaf dan betaalt hij zijn aanroepen zelf, bij Meta.
+- Op Toolforge krijgt **elke ingelogde gebruiker een starttegoed** van **100 aanroepen**, met SAM of Muse Spark. Dat kost de KB $0,25 (alleen SAM, $0,0025 per stuk) tot ongeveer $0,70 (alleen Muse Spark) per gebruiker (6.4). Dit tegoed betaalt de KB, met de sleutel van de KB (3).
+- Met een **eigen sleutel voor de Meta Model API** betaalt de gebruiker zijn aanroepen zelf, bij Meta. Heeft hij er een, dan gaat die altijd voor, en blijft het tegoed bewaard (8.6.3).
 - De sleutel is **alleen op de server** te gebruiken. Hij komt nooit terug naar de browser, niet in de API, niet in logs en niet in een export. Ook beheerders kunnen hem niet zien (8.6.4).
 - Lokaal (fase 1, Olafs eigen server) verandert er niets: de sleutel uit `.env` geldt zonder tegoed.
 
@@ -395,27 +395,27 @@ Dit is iets anders dan de *eigen API-sleutel per gebruiker voor scripts* (11, fa
 
 #### 8.6.2 Het tegoed
 
-- **Eenmalig**, bij de eerste keer inloggen, niet elke dag of maand. **[Vraag]**
-- **In dollars**, niet in aanroepen. Een SAM-aanroep kost $0,0025, maar een beschrijving met Muse Spark $0,005 tot $0,007 (6.4). Een tegoed in dollars blijft dus eerlijk, ook bij gemengd gebruik. De interface toont het allebei: *"Tegoed: $0,18 (ongeveer 72 zoekopdrachten)"*. **[Vraag]**
+- **Eenmalig**, bij de eerste keer inloggen, niet elke dag of maand (besluit Olaf).
+- **In aanroepen**, niet in dollars (besluit Olaf): **100 aanroepen**, of het nu SAM is ($0,0025) of Muse Spark ($0,005 tot $0,007, 6.4). Dat is eenvoudig uit te leggen. Wie alleen Muse Spark gebruikt, kost de KB wel bijna drie keer zoveel; het dagbudget (hieronder) blijft de rem. De interface toont *"Tegoed: 72 van 100 aanroepen"*.
 - **De cache is gratis.** Een antwoord dat al in de cache staat (ook van een ander, 8.5), kost niets en gaat niet van het tegoed af.
 - **Vooraf geboekt.** Net als het dagbudget nu (12c, 0.26.0) reserveert de app het bedrag vóór de aanroep en verrekent daarna. Zo kan het tegoed nooit onder nul, ook niet bij een voorscan van honderden bestanden (17.5).
-- **De bestaande limieten** (6.4) blijven gelden voor alles wat de KB betaalt: het dagbudget van $2 en 500 aanroepen voor de hele tool, en 100 aanroepen per gebruiker per dag. Met een starttegoed van $0,25 kunnen per dag dus ongeveer acht nieuwe gebruikers hun tegoed opmaken voordat het dagbudget op is. Daarna meldt de app dat het gratis tegoed voor vandaag op is, en dat het met een eigen sleutel wel kan.
+- **De bestaande limieten** (6.4) blijven gelden voor alles wat de KB betaalt: het dagbudget van $2 en 500 aanroepen voor de hele tool, en 100 aanroepen per gebruiker per dag. Met 100 aanroepen per gebruiker kunnen per dag dus drie tot vijf nieuwe gebruikers hun tegoed opmaken voordat de tool aan haar grens zit (vijf bij alleen SAM, door de 500 aanroepen; ongeveer drie bij alleen Muse Spark, door de $2). Daarna meldt de app dat het gratis tegoed voor vandaag op is, en dat het met een eigen sleutel wel kan.
 - **In het beheerpaneel** (8.4): de hoogte van het starttegoed, en per gebruiker het tegoed bekijken, extra tegoed geven of het tegoed op nul zetten. Elke wijziging staat in het logboek.
-- **De toegangslijst** (8.3) blijft voor wie zonder tegoedgrens op kosten van de KB mag werken, zoals Olaf en collega's. Voor hen geldt alleen de daglimiet. Iedere andere ingelogde gebruiker heeft het starttegoed en daarna een eigen sleutel. De knop *Toegang aanvragen* blijft. **[Vraag]**
+- **De toegangslijst** (8.3) blijft voor wie zonder tegoedgrens op kosten van de KB mag werken, zoals Olaf en collega's. Voor hen geldt alleen de daglimiet. Iedere andere ingelogde gebruiker heeft het starttegoed en daarna een eigen sleutel. De knop *Toegang aanvragen* blijft (besluit Olaf).
 
 #### 8.6.3 Een eigen sleutel invoeren
 
 - Op een pagina **Mijn account** (`/account`, via het menu bij de gebruikersnaam, 10.4): een wachtwoordveld *Eigen sleutel voor de Meta Model API*, met een korte uitleg en een link naar Meta om een sleutel te maken.
 - **Opslaan** controleert de sleutel. Lukt dat, dan wordt hij versleuteld bewaard (8.6.4) en wordt het veld leeggemaakt. Daarna toont de pagina alleen nog *"Eigen sleutel ingesteld: eindigt op …a1b2, gecontroleerd op 5-11-2026"*, met *Vervangen* en *Verwijderen* (destructief, met bevestiging).
   - Bij de bouw nagaan of Meta een gratis manier heeft om een sleutel te controleren, bijvoorbeeld een lijst van modellen (16). Zo niet, dan controleert de app de sleutel bij de eerste echte aanroep en meldt het als die niet werkt.
-- **Onthouden of alleen deze sessie**: standaard onthoudt de app de sleutel versleuteld. Wie dat niet wil, kiest *Alleen voor deze sessie*; dan staat hij alleen in de server-side sessie en verdwijnt hij bij uitloggen. **[Vraag]**
+- **Onthouden of alleen deze sessie**: standaard onthoudt de app de sleutel versleuteld. Wie dat niet wil, kiest *Alleen voor deze sessie*; dan staat hij alleen in de server-side sessie en verdwijnt hij bij uitloggen (besluit Olaf).
 - **Een eigen daglimiet in dollars**, optioneel, als rem op je eigen kosten (bijv. $1 per dag).
 - **Wanneer de app welke sleutel gebruikt**:
   1. Staat de gebruiker op de toegangslijst: de sleutel van de KB.
-  2. Anders, zolang er tegoed is: de sleutel van de KB, van het tegoed af. **[Vraag]** Of gaat een eigen sleutel, als die er is, altijd voor, zodat het tegoed bewaard blijft?
-  3. Anders, met een eigen sleutel: die sleutel.
+  2. Anders, met een eigen sleutel: altijd die sleutel, ook als er nog tegoed is; het tegoed blijft dan bewaard (besluit Olaf).
+  3. Anders, zolang er tegoed is: de sleutel van de KB, één aanroep van het tegoed af.
   4. Anders: de knoppen met kosten zijn uitgeschakeld (niet verborgen, 10.4), met de uitleg *"Je tegoed is op. Voer je eigen sleutel in om verder te gaan."* en een link naar *Mijn account*.
-- **Welke sleutel betaalt** staat bij de bevestiging vóór elke betaalde actie: *"Kost ongeveer $0,02, van je tegoed ($0,18 over)"* of *"Kost ongeveer $0,02, op je eigen sleutel"*.
+- **Welke sleutel betaalt** staat bij de bevestiging vóór elke betaalde actie: *"Kost 8 aanroepen, van je tegoed (72 van 100 over)"* of *"Kost ongeveer $0,02, op je eigen sleutel"*.
 - **Contributor of Standard** (6.3): dezelfde regels, ook met een eigen sleutel. Op *Mijn account* kan de gebruiker Contributor voor zijn eigen sleutel uitzetten, want het gaat dan om zijn eigen afspraak met Meta.
 - **Verbruik**: elke aanroep in het verbruikslog krijgt `betaald_door`: `kb` (toegangslijst of tegoed) of `eigen_sleutel`, nooit de sleutel zelf. Aanroepen met een eigen sleutel tellen niet mee voor het dagbudget van de KB. *Mijn account* toont je eigen verbruik per dag.
 
@@ -430,13 +430,13 @@ De sleutel is van de gebruiker en kost hem geld. Hij mag dus nooit uitlekken:
 - **Ook beheerders zien hem niet.** Het beheerpaneel toont alleen of een gebruiker een eigen sleutel heeft. Een beheerder kan hem wel verwijderen, bijvoorbeeld bij misbruik; dat staat in het logboek en de gebruiker ziet het op *Mijn account*.
 - **Opgeruimd**: een sleutel die een jaar niet gebruikt is, verwijdert de opruimtaak (12.1). Verwijderen is echt weg, ook uit de database.
 - **CSRF-token** bij elk opslaan en verwijderen, alleen voor de ingelogde gebruiker zelf, alleen over HTTPS (Toolforge).
-- **Privacyverklaring** (12.3): de app bewaart de sleutel versleuteld en gebruikt hem alleen voor de aanroepen van de gebruiker. Antwoorden die met een eigen sleutel zijn betaald, komen in de gedeelde cache (8.5) en kunnen dus anderen gratis helpen. **[Vraag]**
+- **Privacyverklaring** (12.3): de app bewaart de sleutel versleuteld en gebruikt hem alleen voor de aanroepen van de gebruiker. Antwoorden die met een eigen sleutel zijn betaald, komen in de gedeelde cache (8.5) en kunnen dus anderen gratis helpen (besluit Olaf).
 
 #### 8.6.5 API (voorstel)
 
 | Methode | Pad | Wat |
 | --- | --- | --- |
-| GET | `/api/v1/account` | Ingelogd: tegoed (over, starttegoed), toegangslijst ja/nee, eigen sleutel (alleen of hij er is, de laatste vier tekens, gecontroleerd), eigen daglimiet, verbruik vandaag |
+| GET | `/api/v1/account` | Ingelogd: tegoed (aanroepen over, van het starttegoed), toegangslijst ja/nee, eigen sleutel (alleen of hij er is, de laatste vier tekens, gecontroleerd), eigen daglimiet, verbruik vandaag |
 | PUT | `/api/v1/account/meta-sleutel` | Een eigen sleutel opslaan of vervangen (`{"sleutel": "…", "onthouden": true}`). Controleert hem. 200 met dezelfde samenvatting als de GET, zonder de sleutel |
 | DELETE | `/api/v1/account/meta-sleutel` | De eigen sleutel verwijderen |
 | PATCH | `/api/v1/account` | Eigen daglimiet; Contributor uit voor de eigen sleutel |
@@ -444,14 +444,14 @@ De sleutel is van de gebruiker en kost hem geld. Hij mag dus nooit uitlekken:
 
 `/api/v1/status` noemt het tegoed of *eigen sleutel*, zodat de header het kan tonen. Een fout van Meta door een verkeerde of lege sleutel geeft een eigen code (`own_key_invalid`, `credit_exhausted`), met een vertaling in nl.json en en.json.
 
-#### 8.6.6 [Vraag] voor Olaf
+#### 8.6.6 Besluiten van Olaf (5-11-2026)
 
-1. **Eenmalig of terugkerend**: is het starttegoed eenmalig (voorstel), of komt er bijvoorbeeld elke maand weer $0,25 bij?
-2. **Dollars of aanroepen**: tegoed in dollars ($0,25, getoond als "ongeveer 100 zoekopdrachten"; voorstel), of precies 100 aanroepen, ongeacht SAM of Muse Spark?
-3. **Volgorde**: eerst het tegoed opmaken en dan de eigen sleutel (voorstel), of gaat een eigen sleutel altijd voor?
-4. **Onthouden**: de sleutel standaard versleuteld onthouden, met de keuze *Alleen voor deze sessie* (voorstel)? Of nooit onthouden, en bij elke sessie opnieuw invoeren?
-5. **Toegangslijst**: blijft die bestaan voor wie onbeperkt op kosten van de KB mag (voorstel), naast het tegoed voor iedereen?
-6. **Gedeelde cache**: mogen antwoorden die met iemands eigen sleutel zijn betaald, in de gedeelde cache komen, zodat anderen ze gratis krijgen (voorstel)?
+1. **Eenmalig**: het starttegoed krijg je één keer, bij de eerste keer inloggen.
+2. **In aanroepen**: 100 aanroepen, of het nu SAM of Muse Spark is (niet in dollars, zoals voorgesteld).
+3. **Een eigen sleutel gaat altijd voor**: wie een eigen sleutel heeft, betaalt daarmee, en het tegoed blijft bewaard (niet eerst het tegoed, zoals voorgesteld).
+4. **Onthouden**: de sleutel standaard versleuteld onthouden, met de keuze *Alleen voor deze sessie*.
+5. **Toegangslijst**: blijft, voor wie onbeperkt op kosten van de KB mag werken.
+6. **Gedeelde cache**: antwoorden die met een eigen sleutel zijn betaald, komen in de gedeelde cache.
 
 ## 9. Publiceren op Commons
 
@@ -817,13 +817,14 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 4. Uit Commons: de regio's uit de gestructureerde gegevens (P180 met P2677) als objecten, en de bestandsnotities.
 5. Opslaan, zip, `/objecten`.
 6. Commons-concept per object, keuzemenu, controle vooraf en proefweergave, zonder upload.
+6a. Het dashboard met collecties uit categorieën (17), zonder voorscan door AI, lokaal onder de gebruiker `lokaal` (besluit Olaf 5-11-2026: nu bouwen, vóór OAuth).
 
 **Fase 2: OAuth, upload naar een testwiki, categorieën**
 
 7. OAuth 2.0 server-side, met een owner-only consumer. Daarmee het werk per gebruiker gescheiden (8.5).
 8. Upload via de stash, SDC, `{{Image extracted}}` op het origineel; alles eerst op de testwiki (welke, blijkt bij de bouw).
 9. Beheerpaneel (8.4): beheerders, toegangslijst, aanvragen, limieten (100 per gebruiker; 500 aanroepen en $2 per dag in totaal), noodknoppen, logboek; opslag in SQLite (lokaal) en ToolsDB (Toolforge). Daarna het starttegoed en de eigen Meta-sleutel (8.6), want die hebben OAuth en de database nodig.
-10. Een categorie als invoer: bladeren door de bestanden van `Category:…` (5.1).
+10. Een categorie als invoer: bladeren door de bestanden van `Category:…` (5.1). Vervallen: wordt het dashboard (17), al in fase 1 (6a).
 
 **Fase 3: live**
 
@@ -889,6 +890,8 @@ commons-mineventory/
 | API-sleutel per gebruiker | Later, fase 4 | 11, 13 |
 | Bewaartermijnen op Toolforge | Originelen 7 dagen, niet-geüploade uitsneden 30 dagen, detecties en beschrijvingen 1 jaar; telt vanaf het laatste gebruik | 12.1 |
 | Upload Stash | Alleen als controlestap vlak vóór het publiceren; geen overdracht aan de Upload Workbench of andere tools | 9.1 |
+| Dashboard met collecties | Nu bouwen, vóór OAuth; de bewerker naar `/bewerken`; voorlopig geen voorscan door AI (5-11-2026) | 17, 17.10 |
+| Starttegoed | Eenmalig 100 aanroepen; een eigen Meta-sleutel gaat altijd voor; de toegangslijst blijft (5-11-2026) | 8.6, 8.6.6 |
 | Werk per gebruiker | Elke ingelogde gebruiker werkt in een eigen uitvoermap; cache en AI-antwoorden blijven gedeeld (5-11-2026) | 8.5 |
 
 ### Aangenomen (niet beantwoord, voorstel geldt tot Olaf anders zegt)
@@ -901,8 +904,6 @@ commons-mineventory/
 Geen vragen die de bouw van fase 1 en 2 tegenhouden. Later:
 
 1. Is een commerciële, betaalde API van Meta acceptabel voor een Toolforge-tool? Vóór de deploy in fase 3 uitzoeken (besluit Olaf: "zien we te zijner tijd"). (12.3)
-2. Elf vragen over het dashboard met collecties; ze houden de eerste bouw daarvan tegen. (17.10)
-3. Zes vragen over het starttegoed en de eigen Meta-sleutel; nodig vóór de bouw in fase 2. (8.6.6)
 
 ## 16. Te verifiëren bij de bouw
 
@@ -924,7 +925,7 @@ Geen vragen die de bouw van fase 1 en 2 tegenhouden. Later:
 
 ## 17. Dashboard: collecties uit categorieën
 
-Voorstel (5-11-2026, op verzoek van Olaf). Nog niet gebouwd. Punten met **[Vraag]** wachten op een keuze van Olaf; ze staan ook in 17.10.
+Op verzoek van Olaf (5-11-2026). Nog niet gebouwd. Zijn besluiten (5-11-2026) staan in 17.10. Het belangrijkste: **nu bouwen, vóór OAuth**, en **voorlopig geen voorscan door AI**; je kiest met de hand (17.5).
 
 ### 17.1 Doel
 
@@ -932,7 +933,7 @@ Vóór het werk per afbeelding (de bewerker, 10.4) komt een **dashboard**. Daar 
 
 1. Je opent een **categorie** van Commons. De app toont alle afbeeldingen erin als **miniaturen**.
 2. Per afbeelding geef je met een **vinkje** aan of er iets in staat dat de moeite van het uitsnijden waard is: illustraties, wapens, portretten, foto's in een album.
-3. Daarbij kan **SAM helpen** met een *voorscan*: per afbeelding één goedkope aanroep die laat zien of er objecten in staan (17.5).
+3. Je kiest **met de hand**. Een *voorscan* met SAM, die per afbeelding laat zien of er objecten in staan, is ontworpen maar uitgesteld (17.5).
 4. Met één knop wordt de selectie een **werkset**. Die loop je in de bewerker één voor één door, met *Vorige* en *Volgende* en een status per afbeelding (17.6).
 
 Dit vervangt "Een categorie als invoer" (5.1, backlog 15a) en is de eerste stap naar "Batch over meerdere bestanden" (13, fase 4 punt 14).
@@ -950,14 +951,14 @@ Dit vervangt "Een categorie als invoer" (5.1, backlog 15a) en is de eerste stap 
 - **Invoer**: `Category:Album amicorum van Jacob van Bronckhorst van Batenburg`, `Categorie:…`, een URL van de categoriepagina, of alleen de naam. Normaliseren zoals bij een bestand (5.1). Een redirect (`{{Category redirect}}`) wordt gevolgd en gemeld.
 - **Eerst een voorproefje** (gratis, één verzoek, `prop=categoryinfo`): het aantal bestanden en het aantal subcategorieën. Daarna maak je de collectie aan, met de naam van de categorie als voorgestelde naam.
 - **Bestanden ophalen**: `generator=categorymembers&gcmtype=file&prop=imageinfo&iiprop=url|size|mime|sha1&iiurlwidth=<stap>`, per blok (`gcmcontinue`), met een eigen User-Agent, `maxlag=5`, caching en ongeveer één verzoek per seconde (5.2). De M-id is `M` + de page-id; daar is geen extra verzoek voor nodig.
-- **Subcategorieën**: standaard alleen de categorie zelf. Onder de miniaturen staan de subcategorieën als chips met hun aantal bestanden; met een klik voeg je er een aan de collectie toe (één niveau diep). **[Vraag]**
-- **Grootte**: voorstel hooguit **1000 bestanden** per collectie. Bij een grotere categorie meldt de app dat, en neemt de eerste 1000 in de volgorde van Commons (`cmsort=sortkey`). **[Vraag]**
-- **Bestandstypen** (5.4): SVG, GIF, video en audio staan er grijs en zonder vinkje in, met de reden. PDF, DjVu en meerpagina-TIFF zijn één tegel met het aantal pagina's erop; voorscan alleen op pagina 1. **[Vraag]**
+- **Subcategorieën**: standaard alleen de categorie zelf. Onder de miniaturen staan de subcategorieën als chips met hun aantal bestanden; met een klik voeg je er een aan de collectie toe (één niveau diep; besluit Olaf).
+- **Grootte**: hooguit **1000 bestanden** per collectie. Bij een grotere categorie meldt de app dat, en neemt de eerste 1000 in de volgorde van Commons (`cmsort=sortkey`; besluit Olaf).
+- **Bestandstypen** (5.4): SVG, GIF, video en audio staan er grijs en zonder vinkje in, met de reden. PDF, DjVu en meerpagina-TIFF zijn één tegel met het aantal pagina's erop; een latere voorscan alleen op pagina 1 (besluit Olaf).
 - **Bijwerken**: *Opnieuw ophalen* zoekt nieuwe en verdwenen bestanden in de categorie. Nieuwe bestanden komen erbij als *nog niet bekeken*. Een verdwenen bestand blijft in de collectie staan, met een merkje. Gemaakt werk gaat nooit verloren.
 
 **Miniaturen en privacy.** De browser laadt niets van Wikimedia (12.3). De server haalt elke miniatuur op in een vaste stapgrootte van Commons (5.2, bijv. 250 px; de stappen nog verifiëren, 16), cachet die 7 dagen (zoals `cache/commons`, 12.1) en levert hem aan de browser. De miniaturen laden pas als ze in beeld komen (lazy).
 
-**Snelheid.** Bij één verzoek per seconde duren 500 miniaturen ruim 8 minuten. Miniaturen in standaardmaten komen uit de cache van `upload.wikimedia.org` en kosten Commons weinig. Voorstel: daarvoor **4 tegelijk** (ongeveer 4 per seconde), en de API-verzoeken naar `api.php` op één per seconde houden. **[Vraag]** Bij de bouw nagaan wat de richtlijnen van Wikimedia hierover zeggen (16).
+**Snelheid.** Bij één verzoek per seconde duren 500 miniaturen ruim 8 minuten. Miniaturen in standaardmaten komen uit de cache van `upload.wikimedia.org` en kosten Commons weinig. Daarvoor **4 tegelijk** (ongeveer 4 per seconde; besluit Olaf), en de API-verzoeken naar `api.php` op één per seconde houden. Bij de bouw nagaan wat de richtlijnen van Wikimedia hierover zeggen (16).
 
 ### 17.4 Het dashboard
 
@@ -1012,6 +1013,7 @@ Dit vervangt "Een categorie als invoer" (5.1, backlog 15a) en is de eerste stap 
 - **Tegel**: de miniatuur, een vinkje linksboven, de bestandsnaam (ingekort; in volle lengte bij aanwijzen), en na een voorscan de gevonden kaders als dunne rechthoeken op de miniatuur, met het aantal en een AI-merkje. Onderaan de status in de werkset.
 - **Kiezen**: klik op het vinkje; klik op de tegel opent een grotere weergave (de lightbox, met Vorige/Volgende en de toetsen ← →, *spatie* = vinkje aan/uit). Shift-klik kiest een reeks. Een tegel zonder keuze heeft een open vinkje (◻), een bewust uitgevinkte een leeg vinkje (☐).
 - **Filters** als chips met hun aantal, zoals de facetten op `/objecten`. Een schuif voor de grootte van de miniaturen, onthouden in de browser.
+- **Voorscan**: het deel *Voorscan met SAM* in de schets en de filters *Voorscan: …* komen pas als de voorscan terugkomt (17.5). In de eerste bouw zijn ze er niet.
 - **Hoofdactie** (de enige gevulde knop): *Werkset openen (n)*. Uitgeschakeld als er niets gekozen is.
 - Wat er al met een bestand gebeurd is, staat ook op de tegel; zie hieronder.
 
@@ -1035,22 +1037,24 @@ Dit vervangt "Een categorie als invoer" (5.1, backlog 15a) en is de eerste stap 
 - **Op de tegel** een merkje in de hoek: blauw voor *door jou bewerkt*, groen met het aantal voor *op Commons met de Mineventory*, grijs voor *ander gereedschap*. Bij aanwijzen staat er wat en wanneer, met links naar de uitsneden op Commons.
 - **Filters**: *Nog niet bewerkt*, *Door jou bewerkt*, *Al op Commons*.
 - **Op de kaart van de collectie**: *"212 bestanden · 18 al op Commons · 9 door jou bewerkt"*.
-- **Bij de voorscan** (17.5): bestanden die al uitsneden op Commons hebben, slaat de voorscan standaard over. Dat spaart geld. Met een vinkje *Ook bestanden die al bewerkt zijn* scan je ze toch.
+- **Bij de voorscan** (later, 17.5): bestanden die al uitsneden op Commons hebben, slaat de voorscan standaard over. Dat spaart geld. Met een vinkje *Ook bestanden die al bewerkt zijn* scan je ze toch.
 - **Bij het kiezen**: een bestand dat al op Commons is uitgesneden, wordt nooit vanzelf aangevinkt, ook niet door de voorscan. Kies je het zelf, dan blijft het merkje staan.
 - **In de bewerker**: open je zo'n bestand, dan staat onder de titel een melding: *"Van dit bestand staan al 3 uitsneden op Commons, gemaakt met de Commons Mineventory"*, met de links. Bij *Naar Commons* (9.1) waarschuwt de controle vooraf al voor dezelfde afbeelding (SHA-1, 9.5). Dit komt er dus bij, eerder in het werk.
-- **Waarschuwen, niet blokkeren** (zoals bij de rechten, 5.3): je kunt een bewerkt bestand altijd openen en opnieuw bewerken, bijvoorbeeld om een object toe te voegen dat de vorige keer ontbrak. **[Vraag]**
+- **Waarschuwen, niet blokkeren** (zoals bij de rechten, 5.3): je kunt een bewerkt bestand altijd openen en opnieuw bewerken, bijvoorbeeld om een object toe te voegen dat de vorige keer ontbrak (besluit Olaf).
 
-**Werk van andere gebruikers dat nog niet op Commons staat** blijft onzichtbaar. Iedereen werkt in een eigen map (8.5), en wat iemand nog niet gepubliceerd heeft, is van hem. **[Vraag]** Of toch een anoniem merkje *"ook een ander werkt hieraan"*, zonder naam en zonder inhoud?
+**Werk van andere gebruikers dat nog niet op Commons staat** blijft onzichtbaar. Iedereen werkt in een eigen map (8.5), en wat iemand nog niet gepubliceerd heeft, is van hem (besluit Olaf).
 
 ### 17.5 Voorscan met SAM
 
+**Uitgesteld** (besluit Olaf, 5-11-2026): voorlopig geen voorscan door AI. Bij een grotere categorie van bijvoorbeeld 2000 bestanden kost die al snel $5; Olaf kiest dan liever met de hand. Wat hieronder staat, is het ontwerp voor later (backlog 19a). Komt de voorscan terug, dan zijn twee vragen nog open: SAM of ook Muse Spark, en automatisch aanvinken of alleen tonen.
+
 - **Wat**: per bestand één SAM-aanroep per zoekterm (6.1, een gewone zoekterm uit 7.1), op dezelfde verkleinde versie als in de bewerker (1920 px). De zoektermen gelden voor de hele collectie en worden bij de collectie bewaard. Voorstel voor de eerste term: `illustration`. De gebruiker past ze aan, zoals in *Zoeken* (EN/MIN-syntax en de vertaaltabel werken ook hier).
 - **Hergebruik**: de voorscan is dezelfde detectie als *Zoeken* in de bewerker en gebruikt dezelfde cache (per SHA-1 + pagina + term + model). Open je het bestand later in de bewerker, dan staan de gevonden objecten er al, als kandidaat (niet geselecteerd), en zoeken op dezelfde term kost niets meer.
-- **Keuze voorstellen**: vindt de voorscan minstens één object met een score boven de drempel (voorstel: 0,5), dan wordt het vinkje gezet, met een AI-merkje (*voorgesteld door AI*). Vindt hij niets, dan blijft het bestand *nog niet bekeken*, met *niets gevonden*. Een keuze die de gebruiker zelf maakte, verandert de voorscan nooit. **[Vraag]** Automatisch aanvinken, of alleen tonen?
+- **Keuze voorstellen**: vindt de voorscan minstens één object met een score boven de drempel (voorstel: 0,5), dan wordt het vinkje gezet, met een AI-merkje (*voorgesteld door AI*). Vindt hij niets, dan blijft het bestand *nog niet bekeken*, met *niets gevonden*. Een keuze die de gebruiker zelf maakte, verandert de voorscan nooit. Open: automatisch aanvinken, of alleen tonen?
 - **Kosten en bevestiging**: de knop draagt het bedrag (bestanden zonder voorscan × termen × $0,0025). Vóór de start volgt een bevestiging met het aantal aanroepen en het bedrag (6.4). Een voorscan van een term die al in de cache staat, kost niets en telt niet mee.
 - **Uitvoeren**: vanuit de browser, bestand voor bestand, met voortgang en een knop **Stoppen** (12.1, *Lange taken*). Bij een limiet (429) stopt de voorscan netjes, met de melding hoeveel er nog te doen is. Wat klaar is, blijft bewaard.
-- **Limieten** (6.4): een categorie van 300 bestanden met één term is 300 aanroepen. Dat is meer dan de 100 per gebruiker per dag en het grootste deel van de 500 voor de hele tool. Voorstel: de voorscan houdt zich aan dezelfde limieten en loopt dus soms over meer dagen (*Verder met de voorscan*), en de beheerder kan de limieten in het beheerpaneel (8.4) verhogen. **[Vraag]** Op Toolforge geldt daarnaast het starttegoed (8.6): een voorscan van een grote categorie past daar meestal niet in, en vraagt dus een eigen sleutel. De bevestiging zegt vooraf hoeveel van het tegoed gaat en wat op de eigen sleutel komt.
-- **Alternatief: AI-suggesties per bestand** (het paginaoverzicht, 7.6) als voorscan, met Muse Spark. Dat kost ongeveer $0,007 per bestand, bijna drie keer een SAM-term, maar geeft ook een beschrijving en zoektermen die passen bij dat bestand, en die staan in de bewerker meteen klaar. Voorstel: eerst alleen SAM, het paginaoverzicht als tweede keuze in een latere iteratie. **[Vraag]**
+- **Limieten** (6.4): een categorie van 300 bestanden met één term is 300 aanroepen. Dat is meer dan de 100 per gebruiker per dag en het grootste deel van de 500 voor de hele tool. Voorstel: de voorscan houdt zich aan dezelfde limieten en loopt dus soms over meer dagen (*Verder met de voorscan*), en de beheerder kan de limieten in het beheerpaneel (8.4) verhogen. Op Toolforge geldt daarnaast het starttegoed (8.6): een voorscan van een grote categorie past daar meestal niet in, en vraagt dus een eigen sleutel. De bevestiging zegt vooraf hoeveel van het tegoed gaat en wat op de eigen sleutel komt.
+- **Alternatief: AI-suggesties per bestand** (het paginaoverzicht, 7.6) als voorscan, met Muse Spark. Dat kost ongeveer $0,007 per bestand, bijna drie keer een SAM-term, maar geeft ook een beschrijving en zoektermen die passen bij dat bestand, en die staan in de bewerker meteen klaar. Open: eerst alleen SAM, of ook het paginaoverzicht?
 - **Fase 1-regel**: gebouwd en getest met de `DummyDetector` en fixtures. Live alleen op Olafs eigen server, door Olaf zelf.
 
 ### 17.6 De werkset in de bewerker
@@ -1063,7 +1067,7 @@ Dit vervangt "Een categorie als invoer" (5.1, backlog 15a) en is de eerste stap 
 ```
 
 - *Vorige* en *Volgende* lopen door de werkset (ook met Alt+← en Alt+→; de pijltjes zonder Alt blijven van de viewer en de vergroter).
-- **Status**: een bestand wordt *bezig* zodra je het opent. *Klaar* en *Overslaan* zet je zelf, en gaan meteen naar het volgende bestand dat nog *te doen* is. Voorstel: geen automatische *klaar*, want de app weet niet wanneer je klaar bent. **[Vraag]**
+- **Status**: een bestand wordt *bezig* zodra je het opent. *Klaar* en *Overslaan* zet je zelf, en gaan meteen naar het volgende bestand dat nog *te doen* is. Geen automatische *klaar*, want de app weet niet wanneer je klaar bent (besluit Olaf).
 - De kolom **Bekeken** toont boven de gewone lijst de werkset, met de status per bestand, zodat je er ook rechtstreeks naartoe springt.
 - Al het andere in de bewerker werkt zoals nu. De werkset verandert niets aan de objecten, uitsneden of het Commons-concept per bestand.
 - **Later** (tweede iteratie, niet in de eerste bouw): acties over de hele werkset vanaf de collectiepagina, zoals *AI-suggesties voor alle gekozen bestanden*, *Selectie opslaan voor alle bestanden* of één keuzemenu voor de upload van de hele werkset (9.1).
@@ -1086,7 +1090,7 @@ Dit vervangt "Een categorie als invoer" (5.1, backlog 15a) en is de eerste stap 
 
 | Pad | Wat |
 | --- | --- |
-| `/` | Het dashboard (de collecties). Met `?url=`, `?titel=` of `?mid=` stuurt het door naar `/bewerken?…`, zodat bestaande links blijven werken. **[Vraag]** |
+| `/` | Het dashboard (de collecties). Met `?url=`, `?titel=` of `?mid=` stuurt het door naar `/bewerken?…`, zodat bestaande links blijven werken (besluit Olaf) |
 | `/bewerken` | De bewerker zoals nu (10.4); met `?collectie=` de werksetbalk |
 | `/collecties/<id>` | Het raster van één collectie |
 
@@ -1101,12 +1105,12 @@ Dit vervangt "Een categorie als invoer" (5.1, backlog 15a) en is de eerste stap 
 | GET, PATCH | `/collecties/{id}/bestanden` | De bestanden, met filters (`keuze`, `status`, `voorscan`, `bewerkt`: `nee`, `door_jou`, `op_commons`); per bestand ook wat er al mee gedaan is (17.4, *Al bewerkt*); keuze en status van een of meer bestanden wijzigen |
 | GET | `/bestand/{mid}/bewerkingen` | Wat er met dit bestand al gebeurd is: door jou in de app, en op Commons (met de Mineventory, met ander gereedschap, regio's). Gratis, gecachet |
 | GET | `/bestand/{mid}/miniatuur?w=` | De miniatuur, via de server en gecachet (17.3) |
-| GET | `/collecties/{id}/voorscans/raming` | Kostenraming voor de voorscan; voert niets uit |
-| POST | `/collecties/{id}/bestanden/{mid}/voorscans` | De voorscan van één bestand (SAM, betaald, binnen de limieten). 201. De browser roept dit bestand voor bestand aan, met Stoppen |
+| GET | `/collecties/{id}/voorscans/raming` | Later (17.5): kostenraming voor de voorscan; voert niets uit |
+| POST | `/collecties/{id}/bestanden/{mid}/voorscans` | Later (17.5): de voorscan van één bestand (SAM, betaald, binnen de limieten). 201. De browser roept dit bestand voor bestand aan, met Stoppen |
 
 docs/api.md en `cutter/openapi.py` worden bijgewerkt bij de bouw.
 
-### 17.9 Eerste bouw (voorstel)
+### 17.9 Eerste bouw
 
 Klein en zonder kosten, in deze volgorde, elk met tests:
 
@@ -1114,20 +1118,18 @@ Klein en zonder kosten, in deze volgorde, elk met tests:
 2. **Collecties**: opslag in de map van de huidige gebruiker (nu `lokaal`, 17.7), de API uit 17.8 zonder voorscan, `opruimen`. Een test controleert dat twee gebruikers elkaars collecties niet zien.
 3. **Dashboard en collectiepagina** (Vue en Codex, tweetalig): kaarten, raster, vinkjes, filters, lightbox, *Werkset openen*, en de merkjes *Al bewerkt* (eerst door jou, daarna op Commons; het centrale register komt met de upload, 14).
 4. **Bewerker naar `/bewerken`**, met de werksetbalk en de werkset in *Bekeken*.
-5. **Voorscan** met de `DummyDetector`: raming, bevestiging, voortgang, Stoppen, kaders op de miniaturen, keuze voorstellen.
+5. **Voorscan**: uitgesteld (17.5, besluit Olaf). De eerste bouw kost dus niets.
 
-Daarna itereren op aanwijzing van Olaf. Subcategorieën toevoegen, het paginaoverzicht als voorscan en acties over de hele werkset (17.6, *Later*) komen in een volgende ronde.
+Daarna itereren op aanwijzing van Olaf. De voorscan (17.5) en acties over de hele werkset (17.6, *Later*) komen in een volgende ronde.
 
-### 17.10 [Vraag] voor Olaf
+### 17.10 Besluiten van Olaf (5-11-2026)
 
-1. **Startpagina**: het dashboard op `/` en de bewerker naar `/bewerken`, waarbij oude links (`/?url=…`) doorsturen (voorstel)? Of de bewerker op `/` laten en het dashboard op `/collecties`, met een link in de header?
-2. **Voorscan**: eerst alleen SAM met een of enkele zoektermen voor de hele collectie (voorstel, $0,0025 per bestand per term)? Of ook meteen het paginaoverzicht met Muse Spark (±$0,007 per bestand, geeft ook een beschrijving en zoektermen per bestand)?
-3. **Automatisch aanvinken**: zet een voorscan met gevonden objecten het vinkje (met AI-merkje; voorstel), of toont hij alleen wat hij vond en kies je altijd zelf?
-4. **Limieten**: een voorscan van een grote categorie past niet in 100 aanroepen per gebruiker per dag. Dezelfde limieten houden en over meer dagen verdelen (voorstel), de limieten verhogen, of een aparte limiet voor de voorscan?
-5. **Subcategorieën**: standaard alleen de categorie zelf, en subcategorieën met een klik erbij (één niveau; voorstel)? En hooguit 1000 bestanden per collectie?
-6. **Meerpaginabestanden** (PDF, DjVu, TIFF): één tegel per bestand met voorscan op pagina 1 (voorstel), of een tegel per pagina?
-7. **Snelheid van de miniaturen**: mogen die 4 tegelijk van `upload.wikimedia.org` komen (voorstel), of ook één per seconde (een categorie van 500 bestanden duurt dan ruim 8 minuten)?
-8. **Status *klaar***: alleen met de hand (voorstel), of automatisch, bijvoorbeeld zodra er uitsneden zijn opgeslagen of geüpload?
-9. **Fasering**: dit nu bouwen, vóór OAuth, lokaal onder één gebruiker (voorstel)? Dan vervalt backlog 15a als apart punt, en schuift een deel van 19 (batch) naar voren.
-10. **Al bewerkt**: alleen waarschuwen met een merkje en een melding (voorstel), of een bestand dat al uitsneden op Commons heeft echt uit de werkset houden?
-11. **Werk van anderen in de app**: onzichtbaar tot het op Commons staat (voorstel), of een anoniem merkje *"ook een ander werkt hieraan"*?
+1. **Startpagina**: het dashboard op `/`, de bewerker naar `/bewerken`; oude links (`/?url=…`, `/?mid=…`) sturen door.
+2. **Voorscan**: voorlopig **geen voorscan door AI**: "bij grotere categorieën van bv. 2000 beelden kost dat al snel 5 USD, dan doe ik het liever handmatig". De vragen SAM of ook Muse Spark, en automatisch aanvinken of alleen tonen, komen terug als de voorscan terugkomt (17.5, backlog 19a). Daarmee vervalt ook de vraag naar de limieten voor de voorscan.
+3. **Subcategorieën**: standaard alleen de categorie zelf, subcategorieën (één niveau) met een klik erbij; hooguit 1000 bestanden per collectie.
+4. **Meerpaginabestanden**: één tegel per bestand (een latere voorscan alleen op pagina 1).
+5. **Miniaturen**: 4 tegelijk van `upload.wikimedia.org`; `api.php` blijft op één verzoek per seconde.
+6. **Status *klaar***: alleen met de hand.
+7. **Fasering**: nu bouwen, vóór OAuth, lokaal onder de gebruiker `lokaal` (13, fase 1 punt 6a). Backlog 15a wordt daarmee het eerstvolgende punt.
+8. **Al bewerkt**: alleen waarschuwen, met een merkje en een melding; nooit tegenhouden.
+9. **Werk van anderen in de app**: onzichtbaar tot het op Commons staat.

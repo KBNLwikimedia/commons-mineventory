@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.2] - 2026-11-05
+
+### Toegevoegd
+
+- Wachten op een bestand is zichtbaar (wens Olaf): na *Openen* staat onder de invoer *Het bestand wordt opgehaald van Commons…* met een voortgangsbalk, de seconden en een grijs skelet op de plek van het werkblad. Daarna, tot de afbeelding binnen is, een melding in de beeldkolom (de eerste keer haalt de server het origineel op) over een bewegend skelet; lukt het niet, dan een foutmelding. Zonder beweging bij *verminderde beweging*.
+
+### Gewijzigd
+
+- Functioneel ontwerp: Olafs antwoorden op de vragen bij het dashboard (17.10) en het starttegoed (8.6.6) zijn besluiten. Het dashboard wordt nu gebouwd, vóór OAuth, met de bewerker op `/bewerken`; de voorscan door AI is uitgesteld (te duur bij grote categorieën; backlog 19a). Het starttegoed is eenmalig 100 aanroepen, en een eigen Meta-sleutel gaat altijd voor. Fasering, besluitentabel, backlog 15a en 15c en de overdracht zijn bijgewerkt.
+
 ## [0.32.1] - 2026-11-05
 
 ### Toegevoegd

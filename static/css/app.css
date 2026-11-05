@@ -578,3 +578,15 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-zoekresultaat { margin: 0.4rem 0; }
 .cc-niet-vragen { margin-top: 0.75rem; }
 .cc-vergroter-nav { display: inline-flex; align-items: center; gap: 0.15rem; flex: none; white-space: nowrap; }
+
+/* Waiting for a file or an image (CutterApp.vue, ViewerPane.vue): a message with a progress bar over a grey placeholder. */
+.cc-viewer-kader { position: relative; }
+.cc-viewer-vlak { position: relative; display: flex; flex: 1; min-height: 0; }
+.cc-viewer-vlak .viewer { flex: 1; }
+.cc-viewer-laden { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); width: min(24rem, 80%); margin: 0; background: var(--background-color-base, #fff); padding: 0.75rem 1rem; border: 1px solid var(--cc-rand); border-radius: 2px; }
+.cc-bestand-laden { margin-top: 0.75rem; }
+.cc-bestand-laden .cc-bezig { max-width: 24rem; }
+.cc-skelet-werkblad { height: 60vh; border: 1px solid var(--cc-rand); }
+.cc-skelet { background: linear-gradient(100deg, #eaecf0 40%, #f8f9fa 50%, #eaecf0 60%) #eaecf0; background-size: 200% 100%; animation: cc-skelet 1.4s linear infinite; }
+@keyframes cc-skelet { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .cc-skelet { animation: none; } }

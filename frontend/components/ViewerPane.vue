@@ -41,17 +41,23 @@
         <li v-for="item in legend" :key="item"><span :class="['cc-legenda-staal', `cc-legenda-${item}`]"></span>{{ t(`legend.${item}`) }}</li>
       </ul>
     </cdx-accordion>
-    <div ref="host" class="viewer" :class="{ 'maskers-verborgen': !show.maskers, 'boxen-verborgen': !show.boxen }"></div>
+    <div class="cc-viewer-vlak">
+      <div ref="host" class="viewer" :class="{ 'maskers-verborgen': !show.maskers, 'boxen-verborgen': !show.boxen, 'cc-skelet': imageState === 'loading' }" :aria-busy="imageState === 'loading' ? 'true' : 'false'"></div>
+      <!-- Waiting feedback while the image comes in: the first time, the server fetches the original from Commons. -->
+      <busy-note v-if="imageState === 'loading'" class="cc-viewer-laden" :message="t('viewer.loading')" />
+      <cdx-message v-else-if="imageState === 'error'" type="error" class="cc-viewer-laden">{{ t("viewer.load_error") }}</cdx-message>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon, CdxMessage } from "@wikimedia/codex";
 import { cdxIconZoomIn, cdxIconZoomOut } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 import { numberedNames, objectName } from "../state.js";
 import { PageViewer } from "../viewer/viewer.js";
+import BusyNote from "./BusyNote.vue";
 
 const props = defineProps({
   mid: { type: String, required: true },
@@ -132,8 +138,12 @@ function label(obj) {
   return numbered.value[obj.id] || objectName(obj, language, t);
 }
 
+// "loading" until the browser has the first image of the page; a sharper image swapped in on zooming does not count.
+const imageState = ref("loading");
+
 function load() {
   const page = props.page;
+  imageState.value = "loading";
   viewer.value.load({
     width: page.breedte,
     height: page.hoogte,
@@ -153,6 +163,10 @@ onMounted(() => {
   viewer.value.on("point", (e) => emit("point", e));
   viewer.value.on("rectangle", (rect) => emit("rectangle", rect));
   viewer.value.on("zoom", (s) => (scale.value = s));
+  viewer.value.on("imageload", () => (imageState.value = "loaded"));
+  viewer.value.on("imageerror", () => {
+    if (imageState.value === "loading") imageState.value = "error";
+  });
   load();
   viewer.value.setPointMode(props.pointMode);
   viewer.value.setDrawMode(props.drawMode);

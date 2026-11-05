@@ -52,7 +52,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 14. [ ] Upload via de stash, waarschuwingen tonen, SDC, `{{Image extracted}}` op het origineel; eerst op een testwiki. Daarbij de regio van de uitsnede op het origineel (P180 met P2677), zoals de proefweergave al toont (FO 9.4), als Olaf dat bij de upload wil.
 14a. [ ] Na de upload bij elke uitsnede een link "Openen in CropTool" (FO 9, stap 6): CropTool werkt alleen op bestanden die al op Commons staan, dus pas na de upload.
 15. [ ] Beheerpaneel `/beheer` (FO 8.4): beheerders (start: `BEHEERDERS_START`), toegangslijst met aanvragen, daglimieten (100 per gebruiker; 500 aanroepen en $2 per dag in totaal), noodknoppen, modellen, bewaartermijnen, logboek. Opslag: SQLite lokaal, ToolsDB op Toolforge.
-15a. [ ] Een categorie als invoer: bladeren door de bestanden van `Category:…`. Uitgewerkt als dashboard met collecties, voorscan met SAM en een werkset in de bewerker (FO 17, voorstel 5-11-2026). Wacht op Olafs antwoorden op FO 17.10; daarna de eerste bouw volgens FO 17.9, mogelijk vóór OAuth (vraag 9).
+15a. [ ] Een categorie als invoer: bladeren door de bestanden van `Category:…`. Uitgewerkt als dashboard met collecties en een werkset in de bewerker (FO 17). Besluiten Olaf 5-11-2026 (FO 17.10): **nu bouwen, vóór OAuth**, dus als eerstvolgende punt; dashboard op `/`, bewerker naar `/bewerken`; met de hand kiezen, voorlopig geen voorscan door AI (19a). Eerste bouw volgens FO 17.9, stap 1 tot en met 4.
 15b. [ ] Venster *Beeldt af en caption voor de hele afbeelding* (FO 9.7): de herkende objecten als P180 (met P2677) en de samenvatting van het paginaoverzicht als caption op het origineel, na controle en bevestiging. Het samenstellen kan al zonder OAuth (gratis, concept); het opslaan op Commons pas na 13 en 14, eerst op de testwiki. Wacht op Olafs antwoorden (hij komt hier later op terug); de voorstellen staan in FO 9.7:
    1. Positie standaard aan, met één verklaring P180 met P2677 per object? (Voorstel: ja.)
    2. Een item dat het origineel al heeft, maar zonder positie: overslaan, of de positie toevoegen aan die bestaande verklaring van een ander? (Voorstel: overslaan.)
@@ -60,7 +60,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
    4. Bij een bestaande caption standaard *Bestaande houden*? (Voorstel: ja.)
    5. Wat doen we met bestanden met meer pagina's (PDF, TIFF, DjVu), waar de gegevens bij het hele bestand horen: venster uit, of alleen P180 zonder positie en zonder caption?
    - Bij de bouw nagaan: of Commons afspraken heeft over *beeldt af*-verklaringen en captions die met AI zijn gevonden (FO 16).
-15c. [ ] Starttegoed (±$0,25, ongeveer 100 zoekopdrachten) per ingelogde gebruiker en daarna een eigen Meta-sleutel, *bring your own key* (FO 8.6, wens Olaf 5-11-2026). Na 13 en 15 (OAuth en de database). Sleutel versleuteld (`SLEUTEL_VERSLEUTELING`), alleen schrijven via de API, nooit in logs, antwoorden of bestanden; tests daarop. Wacht op Olafs antwoorden op FO 8.6.6.
+15c. [ ] Starttegoed (eenmalig 100 aanroepen, SAM of Muse Spark) per ingelogde gebruiker en een eigen Meta-sleutel die altijd voorgaat, *bring your own key* (FO 8.6, wens Olaf 5-11-2026). Na 13 en 15 (OAuth en de database). Sleutel versleuteld (`SLEUTEL_VERSLEUTELING`), alleen schrijven via de API, nooit in logs, antwoorden of bestanden; tests daarop. Besluiten Olaf 5-11-2026 in FO 8.6.6.
 
 ## Fase 3: live
 
@@ -71,6 +71,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 ## Fase 4: verdieping
 
 19. [ ] Batch over meerdere bestanden (een hele categorie in één keer).
+19a. [ ] Voorscan met AI voor een collectie (FO 17.5): uitgesteld (besluit Olaf 5-11-2026, te duur bij grote categorieën). Open als hij terugkomt: SAM of ook Muse Spark, automatisch aanvinken of alleen tonen.
 20. [ ] Regio's terugschrijven naar het origineel (P180 met P2677), ook los van een upload; het voorbeeld per uitsnede staat al in de proefweergave. Valt samen met 15b.
 21. [ ] Gadget of menu-item "Openen in de Commons Mineventory" op Commons (de CropTool-link bij geüploade uitsneden is 14a).
 22. [ ] IIIF-annotaties exporteren.

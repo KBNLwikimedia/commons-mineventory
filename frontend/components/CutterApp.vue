@@ -9,13 +9,19 @@
 
     <notice-list :notices="notices" @dismiss="dismiss" />
 
+    <!-- While a file is being opened: what is happening, and a grey placeholder where the work area comes. -->
+    <section v-if="loadingFile" class="cc-bestand-laden" :aria-label="t('input.loading_file')">
+      <busy-note :message="t('input.loading_file')" />
+      <div class="cc-skelet cc-skelet-werkblad" aria-hidden="true"></div>
+    </section>
+
     <section v-if="!file && !loadingFile && visited.length" class="cc-start-geschiedenis">
       <h2>{{ t("history.title") }}</h2>
       <viewed-panel :entries="visited" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" />
     </section>
 
     <!-- On a phone (functional design 10.5) the three columns are tabs; on larger screens this bar is hidden. -->
-    <div v-if="file && file.ondersteund && page" class="cc-mobiel-tabs" role="tablist" :aria-label="t('layout.tabs')">
+    <div v-if="file && file.ondersteund && page && !loadingFile" class="cc-mobiel-tabs" role="tablist" :aria-label="t('layout.tabs')">
       <button
         v-for="item in MOBILE_TABS"
         :id="`cc-tab-${item}`"
@@ -33,11 +39,11 @@
       </button>
     </div>
 
-    <div v-if="file && !file.ondersteund" class="cc-unsupported">
+    <div v-if="!loadingFile && file && !file.ondersteund" class="cc-unsupported">
       <cdx-message type="warning">{{ file.niet_ondersteund_code ? t(`file.unsupported_${file.niet_ondersteund_code}`, { mime: file.mime || "?" }) : file.niet_ondersteund }}</cdx-message>
     </div>
 
-    <div v-else-if="file && page" class="cc-werkblad" :class="`cc-mobiel-${mobileTab}`" :style="{ '--cc-kolommen': gridColumns }">
+    <div v-else-if="!loadingFile && file && page" class="cc-werkblad" :class="`cc-mobiel-${mobileTab}`" :style="{ '--cc-kolommen': gridColumns }">
       <!-- The images viewed in this browser, with thumbnails. Every column folds away
            to a narrow strip (closed.*, remembered in this browser); on narrow screens not. -->
       <aside class="cc-historie cc-kolom" :class="{ dicht: closed.historie }" :aria-label="t('layout.history_title')">

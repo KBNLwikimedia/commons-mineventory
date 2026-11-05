@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.32.1, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.32.2, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -8,7 +8,7 @@ Stand: versie 0.32.1, 5 november 2026. Voor wie (mens of Claude-sessie) het werk
 - **De map is hernoemd** van `D:\KB-OPEN\github-repos\commons-cutter` naar `D:\KB-OPEN\github-repos\commons-mineventory` (Olaf, 5-11-2026, na 0.31.2); `.venv` is opnieuw gemaakt en de tests zijn groen. De repo staat openbaar op [GitHub](https://github.com/KBNLwikimedia/commons-mineventory), ook met CLAUDE.md, deze overdracht en de backlog (besluit Olaf).
 - **Fase 1 (lokaal, zonder kosten) is klaar** en sinds 0.9.0 op aanwijzing van Olaf verfijnd. Olaf draait de app zelf in live-modus, met zijn eigen sleutel voor de Meta Model API.
 - **Fase 2 (OAuth, upload naar een testwiki, beheerpaneel) is nog niet begonnen.** Uploaden en inloggen zijn knoppen zonder werking.
-- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.1.
+- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.2.
 
 ## De interface in het kort
 
@@ -65,8 +65,8 @@ Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie
 
 - **Olaf**: `.env` bijwerken (`BRONCODE_URL`, de URL in `COMMONS_USER_AGENT`) en de lege oude map `commons-cutter` verwijderen. Daarmee is backlog 12f af, op de Toolforge-naam na.
 - **Een terminal starten**: Flask staat alleen in `.venv`. Zet de omgeving aan met `.venv\Scripts\Activate.ps1`, of start met `.venv\Scripts\flask --app app run --debug`.
-- **Wacht op Olaf**: de elf vragen over het dashboard met collecties (FO 17.10, backlog 15a); daarna de eerste bouw volgens FO 17.9.
-- **Wacht op Olaf**: de zes vragen over het starttegoed en de eigen Meta-sleutel (FO 8.6.6, backlog 15c).
+- **Volgende bouw**: het dashboard met collecties (backlog 15a, FO 17), nu al, vóór OAuth, onder de gebruiker `lokaal`, zonder voorscan door AI. Volgorde in FO 17.9, stap 1 tot en met 4; Olafs besluiten in FO 17.10.
+- **Starttegoed** (backlog 15c, FO 8.6): besloten (FO 8.6.6), te bouwen na OAuth en de database.
 - **Wacht op Olaf**: de vijf vragen bij backlog 15b (venster *Beeldt af en caption voor de hele afbeelding*, FO 9.7).
 - **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten) en 12e (verouderde API-paden weghalen in 0.33.0).
 - **Fase 2**: OAuth (13) met werk per gebruiker (13a, FO 8.5: eigen uitvoermap per gebruiker, gedeelde cache), upload via de stash op een testwiki (14), beheerpaneel (15), categorie als invoer (15a). Pas daarna kan per gebruiker gescheiden worden (12c).
