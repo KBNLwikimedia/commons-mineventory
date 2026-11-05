@@ -509,7 +509,9 @@ def test_ai_completed_version(http):
     assert note["model"] == "muse-image-1.0" and note["uit_cache"] is False and note["afmetingen"][0] > 0
     image = http.get(url + "/aangevuld.png")
     assert image.status_code == 200 and image.data[:4] == b"\x89PNG"
-    assert "AI-aangevuld" in image.headers.get("Content-Disposition", "")
+    assert "(AI-augmented).png" in image.headers.get("Content-Disposition", "")
+    overlay = http.get(url + "/aangevuld-ingevuld.png")
+    assert overlay.status_code == 200 and overlay.data[1:4] == b"PNG"
     assert http.post(url + "/aanvulling", json={}).get_json()["uit_cache"] is True  # the same cut-out: from the cache
     assert http.delete(url + "/aanvulling").get_json()["object"]["aangevuld"] is None
 

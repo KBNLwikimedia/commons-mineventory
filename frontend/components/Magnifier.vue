@@ -127,19 +127,33 @@
         </div>
         <busy-note v-if="completing" :message="t('completion.busy')" />
         <cdx-message v-if="completionError" type="error" :inline="true">{{ completionError }}</cdx-message>
-        <!-- The AI-completed version: never a source, never to Commons as a cut-out. -->
-        <section v-if="object.aangevuld" class="cc-aanvulling">
+      </cdx-tab>
+
+      <!-- The AI-completed version (7.7): its own tab, only when there is one. Never a source,
+           never to Commons as a cut-out. A switch shows what the AI filled in. -->
+      <cdx-tab v-if="object.aangevuld" name="aangevuld" :label="t('completion.tab')">
+        <section class="cc-aanvulling">
           <h4>{{ t("completion.title") }} <ai-badge kind="aanvulling" :model="object.aangevuld.model" /></h4>
           <cdx-message type="warning" :inline="true">{{ t("completion.warning") }}</cdx-message>
+          <cdx-toggle-switch v-model="showFilled" class="cc-aanvulling-schakelaar">{{ t("completion.show_filled") }}</cdx-toggle-switch>
           <div class="cc-aanvulling-beeld">
-            <img :src="`${base}/aangevuld.png?v=${object.aangevuld.sleutel}`" :alt="t('completion.title')" />
+            <span class="cc-aanvulling-stapel">
+              <img :src="`${base}/aangevuld.png?v=${object.aangevuld.sleutel}`" :alt="t('completion.title')" />
+              <img v-if="showFilled" class="cc-aanvulling-laag" :src="`${base}/aangevuld-ingevuld.png?v=${object.aangevuld.sleutel}`" alt="" />
+            </span>
           </div>
-          <p class="cc-uitleg">{{ t("completion.made", { model: object.aangevuld.model, subject: object.aangevuld.onderwerp }) }}</p>
+          <p v-if="showFilled" class="cc-uitleg"><span class="cc-aanvulling-staal"></span> {{ t("completion.filled_help") }}</p>
+          <p class="cc-uitleg">{{ t("completion.made", { model: object.aangevuld.model, subject: object.aangevuld.onderwerp, size: (object.aangevuld.afmetingen || []).join(" × "), cutout: `${Math.round(object.box.w)} × ${Math.round(object.box.h)}` }) }}</p>
           <div class="cc-knoppen">
             <cdx-button action="progressive" @click="downloadCompletion"><cdx-icon :icon="cdxIconDownload" /> PNG</cdx-button>
             <cdx-button action="progressive" weight="quiet" @click="viewCompletion"><cdx-icon :icon="cdxIconLinkExternal" /> {{ t("completion.view") }}</cdx-button>
+            <cdx-button action="progressive" :disabled="completing" @click="complete">
+              {{ t("completion.again") }} <span class="cc-kosten">{{ completionCost }}</span>
+            </cdx-button>
             <cdx-button action="destructive" weight="quiet" @click="forgetCompletion"><cdx-icon :icon="cdxIconTrash" /> {{ t("completion.remove") }}</cdx-button>
           </div>
+          <busy-note v-if="completing" :message="t('completion.busy')" />
+          <cdx-message v-if="completionError" type="error" :inline="true">{{ completionError }}</cdx-message>
         </section>
       </cdx-tab>
 
@@ -389,7 +403,7 @@
 
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxLookup, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxLookup, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconNext, cdxIconPrevious, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post, put } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
@@ -908,6 +922,15 @@ function viewFull(kind) {
 // -- AI-completed version (Muse Image, 7.7) --------------------------------------------------
 
 const completing = ref(false);
+// The overlay with what the AI filled in, switched on and off (remembered while the magnifier is open).
+const showFilled = ref(false);
+// Another object without an AI-completed version: back to the cut-out tab.
+watch(
+  () => props.object.aangevuld,
+  (note) => {
+    if (!note && tab.value === "aangevuld") tab.value = "uitsnede";
+  }
+);
 const completionError = ref("");
 const completionCost = computed(() => (config.betaald ? `(${money(config.aanvulling_usd, language)})` : t("panel.free")));
 
@@ -923,9 +946,9 @@ async function complete() {
   try {
     const result = await post(`${base.value}/aanvulling`, { opnieuw: again });
     emit("changed", result.object);
-    // Show the result: scroll down to it once it is on the screen.
+    // Show the result in its own tab, once it is there.
     await nextTick();
-    document.querySelector(".cc-aanvulling")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    tab.value = "aangevuld";
   } catch (failure) {
     completionError.value = errorText(t, failure);
   } finally {
@@ -934,7 +957,7 @@ async function complete() {
 }
 
 async function forgetCompletion() {
-  if (!(await askConfirm(t("completion.remove_confirm"), { title: t("completion.remove"), go: t("completion.remove"), destructive: true }))) return;
+  if (!(await askConfirm(t("completion.remove_confirm", { days: config.bewaren?.uitsneden ?? 30 }), { title: t("completion.remove"), go: t("completion.remove"), destructive: true }))) return;
   try {
     emit("changed", (await del(`${base.value}/aanvulling`)).object);
   } catch (failure) {

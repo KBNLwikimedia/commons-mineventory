@@ -305,7 +305,8 @@ Idee en opdracht van Olaf (5-11-2026, backlog 19b; gebouwd in 0.32.4). Waar op h
 - **Lagere resolutie**: Muse Image maakt het beeld in zijn eigen resolutie, en tekent het hele beeld opnieuw; ook buiten de gaten kan het iets veranderen.
 - **Kosten**: in live-modus eerst een bevestiging met het bedrag; toegangslijst, daglimieten en verbruikslog gelden zoals bij de andere modellen. Gecachet per verstuurd beeld en vraag: nog eens vragen kost niets, *opnieuw* wel. In de proefmodus een nagebootste versie (de uitsnede op wit met *AI-aangevuld (dummy)*).
 - **Bewaren**: het beeld staat in `cache/aanvullingen` en gaat na 30 dagen zonder gebruik weg, zoals uitsneden (12.1); het object onthoudt `aangevuld` (model, onderwerp, afmetingen, kosten). *Weghalen* haalt het van het object.
-- **Downloaden** als PNG met *(AI-aangevuld)* in de bestandsnaam, of bekijken in een nieuw tabblad.
+- **Downloaden** als PNG met *(AI-augmented)* in de bestandsnaam, of bekijken in een nieuw tabblad.
+- **Eigen tabblad** *AI-aangevuld* in de vergroter, na *Uitsnede*, alleen als er een aangevulde versie is (sinds 0.32.5). Een schakelaar **Toon wat de AI invulde** legt een magenta laag over de plekken waar de uitsnede geen vorm had en de AI iets tekende; bij benadering.
 
 ## 8. Inloggen en rechten (OAuth)
 

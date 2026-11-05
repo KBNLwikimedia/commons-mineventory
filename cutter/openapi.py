@@ -44,6 +44,7 @@ ENDPOINTS = [
     ("post", OBJECT + "/aanvulling", "De uitsnede laten aanvullen door Muse Image (betaald; verzonnen, nooit een bron)", [MID, N, OID], '{"opnieuw": false}', 201, True),
     ("delete", OBJECT + "/aanvulling", "De AI-aangevulde versie weghalen (gratis)", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/aangevuld.png", "De AI-aangevulde versie als PNG", [MID, N, OID], None, 200, False),
+    ("get", OBJECT + "/aangevuld-ingevuld.png", "Wat de AI invulde, als doorzichtige laag over de AI-aangevulde versie (bij benadering)", [MID, N, OID], None, 200, False),
     ("post", PAGE + "/groepen", "Objecten groeperen tot één object (gratis)", [MID, N], '{"objecten": [ids], "naam": "…"} | {"zoekterm": "…", "naam": "…"}', 201, False),
     ("delete", PAGE + "/groepen/{object_id}", "Een groep opheffen: de leden komen terug (gratis)", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/beschrijving/geschiedenis", "Eerdere beschrijvingen van het object, nieuwste eerst", [MID, N, OID], None, 200, False),

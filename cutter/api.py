@@ -534,11 +534,17 @@ def completion_forget(mid, n, object_id):
     return jsonify({"object": _completions().forget(_page_file(mid, n), n, object_id)})
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aangevuld-ingevuld.png")
+def completion_filled(mid, n, object_id):
+    """What the AI filled in, as a transparent overlay for the AI-completed version (approximate)."""
+    return _image(_completions().filled_overlay(_page_file(mid, n), n, object_id), "image/png")
+
+
 @api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aangevuld.png")
 def completion_image(mid, n, object_id):
     """The PNG of the AI-completed version."""
     file = _page_file(mid, n)
-    name = _download_name(file, n, object_id, "png").rsplit(".", 1)[0] + " (AI-aangevuld).png"
+    name = _download_name(file, n, object_id, "png").rsplit(".", 1)[0] + " (AI-augmented).png"
     return _image(_completions().image(file, n, object_id), "image/png", name)
 
 

@@ -15,6 +15,7 @@ import io
 from contextlib import nullcontext
 from datetime import datetime, timezone
 
+import numpy as np
 import requests
 from PIL import Image, ImageDraw
 
@@ -26,6 +27,8 @@ MODEL = "muse-image-1.0"
 PRICE_USD = 0.01  # per generated image, whatever the prompt or tools (Meta's price list)
 SEND_SIDE = 1536  # longest side of the cut-out sent to the model, in pixels
 PROMPT_VERSION = 1
+WHITE = 236  # a pixel with every channel at or above this counts as background
+FILLED_COLOUR = (230, 0, 140, 150)  # magenta, half transparent: what the AI filled in
 
 PROMPT = (
     "This is a cut-out of {name} from a historical image on Wikimedia Commons. "
@@ -209,6 +212,31 @@ class CompletionService:
             raise DetectionError("Er is (nog) geen AI-aangevulde versie van dit object.", status=404, code="not_found")
         mark_used(path)
         return path.read_bytes()
+
+    def filled_overlay(self, file, n, object_id):
+        """A transparent PNG, the size of the AI-completed version, that colours what
+        the AI filled in: where the cut-out had no shape (outside its mask) and the
+        completed version is not white. Approximate: the model draws the whole image
+        anew and may shift it a little. Cached next to the completed version."""
+        note = self.objects._find(file, n, object_id).get("aangevuld")
+        completed_path = self._path(note["sleutel"]) if note else None
+        if not completed_path or not completed_path.exists():
+            raise DetectionError("Er is (nog) geen AI-aangevulde versie van dit object.", status=404, code="not_found")
+        path = completed_path.with_name(completed_path.stem + "_ingevuld.png")
+        if path.exists():
+            mark_used(path)
+            return path.read_bytes()
+        completed = Image.open(completed_path).convert("RGB")
+        cutout = Image.open(io.BytesIO(self.objects.saved_file(file, n, object_id, "png"))).convert("RGBA")
+        shape = np.asarray(cutout.getchannel("A").resize(completed.size, Image.BILINEAR)) >= 128
+        painted = np.asarray(completed).min(axis=2) < WHITE
+        filled = painted & ~shape
+        overlay = np.zeros(filled.shape + (4,), dtype=np.uint8)
+        overlay[filled] = FILLED_COLOUR
+        buffer = io.BytesIO()
+        Image.fromarray(overlay, "RGBA").save(buffer, format="PNG", optimize=True)
+        path.write_bytes(buffer.getvalue())
+        return buffer.getvalue()
 
     def forget(self, file, n, object_id):
         """Remove the note from the object; the image stays in the cache (free to get back)."""

@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.5] - 2026-11-06
+
+### Toegevoegd
+
+- De AI-aangevulde versie heeft in de vergroter een eigen tabblad *AI-aangevuld*, na *Uitsnede*, als er een is (wens Olaf). Na het aanvullen gaat de vergroter er vanzelf naartoe.
+- De download van de AI-aangevulde versie heet in het Engels, zoals de rest van de bestandsnaam: *… (AI-augmented).png* (wens Olaf).
+- Onder de AI-aangevulde versie staat de resolutie, naast die van de uitsnede, bijv. *Resolutie: 1536 × 1056 px (de uitsnede: 2754 × 1897 px)* (wens Olaf).
+- Het venster bij *Weghalen* van de AI-aangevulde versie zegt nu wat er gebeurt: niet naar de prullenbak, het beeld blijft 30 dagen bewaard en is met *Afbeelding aanvullen met AI* gratis terug te halen (wens Olaf).
+- Schakelaar *Toon wat de AI invulde* (wens Olaf): een magenta laag over de aangevulde versie op de plekken waar de uitsnede geen vorm had en de AI iets tekende. Bij benadering, want de AI tekent het hele beeld opnieuw. API: GET `…/objecten/{id}/aangevuld-ingevuld.png`.
+
 ## [0.32.4] - 2026-11-06
 
 ### Toegevoegd
