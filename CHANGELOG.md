@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.31.2] - 2026-11-05
+
+### Gewijzigd
+
+- Overdracht vóór het hernoemen van de map: `docs/overdracht.md` heeft een paragraaf *Na het hernoemen* (Python-omgeving opnieuw, `.env`, controleren, GitHub-repo aanmaken) en beschrijft de interface van 0.31; CLAUDE.md legt uit waarom het package nog `cutter/` heet; BACKLOG 12f verwijst naar de stappen.
+
 ## [0.31.1] - 2026-11-05
 
 ### Gewijzigd

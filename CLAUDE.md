@@ -2,6 +2,7 @@
 
 ## Wat is dit
 Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te detecteren en uit te snijden met SAM 3.1 via de Meta Model API, ze te laten beschrijven met Muse Spark, en de uitsneden na bevestiging door de gebruiker weer op Commons te publiceren. Een verdieping op CropTool. Afgeleid van de Delpher Uitsnijder (`D:\KB-OPEN\github-repos\delpher-uitsnijder`). Geen officiële dienst van de KB of de Wikimedia Foundation.
+Tot en met 0.31.0 heette de app Commons Cutter; daarom heet het Python-package `cutter/` en beginnen de CSS-klassen met `cc-` (blijft zo, backlog 12f). Repo, map en Toolforge-tool heten `commons-mineventory`.
 
 ## Bron van waarheid
 - docs/functioneel-ontwerp.md: lees dit EERST, volledig, voor elke taak.
@@ -11,7 +12,7 @@ Experimentele Flask-app om objecten in afbeeldingen van Wikimedia Commons te det
 - Werk na elke afgeronde taak CHANGELOG.md bij (Keep a Changelog, semver).
 
 ## Fasering (strikt)
-- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.31.1); zie BACKLOG.md voor wat nog open staat.
+- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.31.2); zie BACKLOG.md voor wat nog open staat.
 - GEEN live aanroepen naar de Meta Model API zonder expliciete opdracht van Olaf. MetaSamDetector en de beschrijving alleen testen met fixtures. Olaf draait zelf lokaal in live-modus (`DETECTIE_MODUS=live` in zijn .env); test in de browser dus nooit een knop die betaalt (Zoeken, Aanwijzen, Beschrijf deze afbeelding, Opnieuw vragen) zonder zijn opdracht.
 - Commons alleen lezen (ook `action=parse` voor de proefweergave is een leesverzoek). Bewerkingen op Commons, ook SDC of regio's op het origineel, pas in fase 2 en alleen na een klik en bevestiging van de gebruiker.
 - Uploaden naar Commons alleen na een klik en een bevestiging van de gebruiker. Eerst op een testwiki; de eerste echte upload doet Olaf zelf.

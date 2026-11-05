@@ -1,13 +1,14 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.31.1, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.31.2, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
-- **Naam**: sinds 0.31.0 heet de app *Commons Mineventory* (eerst Commons Cutter). Sinds 0.31.1 heten ook map, repo, npm-pakket en Toolforge-tool `commons-mineventory`; het Python-package heet nog `cutter/` en de CSS-klassen beginnen nog met `cc-` (bewust, backlog 12f).
+- **Naam**: sinds 0.31.0 heet de app *Commons Mineventory* (eerst Commons Cutter), met een eigen logo (een afbeelding met gevonden objecten en een lijst) en de tagline *Detect objects in a Commons image. Find, cut out and describe them with AI.* Sinds 0.31.1 staat in de repo overal de technische naam `commons-mineventory` (URL's, npm-pakket, Toolforge-tool, map). Het Python-package heet bewust nog `cutter/` en de CSS-klassen beginnen nog met `cc-` (backlog 12f).
+- **De map wordt hernoemd** van `D:\KB-OPEN\github-repos\commons-cutter` naar `D:\KB-OPEN\github-repos\commons-mineventory` (Olaf, na 0.31.2). Zie *Na het hernoemen* hieronder.
 - **Fase 1 (lokaal, zonder kosten) is klaar** en sinds 0.9.0 op aanwijzing van Olaf verfijnd. Olaf draait de app zelf in live-modus, met zijn eigen sleutel voor de Meta Model API.
 - **Fase 2 (OAuth, upload naar een testwiki, beheerpaneel) is nog niet begonnen.** Uploaden en inloggen zijn knoppen zonder werking.
-- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.31.1.
+- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.31.2.
 
 ## De interface in het kort
 
@@ -18,7 +19,7 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 | **Bekeken** | geopende afbeeldingen met miniatuur; daaronder **Opzij gezet** (inklapbaar, slepen of prullenbakje; pijl omhoog zet terug) | `ViewedPanel.vue`, `HistoryList.vue`, `state.js` |
 | **Beeld** | de viewer (gewone JS, niet herschrijven in Vue) met zoom, Maskers/Kaders/Namen | `ViewerPane.vue`, `viewer/viewer.js` |
 | **Objecten zoeken** | AI-suggesties (beschrijving en zoektermen, elk apart opnieuw of weg; beschrijving met de hand aan te passen, met versies), Uit Commons, Zoeken, Aanwijzen of tekenen, CropTool | `DetectionPanel.vue`, `PageDescription.vue` |
-| **Wat je vond** | de objecten (genummerd: *man 1*, *man 2*), onderaan Geselecteerde objecten beschrijven (met een regel over wat de knop doet), Dubbelingen samenvoegen, Selectie opslaan, zip, Naar Commons | `ObjectList.vue`, `CutterApp.vue` |
+| **Wat je vond** | de objecten (genummerd: *man 1*, *man 2*; *beschreven* bij een object met een beschrijving), onderaan Geselecteerde objecten beschrijven (met een regel over wat de knop doet), Dubbelingen samenvoegen (de uitkomst als melding direct onder de knoppen, rood of groen, met een X), Selectie opslaan, zip, Naar Commons, en daaronder *Bewaartermijnen* | `ObjectList.vue`, `CutterApp.vue` |
 
 - Elke kolom schuift in tot een strook (`ColumnHeader.vue`, `ColumnStrip.vue`) en heeft een kop met uitleg en een (i).
 - De **vergroter** (`Magnifier.vue`) heeft Vorige/Volgende (ook ← →), slaat een niet-opgeslagen bijschrift vanzelf op, en blijft open na *Naar de prullenbak*.
@@ -31,6 +32,16 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 - **Tweetalig**: alle tekst in `frontend/i18n/nl.json` en `en.json`, dezelfde sleutels en invulplekken. Foutmeldingen: in het Nederlands de eigen melding van de server, in het Engels de vertaling van de code (`error.<code>`); een nieuwe foutcode krijgt dus altijd een vertaling. Tekst die de server meestuurt (rechtenredenen, controle vooraf, niet-ondersteunde bestanden) gaat als code met detail mee, niet als Nederlandse zin.
 - **REST**: zelfstandige naamwoorden, meervoud voor lijsten (`…/objecten/{id}`), geen werkwoorden in paden; een GET kost nooit geld en verandert niets. De oude paden van vóór 0.29.0 werken nog tot 0.32.0 (`Deprecation`-kop) en gaan dan weg (backlog 12e). OpenAPI (`cutter/openapi.py`) en `docs/api.md` lopen gelijk met de routes; een test controleert dat.
 - **Gegevens van Olaf**: test op zijn server nooit een betaalde knop (Zoeken, Aanwijzen, Beschrijf, Opnieuw, Transparante PNG maken). Wat je wél test, zet je terug (ongedaan maken, versie terugzetten, testversies verwijderen).
+
+## Na het hernoemen van de map
+
+Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie in de nieuwe map (het Claude-geheugen van de oude map was leeg, er gaat niets verloren). Daarna, in deze volgorde:
+
+1. **Python-omgeving opnieuw maken**: `.venv` bevat vaste paden naar de oude map. Verwijder `.venv`, maak hem opnieuw (`py -3.14 -m venv .venv`) en installeer (`.venv\Scripts\pip install -r requirements.txt`). `node_modules` werkt gewoon door.
+2. **`.env` bijwerken** (Olaf; Claude leest `.env` nooit): `BRONCODE_URL` en de URL in `COMMONS_USER_AGENT` naar `https://github.com/KBNLwikimedia/commons-mineventory`. De User-Agent zonder spatie in de naam: `CommonsMineventory/0.1 (…)`.
+3. **Controleren**: `git -c safe.directory=D:/KB-OPEN/github-repos/commons-mineventory status`, `pytest`, `npm test`, en de app starten (`flask --app app run --debug` en `npm run dev`).
+4. **GitHub** (Olaf, maakt de repo openbaar): `gh repo create KBNLwikimedia/commons-mineventory --public --source . --push`. Op 5-11-2026 was die naam nog vrij.
+5. Daarna backlog 12f afvinken. De Toolforge-naam wordt pas bij de deploy (17) nagekeken.
 
 ## Werkwijze en valkuilen
 
@@ -49,6 +60,7 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 
 ## Wat openstaat
 
+- **Nu, door Olaf**: de map hernoemen en de stappen hierboven (backlog 12f).
 - **Wacht op Olaf**: de vijf vragen bij backlog 15b (venster *Beeldt af en caption voor de hele afbeelding*, FO 9.7).
 - **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten) en 12e (verouderde API-paden weghalen in 0.32.0).
 - **Fase 2**: OAuth (13), upload via de stash op een testwiki (14), beheerpaneel (15), categorie als invoer (15a). Pas daarna kan per gebruiker gescheiden worden (12c).
