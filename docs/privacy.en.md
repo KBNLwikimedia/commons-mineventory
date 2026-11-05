@@ -1,8 +1,8 @@
-# Privacy – Commons Cutter
+# Privacy – Commons Mineventory
 
 *Draft, phase 1. The final statement comes before the deployment to Toolforge (phase 3).* [Nederlandse versie](/privacy?uselang=nl)
 
-The Commons Cutter is an experiment. It is not an official service of the KB, National Library of the Netherlands, or of the Wikimedia Foundation.
+The Commons Mineventory is an experiment. It is not an official service of the KB, National Library of the Netherlands, or of the Wikimedia Foundation.
 
 ## What the app processes about you
 

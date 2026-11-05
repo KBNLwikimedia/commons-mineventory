@@ -3,6 +3,18 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.31.0] - 2026-11-05
+
+### Gewijzigd
+
+- De verouderde API-paden van vóór 0.29.0 werken nog tot 0.32.0; 0.31.0 werd de nieuwe naam (backlog 12e).
+- **Nieuwe naam: Commons Mineventory** (besluit Olaf 5-11-2026), met de tagline *Detect objects in a Commons image. Find, cut out and describe them with AI.* / *Detecteer objecten in een Commons-afbeelding. Vind ze, snijd ze uit en beschrijf ze met AI.* De naam staat in de kop, de paginatitels, de teksten, de documentatie, de OpenAPI-titel, de User-Agent (`CommonsMineventory/0.1`), de volgcategorie (*Uploaded with Commons Mineventory*) en de projectpagina (`Commons:Commons Mineventory`). Map, repo, Toolforge-naam en package heten nog `commons-cutter`/`cutter`; backlog 12f.
+- **Nieuw logo** (keuze Olaf): een afbeelding met twee gevonden objecten in stippelkaders, en ernaast een lijst: de inventaris. Het vervangt de schaar.
+- *Selectie beschrijven* heet nu *Geselecteerde objecten beschrijven*, met een regel eronder die zegt wat de knop doet: alleen geselecteerde objecten zonder beschrijving tellen mee, hoeveel dat er zijn, en waarom de knop uit staat als ze allemaal al beschreven zijn (opnieuw beschrijven gaat per object in de vergroter).
+- De uitkomst van *Dubbelingen samenvoegen* en *Geselecteerde objecten beschrijven* staat nu als melding onder die knoppen in plaats van bovenaan de pagina; vindt samenvoegen niets, dan staat er in rood dat er geen dubbelingen zijn (eerst: "0 dubbelingen samengevoegd"), anders in groen hoeveel er zijn samengevoegd; met een X om de melding weg te klikken.
+- In de objectenlijst staat bij een object met een beschrijving *beschreven* (met uitleg bij aanwijzen), zodat je ziet welke *Geselecteerde objecten beschrijven* overslaat.
+- Het (i) over bewaartermijnen staat niet meer naast de telling van de geselecteerde objecten (daar leek het over de selectie te gaan), maar onder de knoppen voor opslaan, zip en Commons, met het woord *Bewaartermijnen* erbij.
+
 ## [0.30.1] - 2026-11-05
 
 ### Toegevoegd

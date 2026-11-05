@@ -62,7 +62,7 @@ class Config:
         self.COMMONS_CACHE_SECONDEN = _env_int("COMMONS_CACHE_SECONDEN", 86400)
         self.COMMONS_USER_AGENT = _env(
             "COMMONS_USER_AGENT",
-            "CommonsCutter/0.1 (https://github.com/KBNLwikimedia/commons-cutter; experiment) python-requests",
+            "CommonsMineventory/0.1 (https://github.com/KBNLwikimedia/commons-cutter; experiment) python-requests",
         )
         self.COMMONS_UPLOAD = _env_bool("COMMONS_UPLOAD", "uit")
         self.MAX_MEGAPIXELS = _env_int("MAX_MEGAPIXELS", 100)

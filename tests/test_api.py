@@ -288,7 +288,7 @@ def test_openapi_describes_every_route_and_nothing_else(app):
 
 def test_openapi_served(http):
     spec = http.get("/api/v1/openapi.json").get_json()
-    assert spec["openapi"].startswith("3.1") and spec["info"]["title"] == "Commons Cutter API"
+    assert spec["openapi"].startswith("3.1") and spec["info"]["title"] == "Commons Mineventory API"
 
 
 def test_docs_api_md_mentions_every_path(app):
@@ -311,7 +311,7 @@ def test_privacy_statement_in_both_languages(http):
 def test_pages_render(http, path):
     response = http.get(path)
     assert response.status_code == 200
-    assert "Commons Cutter" in response.get_data(as_text=True)
+    assert "Commons Mineventory" in response.get_data(as_text=True)
 
 
 def test_page_language_follows_uselang_then_session_then_browser(http):
@@ -362,7 +362,7 @@ def test_local_user_only_counts_in_debug_mode(app, http):
 def test_back_link_on_every_page_but_the_start(http):
     assert 'class="cc-terug"' not in http.get("/").get_data(as_text=True)
     objects = http.get("/objecten?uselang=nl").get_data(as_text=True)
-    assert 'href="/" data-terug>' in objects and "Terug naar de Commons Cutter" in objects
+    assert 'href="/" data-terug>' in objects and "Terug naar de Commons Mineventory" in objects
     assert 'href="/?mid=M5">' in http.get("/commons?mid=M5").get_data(as_text=True)
 
 

@@ -1,6 +1,6 @@
-# API – Commons Cutter
+# API – Commons Mineventory
 
-De Commons Cutter heeft een REST-API onder `/api/v1`. De interface in de browser is zelf een client van deze API. De machineleesbare beschrijving staat op [/api/v1/openapi.json](/api/v1/openapi.json); dit document is de uitleg erbij. Ontwerp: [functioneel ontwerp, hoofdstuk 11](functioneel-ontwerp.md).
+De Commons Mineventory heeft een REST-API onder `/api/v1`. De interface in de browser is zelf een client van deze API. De machineleesbare beschrijving staat op [/api/v1/openapi.json](/api/v1/openapi.json); dit document is de uitleg erbij. Ontwerp: [functioneel ontwerp, hoofdstuk 11](functioneel-ontwerp.md).
 
 ## Afspraken
 
@@ -91,7 +91,7 @@ Velden: `soort`, `onderwerp`, `onderwerp_en`, `bedrijf_of_naam`, `tekst_in_beeld
 | POST | `/bestand/{mid}/commons/uploads` | Uploaden (fase 2). Vereist een login, `{"bevestigd": true}` en `COMMONS_UPLOAD=aan`; nu: 503 `upload_disabled` |
 | GET | `/uploads/{task}` | Voortgang van een upload (fase 2) |
 
-Bestandsnaam: `<Onderwerp> – extracted from <titel origineel zonder extensie>.<jpg|png>`, hooguit 240 bytes. De wikitekst heeft altijd `{{Extracted from|File:…}}`, de licentiesjablonen van het origineel letterlijk (zonder licentiecontrole) en `[[Category:Uploaded with Commons Cutter]]`.
+Bestandsnaam: `<Onderwerp> – extracted from <titel origineel zonder extensie>.<jpg|png>`, hooguit 240 bytes. De wikitekst heeft altijd `{{Extracted from|File:…}}`, de licentiesjablonen van het origineel letterlijk (zonder licentiecontrole) en `[[Category:Uploaded with Commons Mineventory]]`.
 
 ## Opslaan en exporteren
 
@@ -118,9 +118,9 @@ Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{o
 
 ## Verouderde paden
 
-Deze paden werken nog tot versie 0.31.0 (eerst was 0.30.0 genoemd). Het antwoord heeft dan `Deprecation: true` en een `Link` naar het nieuwe pad (`rel="successor-version"`); in `/api/v1/openapi.json` staan ze als `deprecated`.
+Deze paden werken nog tot versie 0.32.0 (eerst waren 0.30.0 en 0.31.0 genoemd). Het antwoord heeft dan `Deprecation: true` en een `Link` naar het nieuwe pad (`rel="successor-version"`); in `/api/v1/openapi.json` staan ze als `deprecated`.
 
-| Oud (tot 0.31.0) | Nieuw (sinds 0.29.0) |
+| Oud (tot 0.32.0) | Nieuw (sinds 0.29.0) |
 | --- | --- |
 | `/bestand/{mid}/pagina/{n}/object/{object_id}` en alles daaronder (`…/uitsnede.jpg`, `…/uitsnede.png`, `…/masker.png`, `…/beschrijving`, `…/beschrijving/geschiedenis`, `…/beschrijving/invoer.jpg`, `…/commons`, `…/commons/weergave`) | hetzelfde onder `/bestand/{mid}/pagina/{n}/objecten/{object_id}` |
 | POST `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/terugzetten` | PUT `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` |

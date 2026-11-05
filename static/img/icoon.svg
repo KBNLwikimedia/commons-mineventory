@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Commons Cutter">
-  <rect x="3" y="3" width="26" height="26" rx="3" fill="none" stroke="#36c" stroke-width="2" stroke-dasharray="4 3"/>
-  <circle cx="11" cy="22" r="3.5" fill="none" stroke="#202122" stroke-width="2"/>
-  <circle cx="21" cy="22" r="3.5" fill="none" stroke="#202122" stroke-width="2"/>
-  <path d="M13 19.5 L22 7 M19 19.5 L10 7" stroke="#202122" stroke-width="2" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Commons Mineventory">
+  <!-- An image with two detected objects (dashed boxes) and, beside it, the inventory: a list. -->
+  <rect x="2" y="5" width="19" height="22" rx="1.5" fill="#eaf3ff" stroke="#202122" stroke-width="1.5"/>
+  <path d="M3 25L9 17L13 21L16 18L20 23V26H3Z" fill="#a2a9b1"/>
+  <rect x="5" y="8" width="6" height="7" fill="none" stroke="#36c" stroke-width="1.4" stroke-dasharray="2 1.2"/>
+  <rect x="12.5" y="15" width="6" height="6" fill="none" stroke="#d73333" stroke-width="1.4" stroke-dasharray="2 1.2"/>
+  <path d="M24 9H30M24 14H30M24 19H30M24 24H28" stroke="#36c" stroke-width="2" stroke-linecap="round"/>
 </svg>

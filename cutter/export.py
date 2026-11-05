@@ -87,7 +87,7 @@ def readme(file):
         "Een uitsnede is een afgeleid werk en valt onder de licentie van het origineel.",
         "Vermeld bij hergebruik de maker en de licentie, en het origineel als bron.",
         "",
-        f"Gemaakt met Commons Cutter {__version__} op {datetime.now(timezone.utc).isoformat(timespec='seconds')}.",
+        f"Gemaakt met Commons Mineventory {__version__} op {datetime.now(timezone.utc).isoformat(timespec='seconds')}.",
         DISCLAIMER,
     ]
     return "\n".join(lines) + "\n"

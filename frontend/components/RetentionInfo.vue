@@ -3,7 +3,7 @@
   12.1): not everything is kept forever. The periods come from the server.
 -->
 <template>
-  <info-dialog :title="t('retention.title')" :label="t('retention.title')" :paragraphs="paragraphs" />
+  <info-dialog :title="t('retention.title')" :label="t('retention.title')" :paragraphs="paragraphs" :text="labelled ? t('retention.link') : ''" />
 </template>
 
 <script setup>
@@ -11,6 +11,10 @@ import { computed, inject } from "vue";
 import { useT } from "../i18n.js";
 import InfoDialog from "./InfoDialog.vue";
 
+defineProps({
+  // Show the word "Retention periods" beside the (i), where nothing around it says so.
+  labelled: { type: Boolean, default: false },
+});
 const t = useT();
 const config = inject("config");
 const paragraphs = computed(() => {

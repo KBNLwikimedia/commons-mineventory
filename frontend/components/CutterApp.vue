@@ -120,17 +120,22 @@
           @trash="trashObject"
         />
         <div class="cc-acties">
-          <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }} <retention-info /></p>
+          <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }}</p>
           <!-- What you do with what you found: describe the ticked ones, merge duplicates,
                save. A button is disabled when there is nothing to do. -->
-          <span class="cc-acties-rij">
+          <div class="cc-acties-rij">
             <cdx-button action="progressive" :disabled="busy || !toDescribe" :title="t('objects.describe_help')" @click="describeAll">
               {{ t("panel.describe_all") }}<template v-if="toDescribe"> ({{ toDescribe }}) <span class="cc-kosten">{{ describeCost }}</span></template>
             </cdx-button>
             <cdx-button action="progressive" weight="quiet" :disabled="busy || objects.length < 2" :title="t('objects.merge_help')" @click="mergeDuplicates">
               {{ t("panel.merge") }}
             </cdx-button>
-          </span>
+            <!-- The outcome of describing or merging, directly under the buttons that asked for it;
+                 red when nothing could be done. -->
+            <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}</cdx-message>
+            <!-- Why the describe button does what it does: only ticked objects without a description. -->
+            <p class="cc-uitleg cc-acties-uitleg">{{ describeNote }}</p>
+          </div>
           <busy-note v-if="busy && busyAt === 'objecten'" :message="t('busy.describe')" />
           <cdx-button action="progressive" weight="primary" :disabled="!selectedCount || busy" @click="saveSelection">
             {{ t("actions.save", { n: selectedCount }) }}
@@ -141,6 +146,8 @@
           <cdx-button action="progressive" :disabled="!savedCount" @click="toCommons">
             <cdx-icon :icon="cdxIconUpload" /> {{ t("actions.to_commons") }}
           </cdx-button>
+          <!-- Retention is about saved cut-outs, so it goes with saving, not with the selection count. -->
+          <p class="cc-bewaar-regel"><retention-info labelled /></p>
         </div>
         </div>
         <column-strip v-if="closed.objecten" :name="t('layout.left_title')" :count="objects.length" side="right" @open="setClosed('objecten', false)" />
@@ -166,7 +173,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { CdxButton, CdxIcon, CdxMessage } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconPrevious, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
@@ -402,25 +409,44 @@ async function askInventory(again = false, part = null) {
 }
 
 async function mergeDuplicates() {
+  actionResult.value = null;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/samenvoegingen`, {});
     replaceObjects(result.objecten);
-    notify("success", t("detect.merged", { n: result.samengevoegd }));
+    actionResult.value = result.samengevoegd
+      ? { type: "success", text: t("detect.merged", { n: result.samengevoegd }) }
+      : { type: "error", text: t("objects.merged_none") };
   } catch (error) {
     fail(error);
   }
 }
 
-// Ticked objects without a description: what "Describe selection" describes, and its price.
+// Ticked objects without a description: what "Describe selected objects" describes, and its price.
 const toDescribe = computed(() => objects.value.filter((o) => o.status === "geselecteerd" && !o.beschrijving).length);
 const describeCost = computed(() => (props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * toDescribe.value, props.config.taal)})` : t("panel.free")));
+// The line under the describe button: what it will do with the ticked objects.
+const describeNote = computed(() => {
+  const selected = selectedCount.value;
+  const todo = toDescribe.value;
+  if (!selected) return t("objects.describe_note_none");
+  if (!todo) return t("objects.describe_note_all_done", { selected });
+  if (todo < selected) return t("objects.describe_note_some", { todo, selected, done: selected - todo });
+  return t("objects.describe_note_all", { todo });
+});
 // Where the waiting feedback goes for actions in the objects column.
 const busyAt = ref(null);
+// The outcome of the last describe or merge, shown under those buttons.
+const actionResult = ref(null);
+watch(() => [file.value?.mid, pageN.value], () => { actionResult.value = null; });
 
 async function describeAll() {
   busyAt.value = "objecten";
+  actionResult.value = null;
   const chosen = objects.value.filter((o) => o.status === "geselecteerd" && !o.beschrijving);
-  if (!chosen.length) return notify("notice", t("describe.nothing_to_do"));
+  if (!chosen.length) {
+    actionResult.value = { type: "error", text: t("describe.nothing_to_do") };
+    return;
+  }
   const usd = props.config.muse.beschrijving_usd * chosen.length;
   if (!(await confirmCost(chosen.length, usd))) return;
   busy.value = true;
@@ -429,7 +455,7 @@ async function describeAll() {
       const result = await post(`${objectPath(file.value.mid, pageN.value, obj.id)}/beschrijving`, {});
       replaceObject(result.object);
     }
-    notify("success", t("describe.done", { n: chosen.length }));
+    actionResult.value = { type: "success", text: t("describe.done", { n: chosen.length }) };
   } catch (error) {
     fail(error);
   } finally {

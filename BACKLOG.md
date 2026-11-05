@@ -37,8 +37,9 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 12c. [x] Open punten uit de code-review (4-11-2026), opgepakt in 0.26.0: budget vooraf geboekt en een grens aan zoektermen; 400 in plaats van 500 bij foute invoer of vreemde Commons-gegevens; atomisch schrijven; cache voor zware gratis verzoeken; één Wikidata-zoeker zonder late antwoorden; timers en observers opgeruimd; vastlopende facetten; minder dubbele code; toegankelijkheid. Wat overblijft:
    - Per gebruiker scheiden (prullenbak, objecten, verbruik) kan pas met OAuth (13 en 15); tot dan zijn verbruikslog en het legen van de hele prullenbak op een server alleen voor de toegangslijst.
    - Opgelost: de opruimtaak schreef zonder het slot van de dienst; sinds 0.27.2 delen de app en de opruimtaak een slot dat ook tussen processen werkt (`cutter/slot.py`). De drie `wbgetentities`-lussen, de samenvoegroutines en `{{Art Photo}}` zijn in 0.27.0 opgelost.
-12d. [x] Verfijning op aanwijzing van Olaf (4 en 5-11-2026, versies 0.28.0 tot en met 0.30.1; details in CHANGELOG.md): werk uit Wikidata in Metadata; kolommen in werkvolgorde (Bekeken met Opzij gezet, Beeld, Objecten zoeken, Wat je vond), elk inschuifbaar; RESTful API; AI-suggesties per deel opnieuw of weg, beschrijving van de afbeelding met de hand en met versies, zoektermen aan/uit/omkeren; uitkomst van elke actie in het paneel; Aanwijzen op de vorm in plaats van het kader; vergroter met Vorige/Volgende en automatisch opslaan van het bijschrift; Selectie beschrijven en Samenvoegen onder de objecten; uitleg object/uitsnede; volledige tweetaligheid en Engelse privacyverklaring. Stand en werkwijze staan in docs/overdracht.md.
-12e. [ ] De verouderde API-paden van vóór 0.29.0 (`…/object/{id}`, `…/beschrijving/terugzetten`, `…/geschiedenis?versie=`, `samenvoegen` in de PATCH, POST `…/commons/controle`) weghalen in 0.31.0, met de tabel in docs/api.md en `DEPRECATED` in cutter/openapi.py.
+12d. [x] Verfijning op aanwijzing van Olaf (4 en 5-11-2026, versies 0.28.0 tot en met 0.31.0; details in CHANGELOG.md): werk uit Wikidata in Metadata; kolommen in werkvolgorde (Bekeken met Opzij gezet, Beeld, Objecten zoeken, Wat je vond), elk inschuifbaar; RESTful API; AI-suggesties per deel opnieuw of weg, beschrijving van de afbeelding met de hand en met versies, zoektermen aan/uit/omkeren; uitkomst van elke actie in het paneel; Aanwijzen op de vorm in plaats van het kader; vergroter met Vorige/Volgende en automatisch opslaan van het bijschrift; Selectie beschrijven en Samenvoegen onder de objecten; uitleg object/uitsnede; volledige tweetaligheid en Engelse privacyverklaring. Stand en werkwijze staan in docs/overdracht.md.
+12e. [ ] De verouderde API-paden van vóór 0.29.0 (`…/object/{id}`, `…/beschrijving/terugzetten`, `…/geschiedenis?versie=`, `samenvoegen` in de PATCH, POST `…/commons/controle`) weghalen in 0.32.0 (0.31.0 werd de nieuwe naam), met de tabel in docs/api.md en `DEPRECATED` in cutter/openapi.py.
+12f. [ ] Nieuwe naam *Commons Mineventory* (besluit Olaf 5-11-2026) ook technisch doorvoeren? Nu heten alleen de interface, de docs, de User-Agent, de volgcategorie en de projectpagina zo. Nog `commons-cutter`: de map, de GitHub-repo (`KBNLwikimedia/commons-cutter`), de Toolforge-tool (FO 12.1), het npm-pakket, het Python-package `cutter/` en de `cc-`-voorvoegsels. Eerst nagaan of `commons-mineventory` (of `mineventory`) vrij is op Toolforge, Toolhub en GitHub; Olaf beslist. Het logo is al vervangen (afbeelding met gevonden objecten en een lijst).
 
 ## Fase 2: OAuth, upload naar een testwiki, categorieën
 
@@ -59,13 +60,13 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 
 16. [ ] SAM en Muse Spark live, alleen na een opdracht van Olaf; kalibratie op albums, prenten en kaarten.
 17. [ ] Eerst nagaan of de betaalde Meta-API op Toolforge mag. Deploy naar Toolforge (Build Service; de frontend bouwen in de Build Service of in een GitHub Action), publieke OAuth-consumer, privacyverklaring, projectpagina en volgcategorie op Commons.
-18. [ ] Eerste echte uploads, door Olaf. Daarvoor aanmaken (Olaf): Category:Uploaded with Commons Cutter, Category:Cut-outs from media contributed by Koninklijke Bibliotheek, Category:Cut-outs from media from Delpher.
+18. [ ] Eerste echte uploads, door Olaf. Daarvoor aanmaken (Olaf): Category:Uploaded with Commons Mineventory, Category:Cut-outs from media contributed by Koninklijke Bibliotheek, Category:Cut-outs from media from Delpher.
 
 ## Fase 4: verdieping
 
 19. [ ] Batch over meerdere bestanden (een hele categorie in één keer).
 20. [ ] Regio's terugschrijven naar het origineel (P180 met P2677), ook los van een upload; het voorbeeld per uitsnede staat al in de proefweergave. Valt samen met 15b.
-21. [ ] Gadget of menu-item "Openen in de Commons Cutter" op Commons (de CropTool-link bij geüploade uitsneden is 14a).
+21. [ ] Gadget of menu-item "Openen in de Commons Mineventory" op Commons (de CropTool-link bij geüploade uitsneden is 14a).
 22. [ ] IIIF-annotaties exporteren.
 23. [ ] Meer talen in de interface (translatewiki.net).
 24. [ ] Eigen API-sleutel per gebruiker voor scripts.

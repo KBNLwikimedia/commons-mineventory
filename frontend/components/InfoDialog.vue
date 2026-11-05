@@ -13,7 +13,7 @@
     :title="label"
     @click.stop.prevent="open = true"
   >
-    <cdx-icon :icon="cdxIconInfo" size="small" />
+    <cdx-icon :icon="cdxIconInfo" size="small" /><template v-if="text"> {{ text }}</template>
   </cdx-button>
   <cdx-dialog
     v-model:open="open"
@@ -41,6 +41,8 @@ defineProps({
   title: { type: String, required: true },
   label: { type: String, required: true },
   paragraphs: { type: Array, default: () => [] },
+  // Optional visible text beside the (i), where the symbol alone does not say what it is about.
+  text: { type: String, default: "" },
 });
 const t = useT();
 const open = ref(false);

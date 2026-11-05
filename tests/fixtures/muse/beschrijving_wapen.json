@@ -1,5 +1,5 @@
 {
-  "_toelichting": "Opgebouwd antwoord in de vorm van de Meta Model API (Responses API), met de velden van de Commons Cutter. Geen echte aanroep.",
+  "_toelichting": "Opgebouwd antwoord in de vorm van de Meta Model API (Responses API), met de velden van de Commons Mineventory. Geen echte aanroep.",
   "id": "resp_fixture",
   "object": "response",
   "status": "completed",

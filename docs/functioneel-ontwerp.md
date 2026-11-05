@@ -1,6 +1,6 @@
-# Functioneel ontwerp – Commons Cutter
+# Functioneel ontwerp – Commons Mineventory
 
-Naam: **Commons Cutter** (Engels, zoals de tool op Toolforge en de repo; besluit Olaf 3-11-2026). Status: concept v0.8, 5 november 2026 (v0.8: bijgewerkt tot app-versie 0.30.1: Begrippen, kolommen in werkvolgorde (10.4), bulk onder de objecten (7.4), paginaoverzicht per deel (7.6); de stand van zaken staat in docs/overdracht.md; v0.7: voorstel 9.7, *beeldt af* en caption voor de hele afbeelding; v0.6: bijgewerkt tot app-versie 0.24.2; zie CHANGELOG.md voor alles wat sinds 0.9.0 gebouwd is; v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
+Naam: **Commons Mineventory** (besluit Olaf 5-11-2026; *mine* + *inventory*: een inventaris van wat er in een afbeelding staat, gedolven met AI; tot en met 0.30.1 heette de app *Commons Cutter*, besluit 3-11-2026). Tagline: *Detect objects in a Commons image. Find, cut out and describe them with AI.* De technische namen (tool, repo, map, package `cutter/`) zijn nog `commons-cutter`; of die meeverhuizen, is backlog 12f. Status: concept v0.8, 5 november 2026 (v0.8: bijgewerkt tot app-versie 0.30.1: Begrippen, kolommen in werkvolgorde (10.4), bulk onder de objecten (7.4), paginaoverzicht per deel (7.6); de stand van zaken staat in docs/overdracht.md; v0.7: voorstel 9.7, *beeldt af* en caption voor de hele afbeelding; v0.6: bijgewerkt tot app-versie 0.24.2; zie CHANGELOG.md voor alles wat sinds 0.9.0 gebouwd is; v0.5: bijgewerkt naar wat er in fase 1 is gebouwd, app-versie 0.9.0: bewerkbare AI-teksten, AI-merkjes, proefweergave zoals op Commons, extra SDC, regio op het origineel als voorbeeld; v0.2: antwoorden van Olaf op de belangrijkste vragen verwerkt, en de regio's uit de gestructureerde gegevens uitgewerkt in 7.5; v0.3: frontend met Vite, zie 10.2; v0.4: tweede ronde antwoorden en de naam Commons Cutter). Opdrachtgever en eigenaar: Olaf Janssen (KB, Wikimedia-coördinator). Bouw: Claude Code, op basis van dit document.
 
 Dit FO beschrijft een variant van de [Delpher Uitsnijder](https://github.com/ookgezellig/delpher-uitsnijder) (versie 0.18.13, lokaal in `D:\KB-OPEN\github-repos\delpher-uitsnijder`) voor afbeeldingen op Wikimedia Commons. Waar dit document "de Delpher Uitsnijder" zegt, gaat het om die app: haar FO, `docs/api.md`, `docs/commons-beschrijving.md`, `docs/beeld-taalmodel.md` en `docs/meta-sam-api.md`. Die documenten blijven de bron voor alles wat ongewijzigd wordt overgenomen. Dit FO beschrijft vooral wat anders is.
 
@@ -24,9 +24,9 @@ Voorbeelden:
 
 ## 2. Verhouding tot CropTool
 
-[CropTool](https://commons.wikimedia.org/wiki/Commons:CropTool) (croptool2.toolforge.org, broncode [wpmed/croptool2](https://github.com/wpmed/croptool2), PHP, GPL-2.0, OAuth 1.0a, ondersteund door Wiki Project Med) is het gangbare gereedschap om op Commons een bestand bij te snijden. De Commons Cutter is daar een **verdieping** op, geen vervanging.
+[CropTool](https://commons.wikimedia.org/wiki/Commons:CropTool) (croptool2.toolforge.org, broncode [wpmed/croptool2](https://github.com/wpmed/croptool2), PHP, GPL-2.0, OAuth 1.0a, ondersteund door Wiki Project Med) is het gangbare gereedschap om op Commons een bestand bij te snijden. De Commons Mineventory is daar een **verdieping** op, geen vervanging.
 
-| | CropTool | Commons Cutter |
+| | CropTool | Commons Mineventory |
 | --- | --- | --- |
 | Selectie | Eén rechthoek, met de hand getrokken; randdetectie | Veel objecten tegelijk, gevonden met AI (zoekterm, AI-suggesties per afbeelding, Aanwijzen), met maskers; handmatige rechthoek als terugvaloptie |
 | Vorm van de uitsnede | Rechthoek | Rechthoek (JPG) of de vorm van het object (transparante PNG) |
@@ -64,7 +64,7 @@ Voorbeelden:
 
 ### 4.1 Overnemen (kopiëren en aanpassen, geen gedeelde bibliotheek)
 
-| Delpher Uitsnijder | In de Commons Cutter |
+| Delpher Uitsnijder | In de Commons Mineventory |
 | --- | --- |
 | `uitsnijder/detectie/basis.py`, `dummy.py`, `meta_sam.py`, `maskers.py` | Ongewijzigd: de detectorinterface, `DummyDetector`, `MetaSamDetector` (met `meta-sam-parser`), maskers lui decoderen en cachen |
 | `uitsnijder/detectie/dienst.py` | De kern blijft: zoektermen, cache per afbeelding+term+model, samenvoegen van dubbelingen (IoU), selectie, prullenbak, opslaan, uitsnede-JPG. De Delpher-delen (zones, ALTO, bijschriften, koppeling aan artikelen) gaan eruit |
@@ -83,7 +83,7 @@ Voorbeelden:
 - De **Delpher-adapter** (`delpher.py`): metadata, DIDL, OCR per artikel, `imageheader`, de imageviewer van de KB, de resolver.
 - **ALTO** en alles wat ervan afhangt: koppen, illustratieblokken, bijschriften uit de OCR (`bijschrift.py`), "tekst eromheen" als controle van de OCR.
 - De **krantenhiërarchie** (`hierarchie.py`): aflevering › pagina › artikel, de koppelregel object → artikel, `config/delpher_collectiesets.json` en de typedetectie krant/tijdschrift/boek.
-- De **Delpher-stijl** (`delpher-theme.css`, het Delpher-logo) en de Firefox-extensie (die kan later terugkomen als "Openen in de Commons Cutter", zie de backlog).
+- De **Delpher-stijl** (`delpher-theme.css`, het Delpher-logo) en de Firefox-extensie (die kan later terugkomen als "Openen in de Commons Mineventory", zie de backlog).
 - **De rechtenregel op verschijningsjaar** (`rechten.py`, `RECHTEN_GRENSJAAR`). Op Commons is de licentie al vastgesteld; zie 5.3.
 - Het **bot-wachtwoord** uit `docs/commons-beschrijving.md`. In plaats daarvan OAuth (hoofdstuk 8).
 
@@ -239,9 +239,9 @@ Klikken op een plek zonder bekend object: een puntprompt aan SAM (één betaalde
 
 ### 7.4 Bulk-operaties
 
-Sinds 0.30.0 (besluit Olaf, 5-11-2026) staan *Selectie beschrijven* en *Dubbelingen samenvoegen* niet meer in de kolom *Objecten zoeken*, maar onderaan *Wat je vond*, boven *Selectie opslaan*: ze werken op wat je gevonden en aangevinkt hebt. Het blok *Bulk-operaties* is daarmee vervallen.
+Sinds 0.30.0 (besluit Olaf, 5-11-2026) staan *Selectie beschrijven* (sinds 0.31.0 *Geselecteerde objecten beschrijven*) en *Dubbelingen samenvoegen* niet meer in de kolom *Objecten zoeken*, maar onderaan *Wat je vond*, boven *Selectie opslaan*: ze werken op wat je gevonden en aangevinkt hebt. Het blok *Bulk-operaties* is daarmee vervallen.
 
-Selectie beschrijven (de aangevinkte objecten zonder beschrijving) en Dubbelingen samenvoegen. Elke betaalde stap met bevestiging en kosten. Een knop is uitgeschakeld als er niets te doen is: geen aangevinkte objecten zonder beschrijving, of minder dan twee objecten.
+Geselecteerde objecten beschrijven (alleen de geselecteerde objecten zonder beschrijving) en Dubbelingen samenvoegen. Elke betaalde stap met bevestiging en kosten. Een knop is uitgeschakeld als er niets te doen is: geen aangevinkte objecten zonder beschrijving, of minder dan twee objecten. Onder de knoppen staat in een grijze regel wat *Geselecteerde objecten beschrijven* zal doen: hoeveel geselecteerde objecten nog geen beschrijving hebben, welke worden overgeslagen, en als ze allemaal al beschreven zijn dat opnieuw beschrijven per object in de vergroter gaat.
 
 Sinds 0.28.0 uit de interface (besluit Olaf, 4-11-2026): *Alles detecteren* (SAM met een vaste lijst soorten beeld, zoals illustratie, portret en wapen) en *Slim detecteren* (eerst het paginaoverzicht, dan SAM met de voorgestelde termen). *Alle objecten detecteren* bij de AI-suggesties doet hetzelfde met termen die bij deze afbeelding passen. In de API blijft `modus: "alles"` bestaan.
 
@@ -375,7 +375,7 @@ Gebaseerd op `docs/commons-beschrijving.md` van de Delpher Uitsnijder:
 - terugdownloaden uit de stash kan alleen voor bestanden onder 1 MiB;
 - de stash bewaart alleen het bestand, geen beschrijving, licentie of SDC.
 
-Besloten door Olaf (3-11-2026): **geen** knop om uitsneden in de stash klaar te zetten voor een ander gereedschap, zoals de Upload Workbench. Publiceren gebeurt altijd vanuit de Commons Cutter.
+Besloten door Olaf (3-11-2026): **geen** knop om uitsneden in de stash klaar te zetten voor een ander gereedschap, zoals de Upload Workbench. Publiceren gebeurt altijd vanuit de Commons Mineventory.
 
 ### 9.2 Bestandsnaam
 
@@ -407,7 +407,7 @@ Besloten door Olaf (3-11-2026): **onderwerp voorop, in het Engels**.
 <licentiesjablonen van het origineel, letterlijk overgenomen>
 
 [[Category:<door de gebruiker gekozen categorieën>]]
-[[Category:Uploaded with Commons Cutter]]
+[[Category:Uploaded with Commons Mineventory]]
 ```
 
 - **`{{Extracted from|File:…}}`** op de nieuwe pagina, net als CropTool.
@@ -416,8 +416,8 @@ Besloten door Olaf (3-11-2026): **onderwerp voorop, in het Engels**.
 - Gebruikt het origineel `{{Artwork}}`, `{{Photograph}}` of `{{Book}}`, dan neemt de app dat sjabloon over met de velden die op de uitsnede ook kloppen (maker, datum, instelling, inventarisnummer) en een nieuwe `description`/`title`. Welke velden: vastgelegd in docs/artwork-velden.md (0.20.0), ook voor `{{Map}}`; de tekst in en rond het beeld als `{{Inscription}}` (0.22.0).
 - **Licentie**: alle sjablonen uit de licentiesectie van het origineel, letterlijk. Bij `{{Flickrreview}}` of `{{LicenseReview}}` met een bevestiging: de bevestiging komt **niet** mee (CropTool doet dat ook niet), maar wel een verwijzing naar het origineel.
 - **Categorieën**: de zichtbare categorieën van het origineel als voorstel (aan te vinken), plus wat de gebruiker toevoegt. Onderhoudscategorieën en `{{Assessments}}`, `{{QI}}`, `{{FP}}` en dergelijke komen nooit mee.
-- **Volgcategorie** `Category:Uploaded with Commons Cutter` (verborgen), en een projectpagina **`Commons:Commons Cutter`**. Olaf maakt beide aan (besluit 3-11-2026), vóór de eerste echte upload.
-- **Uploadsamenvatting**: *"Uitsnede uit [[File:…]] met de [[Commons:Commons Cutter|Commons Cutter]]; beschrijving deels opgesteld met een taalmodel en gecontroleerd door de uploader."*
+- **Volgcategorie** `Category:Uploaded with Commons Mineventory` (verborgen), en een projectpagina **`Commons:Commons Mineventory`**. Olaf maakt beide aan (besluit 3-11-2026), vóór de eerste echte upload.
+- **Uploadsamenvatting**: *"Uitsnede uit [[File:…]] met de [[Commons:Commons Mineventory|Commons Mineventory]]; beschrijving deels opgesteld met een taalmodel en gecontroleerd door de uploader."*
 
 ### 9.4 Gestructureerde gegevens (SDC)
 
@@ -533,7 +533,7 @@ Is er nog geen paginaoverzicht, dan legt het venster uit dat het voorstel uit *A
 **Opslaan op Commons (fase 2).**
 - **Eén bewerking**: `wbeditentity` op `M<pageid>`, met alleen de nieuwe verklaringen en de gekozen captions. De app stuurt `baserevid` mee: de versie die het venster las. Is het origineel intussen gewijzigd, dan leest de app het opnieuw en toont het venster de nieuwe stand. Zo gaat er nooit iets over de wijziging van een ander heen.
 - **Alleen toevoegen.** Bestaande verklaringen, kwalificatoren en captions in andere talen blijven zoals ze zijn. Een caption verandert alleen bij de keuze *Vervangen* of *Zelf schrijven*; de oude tekst blijft in de geschiedenis van de pagina staan.
-- **Bewerkingssamenvatting** (in het Engels), bijvoorbeeld: `Added depicts (3) and caption (nl) with Commons Cutter; AI suggestions checked by the user`.
+- **Bewerkingssamenvatting** (in het Engels), bijvoorbeeld: `Added depicts (3) and caption (nl) with Commons Mineventory; AI suggestions checked by the user`.
 - **Daarna** leest de app het origineel opnieuw; de cache van dit bestand vervalt. Objecten met een positie staan voortaan ook als regio van Commons (7.5).
 - **Rechten**: de grant *Edit existing pages* (8.2). Die is al nodig voor `{{Image extracted}}`.
 - **Kosten**: geen. Er is geen AI-aanroep, alleen leesverzoeken aan Wikidata en één bewerking op Commons.
@@ -590,20 +590,20 @@ Het verzoek noemde Codex **v0.4.1**. Dat is een oude versie (2022), nog zonder d
 ### 10.3 Look en feel
 
 - Zo dicht mogelijk bij Commons in Vector 2022: witte achtergrond, `--color-progressive` (#36c) voor acties, de lettertypen van de systeeminterface, rustige randen.
-- **Geen Commons-logo als eigen merk**: het Commons-logo is een merk van de Wikimedia Foundation. Wel de naam "Commons Cutter", een eigen eenvoudig icoon (schaar of uitsnede) en de zin "werkt met Wikimedia Commons". Besloten (3-11-2026): een **eigen icoon**.
+- **Geen Commons-logo als eigen merk**: het Commons-logo is een merk van de Wikimedia Foundation. Wel de naam "Commons Mineventory", een eigen eenvoudig icoon (sinds de nieuwe naam: een afbeelding met gevonden objecten in stippelkaders en een lijst ernaast, de inventaris) en de zin "werkt met Wikimedia Commons". Besloten (3-11-2026): een **eigen icoon**.
 - Kleuren alleen via Codex-tokens; eigen toevoegingen (maskerkleuren, selectie) in `static/css/app.css` als variabelen.
 
 ### 10.4 Indeling
 
 Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 
-- **Header**: icoon, "Commons Cutter", label *experiment*, rechts de taalkeuze (NL/EN) en **Inloggen** of de gebruikersnaam met een menu (Mijn uploads, Uitloggen).
+- **Header**: icoon, "Commons Mineventory", label *experiment*, rechts de taalkeuze (NL/EN) en **Inloggen** of de gebruikersnaam met een menu (Mijn uploads, Uitloggen).
 - **Invoerbalk**: Commons-URL of titel, knop **Openen**. Daaronder: titel, miniatuur, licentie (als Codex-*chip*), maker, datum, link naar de bestandspagina, en een uitklapbare **Metadata** (beschrijving, categorieën, SDC).
 Sinds 0.29.0 van links naar rechts in de volgorde van het werk, zoals in de Delpher Uitsnijder (besluit Olaf, 4-11-2026): beeld, objecten zoeken, wat je vond.
 
 - **Links**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
 - **Midden**: *Objecten zoeken*, het detectiepaneel in uitklapbare blokken (Codex *Accordion*), sinds 0.14.0 in deze volgorde: AI-suggesties voor deze afbeelding, Uit Commons, Zoeken, Aanwijzen of tekenen, Bijsnijden in CropTool (0.18.0).
-- **Rechts**: *Wat je vond*: laatst bezocht › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › de objecten met vinkjes, en onderaan (blijft in beeld) de knoppen **Selectie beschrijven**, **Dubbelingen samenvoegen**, **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
+- **Rechts**: *Wat je vond*: laatst bezocht › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › de objecten met vinkjes, en onderaan (blijft in beeld) de knoppen **Geselecteerde objecten beschrijven**, **Dubbelingen samenvoegen**, **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
 - Elke kolom heeft een kop met één regel uitleg en een (i)-venster (0.28.0).
 - **Vergroter**: de uitsnede, "Wat staat hierop?", het bijschrift en het Commons-concept (tab).
 - **Gebouwd in fase 1 (stand 0.9.0)**: de randen tussen de drie kolommen zijn versleepbaar (ook met de pijltjestoetsen; breedte per browser onthouden); de objectenlijst toont een miniatuur per object, en een regel licht op als de muis erboven of boven die uitsnede in het beeld staat; alle knoppen zijn Codex-blauw (*progressive*), verwijderen blijft rood; in het Commons-concept zitten de invulacties per veld in een klein menu (⋯) met *Ongedaan maken* direct erna; de namen die de app zelf geeft (klik, rechthoek, regio) en soort en zekerheid volgen de taal van de interface.
@@ -724,14 +724,14 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 **Fase 3: live**
 
 11. Detectie en beschrijving live (`DETECTIE_MODUS=live`), alleen na een opdracht van Olaf. Kalibratie op Commons-materiaal (albums, prenten, kaarten).
-12. Deploy naar Toolforge als `commons-cutter`, publieke consumer aanvragen, privacyverklaring. Olaf maakt de projectpagina `Commons:Commons Cutter` en de volgcategorie aan.
+12. Deploy naar Toolforge als `commons-cutter`, publieke consumer aanvragen, privacyverklaring. Olaf maakt de projectpagina `Commons:Commons Mineventory` en de volgcategorie aan.
 13. De eerste echte uploads op Commons, door Olaf zelf.
 
 **Fase 4: verdieping**
 
 14. Batch over meerdere bestanden (een hele categorie in één keer).
 15. Regio's terugschrijven naar het origineel (P180 met P2677); het voorbeeld staat al in de proefweergave (9.4). Valt samen met het venster *Beeldt af en caption voor de hele afbeelding* (9.7), dat al in fase 2 kan, na de upload.
-16. Een link vanuit Commons: gadget of een item in het menu Hulpmiddelen ("Openen in de Commons Cutter"), zoals CropTool.
+16. Een link vanuit Commons: gadget of een item in het menu Hulpmiddelen ("Openen in de Commons Mineventory"), zoals CropTool.
 17. IIIF-annotaties exporteren.
 18. Eigen API-sleutel per gebruiker voor scripts.
 19. Meer talen in de interface.
@@ -759,7 +759,7 @@ commons-cutter/
 
 | Onderwerp | Besluit | Waar |
 | --- | --- | --- |
-| Naam | **Commons Cutter**; tool, repo en map heten `commons-cutter` (lokaal `D:\KB-OPEN\github-repos\commons-cutter`, op GitHub `KBNLwikimedia/commons-cutter`). De naam is vrij op Toolforge, Toolhub en GitHub | 12.1 |
+| Naam | **Commons Mineventory** (5-11-2026; eerder Commons Cutter); tool, repo en map heten (nog) `commons-cutter` (lokaal `D:\KB-OPEN\github-repos\commons-cutter`, op GitHub `KBNLwikimedia/commons-cutter`). `commons-cutter` was op 3-11-2026 vrij op Toolforge, Toolhub en GitHub; of de technische namen meeverhuizen, is backlog 12f | 12.1 |
 | Kosten | Eén API-sleutel van de KB voor de Meta-aanroepen | 3, 6.4 |
 | Codex | 2.x met Vue 3 | 10.1 |
 | Build-stap | Vite (Node.js alleen bij het ontwikkelen en bouwen); de viewer blijft een gewone JS-module; op Toolforge draait alleen Python | 10.2, 12.1 |

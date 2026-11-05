@@ -16,9 +16,9 @@ MAX_CAPTION = 250  # characters per caption (9.4)
 # A category name may not hold the characters Commons forbids in titles, nor line breaks.
 CATEGORY_FORBIDDEN = re.compile(r"[#<>\[\]{}|\n\r\x00-\x1f\x7f]")
 FORBIDDEN = re.compile(r"[#<>\[\]{}|/\\:\x00-\x1f\x7f]")
-TRACKING_CATEGORY = "Uploaded with Commons Cutter"
+TRACKING_CATEGORY = "Uploaded with Commons Mineventory"
 UPLOAD_SUMMARY = (
-    "Uitsnede uit [[{original}]] met de [[Commons:Commons Cutter|Commons Cutter]]; beschrijving deels "
+    "Uitsnede uit [[{original}]] met de [[Commons:Commons Mineventory|Commons Mineventory]]; beschrijving deels "
     "opgesteld met een taalmodel en gecontroleerd door de uploader."
 )
 # Fields of {{Artwork}}, {{Photograph}}, {{Book}} and {{Map}} in the concept of a

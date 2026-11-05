@@ -46,7 +46,7 @@ def test_concept_of_a_region(book):
     assert c["gekozen"] and c["upload_toegestaan"]
     text = c["wikitekst"]
     assert "{{Extracted from|File:Book of Hours of Philip of Burgundy" in text
-    assert "[[Category:Uploaded with Commons Cutter]]" in text
+    assert "[[Category:Uploaded with Commons Mineventory]]" in text
     assert "=={{int:license-header}}==" in text
     p180 = [claim for claim in c["sdc"]["claims"] if claim["mainsnak"]["property"] == "P180"]
     assert p180 == [{"mainsnak": concept._item_snak("P180", "Q179718"), "type": "statement", "rank": "normal"}]
@@ -328,7 +328,7 @@ def test_partner_template_with_cutout_category_in_source():
             "[[Category:Cut-outs from media contributed by Koninklijke Bibliotheek]]}}") in text
     # Not twice: the template puts the page in the category, no separate line.
     assert text.count("Cut-outs from media contributed by Koninklijke Bibliotheek") == 1
-    assert "[[Category:Bookbindings]]" in text and "[[Category:Uploaded with Commons Cutter]]" in text
+    assert "[[Category:Bookbindings]]" in text and "[[Category:Uploaded with Commons Mineventory]]" in text
     # Unticked by the user: no partner template either (it would add the KB's own category).
     c["categorieen"] = [{**cat, "gekozen": cat["naam"] == "Bookbindings"} for cat in c["categorieen"]]
     assert "Koninklijke Bibliotheek" not in concept.wikitext(kb_file(), c).split("[[Category:Bookbindings]]")[0].split("|gallery=")[0]

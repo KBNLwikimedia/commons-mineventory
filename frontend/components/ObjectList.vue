@@ -37,6 +37,8 @@
           <span class="cc-object-naam" @click.prevent="emit('focus', obj.id)">{{ listName(obj) }}</span>
           <template #description>
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
+            <!-- Described: "Describe selected objects" skips it, so show it in the row. -->
+            <template v-if="obj.beschrijving"> · <span class="cc-beschreven-label" :title="t('objects.described_help')">{{ t("objects.described") }}</span></template>
             <template v-if="obj.opgeslagen"> · <saved-label :object="obj" /></template>
             <template v-if="obj.al_uitgesneden"> · {{ t("objects.already_extracted") }}</template>
             <span v-if="obj.bijschrift?.tekst && name(obj) !== obj.bijschrift.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
