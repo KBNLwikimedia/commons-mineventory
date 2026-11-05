@@ -7,7 +7,7 @@
   <div class="cc-app">
     <file-bar :file="file" :loading="loadingFile" :initial="initialInput" @open="openFile" />
 
-    <notice-list :notices="notices" @dismiss="dismiss" />
+    <notice-list :notices="topNotices" @dismiss="dismiss" />
 
     <!-- While a file is being opened: what is happening, and a grey placeholder where the work area comes. -->
     <section v-if="loadingFile" class="cc-bestand-laden" :aria-label="t('input.loading_file')">
@@ -17,7 +17,7 @@
 
     <section v-if="!file && !loadingFile && visited.length" class="cc-start-geschiedenis">
       <h2>{{ t("history.title") }}</h2>
-      <viewed-panel :entries="visited" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" />
+      <viewed-panel :entries="visited" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" @open="openFromHistory" />
     </section>
 
     <!-- On a phone (functional design 10.5) the three columns are tabs; on larger screens this bar is hidden. -->
@@ -49,7 +49,7 @@
       <aside class="cc-historie cc-kolom" :class="{ dicht: closed.historie }" :aria-label="t('layout.history_title')">
         <div class="cc-kolom-inhoud">
           <column-header column="history" closable side="left" @close="setClosed('historie', true)" />
-          <viewed-panel :entries="visited" :current="file.mid" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" />
+          <viewed-panel :entries="visited" :current="file.mid" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" @open="openFromHistory" />
         </div>
         <column-strip v-if="closed.historie" :name="t('layout.history_title')" :count="visited.length" side="left" @open="setClosed('historie', false)" />
       </aside>
@@ -63,7 +63,7 @@
           ref="viewer"
           :mid="file.mid"
           :page="page"
-          :objects="objects"
+          :objects="visibleObjects"
           :new-ids="newIds"
           :point-mode="pointMode"
           :draw-mode="drawMode"
@@ -96,7 +96,7 @@
           :last-result="lastResult"
           :point-mode="pointMode"
           @detect="detect"
-          @inventory="askInventory(Boolean(inventory), $event?.deel || null)"
+          @inventory="askInventory(Boolean(inventory), $event?.deel || null, $event?.detailniveau)"
           @forget-inventory="forgetInventory($event?.deel || null)"
           @inventory-changed="inventory = $event"
           :draw-mode="drawMode"
@@ -111,10 +111,30 @@
         <div class="cc-kolom-inhoud">
         <column-header column="left" closable side="right" @close="setClosed('objecten', true)" />
         <page-list v-if="file.paginas > 1" :file="file" :current="pageN" @select="goToPage" />
+        <!-- The outcome of moving an object to the trash (with Undo), where it happened: above the list. -->
+        <notice-list :notices="objectNotices" @dismiss="dismiss" />
+        <!-- Minimum certainty: hides objects of the AI image detection it is less sure of (free,
+             on what was found already). Hidden objects are not selected, so they are not saved. -->
+        <div v-if="hasScores" class="cc-schuif cc-zekerheid">
+          <label class="cc-schuif-kop" for="cc-zekerheid">{{ t("certainty.label") }}</label>
+          <input
+            id="cc-zekerheid"
+            type="range"
+            min="0"
+            max="95"
+            step="5"
+            :value="Math.round(minScore * 100)"
+            :aria-valuetext="t('certainty.value', { n: Math.round(minScore * 100) })"
+            @input="minScore = Number($event.target.value) / 100"
+            @change="deselectHidden"
+          />
+          <span class="cc-schuif-waarde">{{ t("certainty.value", { n: Math.round(minScore * 100) }) }}</span>
+          <p class="cc-uitleg">{{ hiddenCount ? t("certainty.hidden", { n: hiddenCount }) : t("certainty.help") }}</p>
+        </div>
         <object-list
           :mid="file.mid"
           :n="pageN"
-          :objects="objects"
+          :objects="visibleObjects"
           :focused="focusedId"
           :hovered="hoveredId"
           :new-ids="newIds"
@@ -278,6 +298,40 @@ if (!start.url && !start.titel && !start.mid && visited.value.length) {
 }
 const initialInput = start.url || start.titel || start.mid || "";
 
+// Minimum certainty (0 to 0.95) for objects of the AI image detection; others (by hand,
+// from Commons) have no score and always show. Remembered in this browser.
+const CERTAINTY_KEY = "cc-min-zekerheid";
+function readCertainty() {
+  try {
+    const value = Number(window.localStorage.getItem(CERTAINTY_KEY));
+    return value >= 0 && value <= 0.95 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+const minScore = ref(readCertainty());
+watch(minScore, (value) => {
+  try {
+    window.localStorage.setItem(CERTAINTY_KEY, String(value));
+  } catch {
+    // Blocked storage: the value holds until the page is reloaded.
+  }
+});
+const hasScores = computed(() => objects.value.some((o) => o.score != null));
+const isVisible = (o) => o.score == null || o.score >= minScore.value - 1e-9;
+const visibleObjects = computed(() => objects.value.filter(isVisible));
+const hiddenCount = computed(() => objects.value.length - visibleObjects.value.length);
+// What you do not see is not selected: saving or describing never takes a hidden object along.
+function deselectHidden() {
+  const selected = objects.value.filter((o) => o.status === "geselecteerd");
+  const kept = selected.filter(isVisible);
+  if (kept.length !== selected.length) setSelection(kept.map((o) => o.id));
+}
+// New detections may bring objects under the certainty, already selected.
+watch(objects, () => {
+  if (minScore.value > 0) deselectHidden();
+});
+
 const selectedCount = computed(() => objects.value.filter((o) => o.status === "geselecteerd").length);
 const savedCount = computed(() => objects.value.filter((o) => o.opgeslagen).length);
 const magnified = computed(() => objects.value.find((o) => o.id === magnifiedId.value) || null);
@@ -285,9 +339,13 @@ const magnified = computed(() => objects.value.find((o) => o.id === magnifiedId.
 // -- Notices --------------------------------------------------------------------------
 
 let noticeId = 0;
+// A notice shows at the top of the page, or with where: "objecten" in the objects column,
+// where the action it reports on took place.
 function notify(type, text, extra = {}) {
   notices.value = [...notices.value.slice(-3), { id: ++noticeId, type, text, ...extra }];
 }
+const topNotices = computed(() => notices.value.filter((n) => n.where !== "objecten"));
+const objectNotices = computed(() => notices.value.filter((n) => n.where === "objecten"));
 function dismiss(id) {
   notices.value = notices.value.filter((n) => n.id !== id);
 }
@@ -319,6 +377,14 @@ async function openFile(text) {
   } finally {
     loadingFile.value = false;
   }
+}
+
+// Open a file from the list Bekeken within the app (no page reload), on the page that was open.
+function openFromHistory(entry) {
+  if (loadingFile.value) return;
+  start.mid = entry.mid;
+  start.pagina = String(entry.pagina || 1);
+  openFile(entry.mid);
 }
 
 async function goToPage(n) {
@@ -399,13 +465,14 @@ async function forgetInventory(part = null) {
 // The page overview. With `again` the model is really asked anew (paid);
 // otherwise a stored answer for this page and model comes from the cache, free.
 // With `part` ("beschrijving" or "zoektermen") only that part is asked anew.
-async function askInventory(again = false, part = null) {
+async function askInventory(again = false, part = null, detail = undefined) {
   const base = pagePath(file.value.mid, pageN.value);
   busy.value = true;
   try {
     const plan = await get(`${base}/inventaris`);
     if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd))) return;
-    const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? {} : { opnieuw: again });
+    const level = detail && part !== "beschrijving" ? { detailniveau: detail } : {};
+    const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? level : { opnieuw: again, ...level });
     inventory.value = result.inventaris;
   } catch (error) {
     fail(error);
@@ -586,8 +653,9 @@ async function trashObject(id) {
     objects.value = result.objecten;
     refreshTrashTerms(n);
     notify("notice", t("objects.trashed"), {
+      where: "objecten",
       object: shown,
-      actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreObject(id, n, mid) }],
+      actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreObject(id, n, mid, shown) }],
       link: { href: "/objecten?tab=prullenbak", label: t("objects.to_trash") },
     });
   } catch (error) {
@@ -595,7 +663,7 @@ async function trashObject(id) {
   }
 }
 
-async function restoreObject(id, n, mid = file.value.mid) {
+async function restoreObject(id, n, mid = file.value.mid, shown = null) {
   try {
     await patch(objectPath(mid, n, id), { prullenbak: false });
     if (mid === file.value?.mid && n === pageN.value) {
@@ -603,7 +671,7 @@ async function restoreObject(id, n, mid = file.value.mid) {
       objects.value = data.objecten;
       trashTerms.value = data.prullenbak_termen || {};
     }
-    notify("success", t("objects.restored"));
+    notify("success", t("objects.restored"), { where: "objecten", object: shown }); // with the object: which one came back
   } catch (error) {
     fail(error);
   }
@@ -657,7 +725,7 @@ function openMagnifier(id) {
 
 // Previous and next in the magnifier: the order of the list "Wat je vond".
 const listNames = computed(() => numberedNames(objects.value, props.config.taal, t));
-const listOrder = computed(() => Object.keys(listNames.value));
+const listOrder = computed(() => Object.keys(listNames.value).filter((id) => visibleObjects.value.some((o) => o.id === id)));
 const magnifiedIndex = computed(() => listOrder.value.indexOf(magnifiedId.value));
 function stepMagnifier(step) {
   const next = listOrder.value[magnifiedIndex.value + step];

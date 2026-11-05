@@ -3,6 +3,20 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.3] - 2026-11-05
+
+### Toegevoegd
+
+- Schuif **Detailniveau** bij *Beschrijf deze afbeelding* en bij *Zoektermen opnieuw vragen* (wens Olaf): van *Alleen het hoofdonderwerp* (1 zoekterm) via *Hoofdzaken* (ongeveer 3) en *Normaal* (tot 12, zoals voorheen) tot *Veel details* (tot 20 soorten, ook kleine dingen). De stand gaat mee in de vraag aan Muse Spark, staat bij het overzicht (`detailniveau`) en heeft een eigen plek in de cache; *Normaal* houdt de antwoorden van vóór de schuif. API: `detailniveau` in de body van POST `…/inventaris` en `…/inventaris/zoektermen`.
+- Schuif **Minimale zekerheid** boven de objecten in *Wat je vond* (wens Olaf): verbergt objecten van de AI-beelddetectie onder de gekozen zekerheid, ook wat al gevonden is, gratis. Verborgen objecten zijn niet geselecteerd en gaan dus niet mee bij opslaan of beschrijven; terugschuiven laat ze weer zien. Onthouden in de browser.
+
+### Gewijzigd
+
+- Een afbeelding uit *Bekeken* opent binnen de app, zonder de pagina opnieuw te laden, zodat je meteen *Het bestand wordt opgehaald van Commons…* en het grijze skelet ziet (wens Olaf). Ctrl-klik opent hem nog steeds in een nieuw tabblad.
+- *Niets gevonden voor …* zegt nu hoe je het anders probeert, met twee links (wens Olaf): *zoek met een ander of algemener woord* opent *Zoeken* met de term al ingevuld, *wijs het object aan of teken er een rechthoek omheen* opent *Aanwijzen of tekenen*.
+- *Teruggezet uit de prullenbak* noemt het object, met de kleine uitsnede en de naam, zoals de melding bij het weggooien (wens Olaf).
+- De melding *Naar de prullenbak* (met Ongedaan maken) en *Teruggezet* staan nu in de kolom *Wat je vond*, boven de lijst van objecten, waar je het object weggooide, en niet meer bovenaan de pagina (wens Olaf).
+
 ## [0.32.2] - 2026-11-05
 
 ### Toegevoegd

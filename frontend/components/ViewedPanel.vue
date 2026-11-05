@@ -13,7 +13,7 @@
       @dragleave="dragLeave($event, 'actief')"
       @drop="drop($event, false)"
     >
-      <history-list v-if="active.length" :entries="active" :current="current" @aside="emit('aside', $event, true)" />
+      <history-list v-if="active.length" :entries="active" :current="current" @aside="emit('aside', $event, true)" @open="emit('open', $event)" />
       <p v-else class="cc-uitleg">{{ t(asideEntries.length ? "history.all_aside" : "layout.history_empty") }}</p>
     </div>
     <div
@@ -33,6 +33,7 @@
           aside
           @restore="emit('aside', $event, false)"
           @remove="emit('remove', $event)"
+          @open="emit('open', $event)"
         />
       </cdx-accordion>
     </div>
@@ -52,7 +53,7 @@ const props = defineProps({
   current: { type: String, default: null },
 });
 // aside(mid, true|false), remove(mid), clear()
-const emit = defineEmits(["aside", "remove", "clear"]);
+const emit = defineEmits(["aside", "remove", "clear", "open"]);
 const t = useT();
 
 const active = computed(() => props.entries.filter((e) => !e.opzij));

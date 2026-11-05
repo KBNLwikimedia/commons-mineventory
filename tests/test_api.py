@@ -214,6 +214,13 @@ def test_description_with_dummy(http):
     assert http.delete(PAGE + "/inventaris/zoektermen").get_json()["inventaris"]["zoektermen"] == []
     assert http.post(PAGE + "/inventaris/zoektermen", json={}).get_json()["inventaris"]["zoektermen"]
     assert http.delete(PAGE + "/inventaris/alles").status_code == 404
+    # The detail level (the slider): fewer or more search terms, remembered with the overview.
+    one = http.post(PAGE + "/inventaris/zoektermen", json={"detailniveau": "hoofdonderwerp"}).get_json()["inventaris"]
+    assert len(one["zoektermen"]) == 1 and one["detailniveau"] == "hoofdonderwerp"
+    many = http.post(PAGE + "/inventaris/zoektermen", json={"detailniveau": "details"}).get_json()["inventaris"]
+    assert len(many["zoektermen"]) > 3 and many["detailniveau"] == "details"
+    assert http.post(PAGE + "/inventaris/zoektermen", json={"detailniveau": "alles"}).status_code == 400
+    http.post(PAGE + "/inventaris/zoektermen", json={"detailniveau": "normaal"})
     # The description of the image by hand, with its earlier versions.
     first = http.get(PAGE + "/inventaris").get_json()["inventaris"]
     edited = http.patch(PAGE + "/inventaris", json={"samenvatting": "Met de hand."}).get_json()["inventaris"]

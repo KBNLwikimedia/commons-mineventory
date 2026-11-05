@@ -26,8 +26,9 @@
            Explanations (cc-uitleg) look different from what the AI said (cc-ai-resultaat). -->
       <template v-if="!inventory">
         <p class="cc-uitleg">{{ t("panel.inventory_help") }} {{ museCost(config.muse.pagina_usd) }}</p>
+        <detail-slider v-model="detail" :disabled="busy" />
         <div class="cc-knoppen">
-          <cdx-button action="progressive" weight="primary" :disabled="busy" @click="act('inventory', 'inventory')">{{ t("panel.inventory") }}</cdx-button>
+          <cdx-button action="progressive" weight="primary" :disabled="busy" @click="act('inventory', 'inventory', { detailniveau: detail })">{{ t("panel.inventory") }}</cdx-button>
         </div>
         <busy-note v-if="busy && where === 'inventory'" :message="t('busy.muse_page')" />
       </template>
@@ -93,7 +94,14 @@
             </cdx-button>
           </div>
           <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
-          <cdx-message v-if="lastResult && resultAt === 'suggestions' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
+          <cdx-message v-if="lastResult && resultAt === 'suggestions' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">
+            {{ resultText(lastResult) }}
+            <!-- Nothing found: the other ways to get the object, as links to the sections below. -->
+            <template v-if="isNone(lastResult)"> {{ t("panel.result_none_next") }}
+            <button type="button" class="cc-link" @click="trySearch(lastResult)">{{ t("panel.result_try_search") }}</button>
+            {{ t("panel.result_or") }}
+            <button type="button" class="cc-link" @click="tryPoint">{{ t("panel.result_try_point") }}</button>.</template>
+          </cdx-message>
           <!-- What of these suggestions is on the image now, and what went to the trash. -->
           <p class="cc-status">
             {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: inventory.zoektermen.length }) }}
@@ -101,8 +109,10 @@
           </p>
         </template>
         <p v-else class="cc-uitleg">{{ t("panel.part_none_zoektermen") }}</p>
+        <!-- Asking the search terms anew, at the level of detail chosen here. -->
+        <detail-slider v-model="detail" :disabled="busy" />
         <div class="cc-deel-acties">
-          <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="t('panel.part_again_help_zoektermen')" @click="act('zoektermen', 'inventory', { deel: 'zoektermen' })">
+          <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="t('panel.part_again_help_zoektermen')" @click="act('zoektermen', 'inventory', { deel: 'zoektermen', detailniveau: detail })">
             {{ t(inventory.zoektermen?.length ? "panel.part_again_zoektermen" : "panel.part_ask_zoektermen") }} <span class="cc-kosten">{{ museCost(config.muse.pagina_usd) }}</span>
           </cdx-button>
           <cdx-button v-if="inventory.zoektermen?.length" action="destructive" weight="quiet" size="small" :disabled="busy" @click="act('zoektermen', 'forget-inventory', { deel: 'zoektermen' })">
@@ -131,12 +141,19 @@
         <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
       </form>
       <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
-      <cdx-message v-if="lastResult && resultAt === 'search' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
+      <cdx-message v-if="lastResult && resultAt === 'search' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">
+            {{ resultText(lastResult) }}
+            <!-- Nothing found: the other ways to get the object, as links to the sections below. -->
+            <template v-if="isNone(lastResult)"> {{ t("panel.result_none_next") }}
+            <button type="button" class="cc-link" @click="trySearch(lastResult)">{{ t("panel.result_try_search") }}</button>
+            {{ t("panel.result_or") }}
+            <button type="button" class="cc-link" @click="tryPoint">{{ t("panel.result_try_point") }}</button>.</template>
+          </cdx-message>
       <p class="cc-uitleg">{{ t("panel.search_help") }} {{ cost(1) }}</p>
     </cdx-accordion>
 
     <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
-    <cdx-accordion v-model="open.point">
+    <cdx-accordion v-model="open.point" class="cc-sectie-aanwijzen">
       <template #title>{{ t("panel.point_or_draw") }} <info-dialog v-bind="info('point', 'panel.point_or_draw')" /></template>
       <div class="cc-modus-keuze">
         <cdx-toggle-switch :model-value="pointMode" @update:model-value="emit('point-mode', $event)">
@@ -171,7 +188,7 @@
 </template>
 
 <script setup>
-import { computed, inject, reactive, ref, watch } from "vue";
+import { computed, inject, nextTick, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconCut, cdxIconLinkExternal, cdxIconTrash } from "@wikimedia/codex-icons";
 import { textParts } from "../confirm.js";
@@ -179,6 +196,7 @@ import { money, useT } from "../i18n.js";
 import { cropToolLink } from "../state.js";
 import AiBadge from "./AiBadge.vue";
 import BusyNote from "./BusyNote.vue";
+import DetailSlider from "./DetailSlider.vue";
 import PageDescription from "./PageDescription.vue";
 import InfoDialog from "./InfoDialog.vue";
 
@@ -205,6 +223,29 @@ const modelLinks = {
   muse: { href: "https://dev.meta.ai/docs/models#muse-spark", label: "Muse Spark" },
 };
 const prompt = ref("");
+// The level of detail of the search terms: that of the overview, else the last one chosen in this browser.
+const DETAIL_KEY = "cc-detailniveau";
+function storedDetail() {
+  try {
+    return window.localStorage.getItem(DETAIL_KEY) || "normaal";
+  } catch {
+    return "normaal";
+  }
+}
+const detail = ref(props.inventory?.detailniveau || storedDetail());
+watch(
+  () => props.inventory?.detailniveau,
+  (level) => {
+    if (level) detail.value = level;
+  }
+);
+watch(detail, (level) => {
+  try {
+    window.localStorage.setItem(DETAIL_KEY, level);
+  } catch {
+    // Blocked storage: the level holds until the page is reloaded.
+  }
+});
 // The (i) beside each section title: a popup that explains what the section does.
 function info(section, titleKey) {
   return {
@@ -309,6 +350,27 @@ function resultText(result) {
   if (!result.found && !result.excluded) return t("panel.result_none", { what });
   const found = result.found === 1 ? t("panel.result_one", { what }) : t("panel.result_found", { n: result.found, what });
   return result.excluded ? `${found} ${t("panel.result_excluded", { n: result.excluded })}` : found;
+}
+
+// A search with terms that found nothing (not "from Commons", pointing or drawing).
+function isNone(result) {
+  return Boolean(result) && result.modus === "prompt" && !result.found && !result.excluded;
+}
+// After nothing was found: open Search with the term filled in, ready to change it.
+async function trySearch(result) {
+  open.search = true;
+  prompt.value = result.prompt.split(",").length === 1 ? result.prompt.trim() : "";
+  await nextTick();
+  const input = document.querySelector(".cc-zoek input");
+  input?.scrollIntoView({ block: "center", behavior: "smooth" });
+  input?.focus();
+  input?.select();
+}
+// Or open Point or draw, to point at the object or draw a rectangle around it.
+async function tryPoint() {
+  open.point = true;
+  await nextTick();
+  document.querySelector(".cc-sectie-aanwijzen")?.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
 function search() {

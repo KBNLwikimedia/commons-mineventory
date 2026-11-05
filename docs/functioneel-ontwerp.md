@@ -280,6 +280,10 @@ De opvolger van "Uit Delpher": regio's die op Commons al bestaan. Eis van Olaf (
 
 Sinds 0.29.0 (besluit Olaf, 5-11-2026): de eerste vraag is één aanroep voor beschrijving én zoektermen (het goedkoopst: het beeld gaat één keer mee). Daarna kan elk deel apart opnieuw (*Beschrijving opnieuw*, *Zoektermen opnieuw*: één aanroep met een vraag voor alleen dat deel, het andere deel blijft) of apart verwijderd worden (gratis). Twee aparte aanroepen vanaf het begin zouden ongeveer anderhalf keer zo veel kosten.
 
+**Detailniveau** (wens Olaf, 5-11-2026, sinds 0.32.3): een schuif bij *Beschrijf deze afbeelding* en bij *Zoektermen opnieuw* bepaalt hoeveel soorten objecten de AI als zoekterm voorstelt: *Alleen het hoofdonderwerp* (1), *Hoofdzaken* (ongeveer 3), *Normaal* (tot 12, zoals voorheen) of *Veel details* (tot 20, ook kleine dingen zoals insecten, knopen en ornamenten). SAM zelf kent geen aantal: het vindt alle exemplaren van een zoekterm. De schuif bepaalt dus *waarnaar* gezocht wordt. Elk niveau heeft een eigen antwoord in de cache; *Normaal* houdt de antwoorden van vóór de schuif. Meer zoektermen betekent meer SAM-aanroepen als je ze allemaal laat zoeken; de knop toont het bedrag.
+
+**Minimale zekerheid** (sinds 0.32.3): een schuif boven de objecten in *Wat je vond* (0 tot 95%) verbergt objecten van de AI-beelddetectie met een lagere zekerheid, ook wat al gevonden is, zonder nieuwe aanroep. Objecten zonder zekerheid (met de hand, uit Commons) blijven altijd zichtbaar. Wat verborgen is, is niet geselecteerd en gaat dus niet mee bij opslaan of beschrijven. De schuif bepaalt zo *hoeveel* je overhoudt. Onthouden in de browser.
+
 ## 8. Inloggen en rechten (OAuth)
 
 ### 8.1 Patroon

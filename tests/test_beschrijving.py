@@ -336,3 +336,16 @@ def test_an_earlier_version_can_be_deleted(objects, album, tmp_path):
     assert objects._find(album, 1, obj["id"])["beschrijving"]["tekst_in_beeld"] == "Mijn lezing"  # the current one stays
     with pytest.raises(DetectionError):
         service.forget_version(album, 1, obj["id"], "nooit")
+
+
+def test_detail_levels_change_the_question_and_the_cap():
+    from cutter.beschrijving import DETAIL_LEVELS, inventory_instructions, parse_inventory
+
+    normal = inventory_instructions('"x"')
+    assert "at most 12 distinct kinds of visual objects, most frequent or most striking first." in normal  # as before the slider
+    assert "only the one main subject" in inventory_instructions('"x"', detail="hoofdonderwerp")
+    assert "small details" in inventory_instructions('"x"', part="zoektermen", detail="details")
+    terms = [{"en": f"thing {i}", "nl": f"ding {i}", "aantal": 1, "waar": ""} for i in range(25)]
+    answer = '{"zoektermen": ' + __import__("json").dumps(terms) + "}"
+    assert len(parse_inventory(answer, DETAIL_LEVELS["hoofdonderwerp"][0])["zoektermen"]) == 1
+    assert len(parse_inventory(answer, DETAIL_LEVELS["details"][0])["zoektermen"]) == 20

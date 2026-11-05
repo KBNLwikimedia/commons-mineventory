@@ -347,7 +347,7 @@ def inventory_part(mid, n, deel):
     a new answer, paid in live mode. The other part stays."""
     body = _body()
     _require_paid_access(_descriptions().vision.betaald)
-    return jsonify(_descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=True, user=_user(), part=deel))
+    return jsonify(_descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=True, user=_user(), part=deel, detail=body.get("detailniveau")))
 
 
 @api.post("/bestand/<mid>/pagina/<int:n>/inventaris")
@@ -355,7 +355,9 @@ def inventory(mid, n):
     """Ask Muse Spark what is on the page (paid in live mode, cached)."""
     body = _body()
     _require_paid_access(_descriptions().vision.betaald)
-    return jsonify(_descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=bool(body.get("opnieuw")), user=_user()))
+    return jsonify(
+        _descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=bool(body.get("opnieuw")), user=_user(), detail=body.get("detailniveau"))
+    )
 
 
 # -- Objects ------------------------------------------------------------------------------

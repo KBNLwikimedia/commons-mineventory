@@ -44,6 +44,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
    - [x] Olaf (5-11-2026): de map hernoemd naar `D:\KB-OPEN\github-repos\commons-mineventory` en `.venv` opnieuw gemaakt; pytest en npm test groen. `.env` bijwerken (`BRONCODE_URL`, de URL in `COMMONS_USER_AGENT`) doet Olaf zelf.
    - [x] De GitHub-repo `KBNLwikimedia/commons-mineventory` is openbaar en bevat de code (0.31.3, 5-11-2026), met CLAUDE.md, overdracht en backlog (besluit Olaf); de projectsite staat op https://kbnlwikimedia.github.io/commons-mineventory/ (0.32.0).
    - [ ] Bij de deploy (17): nagaan of `commons-mineventory` vrij is op Toolforge en Toolhub.
+12g. [ ] **Groeperen** (wens Olaf 5-11-2026, zoals in PowerPoint): bij veel kleine objecten van één soort (bijv. 15 waterdruppels en 9 bladeren op M99521736) kies je ze en maak je er één object van, bijv. *groep waterdruppels*, met de maskers en kaders samengevoegd (het kader om alles heen, het masker als vereniging). Voorstel: een knop *Groeperen (n)* onder de objecten, actief bij twee of meer geselecteerde; de naam wordt *groep* + de gemeenschappelijke soort (aan te passen); de leden blijven bewaard in de groep, zodat *Groep opheffen* ze terugzet (geen prullenbak). Anders dan *Dubbelingen samenvoegen*, dat objecten op dezelfde plek één maakt. Gratis. Nog uitwerken in het FO (7.4) en vragen: per soort in één klik (*Groepeer alle waterdruppels*)? Mag een groep als één uitsnede naar Commons?
 
 ## Fase 2: OAuth, upload naar een testwiki, categorieën
 

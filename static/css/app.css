@@ -590,3 +590,10 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-skelet { background: linear-gradient(100deg, #eaecf0 40%, #f8f9fa 50%, #eaecf0 60%) #eaecf0; background-size: 200% 100%; animation: cc-skelet 1.4s linear infinite; }
 @keyframes cc-skelet { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .cc-skelet { animation: none; } }
+
+/* A slider with its label and the chosen value in words (DetailSlider.vue, the certainty in Wat je vond). */
+.cc-schuif { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; margin: 0.5rem 0; }
+.cc-schuif-kop { font-weight: 700; font-size: 0.875rem; }
+.cc-schuif input[type="range"] { flex: 1 1 8rem; max-width: 14rem; accent-color: var(--color-progressive, #36c); }
+.cc-schuif-waarde { font-size: 0.875rem; }
+.cc-schuif .cc-uitleg { flex-basis: 100%; margin: 0; }
