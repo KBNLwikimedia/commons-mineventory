@@ -119,8 +119,28 @@
           <cdx-button action="progressive" v-if="!object.masker" :title="t('magnifier.refine_mask_help')" @click="emit('refine', object)">
             {{ t("magnifier.refine_mask", { cost: config.betaald ? money(config.sam_usd, config.taal) : t("panel.free").replace(/[()]/g, "") }) }}
           </cdx-button>
+          <!-- Fill in what is missing (Muse Image): invented by AI, kept apart from the cut-out (7.7). -->
+          <cdx-button action="progressive" :disabled="completing" :title="t('completion.help')" @click="complete">
+            {{ t(object.aangevuld ? "completion.again" : "completion.make") }} <span class="cc-kosten">{{ completionCost }}</span>
+          </cdx-button>
           <cdx-button action="destructive" @click="emit('trashed', object.id)"><cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}</cdx-button>
         </div>
+        <busy-note v-if="completing" :message="t('completion.busy')" />
+        <cdx-message v-if="completionError" type="error" :inline="true">{{ completionError }}</cdx-message>
+        <!-- The AI-completed version: never a source, never to Commons as a cut-out. -->
+        <section v-if="object.aangevuld" class="cc-aanvulling">
+          <h4>{{ t("completion.title") }} <ai-badge kind="aanvulling" :model="object.aangevuld.model" /></h4>
+          <cdx-message type="warning" :inline="true">{{ t("completion.warning") }}</cdx-message>
+          <div class="cc-aanvulling-beeld">
+            <img :src="`${base}/aangevuld.png?v=${object.aangevuld.sleutel}`" :alt="t('completion.title')" />
+          </div>
+          <p class="cc-uitleg">{{ t("completion.made", { model: object.aangevuld.model, subject: object.aangevuld.onderwerp }) }}</p>
+          <div class="cc-knoppen">
+            <cdx-button action="progressive" @click="downloadCompletion"><cdx-icon :icon="cdxIconDownload" /> PNG</cdx-button>
+            <cdx-button action="progressive" weight="quiet" @click="viewCompletion"><cdx-icon :icon="cdxIconLinkExternal" /> {{ t("completion.view") }}</cdx-button>
+            <cdx-button action="destructive" weight="quiet" @click="forgetCompletion"><cdx-icon :icon="cdxIconTrash" /> {{ t("completion.remove") }}</cdx-button>
+          </div>
+        </section>
       </cdx-tab>
 
       <cdx-tab name="beschrijving" :label="t('describe.title')">
@@ -374,6 +394,7 @@ import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIco
 import { API, del, errorText, get, objectPath, patch, post, put } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import BusyNote from "./BusyNote.vue";
 import SavedLabel from "./SavedLabel.vue";
 import { forgetPlacement, makeMovable } from "../movable.js";
 import { fileName, objectName, savedLabel } from "../state.js";
@@ -882,5 +903,50 @@ function download(kind) {
 
 function viewFull(kind) {
   window.open(`${base.value}/uitsnede.${kind}`, "_blank", "noopener");
+}
+
+// -- AI-completed version (Muse Image, 7.7) --------------------------------------------------
+
+const completing = ref(false);
+const completionError = ref("");
+const completionCost = computed(() => (config.betaald ? `(${money(config.aanvulling_usd, language)})` : t("panel.free")));
+
+// Paid in live mode: first a confirmation with the amount and what it is (invented, not a source).
+async function complete() {
+  completionError.value = "";
+  const again = Boolean(props.object.aangevuld);
+  if (config.betaald) {
+    const text = t("completion.confirm", { amount: money(config.aanvulling_usd, language) });
+    if (!(await askConfirm(text, { title: t("confirm.cost_title") }))) return;
+  }
+  completing.value = true;
+  try {
+    const result = await post(`${base.value}/aanvulling`, { opnieuw: again });
+    emit("changed", result.object);
+    // Show the result: scroll down to it once it is on the screen.
+    await nextTick();
+    document.querySelector(".cc-aanvulling")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (failure) {
+    completionError.value = errorText(t, failure);
+  } finally {
+    completing.value = false;
+  }
+}
+
+async function forgetCompletion() {
+  if (!(await askConfirm(t("completion.remove_confirm"), { title: t("completion.remove"), go: t("completion.remove"), destructive: true }))) return;
+  try {
+    emit("changed", (await del(`${base.value}/aanvulling`)).object);
+  } catch (failure) {
+    completionError.value = errorText(t, failure);
+  }
+}
+
+function downloadCompletion() {
+  window.location.href = `${base.value}/aangevuld.png?download=1`;
+}
+
+function viewCompletion() {
+  window.open(`${base.value}/aangevuld.png`, "_blank", "noopener");
 }
 </script>

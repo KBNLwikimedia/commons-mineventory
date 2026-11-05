@@ -107,6 +107,16 @@
             {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: inventory.zoektermen.length }) }}
             <template v-if="suggestionTotals.trashed">{{ suggestionTotals.trashed === 1 ? t("panel.suggestions_trashed_one") : t("panel.suggestions_trashed", { n: suggestionTotals.trashed }) }}</template>
           </p>
+          <!-- Many of one kind (e.g. 15 water drops): make one object of them in one click (7.4). Free. -->
+          <p v-if="groupable.length" class="cc-groeperen">
+            {{ t("panel.group_all_intro") }}
+            <template v-for="(term, i) in groupable" :key="term.en">
+              <template v-if="i"> · </template>
+              <button type="button" class="cc-link" :disabled="busy" :title="t('panel.group_all_help')" @click="act('suggestions', 'group', { zoekterm: term.en })">
+                {{ t("panel.group_all", { term: termLabel(term), n: looseCount(term.en) }) }}
+              </button>
+            </template>
+          </p>
         </template>
         <p v-else class="cc-uitleg">{{ t("panel.part_none_zoektermen") }}</p>
         <!-- Asking the search terms anew, at the level of detail chosen here. -->
@@ -213,7 +223,7 @@ const props = defineProps({
   // The outcome of the last detection: shown in the section whose button asked for it.
   lastResult: { type: Object, default: null },
 });
-const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode"]);
+const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode", "group"]);
 const t = useT();
 const config = inject("config");
 // The two models in the live-mode line link to Meta's own pages. Muse Spark
@@ -271,6 +281,9 @@ function termCount(term) {
 }
 
 const termLabel = (term) => (config.taal === "nl" ? term.nl : term.en);
+// Loose objects of a term (not groups): two or more can be grouped in one click.
+const looseCount = (term) => props.objects.filter((o) => o.zoekterm === term && o.bron !== "groep").length;
+const groupable = computed(() => (props.inventory?.zoektermen || []).filter((term) => looseCount(term.en) >= 2));
 
 // Terms left out of "Detect all" (by their English term), per file and page,
 // remembered in this browser only (a convenience; nothing is stored on the server).

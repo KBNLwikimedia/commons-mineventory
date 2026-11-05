@@ -129,6 +129,25 @@ HINT_INSTRUCTION = """
 
 Instruction from the user for this question (follow it; it overrides the context above where they differ): {hint}"""
 
+# A group (7.4): its box also shows what lies between its members, so the question
+# says what the group is made of and to look at those only (wish Olaf, 5-11-2026).
+GROUP_INSTRUCTION = """
+
+This cut-out is a group of several objects that belong together: {members}. Describe only these objects, together; ignore everything else that is visible in the image, also between them."""
+
+
+def group_members(obj):
+    """What a group consists of, in English, e.g. "lemon (1), bunch of grapes (2)";
+    "" for an object that is not a group."""
+    counts = {}
+    for member in (obj.get("groep") or {}).get("leden", []):
+        description = member.get("beschrijving") or {}
+        name = description.get("onderwerp_en") or (member.get("bijschrift") or {}).get("tekst") or member.get("label_en") or member.get("label") or "object"
+        name = " ".join(str(name).split())[:60]
+        counts[name] = counts.get(name, 0) + 1
+    return ", ".join(f"{name} ({count})" for name, count in counts.items())
+
+
 # Earlier descriptions kept per object, newest first, to choose from again.
 MAX_HISTORY = 30
 
@@ -434,7 +453,7 @@ def clean_hint(hint):
     return " ".join(str(hint or "").split())[:MAX_HINT]
 
 
-def build_prompt(file, caption=None, hint=None, page_text=None):
+def build_prompt(file, caption=None, hint=None, page_text=None, group=None):
     caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
     prompt = INSTRUCTIONS.format(
         kinds=", ".join(KINDS),
@@ -447,6 +466,8 @@ def build_prompt(file, caption=None, hint=None, page_text=None):
     page_text = (page_text or "").replace("<<<", "").replace(">>>", "").strip()[:MAX_PAGE_TEXT]
     if page_text:
         prompt += PAGE_TEXT_INSTRUCTION.format(text=page_text)
+    if group:
+        prompt += GROUP_INSTRUCTION.format(members=group)
     hint = clean_hint(hint)
     return prompt + HINT_INSTRUCTION.format(hint=hint) if hint else prompt
 
@@ -735,7 +756,9 @@ class DescriptionService:
         margin = clean_margin(margin)
         # The text read in the whole image (page overview) goes along as context.
         page_text = self._page_text(file, n)
-        path = self._cache_path(file, n, obj, choice["model"], hint, margin, page_text)
+        group = group_members(obj)
+        # The members go into the cache key too: an answer from before the group instruction is not reused.
+        path = self._cache_path(file, n, obj, choice["model"], hint + (f"|groep: {group}" if group else ""), margin, page_text)
         if path.exists() and not again:
             mark_used(path)
             description = json.loads(path.read_text(encoding="utf-8"))
@@ -749,7 +772,7 @@ class DescriptionService:
         with booking:
             page = self.objects.client.load_page(file, n)
             data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
-            prompt = build_prompt(file, self._caption(obj), hint, page_text)
+            prompt = build_prompt(file, self._caption(obj), hint, page_text, group)
 
             body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
             tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
@@ -770,6 +793,7 @@ class DescriptionService:
                 "verstuurde_afmetingen": list(size),
                 "promptversie": PROMPT_VERSION,
                 "aanwijzing": hint or None,
+                "alleen_naar": group or None,  # a group: the AI was asked to look at its members only
                 "marge": margin,
                 "paginatekst": bool(page_text),
                 "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),

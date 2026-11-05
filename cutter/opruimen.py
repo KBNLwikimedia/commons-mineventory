@@ -90,7 +90,7 @@ class Cleanup:
         """Remove (with `apply`) or count everything past its period. Returns
         per kind how many files and bytes, and whether anything was deleted."""
         self.apply = apply
-        cache_kind = {"originelen": "originelen", "commons": "originelen", "uitsneden": "uitsneden", "maskers": "uitsneden"}
+        cache_kind = {"originelen": "originelen", "commons": "originelen", "uitsneden": "uitsneden", "maskers": "uitsneden", "aanvullingen": "uitsneden"}
         if self.cache_dir.is_dir():
             for folder in sorted(p for p in self.cache_dir.iterdir() if p.is_dir()):
                 kind = cache_kind.get(folder.name, "cache")  # detectie, beschrijvingen and anything else

@@ -33,6 +33,19 @@
         </template>
       </p>
     </div>
+    <!-- The objects the question is about, each with a small cut-out. -->
+    <ul v-if="state.objects?.length" class="cc-bevestig-objecten">
+      <li v-for="(obj, i) in state.objects" :key="i">
+        <img v-if="obj.image" :src="obj.image" alt="" loading="lazy" />
+        <span>{{ obj.name }}</span>
+      </li>
+    </ul>
+    <!-- An optional text field; the placeholder (grey) is what is used when it stays empty. -->
+    <cdx-field v-if="state.input" class="cc-bevestig-veld" :optional="true" :optional-flag="t('confirm.optional')">
+      <cdx-text-input v-model="state.inputValue" :placeholder="state.input.placeholder" @keydown.enter.prevent="answerConfirm(true)" />
+      <template #label>{{ state.input.label }}</template>
+      <template v-if="state.input.help" #help-text>{{ state.input.help }}</template>
+    </cdx-field>
     <!-- For questions that may be switched off for this session ("Niet meer vragen"). -->
     <cdx-checkbox v-if="state.dontAsk" v-model="state.dontAskChecked" class="cc-niet-vragen">{{ t("confirm.dont_ask") }}</cdx-checkbox>
   </cdx-dialog>
@@ -40,7 +53,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { CdxCheckbox, CdxDialog } from "@wikimedia/codex";
+import { CdxCheckbox, CdxDialog, CdxField, CdxTextInput } from "@wikimedia/codex";
 import { answerConfirm, confirmState as state, textParts } from "../confirm.js";
 import { useT } from "../i18n.js";
 

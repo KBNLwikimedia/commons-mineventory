@@ -1,9 +1,9 @@
 """Commons Mineventory: detect and cut out objects in images on Wikimedia Commons (experiment)."""
 
-__version__ = "0.32.3"
+__version__ = "0.32.4"
 
 
-def create_app(config=None, commons_client=None, detector=None, vision=None):
+def create_app(config=None, commons_client=None, detector=None, vision=None, image_editor=None):
     """Flask application factory.
 
     `config` (a Config), `commons_client`, `detector` and `vision` (the
@@ -13,6 +13,7 @@ def create_app(config=None, commons_client=None, detector=None, vision=None):
 
     from flask import Flask
 
+    from .aanvulling import CompletionService, make_image_editor
     from .api import api
     from .beschrijving import DescriptionService, make_vision
     from .cache import CachedFetcher, FileCache, RateLimiter
@@ -67,6 +68,8 @@ def create_app(config=None, commons_client=None, detector=None, vision=None):
     app.extensions["beschrijvingsdienst"] = DescriptionService(
         vision or make_vision(app.config), app.extensions["detectiedienst"], app.config, config.CACHE_DIR
     )
+    # The AI-completed version of a cut-out (Muse Image, 7.7): never a source, never to Commons as a cut-out.
+    app.extensions["aanvuldienst"] = CompletionService(image_editor or make_image_editor(app.config), service, config.CACHE_DIR)
 
     app.register_blueprint(api)
     app.register_blueprint(web)

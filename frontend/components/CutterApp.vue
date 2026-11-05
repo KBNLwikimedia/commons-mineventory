@@ -98,6 +98,7 @@
           @detect="detect"
           @inventory="askInventory(Boolean(inventory), $event?.deel || null, $event?.detailniveau)"
           @forget-inventory="forgetInventory($event?.deel || null)"
+          @group="groupTerm($event.zoekterm)"
           @inventory-changed="inventory = $event"
           :draw-mode="drawMode"
           @point-mode="setMode('point', $event)"
@@ -120,15 +121,15 @@
           <input
             id="cc-zekerheid"
             type="range"
-            min="0"
-            max="95"
-            step="5"
-            :value="Math.round(minScore * 100)"
-            :aria-valuetext="t('certainty.value', { n: Math.round(minScore * 100) })"
+            :min="scoreRange.min"
+            :max="scoreRange.max"
+            step="1"
+            :value="shownCertainty"
+            :aria-valuetext="t('certainty.value', { n: shownCertainty })"
             @input="minScore = Number($event.target.value) / 100"
             @change="deselectHidden"
           />
-          <span class="cc-schuif-waarde">{{ t("certainty.value", { n: Math.round(minScore * 100) }) }}</span>
+          <span class="cc-schuif-waarde">{{ t("certainty.value", { n: shownCertainty }) }}</span>
           <p class="cc-uitleg">{{ hiddenCount ? t("certainty.hidden", { n: hiddenCount }) : t("certainty.help") }}</p>
         </div>
         <object-list
@@ -144,6 +145,7 @@
           @open="openMagnifier"
           @hover="hoverObject"
           @trash="trashObject"
+          @ungroup="ungroupObject"
         />
         <div class="cc-acties">
           <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }}</p>
@@ -155,6 +157,9 @@
             </cdx-button>
             <cdx-button action="progressive" weight="quiet" :disabled="busy || objects.length < 2" :title="t('objects.merge_help')" @click="mergeDuplicates">
               {{ t("panel.merge") }}
+            </cdx-button>
+            <cdx-button action="progressive" weight="quiet" :disabled="busy || selectedCount < 2" :title="t('objects.group_help')" @click="groupSelected">
+              {{ t("panel.group", { n: selectedCount }) }}
             </cdx-button>
             <!-- The outcome of describing or merging, directly under the buttons that asked for it;
                  red when nothing could be done. -->
@@ -203,7 +208,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { CdxButton, CdxIcon, CdxMessage } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconPrevious, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
-import { askConfirm } from "../confirm.js";
+import { askConfirm, askConfirmValue } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import BusyNote from "./BusyNote.vue";
 import ColumnHeader from "./ColumnHeader.vue";
@@ -318,7 +323,17 @@ watch(minScore, (value) => {
   }
 });
 const hasScores = computed(() => objects.value.some((o) => o.score != null));
-const isVisible = (o) => o.score == null || o.score >= minScore.value - 1e-9;
+// The slider runs from the lowest to the highest certainty found: below the lowest
+// nothing would change, above the highest everything would be hidden.
+const scoreRange = computed(() => {
+  const scores = objects.value.filter((o) => o.score != null).map((o) => Math.round(o.score * 100));
+  if (!scores.length) return { min: 0, max: 100 };
+  const min = Math.min(...scores);
+  return { min, max: Math.max(min + 1, Math.max(...scores)) };
+});
+const shownCertainty = computed(() => Math.min(scoreRange.value.max, Math.max(scoreRange.value.min, Math.round(minScore.value * 100))));
+// Compared in whole percents, as the slider shows them; the threshold kept within the slider's range.
+const isVisible = (o) => o.score == null || Math.round(o.score * 100) >= shownCertainty.value;
 const visibleObjects = computed(() => objects.value.filter(isVisible));
 const hiddenCount = computed(() => objects.value.length - visibleObjects.value.length);
 // What you do not see is not selected: saving or describing never takes a hidden object along.
@@ -478,6 +493,75 @@ async function askInventory(again = false, part = null, detail = undefined) {
     fail(error);
   } finally {
     busy.value = false;
+  }
+}
+
+// -- Groups (7.4): many small objects as one; free ------------------------------------------
+
+// How an object shows in a confirmation: a small cut-out and its name in the list.
+function shownObject(obj, n = pageN.value) {
+  return { image: `${objectPath(file.value.mid, n, obj.id)}/uitsnede.jpg?w=96`, name: listNames.value[obj.id] || objectName(obj, props.config.taal, t) };
+}
+
+// The name a group gets without one of its own, as the server makes it.
+function defaultGroupName(members) {
+  const kinds = [...new Set(members.map((o) => (o.zoekterm || o.label || "").toLowerCase()))];
+  const kind = kinds.length === 1 ? members[0] : null;
+  const name = kind ? (props.config.taal === "en" ? kind.zoekterm || kind.label : kind.label_nl || kind.zoekterm || kind.label) : "";
+  return name ? t("objects.group_default", { kind: name, n: members.length }) : t("objects.group_default_mixed", { n: members.length });
+}
+
+// First a confirmation: which objects, and an optional name (the default in grey). Null when cancelled.
+async function makeGroup(members, body) {
+  const placeholder = defaultGroupName(members);
+  const answer = await askConfirmValue(t("objects.group_confirm", { n: members.length }), {
+    title: t("objects.group_title"),
+    go: t("objects.group_go"),
+    objects: members.map((o) => shownObject(o)),
+    input: { label: t("objects.group_name"), placeholder, help: t("objects.group_name_help") },
+  });
+  if (!answer.ok) return null;
+  const result = await post(`${pagePath(file.value.mid, pageN.value)}/groepen`, { ...body, ...(answer.value ? { naam: answer.value } : {}) });
+  objects.value = result.objecten;
+  return { n: result.object.groep.aantal, name: objectName(result.object, props.config.taal, t) };
+}
+
+// "Groeperen (n)": the selected objects; the outcome under the buttons.
+async function groupSelected() {
+  actionResult.value = null;
+  try {
+    const members = objects.value.filter((o) => o.status === "geselecteerd");
+    // The confirmation said what happens; the group shows in the list (no extra notice).
+    await makeGroup(members, { objecten: members.map((o) => o.id) });
+  } catch (error) {
+    fail(error);
+  }
+}
+
+// "Groepeer alle …" at a search term, after the same confirmation.
+async function groupTerm(term) {
+  try {
+    const members = objects.value.filter((o) => o.bron !== "groep" && o.zoekterm === term);
+    await makeGroup(members, { zoekterm: term });
+  } catch (error) {
+    fail(error);
+  }
+}
+
+// "Groep opheffen": first a confirmation listing the objects that come back; a caption,
+// description or saved cut-out of the group is lost, and then the question says so.
+async function ungroupObject(id) {
+  const group = objects.value.find((o) => o.id === id);
+  const members = group?.groep?.leden || [];
+  const loses = group && (group.bijschrift?.tekst || group.beschrijving || group.opgeslagen);
+  const text = t("objects.ungroup_confirm_list", { n: members.length }) + (loses ? `\n\n${t("objects.ungroup_confirm")}` : "");
+  const shown = members.map((m) => ({ image: `${objectPath(file.value.mid, pageN.value, m.id)}/uitsnede.jpg?w=96`, name: props.config.taal === "en" ? m.label : m.label_nl || m.label }));
+  if (!(await askConfirm(text, { title: t("objects.ungroup"), go: t("objects.ungroup"), destructive: Boolean(loses), objects: shown }))) return;
+  try {
+    const result = await del(`${pagePath(file.value.mid, pageN.value)}/groepen/${id}`);
+    objects.value = result.objecten;
+  } catch (error) {
+    fail(error);
   }
 }
 

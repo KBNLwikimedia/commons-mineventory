@@ -62,11 +62,17 @@ const TEXTS = {
   pagina: { what: "ai.what_page", risk: "ai.risk", check: "ai.check_page" },
   detectie: { what: "ai.what_detection", risk: "ai.risk_detection", check: "ai.check_detection" },
   soort: { what: "ai.what_kind", risk: "ai.risk", check: "ai.check_kind" },
+  aanvulling: { what: "ai.what_completion", risk: "ai.risk_completion", check: "ai.check_completion" },
 };
 const texts = computed(() => TEXTS[props.kind] || TEXTS.beschrijving);
 // The model name links to Meta's page about it (as in the live-mode line).
 const modelLink = computed(() => ({
-  label: props.model || (props.kind === "detectie" ? "SAM" : "Muse Spark"),
-  href: props.kind === "detectie" ? "https://ai.meta.com/sam3/" : "https://dev.meta.ai/docs/models#muse-spark",
+  label: props.model || (props.kind === "detectie" ? "SAM" : props.kind === "aanvulling" ? "Muse Image" : "Muse Spark"),
+  href:
+    props.kind === "detectie"
+      ? "https://ai.meta.com/sam3/"
+      : props.kind === "aanvulling"
+        ? "https://dev.meta.ai/docs/models#muse-image"
+        : "https://dev.meta.ai/docs/models#muse-spark",
 }));
 </script>

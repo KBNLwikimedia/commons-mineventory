@@ -30,12 +30,12 @@ from .basis import DetectionError
 from ..opruimen import last_used, mark_used
 from ..slot import store_lock
 from ..verbruik import KOSTEN_PER_AFBEELDING
-from .maskers import MaskCache, decode_raster
+from .maskers import MaskCache, decode_raster, union_mask
 
 MIN_IOU = 0.5
 DUPLICATE_IOU = 0.8
 SOURCE_PREFERENCE = {"sam": 0, "dummy": 1, "handmatig": 2}  # on merging: SAM has a real mask
-NEVER_MERGED = {"commons"}  # regions from Commons stay objects of their own (7.5)
+NEVER_MERGED = {"commons", "groep"}  # regions from Commons stay objects of their own (7.5), and so do groups (7.4)
 # Page image width sent to the detector: the Commons thumbnail step closest to
 # the 2000 px of the Delpher Uitsnijder (functional design 5.2 and 6.1).
 IMAGE_WIDTH = 1920
@@ -99,7 +99,10 @@ def _preference(obj):
 
 
 def _ids(obj):
-    return [obj["id"]] + [e["id"] for e in obj.get("ook", [])]
+    """The ids an object stands for: its own, merged duplicates ("ook") and, for a
+    group, its members; a new detection of one of them does not come back on its own."""
+    members = [i for m in (obj.get("groep") or {}).get("leden", []) for i in _ids(m)]
+    return [obj["id"]] + [e["id"] for e in obj.get("ook", [])] + members
 
 
 def _sources(obj):
@@ -530,6 +533,83 @@ class DetectionService:
             self._write_store(file, n, store)
         return count
 
+    # -- Groups (7.4): many small objects as one --------------------------------------
+
+    @_locked
+    def group(self, file, n, ids=None, term=None, name=None):
+        """Make one object of several ("Groeperen", 7.4): the given objects, or all
+        objects of one search term ("Groepeer alle …"). The group's box is the box
+        around all of them, its mask the union of their masks; the members are kept
+        inside the group, so ungroup() puts them back. Free."""
+        store = self._load_store(file, n)
+        objects = store["objecten"]
+        if term is not None:
+            if not isinstance(term, str) or not term.strip():
+                raise DetectionError("'zoekterm' is een niet-lege tekst.", status=400, code="invalid_body")
+            members = [o for o in objects if o.get("bron") != "groep" and (o.get("zoekterm") or "").lower() == term.strip().lower()]
+        else:
+            if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+                raise DetectionError("Geef 'objecten' (een lijst object-id's) of 'zoekterm'.", status=400, code="invalid_body")
+            unknown = set(ids) - {o["id"] for o in objects}
+            if unknown:
+                raise DetectionError(f"Onbekende object-id's: {', '.join(sorted(unknown))}.", status=404)
+            members = [o for o in objects if o["id"] in set(ids)]
+        if len(members) < 2:
+            raise DetectionError("Groeperen kan pas met twee of meer objecten.", status=400, code="too_few")
+        if name is not None and not isinstance(name, str):
+            raise DetectionError("'naam' is een tekst.", status=400, code="invalid_body")
+        name = " ".join((name or "").split())[:120] or None
+        x0 = min(m["box"]["x"] for m in members)
+        y0 = min(m["box"]["y"] for m in members)
+        x1 = max(m["box"]["x"] + m["box"]["w"] for m in members)
+        y1 = max(m["box"]["y"] + m["box"]["h"] for m in members)
+        box = {"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0}
+        mask = union_mask([(m["box"], decode_raster(self._mask_data(file, n, m))) for m in members], box)
+        # The kind of the group: the search term all members share, if they do.
+        kinds = {(m.get("zoekterm") or m.get("label") or "").lower() for m in members}
+        kind = kinds.pop() if len(kinds) == 1 else None
+        public = {m["id"]: self.public(file, n, m) for m in members}
+        kind_nl = next((public[m["id"]]["label_nl"] for m in members if (m.get("zoekterm") or m.get("label") or "").lower() == kind), None) if kind else None
+        scores = [m["score"] for m in members if m.get("score") is not None]
+        key = f"groep|{file['mid']}|{n}|" + ",".join(sorted(m["id"] for m in members))
+        group = {
+            "id": "grp-" + hashlib.sha1(key.encode()).hexdigest()[:10],
+            "bron": "groep",
+            "label": "groep",
+            "zoekterm": kind,
+            "score": min(scores) if scores else None,
+            "box": box,
+            "masker": mask,
+            "status": "geselecteerd" if any(m["status"] == "geselecteerd" for m in members) else "kandidaat",
+            "herkomst": {"model": "groep", "prompt": None, "tijdstempel": _now()},
+            "groep": {"soort": kind, "soort_nl": kind_nl, "naam": name, "leden": members},
+        }
+        first = objects.index(members[0])
+        kept = [o for o in objects if o not in members]
+        kept.insert(min(first, len(kept)), group)
+        store["objecten"] = kept
+        self._write_store(file, n, store)
+        return {"object": self.public(file, n, group), "objecten": [self.public(file, n, o) for o in kept]}
+
+    @_locked
+    def ungroup(self, file, n, group_id):
+        """Undo a group ("Groep opheffen", 7.4): its members come back as they were;
+        the group itself (with its caption, description and saved files) goes."""
+        store = self._load_store(file, n)
+        group = next((o for o in store["objecten"] if o["id"] == group_id), None)
+        if group is None:
+            raise DetectionError(f"Object '{group_id}' niet gevonden.", status=404)
+        if group.get("bron") != "groep":
+            raise DetectionError("Dit object is geen groep.", status=400, code="not_a_group")
+        at = store["objecten"].index(group)
+        store["objecten"][at : at + 1] = group["groep"]["leden"]
+        if group.get("opgeslagen"):
+            self._remove_files(file, group)
+        if (group.get("masker") or {}).get("bestand"):
+            (self._store_path(file, n).parent / group["masker"]["bestand"]).unlink(missing_ok=True)
+        self._write_store(file, n, store)
+        return [self.public(file, n, o) for o in store["objecten"]]
+
     # -- Changing objects ---------------------------------------------------------
 
     @_locked
@@ -755,6 +835,9 @@ class DetectionService:
     @staticmethod
     def _find_in(store, object_id):
         obj = next((o for o in store["objecten"] + store["prullenbak"] if o["id"] == object_id), None)
+        if obj is None:  # a member of a group (7.4): its cut-out can still be shown, e.g. when ungrouping
+            members = [m for o in store["objecten"] + store["prullenbak"] for m in (o.get("groep") or {}).get("leden", [])]
+            obj = next((m for m in members if m["id"] == object_id), None)
         if obj is None:
             raise DetectionError(f"Object '{object_id}' niet gevonden.", status=404)
         return obj
@@ -867,6 +950,15 @@ class DetectionService:
         public["uitsnede_png_url"] = f"{base}/uitsnede.png"
         if obj.get("opgeslagen"):
             public["opgeslagen"] = {**obj["opgeslagen"], **self._expiry(file, obj["opgeslagen"])}
+        if obj.get("groep"):
+            # A group: its name from the kind and the number of members; the members only in short.
+            info, count = obj["groep"], len(obj["groep"]["leden"])
+            public["groep"] = {"aantal": count, "soort": info.get("soort"), "soort_nl": info.get("soort_nl"), "naam": info.get("naam"), "leden": [{**_summary(m), "label_nl": self.public(file, n, m)["label_nl"]} for m in info["leden"]]}
+            if info.get("naam"):  # a name given when grouping, in both languages
+                public["label_nl"] = public["label_en"] = info["naam"]
+            else:
+                public["label_nl"] = f"groep: {info['soort_nl'] or info['soort']} ({count})" if info.get("soort") else f"groep ({count})"
+                public["label_en"] = f"group: {info['soort']} ({count})" if info.get("soort") else f"group ({count})"
         return public
 
     def _expiry(self, file, saved):

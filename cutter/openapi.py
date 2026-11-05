@@ -40,6 +40,12 @@ ENDPOINTS = [
     ("delete", PAGE + "/inventaris/geschiedenis/{versie}", "Eén eerdere beschrijving van de afbeelding verwijderen (gratis)", [MID, N, VERSIE], None, 200, False),
     ("put", PAGE + "/inventaris/{deel}", "Een eerdere beschrijving van de afbeelding weer de huidige maken (alleen deel = beschrijving; gratis)", [MID, N, DEEL], '{"versie": "…"}', 200, False),
     ("post", PAGE + "/samenvoegingen", "Dubbelingen samenvoegen (gratis)", [MID, N], None, 200, False),
+    ("get", OBJECT + "/aanvulling", "De AI-aangevulde versie van de uitsnede en de kosten van een nieuwe (gratis)", [MID, N, OID], None, 200, False),
+    ("post", OBJECT + "/aanvulling", "De uitsnede laten aanvullen door Muse Image (betaald; verzonnen, nooit een bron)", [MID, N, OID], '{"opnieuw": false}', 201, True),
+    ("delete", OBJECT + "/aanvulling", "De AI-aangevulde versie weghalen (gratis)", [MID, N, OID], None, 200, False),
+    ("get", OBJECT + "/aangevuld.png", "De AI-aangevulde versie als PNG", [MID, N, OID], None, 200, False),
+    ("post", PAGE + "/groepen", "Objecten groeperen tot één object (gratis)", [MID, N], '{"objecten": [ids], "naam": "…"} | {"zoekterm": "…", "naam": "…"}', 201, False),
+    ("delete", PAGE + "/groepen/{object_id}", "Een groep opheffen: de leden komen terug (gratis)", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/beschrijving/geschiedenis", "Eerdere beschrijvingen van het object, nieuwste eerst", [MID, N, OID], None, 200, False),
     ("delete", OBJECT + "/beschrijving/geschiedenis/{versie}", "Eén eerdere versie verwijderen (gratis)", [MID, N, OID, VERSIE], None, 200, False),
     ("put", OBJECT + "/beschrijving", "Een eerdere versie (AI of met de hand) weer de huidige beschrijving maken (gratis)", [MID, N, OID], '{"versie": "…"}', 200, False),
@@ -80,7 +86,8 @@ ENDPOINTS = [
 DEPRECATED = [
     *[(method, OLD_OBJECT + path[len(OBJECT):], summary, parameters, body, status, paid)
       for method, path, summary, parameters, body, status, paid in ENDPOINTS
-      if path.startswith(OBJECT) and (method, path) not in {("put", OBJECT + "/beschrijving"), ("delete", OBJECT + "/beschrijving/geschiedenis/{versie}")}],
+      if path.startswith(OBJECT) and (method, path) not in {("put", OBJECT + "/beschrijving"), ("delete", OBJECT + "/beschrijving/geschiedenis/{versie}")}
+      and not path.startswith((OBJECT + "/aanvulling", OBJECT + "/aangevuld"))],  # new since 0.32.4: no old path
     ("post", OLD_OBJECT + "/beschrijving/terugzetten", "Verouderd: PUT …/objecten/{object_id}/beschrijving", [MID, N, OID], '{"versie": "…"} | {"tijdstempel": "…", "bewerkt": false}', 200, False),
     ("delete", OLD_OBJECT + "/beschrijving/geschiedenis", "Verouderd: DELETE …/objecten/{object_id}/beschrijving/geschiedenis/{versie}", [MID, N, OID, _q("versie", "De versie uit de geschiedenis")], None, 200, False),
     ("post", "/bestand/{mid}/commons/controle", "Verouderd: GET …/commons/controle?objecten=", [MID], '{"objecten": [{pagina, id}]}', 200, False),

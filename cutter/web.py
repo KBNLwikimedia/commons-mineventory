@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from flask import Blueprint, Response, current_app, g, render_template, request, session, url_for
 from markupsafe import Markup
 
+from . import aanvulling
 from . import __version__, beschrijving, verbruik, changelog as changelog_parser, i18n, markdown_lite
 from .config import ROOT_DIR
 
@@ -158,6 +159,7 @@ def _client_config(page, **extra):
         "upload": config["COMMONS_UPLOAD"],
         "sam_model": config["SAM_MODEL"],
         "sam_usd": verbruik.KOSTEN_PER_AFBEELDING,  # one SAM call (per image), for the cost in buttons
+        "aanvulling_usd": aanvulling.PRICE_USD,  # one AI-completed version (Muse Image, 7.7)
         "muse": _muse_info(),
         # Retention periods in days (12.1), so the interface can say that not everything is kept.
         "bewaren": {

@@ -2,7 +2,12 @@
 // dialog instead of the browser's own window.confirm (functional design 10).
 import { reactive } from "vue";
 
-export const confirmState = reactive({ open: false, text: "", title: "", go: "", destructive: false, links: {}, dontAsk: "", dontAskChecked: false, resolve: null });
+export const confirmState = reactive({
+  open: false, text: "", title: "", go: "", destructive: false, links: {}, dontAsk: "", dontAskChecked: false, resolve: null,
+  // Optional: objects the question is about ({image, name}), shown as a list with thumbnails;
+  // and a text field ({label, placeholder, help}) whose value askConfirmValue() returns.
+  objects: [], input: null, inputValue: "",
+});
 
 /* "Niet meer vragen": a question with a dontAsk key can be switched off for
    this session of the browser tab (sessionStorage); it then answers yes at once. */
@@ -32,8 +37,13 @@ export function textParts(text, links = {}) {
 }
 
 // Resolves to true (go ahead) or false (cancelled or closed).
-export function askConfirm(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", store = session() } = {}) {
-  if (skipped(dontAsk, store)) return Promise.resolve(true);
+export function askConfirm(text, options = {}) {
+  return askConfirmValue(text, options).then((result) => result.ok);
+}
+
+// Resolves to {ok, value}: with `input`, value is what was typed in the field ("" if nothing).
+export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], input = null, store = session() } = {}) {
+  if (skipped(dontAsk, store)) return Promise.resolve({ ok: true, value: "" });
   if (confirmState.resolve) confirmState.resolve(false); // a newer question replaces an open one
   return new Promise((resolve) => {
     Object.assign(confirmState, {
@@ -45,6 +55,9 @@ export function askConfirm(text, { title = "", go = "", destructive = false, lin
       links,
       dontAsk,
       dontAskChecked: false,
+      objects,
+      input,
+      inputValue: "",
       resolve: (answer) => {
         // Only a "yes" with the box ticked switches the question off.
         if (answer && confirmState.dontAsk && confirmState.dontAskChecked) {
@@ -54,9 +67,10 @@ export function askConfirm(text, { title = "", go = "", destructive = false, lin
             // Blocked storage: the question simply comes again.
           }
         }
+        const value = confirmState.input ? confirmState.inputValue.trim() : "";
         confirmState.open = false;
         confirmState.resolve = null;
-        resolve(answer);
+        resolve({ ok: answer, value });
       },
     });
   });

@@ -3,6 +3,25 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.4] - 2026-11-06
+
+### Toegevoegd
+
+- **AI-aangevulde versie** in de vergroter (opdracht Olaf, FO 7.7, backlog 19b): een knop met het bedrag laat Muse Image (`muse-image-1.0`) de witte gaten in een uitsnede invullen, bijv. waar op het origineel iets voor het object stond. Het resultaat staat apart onder de uitsnede, met een AI-merkje en de waarschuwing dat het verzonnen is; het is geen bron en gaat nooit als uitsnede naar Commons. Zonder zoeken op internet, gecachet, $0,01 per beeld in live-modus (eerst een bevestiging); in de proefmodus nagebootst. Downloaden als PNG, bekijken en weghalen. API: GET, POST en DELETE `…/objecten/{id}/aanvulling`, GET `…/aangevuld.png`. Live nog niet geprobeerd (geen betaalde aanroepen zonder opdracht).
+- **Groeperen** (wens Olaf, FO 7.4, backlog 12g): van veel kleine objecten één object maken, zoals in PowerPoint. *Groeperen (n)* onder de objecten voor de geselecteerde, en onder de zoektermen *Groeperen: alle waterdruppels (15) · alle bladeren (9)* met één klik per zoekterm. De groep krijgt één kader om alle leden en de vereniging van hun maskers, heet bijv. *groep: waterdruppel (15)* en kan als één uitsnede naar Commons. De leden blijven bewaard: *Groep opheffen* in de lijst zet ze terug, en een nieuwe zoekopdracht zet ze niet los terug. Gratis. API: POST `…/groepen`, DELETE `…/groepen/{id}`.
+
+### Gewijzigd
+
+- Groeperen en *Groep opheffen* vragen eerst om bevestiging in een venster met de objecten erin, elk met een kleine uitsnede (wens Olaf). Bij groeperen kun je een eigen naam geven; leeg laten geeft de voorgestelde naam, die in het grijs in het veld staat (API: `"naam"` bij POST `…/groepen`). Bij opheffen zegt het venster ook als een bijschrift, beschrijving of opgeslagen uitsnede van de groep verloren gaat. De groene meldingen na groeperen en opheffen zijn weg.
+- Is de AI-aangevulde versie klaar, dan schuift de vergroter ernaartoe (wens Olaf).
+- De knop voor de AI-aangevulde versie heet nu *Afbeelding aanvullen met AI* / *Complete the image with AI* (wens Olaf).
+- In *Wat je vond* scrolt op een breed scherm alleen de lijst van objecten: de schuifbalk staat naast de lijst en loopt niet meer door naast de knoppen eronder, die altijd zichtbaar blijven (wens Olaf). Alleen als zelfs een korte lijst niet past, scrolt de kolom zelf.
+- Een groep beschrijven (*Wat is dit?*): de vraag aan de AI zegt nu waaruit de groep bestaat, bijv. *lemon (1), bunch of grapes (2)*, en om alleen daarnaar te kijken, niet naar wat verder in het kader te zien is (wens Olaf). Het antwoord onthoudt dat (`alleen_naar`); een eerder antwoord zonder die vraag wordt niet hergebruikt.
+- De zekerheidsschuif loopt van de laagste tot de hoogste zekerheid op de afbeelding (wens Olaf): daaronder verandert er niets, daarboven zou alles verdwijnen.
+- De knop heet nu *Geselecteerde objecten groeperen (n)* / *Group selected objects (n)* (wens Olaf).
+- Backlog 19b: idee *AI-aangevulde versie* van een uitsnede met Muse Image, met de voorwaarden (geen bron, apart gemarkeerd, nooit als uitsnede naar Commons).
+- Functioneel ontwerp 7.4 en backlog 12g: *Groeperen* uitgewerkt, met Olafs besluiten (5-11-2026): ook *Groepeer alle …* per zoekterm met één klik, en een groep mag als één uitsnede naar Commons. Nog niet gebouwd.
+
 ## [0.32.3] - 2026-11-05
 
 ### Toegevoegd

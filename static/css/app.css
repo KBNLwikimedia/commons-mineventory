@@ -597,3 +597,29 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-schuif input[type="range"] { flex: 1 1 8rem; max-width: 14rem; accent-color: var(--color-progressive, #36c); }
 .cc-schuif-waarde { font-size: 0.875rem; }
 .cc-schuif .cc-uitleg { flex-basis: 100%; margin: 0; }
+
+/* "Groeperen: alle waterdruppels (15) · alle bladeren (9)" under the search terms (7.4). */
+.cc-groeperen { font-size: 0.875rem; margin: 0.25rem 0 0.5rem; }
+
+/* The AI-completed version in the magnifier (7.7): apart from the cut-out, with a warning. */
+.cc-aanvulling { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--cc-rand); }
+.cc-aanvulling h4 { margin: 0 0 0.5rem; }
+.cc-aanvulling-beeld { margin: 0.5rem 0; background: #fff; border: 1px dashed var(--cc-rand); text-align: center; }
+.cc-aanvulling-beeld img { max-width: 100%; max-height: 50vh; }
+
+/* Wat je vond on a wide screen: only the list of objects scrolls, so its scroll bar stays beside the
+   list and the buttons below always show (wish Olaf). The column itself scrolls only when even a short
+   list does not fit. A folded column is left alone. */
+@media (min-width: 64.0625rem) {
+  .cc-links:not(.dicht) { display: flex; flex-direction: column; }
+  .cc-links:not(.dicht) > .cc-kolom-inhoud > * { flex: none; }
+  .cc-links:not(.dicht) > .cc-kolom-inhoud > .cc-objecten { flex: 1 1 auto; min-height: 6rem; display: flex; flex-direction: column; }
+  .cc-links .cc-objecten > ul { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .cc-links .cc-acties { position: static; }
+}
+
+/* Objects listed in a confirmation (grouping, ungrouping), and its optional text field. */
+.cc-bevestig-objecten { list-style: none; margin: 0.75rem 0 0; padding: 0; max-height: 14rem; overflow-y: auto; display: grid; gap: 0.25rem; }
+.cc-bevestig-objecten li { display: flex; align-items: center; gap: 0.5rem; }
+.cc-bevestig-objecten img { width: 2rem; height: 2rem; object-fit: cover; border: 1px solid var(--cc-rand); background: var(--background-color-interactive-subtle, #f8f9fa); flex: none; }
+.cc-bevestig-veld { margin-top: 0.75rem; }

@@ -349,3 +349,19 @@ def test_detail_levels_change_the_question_and_the_cap():
     answer = '{"zoektermen": ' + __import__("json").dumps(terms) + "}"
     assert len(parse_inventory(answer, DETAIL_LEVELS["hoofdonderwerp"][0])["zoektermen"]) == 1
     assert len(parse_inventory(answer, DETAIL_LEVELS["details"][0])["zoektermen"]) == 20
+
+
+
+def test_group_is_described_by_its_members_only():
+    from cutter.beschrijving import build_prompt, group_members
+
+    group = {"bron": "groep", "groep": {"leden": [
+        {"label": "lemon"},
+        {"label": "bunch of grapes"},
+        {"label": "bunch of grapes", "beschrijving": {"onderwerp_en": "bunch of grapes"}},
+    ]}}
+    members = group_members(group)
+    assert members == "lemon (1), bunch of grapes (2)"
+    assert group_members({"label": "cat"}) == ""
+    prompt = build_prompt({"naam": "x"}, None, None, None, members)
+    assert "Describe only these objects" in prompt and "lemon (1)" in prompt

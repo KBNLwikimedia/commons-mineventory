@@ -245,6 +245,18 @@ Geselecteerde objecten beschrijven (alleen de geselecteerde objecten zonder besc
 
 Sinds 0.28.0 uit de interface (besluit Olaf, 4-11-2026): *Alles detecteren* (SAM met een vaste lijst soorten beeld, zoals illustratie, portret en wapen) en *Slim detecteren* (eerst het paginaoverzicht, dan SAM met de voorgestelde termen). *Alle objecten detecteren* bij de AI-suggesties doet hetzelfde met termen die bij deze afbeelding passen. In de API blijft `modus: "alles"` bestaan.
 
+**Groeperen** (wens Olaf, 5-11-2026, zoals in PowerPoint; gebouwd in 0.32.4, backlog 12g). Bij veel kleine objecten van één soort, zoals 15 waterdruppels en 9 bladeren op een stilleven, wil je niet 24 losse uitsneden, maar bijvoorbeeld *groep waterdruppels* en *groep bladeren*.
+
+- **Groeperen (n)** onder de objecten in *Wat je vond*, naast *Dubbelingen samenvoegen*: maakt van de geselecteerde objecten (twee of meer) één object. Uitgeschakeld bij minder dan twee.
+- **Groepeer alle …** per zoekterm, met één klik (besluit Olaf): onder de zoektermen staat *Groeperen: alle waterdruppels (15) · alle bladeren (9)* voor elke zoekterm met twee of meer losse objecten.
+- **Het groepsobject**: het kader is het kleinste kader om alle leden heen; het masker is de vereniging van hun maskers (wat in minstens één masker valt). De naam is *groep:* + de soort + het aantal (*groep: waterdruppel (15)*, Engels *group: water drop (15)*); een bijschrift geeft hem een eigen naam. Bron en zekerheid: die van de leden (de laagste zekerheid), met het merkje *groep (15)*.
+- **Bevestigen** (wens Olaf): groeperen en opheffen vragen eerst om bevestiging in een venster met de objecten, elk met een kleine uitsnede. Bij groeperen een veld voor een eigen naam (niet verplicht); de voorgestelde naam staat er in het grijs in. Geen aparte melding achteraf.
+- **De leden blijven bewaard** in de groep, niet in de prullenbak. **Groep opheffen** (in de lijst) zet ze terug zoals ze waren, en verwijdert het groepsobject. Een beschrijving of bijschrift van de groep gaat dan verloren, na een bevestiging.
+- **Naar Commons** (besluit Olaf): een groep mag als één uitsnede naar Commons, zoals elk ander object: het kader in volledige resolutie, met het masker als transparante PNG. De beschrijving door de AI gaat over de groep als geheel.
+- **Anders dan Dubbelingen samenvoegen**: samenvoegen maakt van objecten die vrijwel op dezelfde plek liggen één object en gooit de rest weg; groeperen houdt verschillende objecten bij elkaar en is terug te draaien.
+- Gratis: alles gebeurt op de server, zonder aanroep van een model.
+- **API**: POST `…/pagina/{n}/groepen` met `{"objecten": [ids]}` of `{"zoekterm": "water drop"}` geeft 201 met het groepsobject; DELETE `…/pagina/{n}/groepen/{id}` heft de groep op.
+
 ### 7.5 Uit Commons (gratis, zonder SAM)
 
 De opvolger van "Uit Delpher": regio's die op Commons al bestaan. Eis van Olaf (3-11-2026): de app moet de **regio's uit de gestructureerde gegevens** (de gele rechthoeken op de bestandspagina) vinden en elke regio als **aparte afbeelding** kunnen uitsnijden en uploaden.
@@ -283,6 +295,17 @@ Sinds 0.29.0 (besluit Olaf, 5-11-2026): de eerste vraag is één aanroep voor be
 **Detailniveau** (wens Olaf, 5-11-2026, sinds 0.32.3): een schuif bij *Beschrijf deze afbeelding* en bij *Zoektermen opnieuw* bepaalt hoeveel soorten objecten de AI als zoekterm voorstelt: *Alleen het hoofdonderwerp* (1), *Hoofdzaken* (ongeveer 3), *Normaal* (tot 12, zoals voorheen) of *Veel details* (tot 20, ook kleine dingen zoals insecten, knopen en ornamenten). SAM zelf kent geen aantal: het vindt alle exemplaren van een zoekterm. De schuif bepaalt dus *waarnaar* gezocht wordt. Elk niveau heeft een eigen antwoord in de cache; *Normaal* houdt de antwoorden van vóór de schuif. Meer zoektermen betekent meer SAM-aanroepen als je ze allemaal laat zoeken; de knop toont het bedrag.
 
 **Minimale zekerheid** (sinds 0.32.3): een schuif boven de objecten in *Wat je vond* (0 tot 95%) verbergt objecten van de AI-beelddetectie met een lagere zekerheid, ook wat al gevonden is, zonder nieuwe aanroep. Objecten zonder zekerheid (met de hand, uit Commons) blijven altijd zichtbaar. Wat verborgen is, is niet geselecteerd en gaat dus niet mee bij opslaan of beschrijven. De schuif bepaalt zo *hoeveel* je overhoudt. Onthouden in de browser.
+
+### 7.7 AI-aangevulde versie
+
+Idee en opdracht van Olaf (5-11-2026, backlog 19b; gebouwd in 0.32.4). Waar op het origineel iets voor een object stond (de jongen op de rug van de kat), heeft de uitsnede gaten. Een extra knop in de vergroter, **Afbeelding aanvullen met AI** (met het bedrag), laat **Muse Image** (`muse-image-1.0`, `/v1/images/edits`, $0,01 per beeld) die gaten invullen.
+
+- **Wat er gebeurt**: de transparante uitsnede gaat op wit mee (hooguit 1536 pixels), met de vraag alleen de witte delen van het onderwerp in te vullen, in dezelfde stijl, techniek en kleuren, zonder iets te veranderen of toe te voegen. Zoeken op internet en code zijn uitgezet (`tool_enablement`). Het onderwerp komt uit de beschrijving, het bijschrift of de zoekterm.
+- **Verzonnen, geen bron.** Het model weet niet wat er achter het andere voorwerp zat. De versie staat daarom apart, onder de uitsnede, met een AI-merkje en een waarschuwing, en gaat **nooit als uitsnede naar Commons**. Het Commons-concept en de upload gebruiken altijd de echte uitsnede.
+- **Lagere resolutie**: Muse Image maakt het beeld in zijn eigen resolutie, en tekent het hele beeld opnieuw; ook buiten de gaten kan het iets veranderen.
+- **Kosten**: in live-modus eerst een bevestiging met het bedrag; toegangslijst, daglimieten en verbruikslog gelden zoals bij de andere modellen. Gecachet per verstuurd beeld en vraag: nog eens vragen kost niets, *opnieuw* wel. In de proefmodus een nagebootste versie (de uitsnede op wit met *AI-aangevuld (dummy)*).
+- **Bewaren**: het beeld staat in `cache/aanvullingen` en gaat na 30 dagen zonder gebruik weg, zoals uitsneden (12.1); het object onthoudt `aangevuld` (model, onderwerp, afmetingen, kosten). *Weghalen* haalt het van het object.
+- **Downloaden** als PNG met *(AI-aangevuld)* in de bestandsnaam, of bekijken in een nieuw tabblad.
 
 ## 8. Inloggen en rechten (OAuth)
 

@@ -43,6 +43,7 @@
             <template v-if="obj.al_uitgesneden"> · {{ t("objects.already_extracted") }}</template>
             <span v-if="obj.bijschrift?.tekst && name(obj) !== obj.bijschrift.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
             <template v-if="obj.status === 'uitgesloten'"> · {{ t("status.uitgesloten") }}</template>
+            <template v-if="obj.bron === 'groep'"> · <button type="button" class="cc-link" @click.prevent.stop="emit('ungroup', obj.id)">{{ t("objects.ungroup") }}</button></template>
           </template>
         </cdx-checkbox>
         <span class="cc-object-knoppen">
@@ -76,7 +77,7 @@ const props = defineProps({
   mid: { type: String, required: true },
   n: { type: Number, required: true },
 });
-const emit = defineEmits(["toggle", "select", "focus", "open", "hover", "trash"]);
+const emit = defineEmits(["toggle", "select", "focus", "open", "hover", "trash", "ungroup"]);
 const t = useT();
 const language = inject("language", "nl");
 

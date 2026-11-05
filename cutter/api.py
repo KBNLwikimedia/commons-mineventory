@@ -363,6 +363,21 @@ def inventory(mid, n):
 # -- Objects ------------------------------------------------------------------------------
 
 
+@api.post("/bestand/<mid>/pagina/<int:n>/groepen")
+def make_group(mid, n):
+    """Make one object of several (7.4): {"objecten": [ids]} or {"zoekterm": "…"},
+    optionally with {"naam": "…"}. Free. 201 with the group and all objects of the page."""
+    body = _body()
+    result = _service().group(_page_file(mid, n), n, ids=body.get("objecten"), term=body.get("zoekterm"), name=body.get("naam"))
+    return jsonify(result), 201
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/groepen/<object_id>")
+def remove_group(mid, n, object_id):
+    """Undo a group (7.4): its members come back. Free."""
+    return jsonify({"objecten": _service().ungroup(_page_file(mid, n), n, object_id)})
+
+
 @api.post("/bestand/<mid>/pagina/<int:n>/samenvoegingen")
 def merge_duplicates(mid, n):
     """Merge the objects of the page that show the same picture (7.4). Free."""
@@ -488,6 +503,43 @@ def mask_image(mid, n, object_id):
     response = Response(data, mimetype="image/png")
     response.headers["Cache-Control"] = "public, max-age=86400"
     return response
+
+
+# -- AI-completed version (Muse Image, 7.7) -------------------------------------------------
+
+
+def _completions():
+    return current_app.extensions["aanvuldienst"]
+
+
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
+def completion_plan(mid, n, object_id):
+    """The AI-completed version of the cut-out, if any, and what a new one costs. Free."""
+    return jsonify(_completions().plan(_page_file(mid, n), n, object_id))
+
+
+@api.post("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
+def completion_make(mid, n, object_id):
+    """Have Muse Image fill in what is missing in the cut-out (paid in live mode,
+    cached; {"opnieuw": true} asks anew). The result is invented: never a source."""
+    _require_paid_access(_completions().editor.betaald)
+    body = _body()
+    result = _completions().complete(_page_file(mid, n), n, object_id, again=bool(body.get("opnieuw")), user=_user())
+    return jsonify(result), 201
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
+def completion_forget(mid, n, object_id):
+    """Remove the AI-completed version from the object. Free."""
+    return jsonify({"object": _completions().forget(_page_file(mid, n), n, object_id)})
+
+
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aangevuld.png")
+def completion_image(mid, n, object_id):
+    """The PNG of the AI-completed version."""
+    file = _page_file(mid, n)
+    name = _download_name(file, n, object_id, "png").rsplit(".", 1)[0] + " (AI-aangevuld).png"
+    return _image(_completions().image(file, n, object_id), "image/png", name)
 
 
 # -- Description ----------------------------------------------------------------------------

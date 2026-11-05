@@ -1,5 +1,6 @@
 """Decoding object masks to rasters and PNGs, lazily and cached on disk."""
 
+import base64
 import hashlib
 import io
 from pathlib import Path
@@ -19,6 +20,9 @@ def decode_raster(mask_data):
         return np.ones((1, 1), dtype=np.uint8)
     width, height = mask_data["width"], mask_data["height"]
     encoding = mask_data["encoding"]
+    if encoding == "png":  # a group (7.4): the union of its members' masks, as a 1-bit PNG
+        image = Image.open(io.BytesIO(base64.b64decode(mask_data["payload"]))).convert("L")
+        return (np.asarray(image) >= 128).astype(np.uint8)
     if encoding == "ellips":
         yy, xx = np.mgrid[0:height, 0:width]
         cy, cx = (height - 1) / 2, (width - 1) / 2
@@ -42,6 +46,28 @@ def mask_png(mask_data):
     buffer = io.BytesIO()
     Image.fromarray(rgba, "RGBA").save(buffer, format="PNG", optimize=True)
     return buffer.getvalue()
+
+
+def union_mask(members, box, max_side=4096):
+    """The mask of a group (7.4): [(box, raster)] of its members, each raster
+    covering its own box, painted onto one raster that covers `box` (the box
+    around all of them). Its resolution follows the sharpest member mask,
+    at most `max_side` pixels on the longest side. Returns a mask description."""
+    scales = [raster.shape[1] / member["w"] for member, raster in members if raster.shape != (1, 1) and member["w"]]
+    scale = min(max(scales or [1.0]), max_side / max(box["w"], box["h"]))
+    width, height = max(1, round(box["w"] * scale)), max(1, round(box["h"] * scale))
+    canvas = np.zeros((height, width), dtype=np.uint8)
+    for member, raster in members:
+        w, h = max(1, round(member["w"] * scale)), max(1, round(member["h"] * scale))
+        x, y = round((member["x"] - box["x"]) * scale), round((member["y"] - box["y"]) * scale)
+        part = np.asarray(Image.fromarray(raster * 255, "L").resize((w, h), Image.NEAREST)) >= 128
+        x1, y1 = min(width, x + w), min(height, y + h)
+        if x1 <= x or y1 <= y:
+            continue
+        canvas[y:y1, x:x1] |= part[: y1 - y, : x1 - x].astype(np.uint8)
+    buffer = io.BytesIO()
+    Image.fromarray(canvas * 255, "L").convert("1").save(buffer, format="PNG", optimize=True)
+    return {"encoding": "png", "payload": base64.b64encode(buffer.getvalue()).decode("ascii"), "width": width, "height": height}
 
 
 class MaskCache:

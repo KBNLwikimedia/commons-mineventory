@@ -457,3 +457,72 @@ def test_old_paths_still_work_and_say_they_are_deprecated(http):
     assert back.status_code == 200 and back.headers["Deprecation"] == "true"
     merged = http.patch(PAGE + "/objecten", json={"samenvoegen": True})
     assert merged.status_code == 200 and "/samenvoegingen" in merged.headers["Link"]
+
+
+def test_group_and_ungroup(http):
+    found = http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "flower"}).get_json()
+    flowers = [o for o in found["objecten"] if o["zoekterm"] == "flower"]
+    assert len(flowers) >= 1
+    http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "bird"})
+    page = http.get(PAGE).get_json()["objecten"]
+    assert http.post(PAGE + "/groepen", json={"objecten": [page[0]["id"]]}).status_code == 400
+    ids = [o["id"] for o in page[:2]]
+    made = http.post(PAGE + "/groepen", json={"objecten": ids})
+    assert made.status_code == 201
+    group = made.get_json()["object"]
+    assert group["bron"] == "groep" and group["groep"]["aantal"] == 2 and group["masker"]["codering"] == "png"
+    after = made.get_json()["objecten"]
+    assert group["id"] in [o["id"] for o in after] and not set(ids) & {o["id"] for o in after}
+    # The group's box holds both members; its mask PNG can be made.
+    for member in group["groep"]["leden"]:
+        b, g = member["box"], group["box"]
+        assert g["x"] <= b["x"] and g["y"] <= b["y"] and b["x"] + b["w"] <= g["x"] + g["w"] and b["y"] + b["h"] <= g["y"] + g["h"]
+    assert http.get(f"{PAGE}/objecten/{group['id']}/masker.png").status_code == 200
+    # The members' cut-outs can still be shown (the ungroup confirmation lists them).
+    assert http.get(f"{PAGE}/objecten/{ids[0]}/uitsnede.jpg?w=96").status_code == 200
+    assert group["groep"]["leden"][0]["label_nl"]
+    # A new search does not put the members back on their own.
+    http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "flower, bird"})
+    assert not set(ids) & {o["id"] for o in http.get(PAGE).get_json()["objecten"]}
+    back = http.delete(f"{PAGE}/groepen/{group['id']}").get_json()["objecten"]
+    assert set(ids) <= {o["id"] for o in back} and group["id"] not in [o["id"] for o in back]
+    assert http.delete(f"{PAGE}/groepen/{ids[0]}").status_code == 400
+    # Group all objects of one search term.
+    named = http.post(PAGE + "/groepen", json={"objecten": ids, "naam": "  Vogels  en bloemen "}).get_json()["object"]
+    assert named["label_nl"] == named["label_en"] == "Vogels en bloemen"
+    http.delete(f"{PAGE}/groepen/{named['id']}")
+    by_term = http.post(PAGE + "/groepen", json={"zoekterm": "bird"})
+    birds = [o for o in back if o["zoekterm"] == "bird"]
+    assert by_term.status_code == (201 if len(birds) >= 2 else 400)
+
+
+def test_ai_completed_version(http):
+    found = http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "cat"}).get_json()
+    obj = found["objecten"][0]
+    url = f"{PAGE}/objecten/{obj['id']}"
+    plan = http.get(url + "/aanvulling").get_json()
+    assert plan["aangevuld"] is None and plan["model"] == "muse-image-1.0" and plan["betaald"] is False
+    assert http.get(url + "/aangevuld.png").status_code == 404
+    made = http.post(url + "/aanvulling", json={})
+    assert made.status_code == 201
+    note = made.get_json()["object"]["aangevuld"]
+    assert note["model"] == "muse-image-1.0" and note["uit_cache"] is False and note["afmetingen"][0] > 0
+    image = http.get(url + "/aangevuld.png")
+    assert image.status_code == 200 and image.data[:4] == b"\x89PNG"
+    assert "AI-aangevuld" in image.headers.get("Content-Disposition", "")
+    assert http.post(url + "/aanvulling", json={}).get_json()["uit_cache"] is True  # the same cut-out: from the cache
+    assert http.delete(url + "/aanvulling").get_json()["object"]["aangevuld"] is None
+
+
+def test_completion_request_has_no_search():
+    from cutter.aanvulling import build_request, prepare
+
+    body = build_request("muse-image-1.0", "x", "data:image/png;base64,", "10x10")
+    assert body["tool_enablement"] == {"enable_image_search": False, "enable_web_search": False, "enable_shell": False}
+    import io
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGBA", (3000, 1000), (0, 0, 0, 0)).save(buffer, format="PNG")
+    sent, size = prepare(buffer.getvalue())
+    assert size == "1536x512" and Image.open(io.BytesIO(sent)).getpixel((5, 5)) == (255, 255, 255)
