@@ -4,18 +4,27 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
 
 # Node / Vite
 node_modules/
 static/dist/
+coverage/
 
-# Configuration with secrets
+# Configuration with secrets (only the example is shared)
 .env
-.env.local
+.env.*
+!.env.example
 
 # Local data: Commons cache and generated output
 cache/
 uitvoer/
+
+# Logs and scratch files
+*.log
+*.tmp
 
 # IDE
 .idea/
@@ -24,6 +33,7 @@ uitvoer/
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Local tooling
 .playwright-mcp/

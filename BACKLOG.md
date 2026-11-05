@@ -41,8 +41,8 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 12e. [ ] De verouderde API-paden van vóór 0.29.0 (`…/object/{id}`, `…/beschrijving/terugzetten`, `…/geschiedenis?versie=`, `samenvoegen` in de PATCH, POST `…/commons/controle`) weghalen in 0.32.0 (0.31.0 werd de nieuwe naam), met de tabel in docs/api.md en `DEPRECATED` in cutter/openapi.py.
 12f. [ ] Nieuwe naam *Commons Mineventory* (besluit Olaf 5-11-2026) technisch doorvoeren.
    - [x] In de repo (0.31.1): URL's in `.env.example` en `cutter/config.py`, npm-pakket, CLAUDE.md, README, docs en FO 12.1 heten `commons-mineventory`. `KBNLwikimedia/commons-mineventory` was op 5-11-2026 vrij op GitHub. Het Python-package `cutter/` en de `cc-`-voorvoegsels blijven (intern; hernoemen kost veel voor weinig).
-   - [ ] Olaf: servers en sessies stoppen, de map hernoemen naar `D:\KB-OPEN\github-repos\commons-mineventory`, `.venv` opnieuw maken, `.env` bijwerken (`BRONCODE_URL`, de URL in `COMMONS_USER_AGENT`). Stappen in docs/overdracht.md, *Na het hernoemen*.
-   - [ ] Olaf: de GitHub-repo `KBNLwikimedia/commons-mineventory` aanmaken en pushen.
+   - [x] Olaf (5-11-2026): de map hernoemd naar `D:\KB-OPEN\github-repos\commons-mineventory` en `.venv` opnieuw gemaakt; pytest en npm test groen. `.env` bijwerken (`BRONCODE_URL`, de URL in `COMMONS_USER_AGENT`) doet Olaf zelf.
+   - [ ] De GitHub-repo `KBNLwikimedia/commons-mineventory` is aangemaakt en openbaar (5-11-2026), met CLAUDE.md, overdracht en backlog (besluit Olaf); de code moet er nog op (de repo bevat alleen een README van GitHub).
    - [ ] Bij de deploy (17): nagaan of `commons-mineventory` vrij is op Toolforge en Toolhub.
 
 ## Fase 2: OAuth, upload naar een testwiki, categorieën

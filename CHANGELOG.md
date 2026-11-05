@@ -3,6 +3,13 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.31.3] - 2026-11-05
+
+### Gewijzigd
+
+- De map is hernoemd naar `commons-mineventory`, de Python-omgeving opnieuw gemaakt; de GitHub-repo `KBNLwikimedia/commons-mineventory` is openbaar, met CLAUDE.md, de overdracht en de backlog erin (besluit Olaf 5-11-2026). Backlog 12f en `docs/overdracht.md` bijgewerkt.
+- `.gitignore` sluit vóór het openbaar maken ook andere `.env.*`-bestanden uit (behalve `.env.example`), logbestanden, testdekking en `desktop.ini`.
+
 ## [0.31.2] - 2026-11-05
 
 ### Gewijzigd

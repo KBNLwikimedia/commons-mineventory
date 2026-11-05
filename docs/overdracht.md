@@ -1,14 +1,14 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.31.2, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.31.3, 5 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
 - **Naam**: sinds 0.31.0 heet de app *Commons Mineventory* (eerst Commons Cutter), met een eigen logo (een afbeelding met gevonden objecten en een lijst) en de tagline *Detect objects in a Commons image. Find, cut out and describe them with AI.* Sinds 0.31.1 staat in de repo overal de technische naam `commons-mineventory` (URL's, npm-pakket, Toolforge-tool, map). Het Python-package heet bewust nog `cutter/` en de CSS-klassen beginnen nog met `cc-` (backlog 12f).
-- **De map wordt hernoemd** van `D:\KB-OPEN\github-repos\commons-cutter` naar `D:\KB-OPEN\github-repos\commons-mineventory` (Olaf, na 0.31.2). Zie *Na het hernoemen* hieronder.
+- **De map is hernoemd** van `D:\KB-OPEN\github-repos\commons-cutter` naar `D:\KB-OPEN\github-repos\commons-mineventory` (Olaf, 5-11-2026, na 0.31.2); `.venv` is opnieuw gemaakt en de tests zijn groen. De repo staat openbaar op [GitHub](https://github.com/KBNLwikimedia/commons-mineventory), ook met CLAUDE.md, deze overdracht en de backlog (besluit Olaf).
 - **Fase 1 (lokaal, zonder kosten) is klaar** en sinds 0.9.0 op aanwijzing van Olaf verfijnd. Olaf draait de app zelf in live-modus, met zijn eigen sleutel voor de Meta Model API.
 - **Fase 2 (OAuth, upload naar een testwiki, beheerpaneel) is nog niet begonnen.** Uploaden en inloggen zijn knoppen zonder werking.
-- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.31.2.
+- Tests: 257 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.31.3.
 
 ## De interface in het kort
 
@@ -35,6 +35,8 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 
 ## Na het hernoemen van de map
 
+Gedaan op 5-11-2026: stap 1 en 3; de GitHub-repo uit stap 4 bestaat, de code moet er nog op. Voor de geschiedenis:
+
 Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie in de nieuwe map (het Claude-geheugen van de oude map was leeg, er gaat niets verloren). Daarna, in deze volgorde:
 
 1. **Python-omgeving opnieuw maken**: `.venv` bevat vaste paden naar de oude map. Verwijder `.venv`, maak hem opnieuw (`py -3.14 -m venv .venv`) en installeer (`.venv\Scripts\pip install -r requirements.txt`). `node_modules` werkt gewoon door.
@@ -60,7 +62,8 @@ Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie
 
 ## Wat openstaat
 
-- **Nu, door Olaf**: de map hernoemen en de stappen hierboven (backlog 12f).
+- **Nu**: de code naar GitHub pushen (de repo is openbaar, maar bevat alleen een README van GitHub) en `.env` bijwerken (Olaf). Daarmee is backlog 12f af, op de Toolforge-naam na.
+- **Een terminal starten**: Flask staat alleen in `.venv`. Zet de omgeving aan met `.venv\Scripts\Activate.ps1`, of start met `.venv\Scripts\flask --app app run --debug`.
 - **Wacht op Olaf**: de vijf vragen bij backlog 15b (venster *Beeldt af en caption voor de hele afbeelding*, FO 9.7).
 - **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten) en 12e (verouderde API-paden weghalen in 0.32.0).
 - **Fase 2**: OAuth (13), upload via de stash op een testwiki (14), beheerpaneel (15), categorie als invoer (15a). Pas daarna kan per gebruiker gescheiden worden (12c).
