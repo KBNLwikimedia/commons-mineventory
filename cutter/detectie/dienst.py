@@ -599,6 +599,7 @@ class DetectionService:
             **_summary(member),
             "label_nl": self.public(file, n, member)["label_nl"],
             "bijschrift": member.get("bijschrift"),
+            "naam": member.get("naam"),
             # What names it, and what goes along as context when the group is described.
             "beschrijving": {k: description[k] for k in ("onderwerp", "onderwerp_en", "beschrijving_en", "tekst_in_beeld", "tekst_rond_beeld") if description.get(k)} or None,
         }
@@ -636,6 +637,23 @@ class DetectionService:
             obj["bijschrift"] = {"tekst": text, "bron": "handmatig"} if text else None
         else:
             raise DetectionError('Geef bijschrift als {"tekst": "..."} of null.', status=400)
+        self._write_store(file, n, store)
+        return self.public(file, n, obj)
+
+    @_locked
+    def set_name(self, file, n, object_id, value):
+        """Your own name for an object in the list, like a layer name in Photoshop:
+        a text sets it, "" or None goes back to the automatic name. Not the caption,
+        not for Commons."""
+        if value is not None and not isinstance(value, str):
+            raise DetectionError("'naam' is een tekst of null.", status=400, code="invalid_body")
+        store = self._load_store(file, n)
+        obj = self._find_in(store, object_id)
+        name = " ".join((value or "").split())[:120]
+        if name:
+            obj["naam"] = name
+        else:
+            obj.pop("naam", None)
         self._write_store(file, n, store)
         return self.public(file, n, obj)
 

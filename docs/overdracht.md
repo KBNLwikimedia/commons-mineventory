@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.32.8, 6 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.32.9, 6 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -15,7 +15,7 @@ Stand: versie 0.32.8, 6 november 2026. Voor wie (mens of Claude-sessie) het werk
   - **Afbeelding aanvullen met AI** (FO 7.7, `cutter/aanvulling.py`, Muse Image `muse-image-1.0`, $0,01 per beeld): gaten in een uitsnede laten invullen; eigen tabblad *AI-aangevuld* met doorzichtige achtergrond, de echte prompt, de resolutie en een schakelaar *Toon wat de AI invulde*. Verzonnen, geen bron, nooit als uitsnede naar Commons. **Live geprobeerd door Olaf** (de kat met de rode halsband).
   - In de vergroter zijn uitsnede en aangevulde versie te **zoomen** zoals in de hoofdviewer (`ZoomImage.vue`, dezelfde viewer-module).
   - Meldingen op hun plek: de prullenbakmelding in *Wat je vond*, *Niets gevonden* met links naar *Zoeken* en *Aanwijzen of tekenen*; in *Wat je vond* scrolt alleen de lijst.
-- Tests: 266 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.8.
+- Tests: 267 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.9.
 
 ## De interface in het kort
 

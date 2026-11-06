@@ -487,6 +487,8 @@
   "objects.only_saved": "Alleen opgeslagen uitsneden",
   "objects.open": "Vergroten",
   "objects.page_link": "pagina Objecten",
+  "objects.rename": "Naam wijzigen",
+  "objects.rename_help": "Naam wijzigen: dubbelklik op de naam of klik op het potlood. Enter bewaart, Esc annuleert; leeg maakt het weer de automatische naam. Alleen voor de lijst, niet voor Commons.",
   "objects.restore": "Terugzetten",
   "objects.restored": "Teruggezet uit de prullenbak.",
   "objects.saved": "opgeslagen",

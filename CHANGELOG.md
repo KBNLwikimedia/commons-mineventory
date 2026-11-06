@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.9] - 2026-11-06
+
+### Toegevoegd
+
+- Objecten in *Wat je vond* een eigen naam geven, zoals lagen in Photoshop (wens Olaf): dubbelklik op de naam of klik op het potlood; Enter bewaart, Esc annuleert, leeg geeft de automatische naam terug (die staat grijs in het veld). De naam gaat voor in de lijst, de vergroter en de bevestigingsvensters, en geldt in de AI-prompt van een groep als naam van het object. Niet het bijschrift en niet voor Commons. API: `naam` bij PATCH `…/objecten/{id}`.
+
 ## [0.32.8] - 2026-11-06
 
 ### Gewijzigd

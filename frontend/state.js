@@ -101,6 +101,8 @@ export function numberedNames(objects, language = "nl", t = null) {
 }
 
 export function objectName(obj, language = "nl", t = null) {
+  // A name you gave it yourself (in the list, like a layer in Photoshop) comes first.
+  if (obj.naam) return obj.naam;
   if (obj.beschrijving) {
     const subject = language === "en" ? obj.beschrijving.onderwerp_en : obj.beschrijving.onderwerp;
     if (subject) return subject;

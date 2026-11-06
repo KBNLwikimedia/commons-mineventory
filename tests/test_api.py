@@ -557,3 +557,13 @@ def test_completion_subject_of_a_group():
     assert subject(group) == "cardboard box and Boy in white sailor suit"
     assert subject({**group, "groep": {**group["groep"], "naam": "Boy with box"}}) == "Boy with box"
     assert subject({**group, "beschrijving": {"onderwerp_en": "boy carrying a box"}}) == "boy carrying a box"
+
+
+
+def test_rename_object(http):
+    found = http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "basket"}).get_json()
+    obj = found["objecten"][0]
+    url = f"{PAGE}/objecten/{obj['id']}"
+    assert http.patch(url, json={"naam": "  Mand met  fruit "}).get_json()["naam"] == "Mand met fruit"
+    assert http.patch(url, json={"naam": 3}).status_code == 400
+    assert "naam" not in http.patch(url, json={"naam": ""}).get_json()

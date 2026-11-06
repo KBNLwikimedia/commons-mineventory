@@ -147,7 +147,7 @@ def group_members(obj):
     counts = {}
     for member in (obj.get("groep") or {}).get("leden", []):
         description = member.get("beschrijving") or {}
-        name = description.get("onderwerp_en") or (member.get("bijschrift") or {}).get("tekst") or member.get("label_en") or member.get("label") or "object"
+        name = member.get("naam") or description.get("onderwerp_en") or (member.get("bijschrift") or {}).get("tekst") or member.get("label_en") or member.get("label") or "object"
         name = " ".join(str(name).split())[:60]
         counts[name] = counts.get(name, 0) + 1
     return ", ".join(f"{name} ({count})" for name, count in counts.items())

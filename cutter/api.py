@@ -417,11 +417,12 @@ def get_object(mid, n, object_id):
 @api.patch("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>")
 @api.patch("/bestand/<mid>/pagina/<int:n>/object/<object_id>")
 def patch_object(mid, n, object_id):
-    """{"bijschrift": {"tekst"} | null}, {"status": …} and/or {"prullenbak": true | false}."""
+    """{"bijschrift": {"tekst"} | null}, {"naam": "…" | null}, {"status": …} and/or
+    {"prullenbak": true | false}. The name is your own name for the object in the list."""
     body = _body()
-    fields = {"bijschrift", "status", "prullenbak"}
+    fields = {"bijschrift", "naam", "status", "prullenbak"}
     if not body or not set(body) <= fields:
-        raise DetectionError("Te wijzigen: 'bijschrift', 'status' en 'prullenbak'.", status=400)
+        raise DetectionError("Te wijzigen: 'bijschrift', 'naam', 'status' en 'prullenbak'.", status=400)
     file = _page_file(mid, n)
     service = _service()
     if "prullenbak" in body:
@@ -433,6 +434,8 @@ def patch_object(mid, n, object_id):
         service.set_statuses(file, n, [{"id": object_id, "status": body["status"]}])
     if "bijschrift" in body:
         service.set_caption(file, n, object_id, body["bijschrift"])
+    if "naam" in body:
+        service.set_name(file, n, object_id, body["naam"])
     return jsonify(service.get_object(file, n, object_id))
 
 

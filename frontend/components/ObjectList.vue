@@ -34,7 +34,21 @@
           :disabled="obj.status === 'uitgesloten'"
           @update:model-value="emit('toggle', obj.id)"
         >
-          <span class="cc-object-naam" @click.prevent="emit('focus', obj.id)">{{ listName(obj) }}</span>
+          <!-- Double-click (or the pencil) to rename it, like a layer in Photoshop. -->
+          <input
+            v-if="editingId === obj.id"
+            ref="nameInput"
+            v-model="draft"
+            class="cc-object-naam-veld"
+            :aria-label="t('objects.rename')"
+            :placeholder="autoName(obj)"
+            maxlength="120"
+            @click.stop.prevent
+            @keydown.enter.prevent="saveName(obj)"
+            @keydown.esc.prevent="editingId = null"
+            @blur="saveName(obj)"
+          />
+          <span v-else class="cc-object-naam" :title="t('objects.rename_help')" @click.prevent="emit('focus', obj.id)" @dblclick.prevent.stop="startRename(obj)">{{ listName(obj) }}</span>
           <template #description>
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
             <!-- Described: "Describe selected objects" skips it, so show it in the row. -->
@@ -47,6 +61,9 @@
           </template>
         </cdx-checkbox>
         <span class="cc-object-knoppen">
+          <cdx-button action="progressive" weight="quiet" size="small" :aria-label="`${t('objects.rename')}: ${listName(obj)}`" :title="t('objects.rename_help')" @click="startRename(obj)">
+            <cdx-icon :icon="cdxIconEdit" />
+          </cdx-button>
           <cdx-button action="progressive" weight="quiet" size="small" :aria-label="`${t('objects.open')}: ${listName(obj)}`" :title="t('objects.open')" @click="emit('open', obj.id)">
             <cdx-icon :icon="cdxIconEye" />
           </cdx-button>
@@ -60,9 +77,9 @@
 </template>
 
 <script setup>
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { CdxButton, CdxCheckbox, CdxIcon } from "@wikimedia/codex";
-import { cdxIconEye, cdxIconTrash } from "@wikimedia/codex-icons";
+import { cdxIconEdit, cdxIconEye, cdxIconTrash } from "@wikimedia/codex-icons";
 import { objectPath } from "../api.js";
 import { useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
@@ -77,7 +94,30 @@ const props = defineProps({
   mid: { type: String, required: true },
   n: { type: Number, required: true },
 });
-const emit = defineEmits(["toggle", "select", "focus", "open", "hover", "trash", "ungroup"]);
+const emit = defineEmits(["toggle", "select", "focus", "open", "hover", "trash", "ungroup", "rename"]);
+
+// Renaming in the list: Enter or leaving the field saves, Esc cancels; empty goes back
+// to the automatic name (which shows in grey while typing).
+const editingId = ref(null);
+const draft = ref("");
+const nameInput = ref(null);
+function autoName(obj) {
+  return objectName({ ...obj, naam: null }, language, t);
+}
+async function startRename(obj) {
+  editingId.value = obj.id;
+  draft.value = obj.naam || "";
+  await nextTick();
+  const input = Array.isArray(nameInput.value) ? nameInput.value[0] : nameInput.value;
+  input?.focus();
+  input?.select();
+}
+function saveName(obj) {
+  if (editingId.value !== obj.id) return;
+  editingId.value = null;
+  const name = draft.value.trim();
+  if (name !== (obj.naam || "")) emit("rename", obj.id, name);
+}
 const t = useT();
 const language = inject("language", "nl");
 

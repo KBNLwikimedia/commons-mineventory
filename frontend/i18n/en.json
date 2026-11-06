@@ -487,6 +487,8 @@
   "objects.only_saved": "Saved cut-outs only",
   "objects.open": "Magnify",
   "objects.page_link": "Objects page",
+  "objects.rename": "Rename",
+  "objects.rename_help": "Rename: double-click the name or click the pencil. Enter saves, Esc cancels; empty goes back to the automatic name. Only for the list, not for Commons.",
   "objects.restore": "Restore",
   "objects.restored": "Restored from the trash.",
   "objects.saved": "saved",

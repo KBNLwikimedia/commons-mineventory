@@ -145,6 +145,7 @@
           @hover="hoverObject"
           @trash="trashObject"
           @ungroup="ungroupObject"
+          @rename="renameObject"
         />
         <div class="cc-acties">
           <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }}</p>
@@ -441,6 +442,15 @@ async function goToPage(n) {
 function replaceObjects(list, fresh = []) {
   objects.value = list;
   newIds.value = fresh;
+}
+
+// Your own name for an object (from the list); "" goes back to the automatic name.
+async function renameObject(id, name) {
+  try {
+    replaceObject(await patch(objectPath(file.value.mid, pageN.value, id), { naam: name || null }));
+  } catch (error) {
+    fail(error);
+  }
 }
 
 function replaceObject(changed) {

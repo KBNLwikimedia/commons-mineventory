@@ -651,3 +651,4 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-groep-context { margin: 0.25rem 0 0; padding-left: 1.1rem; }
 .cc-groep-context li { margin-bottom: 0.2rem; }
 .cc-groep-schakelaar { display: flex; margin: 0 0 0.35rem; }
+.cc-object-naam-veld { font: inherit; width: 100%; max-width: 14rem; padding: 0.1rem 0.3rem; border: 1px solid var(--border-color-progressive, #36c); border-radius: 2px; }
