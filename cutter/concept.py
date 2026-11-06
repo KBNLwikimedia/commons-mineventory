@@ -194,7 +194,7 @@ def default_concept(file, obj):
     date, maker, sources = date_and_maker(file, params)
     depicts = []
     if obj.get("wikidata"):
-        depicts.append({"q": obj["wikidata"], "label": obj.get("label")})
+        depicts.append({"q": obj["wikidata"], "label": obj.get("label_item") or obj.get("label_nl") or obj.get("label")})
     return {
         "bestandsnaam": filename(subject_of(obj), file["titel"], "jpg"),
         "formaat": "jpg",

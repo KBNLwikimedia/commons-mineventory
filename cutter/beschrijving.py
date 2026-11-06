@@ -182,6 +182,32 @@ def member_context(member):
     return line[:MAX_MEMBER_CONTEXT]
 
 
+COMMONS_CONTEXT_INSTRUCTION = """
+What Commons already says about this image, entered by people (use it as context, for names and meaning; still describe and list only what you can see, and do not copy it word for word):
+{context}"""
+MAX_COMMONS_CONTEXT = 1500
+
+
+def commons_context(file):
+    """The captions and the depicts (P180) items already on the file, as context
+    for the AI (backlog 26); "" when there are none. Free: read with the file."""
+    sdc_summary = file.get("sdc") or {}
+    lines = []
+    for lang, text in sorted((sdc_summary.get("captions") or {}).items()):
+        if text:
+            lines.append(f"- caption ({lang}): {' '.join(str(text).split())}")
+    names = []
+    for statement in sdc_summary.get("beeldt_af") or []:
+        if statement.get("soort") != "item":
+            continue
+        name = statement.get("label_en") or statement.get("label") or statement.get("waarde")
+        if name and name not in names:
+            names.append(name)
+    if names:
+        lines.append(f"- depicts: {', '.join(names)}")
+    return "\n".join(lines)[:MAX_COMMONS_CONTEXT]
+
+
 def group_context(obj):
     """The earlier descriptions of a group's members, one line each; "" when none has one."""
     lines = [line for line in (member_context(m) for m in (obj.get("groep") or {}).get("leden", [])) if line]
@@ -1143,6 +1169,9 @@ class DescriptionService:
             data_url = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
             publication = f'"{file.get("naam")}"' + (f", page {n}" if file.get("paginas", 1) > 1 else "")
             prompt = inventory_instructions(publication, part, detail, description_level)
+            known = commons_context(file)  # what people already put on Commons (backlog 26)
+            if known:
+                prompt += COMMONS_CONTEXT_INSTRUCTION.format(context=known)
 
             body = self.vision.describe(choice["model"], prompt, data_url, None, effort, schema=inventory_schema(part))
             tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)

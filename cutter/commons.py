@@ -8,6 +8,8 @@ one request per second, cached) and carries maxlag=5. Uploading is phase 2.
 import io
 import json
 import re
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlsplit
 
@@ -155,9 +157,24 @@ class CommonsClient:
         self.wikidata_api = wikidata_api
         self.max_age = max_age
         self.max_megapixels = max_megapixels
+        self._local = threading.local()  # "read again": no cached answers in this thread
         self.originals_dir = Path(cache_dir) / "originelen" if cache_dir else None
 
     # -- Requests ------------------------------------------------------------------------
+
+    def _age(self):
+        """How old a cached answer may be: 0 while reading a file again (fresh())."""
+        return 0 if getattr(self._local, "fresh", False) else self.max_age
+
+    @contextmanager
+    def fresh(self):
+        """Read from Commons again, not from the cache (button "Read again from Commons"):
+        for a caption or depicts someone just added. The answers replace the cached ones."""
+        self._local.fresh = True
+        try:
+            yield
+        finally:
+            self._local.fresh = False
 
     def api_url(self, params, api=None):
         """GET URL for the Action API, with fixed parameters first (stable cache keys)."""
@@ -166,7 +183,7 @@ class CommonsClient:
 
     def _json(self, params, api=None):
         url = self.api_url(params, api)
-        data = json.loads(self.fetcher.get(url, max_age=self.max_age))
+        data = json.loads(self.fetcher.get(url, max_age=self._age()))
         if "error" in data:
             raise CommonsError(f"Commons gaf een fout: {data['error'].get('info', data['error'].get('code'))}", status=502, code="commons_error")
         return data
@@ -320,7 +337,7 @@ class CommonsClient:
 
     def entity(self, mid):
         """The parsed MediaInfo entity (SDC) of a file; empty when it has none."""
-        data = json.loads(self.fetcher.get(self.api_url({"action": "wbgetentities", "ids": mid}), max_age=self.max_age))
+        data = json.loads(self.fetcher.get(self.api_url({"action": "wbgetentities", "ids": mid}), max_age=self._age()))
         return sdc.parse_entity((data.get("entities") or {}).get(mid))
 
     def _wikidata_entities(self, ids, props, pattern=r"Q\d+", fallback=False):
@@ -375,7 +392,7 @@ class CommonsClient:
             "text": text, "title": title, "contentmodel": "wikitext", "prop": "text",
             "pst": "1", "disablelimitreport": "1", "disableeditsection": "1", "preview": "1",
         }
-        body = json.loads(self.fetcher.post(self.api, data, max_age=self.max_age))
+        body = json.loads(self.fetcher.post(self.api, data, max_age=self._age()))
         if "error" in body:
             raise CommonsError(f"Commons gaf een fout: {body['error'].get('info', body['error'].get('code'))}", status=502, code="commons_error")
         return (body.get("parse") or {}).get("text") or ""

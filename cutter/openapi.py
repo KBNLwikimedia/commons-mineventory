@@ -26,8 +26,9 @@ ENDPOINTS = [
     ("get", "/bestand/{mid}", "Het bestand op M-id", [MID], None, 200, False),
     ("get", PAGE, "Pagina: afmetingen, objecten, aantal regio's uit Commons", [MID, N], None, 200, False),
     ("get", PAGE + "/afbeelding", "Verkleinde afbeelding (Commons-thumbnailstap, gecachet)", [MID, N, _q("w", "Gewenste breedte in pixels", "integer")], None, 200, False),
+    ("post", "/bestand/{mid}/opnieuw-lezen", "Het bestand opnieuw van Commons lezen in plaats van uit de cache (gratis; alleen lezen)", [MID], None, 200, False),
     ("post", PAGE + "/detecties", "Detectie: zoekterm, modus (prompt, alles, commons), punt, rechthoek of masker_voor",
-     [MID, N], '{"prompt", "modus", "minscore"} | {"punt": {x, y}} | {"rechthoek": {x, y, w, h}} | {"masker_voor": id}', 201, True),
+     [MID, N], '{"prompt", "modus", "minscore", "items": {zoekterm: Q-id}} | {"punt": {x, y}} | {"rechthoek": {x, y, w, h}} | {"masker_voor": id}', 201, True),
     ("get", PAGE + "/detecties/raming", "Kostenraming van een detectie; voert niets uit",
      [MID, N, _q("prompt", "Zoekterm"), _q("modus", "prompt, alles of commons"), _q("minscore", "Laagste score, 0-1")], None, 200, False),
     ("get", PAGE + "/inventaris", "Paginaoverzicht (opgeslagen) en de kosten van een nieuw", [MID, N], None, 200, False),
@@ -43,6 +44,7 @@ ENDPOINTS = [
     ("get", OBJECT + "/aanvulling", "De AI-aangevulde versie van de uitsnede en de kosten van een nieuwe (gratis)", [MID, N, OID], None, 200, False),
     ("post", OBJECT + "/aanvulling", "De uitsnede laten aanvullen door Muse Image (betaald; verzonnen, nooit een bron)", [MID, N, OID], '{"opnieuw": false}', 201, True),
     ("delete", OBJECT + "/aanvulling", "De AI-aangevulde versie weghalen (gratis)", [MID, N, OID], None, 200, False),
+    ("delete", OBJECT + "/vorm", "De vorm van SAM bij een rechthoek weghalen: terug naar de eigen rechthoek, bij een regio die van Commons (gratis; verandert niets op Commons)", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/aangevuld.png", "De AI-aangevulde versie als PNG", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/aangevuld-ingevuld.png", "Wat de AI invulde, als doorzichtige laag over de AI-aangevulde versie (bij benadering)", [MID, N, OID], None, 200, False),
     ("post", PAGE + "/groepen", "Objecten groeperen tot één object (gratis)", [MID, N], '{"objecten": [ids], "naam": "…"} | {"zoekterm": "…", "naam": "…"}', 201, False),
@@ -88,7 +90,7 @@ DEPRECATED = [
     *[(method, OLD_OBJECT + path[len(OBJECT):], summary, parameters, body, status, paid)
       for method, path, summary, parameters, body, status, paid in ENDPOINTS
       if path.startswith(OBJECT) and (method, path) not in {("put", OBJECT + "/beschrijving"), ("delete", OBJECT + "/beschrijving/geschiedenis/{versie}")}
-      and not path.startswith((OBJECT + "/aanvulling", OBJECT + "/aangevuld"))],  # new since 0.32.4: no old path
+      and not path.startswith((OBJECT + "/aanvulling", OBJECT + "/aangevuld", OBJECT + "/vorm"))],  # new since 0.32.4: no old path
     ("post", OLD_OBJECT + "/beschrijving/terugzetten", "Verouderd: PUT …/objecten/{object_id}/beschrijving", [MID, N, OID], '{"versie": "…"} | {"tijdstempel": "…", "bewerkt": false}', 200, False),
     ("delete", OLD_OBJECT + "/beschrijving/geschiedenis", "Verouderd: DELETE …/objecten/{object_id}/beschrijving/geschiedenis/{versie}", [MID, N, OID, _q("versie", "De versie uit de geschiedenis")], None, 200, False),
     ("post", "/bestand/{mid}/commons/controle", "Verouderd: GET …/commons/controle?objecten=", [MID], '{"objecten": [{pagina, id}]}', 200, False),

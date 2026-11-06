@@ -6,7 +6,7 @@
     :title="state.title || t('confirm.title')"
     :use-close-button="true"
     :close-button-label="t('actions.close')"
-    :primary-action="{ label: state.go || t('confirm.go'), actionType: state.destructive ? 'destructive' : 'progressive' }"
+    :primary-action="{ label: chosen?.go || state.go || t('confirm.go'), actionType: (chosen ? chosen.destructive : state.destructive) ? 'destructive' : 'progressive' }"
     :default-action="{ label: t('actions.cancel') }"
     @primary="answerConfirm(true)"
     @default="answerConfirm(false)"
@@ -40,6 +40,13 @@
         <span>{{ obj.name }}</span>
       </li>
     </ul>
+    <!-- An optional choice: what the button does follows the chosen option. -->
+    <div v-if="state.choices?.length" class="cc-bevestig-keuze" role="radiogroup">
+      <cdx-radio v-for="option in state.choices" :key="option.value" v-model="state.choice" name="cc-bevestig-keuze" :input-value="option.value">
+        {{ option.label }}
+        <template v-if="option.help" #description>{{ option.help }}</template>
+      </cdx-radio>
+    </div>
     <!-- An optional text field; the placeholder (grey) is what is used when it stays empty. -->
     <cdx-field v-if="state.input" class="cc-bevestig-veld" :optional="true" :optional-flag="t('confirm.optional')">
       <cdx-text-input v-model="state.inputValue" :placeholder="state.input.placeholder" @keydown.enter.prevent="answerConfirm(true)" />
@@ -53,11 +60,12 @@
 
 <script setup>
 import { computed } from "vue";
-import { CdxCheckbox, CdxDialog, CdxField, CdxTextInput } from "@wikimedia/codex";
+import { CdxCheckbox, CdxDialog, CdxField, CdxRadio, CdxTextInput } from "@wikimedia/codex";
 import { answerConfirm, confirmState as state, textParts } from "../confirm.js";
 import { useT } from "../i18n.js";
 
 const t = useT();
+const chosen = computed(() => (state.choices || []).find((option) => option.value === state.choice) || null);
 
 // Blocks of the text: an optional **heading** line, then a list ("- " lines) or a paragraph.
 const blocks = computed(() =>

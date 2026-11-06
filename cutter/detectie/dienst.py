@@ -19,6 +19,7 @@ import functools
 import hashlib
 import io
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -51,7 +52,7 @@ def _write_atomic(path, text):
 MAX_TERMS_PER_REQUEST = 20  # search terms in one request (each uncached term is one paid SAM call)
 SAVED_META = ("tijdstempel", "breedte", "hoogte")  # in "opgeslagen", next to the file paths
 # Fields made by the user or paid for, kept when a search returns an object again.
-KEPT_ON_UPDATE = ("bijschrift", "ook", "beschrijving", "commons", "masker", "masker_herkomst", "status")
+KEPT_ON_UPDATE = ("bijschrift", "ook", "beschrijving", "commons", "masker", "masker_herkomst", "status", "wikidata", "label_item")
 
 
 def iou(a, b):
@@ -181,8 +182,11 @@ class DetectionService:
     # -- Detection ---------------------------------------------------------------
 
     @_locked
-    def detect(self, file, n, prompt="", modus="prompt", minscore=0.0, dry_run=False, user=None):
+    def detect(self, file, n, prompt="", modus="prompt", minscore=0.0, dry_run=False, user=None, items=None):
+        """`items` ({English term: Q-id}, backlog 26): a search for a depicts item that is
+        already on Commons; what is found gets that item, so its depicts is known."""
         terms = self.terms(prompt, modus)
+        items = self._check_items(items)
         page = self.client.load_page(file, n)
         plan = self.plan(file, n, terms)
         result = {"modus": modus, "termen": terms, "aanroepen": plan, "detector": self.detector.model, "dry_run": dry_run}
@@ -203,7 +207,11 @@ class DetectionService:
             context = {"image": None}
             found = []
             for term in terms["plus"]:
-                found += self._run_term(file, page, term, context, user)
+                hits = self._run_term(file, page, term, context, user)
+                q = items.get(term["en"].strip().lower()) or items.get(term["term"].strip().lower())
+                if q:
+                    self._link_item(file, hits, q)
+                found += hits
             for term in terms["min"]:
                 excluded += self._run_term(file, page, term, context, user)
             found = [o for o in found if o["score"] is None or o["score"] >= minscore]
@@ -229,6 +237,33 @@ class DetectionService:
             }
         )
         return result
+
+    @staticmethod
+    def _check_items(items):
+        """{term (lower case): Q-id} from the request; a 400 for anything else."""
+        if not items:
+            return {}
+        if not isinstance(items, dict):
+            raise DetectionError("'items' is een object {zoekterm: Q-id}.", status=400, code="invalid_body")
+        checked = {}
+        for term, q in items.items():
+            if not isinstance(term, str) or not isinstance(q, str) or not re.fullmatch(r"Q\d+", q):
+                raise DetectionError(f"Ongeldig item bij '{term}': geef een Q-id, bijv. Q144.", status=400, code="invalid_body")
+            checked[term.strip().lower()] = q
+        return checked
+
+    @staticmethod
+    def _link_item(file, hits, q):
+        """Give found objects the depicts item they were searched for, with its labels."""
+        # The label as the file shows it (sdc summary: Dutch, else English); the raw
+        # labels are not kept when the file comes from the cache.
+        statement = next((st for st in (file.get("sdc") or {}).get("beeldt_af", []) if st.get("waarde") == q), {})
+        name = ((file.get("_labels") or {}).get(q) or {}).get("nl") or statement.get("label")
+        for obj in hits:
+            obj["wikidata"] = q
+            if name and name != q:
+                obj["label_item"] = name  # stored; label_nl is for display only
+            obj.setdefault("herkomst", {})["item"] = q
 
     def _run_term(self, file, page, term, context, user):
         """Objects for one English term: from the cache or from the detector."""
@@ -389,6 +424,26 @@ class DetectionService:
         obj["masker_herkomst"] = {**found.herkomst, "bron": found.bron}
         self._write_store(file, n, store)
         return {"object": self.public(file, n, obj), "budget": self.verbruik.status(user)}
+
+    @_locked
+    def remove_shape(self, file, n, object_id):
+        """Undo "Shape with SAM" (refine_mask): the object loses SAM's mask and gets
+        its own rectangle back (a region from Commons: the region as on Commons).
+        Free; nothing changes on Commons. Only for an object whose shape came that way."""
+        store = self._load_store(file, n)
+        obj = next((o for o in store["objecten"] if o["id"] == object_id), None)
+        if obj is None:
+            raise DetectionError(f"Object '{object_id}' niet gevonden.", status=404, code="not_found")
+        if not obj.get("box_regio") or not obj.get("masker"):
+            raise DetectionError("Dit object heeft geen vorm van SAM bij een rechthoek om weg te halen.", status=409, code="no_shape")
+        relative = (obj.get("masker") or {}).get("bestand")
+        obj["box"] = obj.pop("box_regio")
+        obj["masker"] = None
+        obj.pop("masker_herkomst", None)
+        self._write_store(file, n, store)
+        if relative:
+            (self._store_path(file, n).parent / relative).unlink(missing_ok=True)
+        return {"object": self.public(file, n, obj)}
 
     @staticmethod
     def _clamp(box, page):
@@ -1003,7 +1058,7 @@ class DetectionService:
         )
         base = f"/api/v1/bestand/{file['mid']}/pagina/{n}/objecten/{obj['id']}"
         public["bronnen"] = _sources(obj)
-        public["label_nl"] = obj.get("label_nl") or (obj["label"] if obj.get("bron") == "commons" else prompts.dutch(obj.get("label")))
+        public["label_nl"] = obj.get("label_nl") or obj.get("label_item") or (obj["label"] if obj.get("bron") == "commons" else prompts.dutch(obj.get("label")))
         public["masker_url"] = f"{base}/masker.png"
         public["uitsnede_url"] = f"{base}/uitsnede.jpg"
         public["uitsnede_png_url"] = f"{base}/uitsnede.png"

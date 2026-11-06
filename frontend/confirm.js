@@ -7,6 +7,9 @@ export const confirmState = reactive({
   // Optional: objects the question is about ({image, name}), shown as a list with thumbnails;
   // and a text field ({label, placeholder, help}) whose value askConfirmValue() returns.
   objects: [], input: null, inputValue: "",
+  // Optional: a choice ({value, label, help, go, destructive}); the chosen one sets the
+  // button, and askConfirmValue() returns it as `choice`.
+  choices: [], choice: "",
 });
 
 /* "Niet meer vragen": a question with a dontAsk key can be switched off for
@@ -42,8 +45,8 @@ export function askConfirm(text, options = {}) {
 }
 
 // Resolves to {ok, value}: with `input`, value is what was typed in the field ("" if nothing).
-export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], input = null, store = session() } = {}) {
-  if (skipped(dontAsk, store)) return Promise.resolve({ ok: true, value: "" });
+export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], input = null, choices = [], store = session() } = {}) {
+  if (skipped(dontAsk, store)) return Promise.resolve({ ok: true, value: "", choice: choices[0]?.value || "" });
   if (confirmState.resolve) confirmState.resolve(false); // a newer question replaces an open one
   return new Promise((resolve) => {
     Object.assign(confirmState, {
@@ -58,6 +61,8 @@ export function askConfirmValue(text, { title = "", go = "", destructive = false
       objects,
       input,
       inputValue: "",
+      choices,
+      choice: choices[0]?.value || "",
       resolve: (answer) => {
         // Only a "yes" with the box ticked switches the question off.
         if (answer && confirmState.dontAsk && confirmState.dontAskChecked) {
@@ -68,9 +73,10 @@ export function askConfirmValue(text, { title = "", go = "", destructive = false
           }
         }
         const value = confirmState.input ? confirmState.inputValue.trim() : "";
+        const choice = confirmState.choices.length ? confirmState.choice : "";
         confirmState.open = false;
         confirmState.resolve = null;
-        resolve({ ok: answer, value });
+        resolve({ ok: answer, value, choice });
       },
     });
   });

@@ -95,6 +95,7 @@
           :trash-terms="trashTerms"
           :last-result="lastResult"
           @dismiss-result="lastResult = null"
+          @read-again="readAgain"
           :point-mode="pointMode"
           @detect="detect"
           @inventory="askInventory(Boolean(inventory), $event?.deel || null, $event?.detailniveau, $event?.beschrijvingsniveau)"
@@ -408,6 +409,22 @@ async function openFile(text) {
   }
 }
 
+// Read the open file from Commons again (the app keeps what it read for a day), e.g.
+// after adding a caption or depicts there. Free; the page and its objects stay.
+async function readAgain() {
+  if (!file.value) return;
+  busy.value = true;
+  try {
+    file.value = await post(`${API}/bestand/${file.value.mid}/opnieuw-lezen`, {});
+    await goToPage(pageN.value);
+    notify("success", t("panel.commons_read_again_done"));
+  } catch (error) {
+    fail(error);
+  } finally {
+    busy.value = false;
+  }
+}
+
 // Open a file from the list Bekeken within the app (no page reload), on the page that was open.
 function openFromHistory(entry) {
   if (loadingFile.value) return;
@@ -473,8 +490,11 @@ async function detect(request) {
   busy.value = true;
   try {
     if (request.modus !== "commons") {
-      const estimate = await get(`${base}/detecties/raming${query(request)}`);
-      const action = request.modus === "prompt" ? t("confirm.action_detect", { terms: request.prompt }) : t("confirm.action_detect_all");
+      const { items, ...asked } = request; // items (Q-ids) do not change the cost
+      const estimate = await get(`${base}/detecties/raming${query(asked)}`);
+      // The terms as a list (scrolls when long, wish Olaf): one per line.
+      const termList = String(request.prompt || "").split(",").map((term) => term.trim()).filter(Boolean).map((term) => `- ${term}`).join("\n");
+      const action = request.modus === "prompt" ? t("confirm.action_detect", { terms: termList }) : t("confirm.action_detect_all");
       if (!(await confirmCost(estimate.aanroepen.betaald, estimate.aanroepen.betaald * props.config.sam_usd, action))) return;
     }
     const result = await post(`${base}/detecties`, request);
@@ -767,19 +787,46 @@ function hoverObject(id, on) {
 
 // To the trash: first a confirmation that says where the trash is, afterwards
 // a notice with Undo and a link to the trash (/objecten, tab Prullenbak).
+// Remove only the shape SAM gave a rectangle: the object stays, with its own rectangle
+// (for a region: the one on Commons). Free; nothing changes on Commons.
+async function removeShape(id) {
+  try {
+    const result = await del(`${objectPath(file.value.mid, pageN.value, id)}/vorm`);
+    objects.value = objects.value.map((o) => (o.id === id ? result.object : o));
+    notify("success", t("objects.shape_removed", { name: objectName(result.object, props.config.taal, t) }));
+  } catch (error) {
+    fail(error);
+  }
+}
+
 async function trashObject(id) {
-  const ok = await askConfirm(t("objects.trash_confirm"), {
-    title: t("objects.trash"),
+  const target = objects.value.find((o) => o.id === id);
+  // A region from Commons, or a rectangle with a shape from SAM: say what the trash does
+  // and does not do, and offer to remove only SAM's shape (wish Olaf, 6-11-2026).
+  const fromCommons = target?.bron === "commons";
+  const shaped = Boolean(target?.box_regio && target?.masker);
+  const links = { ...objectsLinks(), ...(fromCommons ? { commons: { href: `https://commons.wikimedia.org/wiki/${encodeURIComponent((file.value.titel || "").replace(/ /g, "_"))}#P180`, label: t("objects.trash_commons_link") } } : {}) };
+  const choices = shaped
+    ? [
+        { value: "vorm", label: t("objects.trash_choice_shape"), help: t(fromCommons ? "objects.trash_choice_shape_help_commons" : "objects.trash_choice_shape_help"), go: t("objects.trash_shape_go"), destructive: false },
+        { value: "prullenbak", label: t("objects.trash_choice_object"), help: t("objects.trash_choice_object_help"), go: t("objects.trash"), destructive: true },
+      ]
+    : [];
+  const text = [t("objects.trash_confirm"), fromCommons ? t("objects.trash_confirm_commons") : ""].filter(Boolean).join("\n\n");
+  const answer = await askConfirmValue(shaped ? t(fromCommons ? "objects.trash_shape_intro_commons" : "objects.trash_shape_intro") + (fromCommons ? "\n\n" + t("objects.trash_confirm_commons") : "") : text, {
+    title: shaped ? t("objects.trash_shape_title") : t("objects.trash"),
     go: t("objects.trash"),
     destructive: true,
-    links: objectsLinks(),
+    links,
+    choices,
     // Always asked (wish Olaf), with the object itself in the question; no "don't ask again".
-    objects: (() => {
-      const obj = objects.value.find((o) => o.id === id);
-      return obj ? [shownObject(obj)] : [];
-    })(),
+    objects: target ? [shownObject(target)] : [],
   });
-  if (!ok) return;
+  if (!answer.ok) return;
+  if (answer.choice === "vorm") {
+    await removeShape(id);
+    return;
+  }
   const n = pageN.value;
   const mid = file.value.mid; // Undo later restores in this file, also after opening another
   // What the notice shows of the object: taken before it leaves the list.

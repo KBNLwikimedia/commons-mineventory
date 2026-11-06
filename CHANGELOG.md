@@ -3,6 +3,29 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.0] - 2026-11-06
+
+### Toegevoegd
+
+- **Uit Commons gebruikt alles wat het bestand al heeft** (backlog 26, FO 7.5, wens Olaf): de captions op Commons (alleen lezen) en de *beeldt af* (P180) zonder regio als chips. Een klik laat de AI-beelddetectie dat item zoeken (betaald, met bedrag en bevestiging); wat gevonden wordt, krijgt meteen dat Wikidata-item, dus ook als *beeldt af* in het Commons-concept. Het zoekwoord (het Engelse label) is per item aan te passen met het potloodje; aanvinken en *Alle items detecteren* zoals bij de zoektermen. Uitleg dat de app alleen aanvult, met een link naar de gegevens op Commons.
+- De bestaande captions en *beeldt af*-items gaan mee als context als de AI de afbeelding beschrijft. Een AI-zoekterm voor iets wat al als *beeldt af* op Commons staat, krijgt het merkje *op Commons*.
+- API: `items` ({zoekterm: Q-id}) bij `POST …/detecties`.
+- Ook bij de AI-zoektermen in *AI-suggesties voor deze afbeelding* pas je het zoekwoord aan met een potloodje (wens Olaf): de chip toont dan je eigen woord, de tooltip zegt waarmee gezocht is, en *Alle objecten detecteren* gebruikt het ook. Per bestand en pagina onthouden in de browser; leeg zet het terug.
+- **Prullenbak met keuze** bij een object met een vorm van SAM bij een rechthoek, zoals een regio uit Commons na *Vorm met SAM* (wens Olaf): *Alleen de vorm van SAM* (gratis; het object houdt zijn rechthoek, bij een regio die van Commons) of *Het hele object naar de prullenbak*. Bij een regio uit Commons zegt het venster altijd dat er op Commons niets verandert, met een link: weghalen of aanpassen doe je op Commons zelf. API: `DELETE …/objecten/{id}/vorm`.
+- **Opnieuw lezen van Commons** in *Uit Commons* (wens Olaf, na het toevoegen van een Engelse caption): de app bewaart wat hij van Commons leest een dag; de link leest het bestand opnieuw. Gratis, alleen lezen. API: `POST /bestand/{mid}/opnieuw-lezen`.
+
+### Gewijzigd
+
+- Zoekchips (AI-zoektermen en *beeldt af*-items) kleuren na het zoeken: groen met het aantal als er iets op de afbeelding staat, grijs met een 0 als er gezocht is maar niets gevonden (wens Olaf). Welke woorden gezocht zijn, onthoudt de browser per bestand en pagina.
+- In het kostenvenster van de AI-beelddetectie staan de zoektermen als opsomming; een lange lijst scrolt, zodat het venster nooit hoger wordt dan het scherm (wens Olaf).
+- *Uit Commons* heeft drie uitklapblokken, zoals *AI-suggesties voor deze afbeelding*: *Captions op Commons*, *Regio's en notities* en *Beeldt af, zonder regio* (wens Olaf).
+- De uitleg bij *Beeldt af, zonder regio* is een opsomming; de link heet *Toon de 'beeldt af'-verklaringen op Commons* (wens Olaf).
+- Heeft het bestand gegevens op Commons, dan is *Uit Commons* open en zijn de andere blokken van *Beschrijven en vinden* dicht (wens Olaf); zonder zulke gegevens zijn de AI-suggesties open. *Uit Commons* verschijnt ook zonder regio's, als er een caption of *beeldt af* is.
+
+### Opgelost
+
+- De schakelaar *Kaders* verborg het gele kader van een geselecteerde regio uit Commons niet, en ook niet de naam erbij; nu wel (de naam blijft met *Namen* aan). Na *Vorm met SAM* staat er één kader, dat van SAM (wens Olaf).
+
 ## [0.32.12] - 2026-11-06
 
 ### Gewijzigd

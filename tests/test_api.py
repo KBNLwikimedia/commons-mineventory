@@ -593,3 +593,64 @@ def test_completion_subject_never_an_internal_label():
     assert subject({"label": "klik", "naam": "lute"}) == "lute"
     assert subject({"label": "rechthoek", "bijschrift": {"tekst": "Een luit"}}) == "Een luit"
     assert subject({"label": "lute"}) == "lute"
+
+
+def test_detect_a_depicts_item_links_the_found_objects(http):
+    """Backlog 26: a search for a depicts item already on Commons gives what is found that item."""
+    result = http.post(PAGE + "/detecties", json={"prompt": "church", "items": {"Church": "Q16970"}}).get_json()
+    fresh = [o for o in result["objecten"] if o["id"] in result["nieuw"]]
+    assert fresh and all(o["wikidata"] == "Q16970" for o in fresh)
+    concept = http.get(f"{PAGE}/objecten/{fresh[0]['id']}/commons").get_json()
+    assert concept["beeldt_af"][0]["q"] == "Q16970"
+    bad = http.post(PAGE + "/detecties", json={"prompt": "church", "items": {"church": "kerk"}})
+    assert bad.status_code == 400 and bad.get_json()["code"] == "invalid_body"
+
+
+def test_detect_a_depicts_item_takes_its_dutch_label(http):
+    result = http.post(BOOK + "/detecties", json={"prompt": "saint", "items": {"saint": "Q179718"}}).get_json()
+    fresh = [o for o in result["objecten"] if o["id"] in result["nieuw"]]
+    assert fresh and all(o["wikidata"] == "Q179718" for o in fresh)
+    assert all(o["label_nl"] == "Catharina van Alexandrië" for o in fresh), [o["label_nl"] for o in fresh]
+    # Stored, not only shown: the concept (read back from the page store) has the Dutch label.
+    concept = http.get(f"{BOOK}/objecten/{fresh[0]['id']}/commons").get_json()
+    assert concept["beeldt_af"][0] == {"q": "Q179718", "label": "Catharina van Alexandrië"}
+
+
+def test_remove_only_the_sam_shape_of_a_region(http):
+    """The trash choice for a region with a SAM shape: remove only the shape (free)."""
+    regions = http.post(BOOK + "/detecties", json={"modus": "commons"}).get_json()["objecten"]
+    region = next(o for o in regions if o["bron"] == "commons")
+    original = region["box"]
+    shaped = http.post(BOOK + "/detecties", json={"masker_voor": region["id"]}).get_json()["object"]
+    assert shaped["masker"] and shaped["box_regio"] == original
+    back = http.delete(f"{BOOK}/objecten/{region['id']}/vorm").get_json()["object"]
+    assert back["masker"] is None and back["box"] == original and "box_regio" not in back
+    again = http.delete(f"{BOOK}/objecten/{region['id']}/vorm")
+    assert again.status_code == 409 and again.get_json()["code"] == "no_shape"
+
+
+def test_read_a_file_again_from_commons(http, app):
+    """A POST (it replaces the cache) that reads the file again; GET stays from the cache."""
+    first = http.get(f"/api/v1/bestand/{BOOK_OF_HOURS_MID}").get_json()
+    again = http.post(f"/api/v1/bestand/{BOOK_OF_HOURS_MID}/opnieuw-lezen", json={})
+    assert again.status_code == 200 and again.get_json()["mid"] == first["mid"]
+    assert again.get_json()["sdc"]["captions"] == first["sdc"]["captions"]
+    assert http.get(f"/api/v1/bestand/{BOOK_OF_HOURS_MID}/opnieuw-lezen").status_code == 405
+
+
+def test_fresh_reads_skip_the_cache():
+    from cutter.commons import CommonsClient
+
+    asked = []
+
+    class Fetcher:
+        def get(self, url, max_age=None, store=True):
+            asked.append(max_age)
+            return b'{"query": {}}'
+
+    client = CommonsClient(Fetcher(), max_age=86400)
+    client._json({"titles": "File:X.jpg"})
+    with client.fresh():
+        client._json({"titles": "File:X.jpg"})
+    client._json({"titles": "File:X.jpg"})
+    assert asked == [86400, 0, 86400]

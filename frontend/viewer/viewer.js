@@ -156,7 +156,7 @@ export class PageViewer {
         const label = document.createElementNS(SVG_NS, "text");
         label.setAttribute("x", obj.box.x + 4);
         label.setAttribute("y", obj.box.y + 4);
-        label.setAttribute("class", "object-naam");
+        label.setAttribute("class", "object-naam object-naam-commons");
         label.textContent = this.label(obj) || obj.label_nl || obj.label;
         group.append(label);
       } else if (this.showLabels) {

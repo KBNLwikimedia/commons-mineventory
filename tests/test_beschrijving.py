@@ -414,3 +414,21 @@ def test_caption_level_never_longer_than_250():
     capped = cap_caption(words)
     assert len(capped) <= CAPTION_MAX and capped.endswith("…")
     assert cap_caption("Kort.") == "Kort."
+
+
+def test_commons_context_lists_captions_and_depicts():
+    from cutter.beschrijving import commons_context
+
+    file = {"sdc": {
+        "captions": {"nl": "De Pieterskerk  in Leiden", "en": ""},
+        "beeldt_af": [
+            {"soort": "item", "waarde": "Q144", "label": "hond", "label_en": "dog"},
+            {"soort": "item", "waarde": "Q144", "label": "hond", "label_en": "dog"},
+            {"soort": "item", "waarde": "Q16970", "label": "kerk", "label_en": None},
+            {"soort": "somevalue", "waarde": "?", "label": "?"},
+        ],
+    }}
+    text = commons_context(file)
+    assert "- caption (nl): De Pieterskerk in Leiden" in text and "(en)" not in text
+    assert "- depicts: dog, kerk" in text
+    assert commons_context({}) == ""

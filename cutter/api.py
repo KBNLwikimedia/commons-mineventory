@@ -187,6 +187,14 @@ def get_file(mid):
     return jsonify(_file_resource(_file(mid)))
 
 
+@api.post("/bestand/<mid>/opnieuw-lezen")
+def read_file_again(mid):
+    """Read the file from Commons again instead of from the cache (which keeps it a day),
+    e.g. after adding a caption or depicts there. Free; only reads Commons."""
+    with _client().fresh():
+        return jsonify(_file_resource(_file(mid)))
+
+
 @api.get("/bestand/<mid>/pagina/<int:n>")
 def get_page(mid, n):
     """Page size, objects, and how many regions Commons has (7.5)."""
@@ -276,7 +284,7 @@ def create_detection(mid, n):
             _require_paid_access(paid and service.plan(file, n, service.terms(body.get("prompt", ""), modus))["betaald"])
         result = service.detect(
             file, n, prompt=body.get("prompt", ""), modus=modus,
-            minscore=_minscore(body.get("minscore")), user=_user(),
+            minscore=_minscore(body.get("minscore")), user=_user(), items=body.get("items"),
         )
     return jsonify(result), 201
 
@@ -529,6 +537,13 @@ def completion_make(mid, n, object_id):
     body = _body()
     result = _completions().complete(_page_file(mid, n), n, object_id, again=bool(body.get("opnieuw")), user=_user())
     return jsonify(result), 201
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/vorm")
+def shape_remove(mid, n, object_id):
+    """Remove the shape SAM gave a rectangle (a region from Commons or a drawn one):
+    the object gets its own rectangle back. Free; nothing changes on Commons."""
+    return jsonify(_service().remove_shape(_page_file(mid, n), n, object_id))
 
 
 @api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
