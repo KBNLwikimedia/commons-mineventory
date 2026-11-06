@@ -3,6 +3,27 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.6] - 2026-11-06
+
+### Toegevoegd
+
+- Ontwerpvoorstel om het tabblad *Wat staat hierop?* opnieuw in te delen met vier subtabbladen (*Antwoord*, *AI-prompt en bijsturing*, *Beeldt af (P180)*, *Eerder*), met schets en open vragen: `docs/ontwerp-wat-is-dit.md`, backlog 12h. Wacht op akkoord van Olaf; ook op de projectsite.
+- In de vergroter zijn de uitsnede en de AI-aangevulde versie te zoomen en te verschuiven zoals in de hoofdviewer: knoppen, een schuif, het muiswiel en slepen, *Ware grootte* en *Passend* (wens Olaf, `ZoomImage.vue`, met dezelfde viewer-module).
+
+### Gewijzigd
+
+- Een groep beschrijven: de opdracht beweegt mee met *Ruimte rond de uitsnede* (melding Olaf). Zonder ruimte: *negeer alles wat verder te zien is*; met ruimte: *beschrijf alleen deze objecten als onderwerp, en gebruik de omgeving alleen als context, bijvoorbeeld een onderschrift*. Zo werkt de schuif weer. Met de schakelaar *Alleen deze objecten* (standaard aan) zet je de groepsopdracht uit; dan beschrijft de AI de groep als een gewone uitsnede. API: `alleen_groep` bij POST `…/beschrijving`.
+- Een groep beschrijven: de eerdere beschrijvingen van de objecten erin gaan mee als context (wens Olaf): per object het onderwerp en de beschrijving in het Engels, en de tekst die erin en eromheen gelezen is, gemarkeerd als eerdere AI-antwoorden die fout kunnen zijn. Ze staan ook in de rij *AI-prompt*. Een antwoord van voordat een object beschreven was, wordt niet hergebruikt.
+- Het grote venster (*groot bekijken*) gebruikt zijn hele hoogte voor het beeld, zodat *Passend* bij het openen het beeld echt passend maakt; eerst bleef het beeldvlak laag en het beeld klein (melding Olaf).
+- In het grote venster staat boven de tekstvelden: *Heeft de AI tekst gemist, of las hij iets verkeerd? Vul het hier zelf in of verbeter het, met Bewerken.* (wens Olaf).
+- De link onder *wat de AI ziet* zegt nu waar het om gaat (vraag Olaf): *groot bekijken en de tekst die de AI las (2) controleren* als de AI tekst in of rond het beeld las, *groot bekijken; de AI las geen tekst* als dat niet zo is (met uitleg dat je gemiste tekst daar zelf invult), en alleen *groot bekijken* vóór de eerste beschrijving.
+- De automatische opdracht bij het beschrijven van een groep is nu zichtbaar (vraag Olaf): bij *AI-bijsturing* (*AI modifiers*) staat de **AI-prompt** die de app zelf toevoegt, cursief, met de objecten als pillen, als rij zoals *Bijschrift*, altijd zichtbaar in het tabblad *Wat staat hierop?* (wens Olaf), en onder het antwoord staat waarnaar gekeken is. Onder de uitsnede staat bij *Bron* waaruit de groep bestaat.
+- Het venster *Groep opheffen* noemt de objecten zoals de lijst ze noemt (uit hun beschrijving of bijschrift), niet meer met hun korte zoekterm (melding Olaf). De namen zelf gingen nooit verloren: na het opheffen staan ze in de lijst zoals voor het groeperen.
+- De AI-aangevulde versie heeft een doorzichtige achtergrond op een schaakbord, zoals de uitsnede: het wit dat met de rand verbonden is, wordt doorzichtig; wit binnen het onderwerp en alles binnen de vorm van de uitsnede blijft (wens Olaf). Ook de download is doorzichtig.
+- Een groep aanvullen met AI: het onderwerp in de vraag aan Muse Image is de beschrijving of de naam van de groep, of anders de namen van de objecten erin, niet meer het woord *groep*.
+- In het tabblad *AI-aangevuld* staat ook de **AI-prompt**, precies zoals die naar Muse Image ging (in het Engels; nu bewaard als `prompt`), cursief met het onderwerp als pil. Dat de app daarna de witte achtergrond doorzichtig maakt, staat er los onder, want dat hoort niet bij de prompt (wens Olaf).
+- In het tabblad *AI-aangevuld* staan *Bron* en *Resolutie* in dezelfde stijl als onder de uitsnede (wens Olaf).
+
 ## [0.32.5] - 2026-11-06
 
 ### Toegevoegd

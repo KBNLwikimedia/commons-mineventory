@@ -57,11 +57,20 @@
             <p class="cc-klein">{{ t("magnifier.loading") }}</p>
           </div>
           <cdx-message v-else-if="imageState === 'error'" type="error" :inline="true">{{ t("magnifier.load_error") }}</cdx-message>
-          <img v-show="imageState === 'loaded'" :src="imageUrl" :alt="name" @load="imageState = 'loaded'" @error="imageState = 'error'" />
+          <zoom-image
+            v-show="imageState !== 'error'"
+            :class="{ 'cc-onzichtbaar': imageState === 'loading' }"
+            :src="imageUrl"
+            :width="object.box.w"
+            :height="object.box.h"
+            :alt="name"
+            @load="imageState = 'loaded'"
+            @error="imageState = 'error'"
+          />
         </div>
         <dl class="cc-gegevens">
           <dt>{{ t("magnifier.source") }}</dt>
-          <dd>{{ t(`source.${object.bron}`) }} <ai-badge v-if="object.bron === 'sam'" kind="detectie" :model="object.herkomst?.model || config.sam_model" :score="object.score" /><template v-if="object.wikidata"> · <a :href="`https://www.wikidata.org/wiki/${object.wikidata}`" target="_blank" rel="noopener">{{ object.wikidata }}</a></template></dd>
+          <dd>{{ t(`source.${object.bron}`) }}<template v-if="groupNames">: {{ groupNames }}</template> <ai-badge v-if="object.bron === 'sam'" kind="detectie" :model="object.herkomst?.model || config.sam_model" :score="object.score" /><template v-if="object.wikidata"> · <a :href="`https://www.wikidata.org/wiki/${object.wikidata}`" target="_blank" rel="noopener">{{ object.wikidata }}</a></template></dd>
           <dt>{{ t("magnifier.box") }}</dt>
           <dd>{{ object.box.x }}, {{ object.box.y }} · {{ object.box.w }} × {{ object.box.h }} px</dd>
           <template v-if="savedInfo">
@@ -136,14 +145,30 @@
           <h4>{{ t("completion.title") }} <ai-badge kind="aanvulling" :model="object.aangevuld.model" /></h4>
           <cdx-message type="warning" :inline="true">{{ t("completion.warning") }}</cdx-message>
           <cdx-toggle-switch v-model="showFilled" class="cc-aanvulling-schakelaar">{{ t("completion.show_filled") }}</cdx-toggle-switch>
-          <div class="cc-aanvulling-beeld">
-            <span class="cc-aanvulling-stapel">
-              <img :src="`${base}/aangevuld.png?v=${object.aangevuld.sleutel}`" :alt="t('completion.title')" />
-              <img v-if="showFilled" class="cc-aanvulling-laag" :src="`${base}/aangevuld-ingevuld.png?v=${object.aangevuld.sleutel}`" alt="" />
-            </span>
+          <div class="cc-vergroter-beeld">
+            <zoom-image
+              :src="`${base}/aangevuld.png?v=${object.aangevuld.sleutel}`"
+              :width="object.aangevuld.afmetingen?.[0] || object.box.w"
+              :height="object.aangevuld.afmetingen?.[1] || object.box.h"
+              :alt="t('completion.title')"
+              :overlay="showFilled ? `${base}/aangevuld-ingevuld.png?v=${object.aangevuld.sleutel}` : ''"
+            />
           </div>
           <p v-if="showFilled" class="cc-uitleg"><span class="cc-aanvulling-staal"></span> {{ t("completion.filled_help") }}</p>
-          <p class="cc-uitleg">{{ t("completion.made", { model: object.aangevuld.model, subject: object.aangevuld.onderwerp, size: (object.aangevuld.afmetingen || []).join(" × "), cutout: `${Math.round(object.box.w)} × ${Math.round(object.box.h)}` }) }}</p>
+          <dl class="cc-gegevens">
+            <dt>{{ t("magnifier.source") }}</dt>
+            <dd>{{ t("completion.source") }} <ai-badge kind="aanvulling" :model="object.aangevuld.model" /></dd>
+            <dt>{{ t("completion.resolution") }}</dt>
+            <dd>
+              {{ (object.aangevuld.afmetingen || []).join(" × ") }} px
+              <span class="cc-klein">{{ t("completion.cutout_size", { size: `${Math.round(object.box.w)} × ${Math.round(object.box.h)}` }) }}</span>
+            </dd>
+            <dt>{{ t("describe.group_prompt") }}</dt>
+            <dd class="cc-groep-prompt">
+              <em><template v-for="(part, i) in completionPrompt" :key="i"><span v-if="part.pill" class="cc-groep-pillen"><cdx-info-chip>{{ part.text }}</cdx-info-chip></span><template v-else>{{ part.text }}</template></template></em>
+            </dd>
+          </dl>
+          <p class="cc-uitleg">{{ t("completion.after") }}</p>
           <div class="cc-knoppen">
             <cdx-button action="progressive" @click="downloadCompletion"><cdx-icon :icon="cdxIconDownload" /> PNG</cdx-button>
             <cdx-button action="progressive" weight="quiet" @click="viewCompletion"><cdx-icon :icon="cdxIconLinkExternal" /> {{ t("completion.view") }}</cdx-button>
@@ -256,6 +281,30 @@
         <!-- The image moves to the AI modifiers while they are open, beside the slider (see glidePreview). -->
         <cutout-preview v-if="!previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" :large="largeInputUrl" :lightbox-title="name" :texts="readTexts" @save-text="saveTexts({ [$event.key]: $event.value })" />
         </div>
+
+        <!-- A group: the prompt the app adds itself to every question about it (7.4). -->
+        <dl v-if="groupNames" class="cc-gegevens cc-groep-opdracht">
+          <dt>{{ t("describe.group_prompt") }}</dt>
+          <dd class="cc-groep-prompt">
+            <!-- On: the AI looks at the members only (with space around: the surroundings as context). -->
+            <cdx-toggle-switch v-model="groupOnly" class="cc-groep-schakelaar">{{ t("describe.group_only") }}</cdx-toggle-switch>
+            <template v-if="groupOnly">
+            <em>{{ groupFocus[0] }}<span class="cc-groep-pillen"><cdx-info-chip v-for="(member, i) in groupMemberNames" :key="i">{{ member }}</cdx-info-chip></span>{{ groupFocus[1] }}</em>
+            <!-- What the members were described as before, alone: goes along as context. -->
+            <template v-if="groupContext.length">
+              <br /><em>{{ t("describe.group_context") }}</em>
+              <ul class="cc-groep-context">
+                <li v-for="(member, i) in groupContext" :key="i">
+                  <cdx-info-chip>{{ member.name }}</cdx-info-chip> <em>{{ member.text }}</em>
+                  <em v-if="member.inText"> {{ t("describe.group_context_in") }}: “{{ member.inText }}”.</em>
+                  <em v-if="member.around"> {{ t("describe.group_context_around") }}: “{{ member.around }}”.</em>
+                </li>
+              </ul>
+            </template>
+            </template>
+            <span v-else class="cc-uitleg">{{ t("describe.group_off") }}</span>
+            <br /><span class="cc-uitleg">{{ t("describe.group_prompt_help") }}</span></dd>
+        </dl>
 
         <!-- 2. AI modifiers: steer the next question (hint, and the space around the cut-out). -->
         <cdx-accordion v-model="openModifiers" class="cc-beschrijving-blok" @cc-closing="previewInModifiers = false">
@@ -383,6 +432,7 @@
               <a v-if="part.link" :href="part.link.href" target="_blank" rel="noopener">{{ part.link.label }}</a>
               <template v-else>{{ part.text }}</template>
             </template>
+            <template v-if="description?.alleen_naar"><br />{{ t("describe.group_used", { members: description.alleen_naar }) }}</template>
             <template v-if="description?.aanwijzing"><br />{{ t("describe.hint_used", { hint: description.aanwijzing }) }}</template>
             <template v-if="description && description.kosten_usd != null">
               <br />{{ t("describe.paid", { amount: money(description.kosten_usd, language) }) }}
@@ -409,6 +459,7 @@ import { API, del, errorText, get, objectPath, patch, post, put } from "../api.j
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import BusyNote from "./BusyNote.vue";
+import ZoomImage from "./ZoomImage.vue";
 import SavedLabel from "./SavedLabel.vue";
 import { forgetPlacement, makeMovable } from "../movable.js";
 import { fileName, objectName, savedLabel } from "../state.js";
@@ -495,6 +546,26 @@ watch(previewInModifiers, async () => {
     flyer.remove();
   };
 });
+// A group (7.4): its members by the names of the list, e.g. "cardboard box and Boy in white sailor suit with box".
+const groupMemberNames = computed(() => (props.object.groep?.leden || []).map((m) => objectName(m, language, t)));
+// The members' earlier descriptions that go along with the question (in English, as sent).
+const groupContext = computed(() =>
+  (props.object.groep?.leden || [])
+    .filter((m) => m.beschrijving?.beschrijving_en)
+    .map((m) => ({ name: objectName(m, language, t), text: m.beschrijving.beschrijving_en, inText: m.beschrijving.tekst_in_beeld, around: m.beschrijving.tekst_rond_beeld }))
+);
+// The text around the members, which are shown as pills in between.
+// With space around the cut-out, the sentence lets the AI use the surroundings as context (as the server does).
+const groupFocus = computed(() =>
+  [...t(margin.value > 0 ? "describe.group_focus_context" : "describe.group_focus", { names: "@@names@@" }).split("@@names@@"), ""].slice(0, 2)
+);
+// "Only these objects": switched off, the group is described as a plain cut-out.
+const groupOnly = ref(true);
+const groupNames = computed(() => {
+  const names = groupMemberNames.value;
+  if (!names.length) return "";
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} ${t("describe.and")} ${names[names.length - 1]}`;
+});
 // How much of the surroundings the AI sees, as a share of the box on every
 // side (0-1): what the last description used, else 25 %.
 const DEFAULT_MARGIN = 0.25;
@@ -503,6 +574,7 @@ const margin = ref(props.object.beschrijving?.marge ?? DEFAULT_MARGIN);
 // (shown beside the button and on the folded AI modifiers).
 const modifiersSummary = computed(() => {
   const parts = [];
+  if (props.object.groep && !groupOnly.value) parts.push(t("describe.history_group_off"));
   if (Math.round(margin.value * 100) !== Math.round(DEFAULT_MARGIN * 100)) parts.push(t("describe.history_margin", { pct: Math.round(margin.value * 100) }));
   if (hint.value.trim()) parts.push(t("describe.history_hint", { hint: hint.value.trim() }));
   return parts.join(" · ");
@@ -672,6 +744,7 @@ async function describe(again) {
   error.value = "";
   try {
     const body = { opnieuw: again, marge: margin.value };
+    if (props.object.groep && !groupOnly.value) body.alleen_groep = false;
     if (hint.value.trim()) body.aanwijzing = hint.value.trim();
     const result = await post(`${base.value}/beschrijving`, body);
     emit("changed", result.object);
@@ -922,6 +995,17 @@ function viewFull(kind) {
 // -- AI-completed version (Muse Image, 7.7) --------------------------------------------------
 
 const completing = ref(false);
+// The prompt of the AI-completed version, exactly as it went to the model (in English),
+// with the subject shown as a pill wherever it occurs. Older versions did not keep it:
+// then a summary of it.
+const completionPrompt = computed(() => {
+  const note = props.object.aangevuld;
+  if (!note) return [];
+  const subject = note.onderwerp || "";
+  const text = note.prompt || t("completion.prompt", { subject });
+  if (!subject) return [{ text }];
+  return text.split(subject).flatMap((piece, i) => (i ? [{ text: subject, pill: true }, { text: piece }] : [{ text: piece }])).filter((part) => part.text);
+});
 // The overlay with what the AI filled in, switched on and off (remembered while the magnifier is open).
 const showFilled = ref(false);
 // Another object without an AI-completed version: back to the cut-out tab.

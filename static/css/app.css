@@ -472,9 +472,10 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-voorbeeld-knop:focus-visible { outline: 2px solid var(--color-progressive, #36c); outline-offset: 2px; }
 .cc-voorbeeld-vergroot { position: absolute; right: 4px; bottom: 4px; background: rgba(255, 255, 255, 0.9); border-radius: 2px; padding: 2px; line-height: 0; }
 .cc-lightbox.cdx-dialog { max-width: 96vw; width: 96vw; max-height: 94vh; height: 94vh; }
-.cc-lightbox .cdx-dialog__body { display: flex; flex-direction: column; min-height: 0; }
+/* The body fills the dialog, so the image area is as tall as the window allows and Fit fills it. */
+.cc-lightbox .cdx-dialog__body { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 .cc-lightbox-balk { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-.cc-lightbox-inhoud { flex: 1; min-height: 0; height: calc(94vh - 9.5rem); display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 1rem; }
+.cc-lightbox-inhoud { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 1rem; }
 .cc-lightbox-inhoud.met-teksten { grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem); }
 .cc-lightbox-beeld { min-height: 0; overflow: auto; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; display: flex; }
 .cc-lightbox-beeld .cc-beeld-laden { margin: auto; }
@@ -630,3 +631,23 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-aanvulling-stapel img { max-width: 100%; max-height: 50vh; }
 .cc-aanvulling-stapel .cc-aanvulling-laag { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .cc-aanvulling-staal { display: inline-block; width: 0.9rem; height: 0.9rem; vertical-align: -0.1rem; background: rgba(230, 0, 140, 0.6); border: 1px solid rgb(230, 0, 140); }
+
+/* A zoomable image in the magnifier (ZoomImage.vue): the viewer's toolbar and a checkerboard. */
+.cc-zoombeeld { display: flex; flex-direction: column; text-align: left; }
+.cc-zoombeeld .cc-viewer-balk { background: var(--background-color-base, #fff); }
+.cc-zoombeeld-vlak.viewer { height: 50vh; min-height: 14rem; flex: none; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
+.cc-zoombeeld-vlak .viewer-podium img { width: 100%; height: 100%; }
+.cc-zoombeeld-vlak .cc-zoombeeld-laag { position: absolute; inset: 0; pointer-events: none; }
+.cc-onzichtbaar { visibility: hidden; height: 0; overflow: hidden; }
+.cc-vergroter-beeld .cc-zoombeeld img { max-width: none; max-height: none; }
+.cc-vergroter-beeld:has(.cc-zoombeeld) { background: none; }
+
+/* The instruction the app adds itself when a group is described (7.4). */
+.cc-groep-opdracht { margin-bottom: 0.75rem; }
+.cc-groep-pillen { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0.3rem; vertical-align: middle; }
+.cc-groep-pillen .cdx-info-chip { margin: 0; }
+.cc-groep-prompt em { font-style: italic; }
+.cc-lightbox-teksten-uitleg { margin: 0 0 0.75rem; }
+.cc-groep-context { margin: 0.25rem 0 0; padding-left: 1.1rem; }
+.cc-groep-context li { margin-bottom: 0.2rem; }
+.cc-groep-schakelaar { display: flex; margin: 0 0 0.35rem; }

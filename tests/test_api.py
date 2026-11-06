@@ -467,6 +467,7 @@ def test_group_and_ungroup(http):
     page = http.get(PAGE).get_json()["objecten"]
     assert http.post(PAGE + "/groepen", json={"objecten": [page[0]["id"]]}).status_code == 400
     ids = [o["id"] for o in page[:2]]
+    http.patch(f"{PAGE}/objecten/{ids[0]}", json={"bijschrift": {"tekst": "Boy in white sailor suit with box"}})
     made = http.post(PAGE + "/groepen", json={"objecten": ids})
     assert made.status_code == 201
     group = made.get_json()["object"]
@@ -484,7 +485,10 @@ def test_group_and_ungroup(http):
     # A new search does not put the members back on their own.
     http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "flower, bird"})
     assert not set(ids) & {o["id"] for o in http.get(PAGE).get_json()["objecten"]}
+    # The members keep what names them: the ungroup confirmation names them as the list does.
+    assert any((m.get("bijschrift") or {}).get("tekst") == "Boy in white sailor suit with box" for m in group["groep"]["leden"])
     back = http.delete(f"{PAGE}/groepen/{group['id']}").get_json()["objecten"]
+    assert next(o for o in back if o["id"] == ids[0])["bijschrift"]["tekst"] == "Boy in white sailor suit with box"
     assert set(ids) <= {o["id"] for o in back} and group["id"] not in [o["id"] for o in back]
     assert http.delete(f"{PAGE}/groepen/{ids[0]}").status_code == 400
     # Group all objects of one search term.
@@ -507,6 +511,7 @@ def test_ai_completed_version(http):
     assert made.status_code == 201
     note = made.get_json()["object"]["aangevuld"]
     assert note["model"] == "muse-image-1.0" and note["uit_cache"] is False and note["afmetingen"][0] > 0
+    assert note["onderwerp"] in note["prompt"] and "missing parts" in note["prompt"]
     image = http.get(url + "/aangevuld.png")
     assert image.status_code == 200 and image.data[:4] == b"\x89PNG"
     assert "(AI-augmented).png" in image.headers.get("Content-Disposition", "")
@@ -528,3 +533,27 @@ def test_completion_request_has_no_search():
     Image.new("RGBA", (3000, 1000), (0, 0, 0, 0)).save(buffer, format="PNG")
     sent, size = prepare(buffer.getvalue())
     assert size == "1536x512" and Image.open(io.BytesIO(sent)).getpixel((5, 5)) == (255, 255, 255)
+
+
+
+def test_white_background_keeps_white_inside():
+    import numpy as np
+    from cutter.aanvulling import white_background
+
+    pixels = np.full((60, 80, 3), 255, dtype=np.uint8)
+    pixels[10:50, 20:60] = (90, 60, 30)  # a brown subject
+    pixels[25:35, 35:45] = 255  # with a white patch inside
+    background = white_background(pixels)
+    assert background[0, 0] and background[59, 79]  # the edge is background
+    assert not background[30, 40]  # the white patch inside is not
+    assert not background[15, 25]  # nor the subject
+
+
+
+def test_completion_subject_of_a_group():
+    from cutter.aanvulling import subject
+
+    group = {"label": "groep", "groep": {"leden": [{"label": "cardboard box"}, {"label": "boy", "bijschrift": {"tekst": "Boy in white sailor suit"}}]}}
+    assert subject(group) == "cardboard box and Boy in white sailor suit"
+    assert subject({**group, "groep": {**group["groep"], "naam": "Boy with box"}}) == "Boy with box"
+    assert subject({**group, "beschrijving": {"onderwerp_en": "boy carrying a box"}}) == "boy carrying a box"

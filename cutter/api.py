@@ -562,18 +562,21 @@ def description_plan(mid, n, object_id):
 @api.post("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving")
 def describe_object(mid, n, object_id):
     """"Wat staat hierop?" (paid in live mode, cached). Body: {"model": "auto" |
-    "standaard" | "contributor", "opnieuw": false, "aanwijzing": "…", "marge": 0.25};
-    the optional hint is an extra instruction for the model ("only the boy"),
-    the margin the share of the box shown around it (0-1)."""
+    "standaard" | "contributor", "opnieuw": false, "aanwijzing": "…", "marge": 0.25,
+    "alleen_groep": true}; the optional hint is an extra instruction for the model ("only the
+    boy"), the margin the share of the box shown around it (0-1); for a group, "alleen_groep":
+    false leaves out the instruction to look at its members only."""
     body = _body()
     if not isinstance(body.get("aanwijzing") or "", str):
         raise DetectionError("'aanwijzing' is een tekst.", status=400, code="invalid_body")
+    if not isinstance(body.get("alleen_groep", True), bool):
+        raise DetectionError("'alleen_groep' is true of false.", status=400, code="invalid_body")
     _require_paid_access(_descriptions().vision.betaald)
     file = _page_file(mid, n)
     return jsonify(
         _descriptions().describe(
             file, n, object_id, body.get("model"), again=bool(body.get("opnieuw")), user=_user(),
-            hint=body.get("aanwijzing"), margin=body.get("marge"),
+            hint=body.get("aanwijzing"), margin=body.get("marge"), group_focus=body.get("alleen_groep", True),
         )
     )
 

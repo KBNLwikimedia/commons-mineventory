@@ -67,6 +67,8 @@
         />
       </div>
       <aside v-if="visibleTexts.length" class="cc-lightbox-teksten">
+        <!-- What these fields are for: the AI may have missed text, which you can add here. -->
+        <p v-if="visibleTexts.some((item) => item.key)" class="cc-uitleg cc-lightbox-teksten-uitleg">{{ t("lightbox.texts_help") }}</p>
         <section v-for="item in visibleTexts" :key="item.key || item.label">
           <h3>
             {{ item.label }} <ai-badge v-if="item.ai" kind="beschrijving" :model="item.model || ''" :edited="item.edited" />

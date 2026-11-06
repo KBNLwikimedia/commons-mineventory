@@ -135,10 +135,50 @@ def prepare(png, side=SEND_SIDE):
     return buffer.getvalue(), f"{image.width}x{image.height}"
 
 
+def white_background(pixels, keep=None, side=400):
+    """Where an image on white has its background: the white that is connected to the
+    edge of the image, so white inside the subject (a white chest, a highlight) stays.
+    The connection is worked out on a copy of at most `side` pixels (fast with numpy
+    alone), then applied to the full size. `keep` (a boolean array of the same size)
+    is never background: the shape of the original cut-out. Returns a boolean array."""
+    height, width = pixels.shape[:2]
+    white = pixels.min(axis=2) >= WHITE
+    scale = min(1.0, side / max(width, height))
+    small_size = (max(1, round(width * scale)), max(1, round(height * scale)))
+    small = np.asarray(Image.fromarray(white.astype(np.uint8) * 255, "L").resize(small_size, Image.BOX)) >= 250
+    reached = np.zeros_like(small)
+    reached[0, :], reached[-1, :], reached[:, 0], reached[:, -1] = small[0, :], small[-1, :], small[:, 0], small[:, -1]
+    for _ in range(small.size):  # grow from the edge through white, until nothing changes
+        grown = reached.copy()
+        grown[1:, :] |= reached[:-1, :]
+        grown[:-1, :] |= reached[1:, :]
+        grown[:, 1:] |= reached[:, :-1]
+        grown[:, :-1] |= reached[:, 1:]
+        grown &= small
+        if (grown == reached).all():
+            break
+        reached = grown
+    outside = np.asarray(Image.fromarray(reached.astype(np.uint8) * 255, "L").resize((width, height), Image.NEAREST)) >= 128
+    background = outside & white
+    if keep is not None:
+        background &= ~keep
+    return background
+
+
 def subject(obj):
-    """What the cut-out shows, in English, for the question."""
+    """What the cut-out shows, in English, for the question. A group (7.4) without a
+    description of its own: its own name, else its members, e.g. "cardboard box and boy"."""
     description = obj.get("beschrijving") or {}
-    return description.get("onderwerp_en") or (obj.get("bijschrift") or {}).get("tekst") or obj.get("label_en") or obj.get("label") or "object"
+    own = description.get("onderwerp_en") or (obj.get("bijschrift") or {}).get("tekst")
+    if own:
+        return own
+    group = obj.get("groep")
+    if group:
+        if group.get("naam"):
+            return group["naam"]
+        names = list(dict.fromkeys(subject(m) for m in group.get("leden", [])))
+        return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+    return obj.get("label_en") or obj.get("label") or "object"
 
 
 class CompletionService:
@@ -195,6 +235,7 @@ class CompletionService:
             "sleutel": key,
             "model": MODEL,
             "onderwerp": name,
+            "prompt": prompt,  # exactly what went to the model, to show it
             "prompt_versie": PROMPT_VERSION,
             "afmetingen": dimensions,
             "kosten_usd": cost,
@@ -204,24 +245,40 @@ class CompletionService:
         }
         return {"object": self.objects.set_field(file, n, object_id, "aangevuld", note), "uit_cache": cached, "budget": self.objects.verbruik.status(user)}
 
-    def image(self, file, n, object_id):
-        """The PNG of the AI-completed version; 404 when there is none (or it expired)."""
+    def _completed_path(self, file, n, object_id):
         note = self.objects._find(file, n, object_id).get("aangevuld")
         path = self._path(note["sleutel"]) if note else None
         if not path or not path.exists():
             raise DetectionError("Er is (nog) geen AI-aangevulde versie van dit object.", status=404, code="not_found")
         mark_used(path)
-        return path.read_bytes()
+        return path
+
+    def image(self, file, n, object_id):
+        """The PNG of the AI-completed version with a transparent background, like the
+        cut-out (Muse Image always returns an opaque image on white); 404 when there is
+        none (or it expired). Made once and cached next to the image itself."""
+        completed_path = self._completed_path(file, n, object_id)
+        path = completed_path.with_name(completed_path.stem + "_transparant.png")
+        if path.exists():
+            mark_used(path)
+            return path.read_bytes()
+        completed = Image.open(completed_path).convert("RGB")
+        cutout = Image.open(io.BytesIO(self.objects.saved_file(file, n, object_id, "png"))).convert("RGBA")
+        shape = np.asarray(cutout.getchannel("A").resize(completed.size, Image.BILINEAR)) >= 128
+        background = white_background(np.asarray(completed), keep=shape)
+        rgba = completed.convert("RGBA")
+        rgba.putalpha(Image.fromarray(np.where(background, 0, 255).astype(np.uint8), "L"))
+        buffer = io.BytesIO()
+        rgba.save(buffer, format="PNG", optimize=True)
+        path.write_bytes(buffer.getvalue())
+        return buffer.getvalue()
 
     def filled_overlay(self, file, n, object_id):
         """A transparent PNG, the size of the AI-completed version, that colours what
         the AI filled in: where the cut-out had no shape (outside its mask) and the
         completed version is not white. Approximate: the model draws the whole image
         anew and may shift it a little. Cached next to the completed version."""
-        note = self.objects._find(file, n, object_id).get("aangevuld")
-        completed_path = self._path(note["sleutel"]) if note else None
-        if not completed_path or not completed_path.exists():
-            raise DetectionError("Er is (nog) geen AI-aangevulde versie van dit object.", status=404, code="not_found")
+        completed_path = self._completed_path(file, n, object_id)
         path = completed_path.with_name(completed_path.stem + "_ingevuld.png")
         if path.exists():
             mark_used(path)

@@ -365,3 +365,28 @@ def test_group_is_described_by_its_members_only():
     assert group_members({"label": "cat"}) == ""
     prompt = build_prompt({"naam": "x"}, None, None, None, members)
     assert "Describe only these objects" in prompt and "lemon (1)" in prompt
+
+
+
+def test_group_prompt_carries_the_members_earlier_descriptions():
+    from cutter.beschrijving import build_prompt, group_context, group_members
+
+    group = {"bron": "groep", "groep": {"leden": [
+        {"label": "boy", "beschrijving": {"onderwerp_en": "Boy in white sailor suit with box", "beschrijving_en": "A boy with short red hair in a white sailor suit.", "tekst_rond_beeld": "Buiten"}},
+        {"label": "cardboard box"},
+    ]}}
+    context = group_context(group)
+    assert context == '- Boy in white sailor suit with box: A boy with short red hair in a white sailor suit. Text around it: "Buiten".'
+    prompt = build_prompt({"naam": "x"}, None, None, None, group_members(group), context)
+    assert "Earlier AI descriptions of these objects" in prompt and "they may be wrong" in prompt and context in prompt
+    assert group_context({"groep": {"leden": [{"label": "box"}]}}) == ""
+
+
+
+def test_group_instruction_follows_the_space_around_it():
+    from cutter.beschrijving import build_prompt
+
+    tight = build_prompt({"naam": "x"}, None, None, None, "lemon (1), bunch of grapes (1)", None, False)
+    wide = build_prompt({"naam": "x"}, None, None, None, "lemon (1), bunch of grapes (1)", None, True)
+    assert "ignore everything else" in tight and "use those only as context" not in tight
+    assert "use those only as context" in wide and "ignore everything else" not in wide

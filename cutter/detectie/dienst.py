@@ -591,6 +591,18 @@ class DetectionService:
         self._write_store(file, n, store)
         return {"object": self.public(file, n, group), "objecten": [self.public(file, n, o) for o in kept]}
 
+    def _member(self, file, n, member):
+        """A group member in short, with what its name in the list is made of (the
+        subject of its description, its caption, its label), so it can be named the same."""
+        description = member.get("beschrijving") or {}
+        return {
+            **_summary(member),
+            "label_nl": self.public(file, n, member)["label_nl"],
+            "bijschrift": member.get("bijschrift"),
+            # What names it, and what goes along as context when the group is described.
+            "beschrijving": {k: description[k] for k in ("onderwerp", "onderwerp_en", "beschrijving_en", "tekst_in_beeld", "tekst_rond_beeld") if description.get(k)} or None,
+        }
+
     @_locked
     def ungroup(self, file, n, group_id):
         """Undo a group ("Groep opheffen", 7.4): its members come back as they were;
@@ -953,7 +965,7 @@ class DetectionService:
         if obj.get("groep"):
             # A group: its name from the kind and the number of members; the members only in short.
             info, count = obj["groep"], len(obj["groep"]["leden"])
-            public["groep"] = {"aantal": count, "soort": info.get("soort"), "soort_nl": info.get("soort_nl"), "naam": info.get("naam"), "leden": [{**_summary(m), "label_nl": self.public(file, n, m)["label_nl"]} for m in info["leden"]]}
+            public["groep"] = {"aantal": count, "soort": info.get("soort"), "soort_nl": info.get("soort_nl"), "naam": info.get("naam"), "leden": [self._member(file, n, m) for m in info["leden"]]}
             if info.get("naam"):  # a name given when grouping, in both languages
                 public["label_nl"] = public["label_en"] = info["naam"]
             else:

@@ -134,6 +134,11 @@ Instruction from the user for this question (follow it; it overrides the context
 GROUP_INSTRUCTION = """
 
 This cut-out is a group of several objects that belong together: {members}. Describe only these objects, together; ignore everything else that is visible in the image, also between them."""
+# With space around the cut-out (the margin slider), the surroundings are there to be used:
+# as context, e.g. a caption printed under the picture, not as part of the subject.
+GROUP_INSTRUCTION_CONTEXT = """
+
+This cut-out is a group of several objects that belong together: {members}. Describe only these objects, together, as the subject. The image also shows some of their surroundings: use those only as context, for instance text printed around them (a caption), but do not describe other things as part of the subject."""
 
 
 def group_members(obj):
@@ -146,6 +151,38 @@ def group_members(obj):
         name = " ".join(str(name).split())[:60]
         counts[name] = counts.get(name, 0) + 1
     return ", ".join(f"{name} ({count})" for name, count in counts.items())
+
+
+# What the members of a group were described as before, alone (wish Olaf, 6-11-2026): context
+# for the group as a whole. Marked as earlier answers that may be wrong, so the image counts.
+GROUP_CONTEXT_INSTRUCTION = """
+
+Earlier AI descriptions of these objects, each made of that object on its own (they may be wrong; what you see in the image counts):
+{lines}"""
+MAX_MEMBER_CONTEXT = 400  # characters per member
+MAX_GROUP_CONTEXT = 2400  # characters for all members together
+
+
+def member_context(member):
+    """One member's earlier description as one line of context ("" without one):
+    its subject and description in English, and the text read in and around it."""
+    description = member.get("beschrijving") or {}
+    text = " ".join(str(description.get("beschrijving_en") or "").split())
+    if not text:
+        return ""
+    name = description.get("onderwerp_en") or (member.get("bijschrift") or {}).get("tekst") or member.get("label_en") or member.get("label") or "object"
+    line = f"- {' '.join(str(name).split())[:60]}: {text}"
+    for key, label in (("tekst_in_beeld", "Text in it"), ("tekst_rond_beeld", "Text around it")):
+        read = " ".join(str(description.get(key) or "").split())
+        if read:
+            line += f' {label}: "{read}".'
+    return line[:MAX_MEMBER_CONTEXT]
+
+
+def group_context(obj):
+    """The earlier descriptions of a group's members, one line each; "" when none has one."""
+    lines = [line for line in (member_context(m) for m in (obj.get("groep") or {}).get("leden", [])) if line]
+    return "\n".join(lines)[:MAX_GROUP_CONTEXT]
 
 
 # Earlier descriptions kept per object, newest first, to choose from again.
@@ -453,7 +490,7 @@ def clean_hint(hint):
     return " ".join(str(hint or "").split())[:MAX_HINT]
 
 
-def build_prompt(file, caption=None, hint=None, page_text=None, group=None):
+def build_prompt(file, caption=None, hint=None, page_text=None, group=None, members_context=None, surroundings=False):
     caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
     prompt = INSTRUCTIONS.format(
         kinds=", ".join(KINDS),
@@ -467,7 +504,9 @@ def build_prompt(file, caption=None, hint=None, page_text=None, group=None):
     if page_text:
         prompt += PAGE_TEXT_INSTRUCTION.format(text=page_text)
     if group:
-        prompt += GROUP_INSTRUCTION.format(members=group)
+        prompt += (GROUP_INSTRUCTION_CONTEXT if surroundings else GROUP_INSTRUCTION).format(members=group)
+        if members_context:
+            prompt += GROUP_CONTEXT_INSTRUCTION.format(lines=members_context)
     hint = clean_hint(hint)
     return prompt + HINT_INSTRUCTION.format(hint=hint) if hint else prompt
 
@@ -746,7 +785,7 @@ class DescriptionService:
         path.write_bytes(data)
         return data
 
-    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None):
+    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None, group_focus=True):
         """Describe an object (paid in live mode) and store the answer on it.
         `hint` is an extra instruction from the user for this question;
         `margin` the share of the box shown around it (default MARGIN)."""
@@ -756,9 +795,15 @@ class DescriptionService:
         margin = clean_margin(margin)
         # The text read in the whole image (page overview) goes along as context.
         page_text = self._page_text(file, n)
-        group = group_members(obj)
-        # The members go into the cache key too: an answer from before the group instruction is not reused.
-        path = self._cache_path(file, n, obj, choice["model"], hint + (f"|groep: {group}" if group else ""), margin, page_text)
+        # A group: the instruction to look at its members only, unless switched off ("Only these
+        # objects"); with space around it, the surroundings may serve as context (7.4).
+        group = group_members(obj) if group_focus else ""
+        members_context = group_context(obj) if group else ""
+        surroundings = bool(group) and margin > 0
+        # The members (and what they were described as) go into the cache key too: an answer
+        # from before the group instruction, or from before a member was described, is not reused.
+        key_hint = hint + (f"|groep: {group}" + ("|omgeving" if surroundings else "") if group else "") + (f"|context: {hashlib.sha1(members_context.encode()).hexdigest()[:12]}" if members_context else "")
+        path = self._cache_path(file, n, obj, choice["model"], key_hint, margin, page_text)
         if path.exists() and not again:
             mark_used(path)
             description = json.loads(path.read_text(encoding="utf-8"))
@@ -772,7 +817,7 @@ class DescriptionService:
         with booking:
             page = self.objects.client.load_page(file, n)
             data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
-            prompt = build_prompt(file, self._caption(obj), hint, page_text, group)
+            prompt = build_prompt(file, self._caption(obj), hint, page_text, group, members_context, surroundings)
 
             body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
             tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)

@@ -555,7 +555,7 @@ async function ungroupObject(id) {
   const members = group?.groep?.leden || [];
   const loses = group && (group.bijschrift?.tekst || group.beschrijving || group.opgeslagen);
   const text = t("objects.ungroup_confirm_list", { n: members.length }) + (loses ? `\n\n${t("objects.ungroup_confirm")}` : "");
-  const shown = members.map((m) => ({ image: `${objectPath(file.value.mid, pageN.value, m.id)}/uitsnede.jpg?w=96`, name: props.config.taal === "en" ? m.label : m.label_nl || m.label }));
+  const shown = members.map((m) => ({ image: `${objectPath(file.value.mid, pageN.value, m.id)}/uitsnede.jpg?w=96`, name: objectName(m, props.config.taal, t) })); // the same name as in the list
   if (!(await askConfirm(text, { title: t("objects.ungroup"), go: t("objects.ungroup"), destructive: Boolean(loses), objects: shown }))) return;
   try {
     const result = await del(`${pagePath(file.value.mid, pageN.value)}/groepen/${id}`);
