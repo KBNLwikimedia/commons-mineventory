@@ -3,6 +3,25 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.6] - 2026-11-06
+
+### Opgelost
+
+- Een AI-caption van meer dan 250 tekens (niet gevraagd als Commons-caption) staat niet meer standaard aangevinkt, zodat hij het bewaren van het concept niet blokkeert; de melding noemt de taal.
+- *Concept bewaren* bleef uitgeschakeld met *een caption is langer dan 250 tekens* terwijl je die caption niet had aangepast; nu telt alleen een tekst die echt bewaard wordt.
+- Een AI-zoekterm krijgt op Wikidata bij voorkeur een item met precies die naam, met dezelfde hoofdletters: *lute* gaf eerst *Paris* (bijnaam Lutetia), *lemon* de band *LemON*.
+
+### Toegevoegd
+
+- Tabblad *Captions*: is het AI-voorstel langer dan 250 tekens, dan zegt het venster hoe lang, met *Inkorten tot 250 tekens* (gratis, na de laatste hele zin) en *Commons-caption laten maken door de AI* (betaald, met de gewone bevestiging; de huidige beschrijving gaat naar *Eerdere beschrijvingen*). Het nieuwe voorstel komt meteen in het venster (wens Olaf).
+- Bij *Voorstellen* in het venster een (i) die een regel uitlegt (de bronnen, *met plek* en *zonder plek*, het potloodje en het prullenbakje), en *Alle · Geen · Omkeren* voor de vinkjes (wens Olaf).
+- Een rood prullenbakje per regel in het venster haalt een voorstel weg dat je niet wilt zien (wens Olaf); het blijft weg in het concept (`verborgen`), met *Weer tonen* om het terug te halen.
+- Wijs je een afbeelding van een Wikidata-item aan, dan verschijnt er een grotere versie naast (wens Olaf).
+- Een Wikidata-item zonder afbeelding krijgt een grijs vakje *Geen afbeelding* in plaats van een lege plek (wens Olaf).
+- Ook bij *Zoektermen zonder gevonden object* staan de afbeelding (P18) en de beschrijving van het Wikidata-item, en een potloodje om een ander item te kiezen (wens Olaf).
+- Het venster *Gestructureerde gegevens van deze afbeelding* is te verslepen (aan de titelbalk) en van grootte te veranderen (aan de randen en hoeken), zoals de vergroter; dubbelklik op de titelbalk zet het terug (wens Olaf).
+- In het venster *Gestructureerde gegevens van deze afbeelding* staat bij elk Wikidata-item zijn eigen afbeelding (P18), als die er is, ook bij de zoekresultaten van *Ander item kiezen* (wens Olaf). Zo zie je sneller of het het goede item is. Via de eigen server (`GET /wikidata/{q}/afbeelding`), zodat de browser niets van Wikimedia laadt; gecachet.
+
 ## [0.33.5] - 2026-11-06
 
 ### Toegevoegd

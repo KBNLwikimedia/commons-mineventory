@@ -734,3 +734,24 @@ def test_window_and_concept_know_of_each_other(http):
     http.put(BOOK + "/origineel", json={"beeldt_af": [{"q": "Q179718", "label": "Catharina", "met_positie": True, "objecten": [region["id"]], "bron": "gekozen"}], "captions": {}})
     concept = http.get(f"{BOOK}/objecten/{region['id']}/commons").get_json()
     assert concept["in_venster"] == ["Q179718"]
+
+
+def test_item_thumbnail_through_the_server(http):
+    """The image (P18) of a Wikidata item goes through the server; a bad Q-id is a 400."""
+    from cutter.commons import CommonsClient
+
+    asked = []
+
+    class Fetcher:
+        def get(self, url, max_age=None, store=True):
+            asked.append(url)
+            if "wbgetentities" in url:
+                return json.dumps({"entities": {"Q144": {"claims": {"P18": [{"mainsnak": {"datavalue": {"value": "Dog.jpg"}}}]}}}}).encode()
+            if "imageinfo" in url:
+                return json.dumps({"query": {"pages": [{"imageinfo": [{"thumburl": "https://upload.wikimedia.org/x/120px-Dog.jpg"}]}]}}).encode()
+            return b"JPEG"
+
+    client = CommonsClient(Fetcher())
+    assert client.item_thumbnail("Q144") == b"JPEG"
+    assert any("iiurlwidth=120" in u for u in asked)
+    assert http.get("/api/v1/wikidata/kerk/afbeelding").status_code == 400

@@ -711,6 +711,22 @@ def delete_description(mid, n, object_id):
     return jsonify(_descriptions().remove(_page_file(mid, n), n, object_id))
 
 
+@api.get("/wikidata/<q>/afbeelding")
+def item_thumbnail(q):
+    """A small thumbnail of the image (P18) of a Wikidata item, through the server (the
+    browser loads nothing from Wikimedia). ?w= 60, 120 or 240. 404 without an image. Free."""
+    if not re.fullmatch(r"Q\d+", q or ""):
+        raise CommonsError("Geef een Q-id, bijv. Q144.", status=400, code="bad_qid")
+    width = {"60": 60, "240": 240}.get(request.args.get("w", ""), 120)
+    data = _client().item_thumbnail(q, width)
+    if not data:
+        raise CommonsError("Dit item heeft geen afbeelding (P18).", status=404, code="not_found")
+    kind = "image/png" if data[:4] == b"\x89PNG" else "image/jpeg"
+    response = _image(data, kind)
+    response.headers["Cache-Control"] = "private, max-age=86400"
+    return response
+
+
 @api.get("/wikidata/zoek")
 def search_wikidata():
     """Wikidata items for a search term (free), to choose depicts (6.2)."""

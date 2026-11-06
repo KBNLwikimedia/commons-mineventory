@@ -340,6 +340,27 @@ class CommonsClient:
         data = json.loads(self.fetcher.get(self.api_url({"action": "wbgetentities", "ids": mid}), max_age=self._age()))
         return sdc.parse_entity((data.get("entities") or {}).get(mid))
 
+    def item_image(self, qid):
+        """The file name of the image (P18) of a Wikidata item, or None. Cached."""
+        for _, entity in self._wikidata_entities([qid], "claims"):
+            for claim in (entity.get("claims") or {}).get("P18") or []:
+                value = ((claim.get("mainsnak") or {}).get("datavalue") or {}).get("value")
+                if isinstance(value, str) and value:
+                    return value
+        return None
+
+    def item_thumbnail(self, qid, width=120):
+        """Bytes of a small thumbnail of an item's image (P18), fetched through the server
+        so the browser loads nothing from Wikimedia; None without an image. Cached."""
+        name = self.item_image(qid)
+        if not name:
+            return None
+        data = self._json({"prop": "imageinfo", "titles": f"File:{name}", "iiprop": "url", "iiurlwidth": str(width)})
+        pages = (data.get("query") or {}).get("pages") or [{}]
+        info = (pages[0].get("imageinfo") or [{}])[0]
+        url = info.get("thumburl") or info.get("url")
+        return self.fetcher.get(url) if url else None
+
     def _wikidata_entities(self, ids, props, pattern=r"Q\d+", fallback=False):
         """(id, entity) from Wikidata's wbgetentities, 50 ids per request, cached.
         A batch that cannot be fetched is skipped: labels and descriptions are a

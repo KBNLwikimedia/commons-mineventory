@@ -284,7 +284,17 @@
         </cdx-button>
         <p class="cc-uitleg">{{ file.paginas > 1 ? t("original.button_pages") : t("original.button_help") }}</p>
       </div>
-      <original-data v-if="originalOpen" :open="originalOpen" :file="file" :page="page" @close="originalOpen = false" />
+      <original-data
+        v-if="originalOpen"
+        :open="originalOpen"
+        :file="file"
+        :page="page"
+        :inventory="inventory"
+        :busy="busy"
+        :cost="museCost(config.muse.pagina_usd)"
+        @ask-caption="emit('inventory', { deel: 'beschrijving', beschrijvingsniveau: 'caption' })"
+        @close="originalOpen = false"
+      />
     </cdx-accordion>
 
     <cdx-accordion v-model="open.search">

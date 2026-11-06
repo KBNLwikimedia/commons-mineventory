@@ -30,6 +30,7 @@
         <p v-if="!data.op_commons.beeldt_af.length" class="cc-uitleg">{{ t("original.on_commons_none") }}</p>
         <ul v-else class="cc-origineel-commons">
           <li v-for="item in commonsItems" :key="item.q">
+            <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(item.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, item.q)" @mouseleave="hideZoom" @error="hideImage" />
             <a :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.label }}</a>
             <span class="cc-klein"> ({{ item.q }})</span>
             <span v-if="item.positions" class="cc-merkje">{{ t("original.with_position", { n: item.positions }) }}</span>
@@ -43,12 +44,24 @@
         <p v-if="commonsItems.some((item) => item.canAddPosition)" class="cc-uitleg">{{ t("original.add_position_help") }}</p>
         <p class="cc-uitleg">{{ t("original.rules") }}</p>
 
-        <h4 class="cc-commons-kop">{{ t("original.proposals") }}</h4>
+        <!-- The proposals, with an (i) that explains a row, and All · None · Invert (wish Olaf). -->
+        <div class="cc-origineel-kop">
+          <h4 class="cc-commons-kop">{{ t("original.proposals") }} <info-dialog :title="t('original.proposals')" :label="t('panel.info_label', { section: t('original.proposals') })" :paragraphs="proposalsInfo" /></h4>
+          <span v-if="proposalRows.length" class="cc-klein cc-origineel-selectie">
+            <button type="button" class="cc-link" @click="proposalRows.forEach((row) => (row.checked = true))">{{ t("objects.all") }}</button>
+            ·
+            <button type="button" class="cc-link" @click="proposalRows.forEach((row) => (row.checked = false))">{{ t("objects.none") }}</button>
+            ·
+            <button type="button" class="cc-link" @click="proposalRows.forEach((row) => (row.checked = !row.checked))">{{ t("objects.invert") }}</button>
+          </span>
+        </div>
         <busy-note v-if="resolving" :message="t('original.resolving')" />
         <p v-if="!proposalRows.length && !resolving" class="cc-uitleg">{{ t("original.proposals_none") }}</p>
         <ul class="cc-origineel-rijen">
           <li v-for="row in proposalRows" :key="row.key" class="cc-origineel-rij">
             <input v-model="row.checked" type="checkbox" :aria-label="t('original.include', { item: row.label })" />
+            <!-- The item's own image (P18) on Wikidata, where it has one: helps to see whether it is the right item. -->
+            <span :key="row.q" class="cc-item-beeld-kader"><img class="cc-item-beeld" :src="itemImage(row.q)" :alt="t('original.item_image', { item: row.label })" :title="t('original.item_image', { item: row.label })" loading="lazy" @mouseenter="showZoom($event, row.q)" @mouseleave="hideZoom" @error="noImage" /><span class="cc-geen-beeld">{{ t("original.no_image") }}</span></span>
             <div class="cc-origineel-item">
               <div>
                 <a :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
@@ -73,6 +86,7 @@
                 <cdx-text-input v-model="otherText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOther" />
                 <ul class="cc-origineel-treffers">
                   <li v-for="hit in otherHits" :key="hit.q">
+                    <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
                     <button type="button" class="cc-link" @click="chooseOther(row, hit)">{{ hit.label }}</button>
                     <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
                   </li>
@@ -83,6 +97,9 @@
             <label v-if="row.objecten.length && !data.meerdere_paginas" class="cc-origineel-met-positie" :title="t('original.with_position_help')">
               <input v-model="row.met_positie" type="checkbox" /> {{ t("original.with_position_toggle") }}
             </label>
+            <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('original.hide_row', { item: row.label })" :title="t('original.hide_row', { item: row.label })" @click="hideRow(row)">
+              <cdx-icon :icon="cdxIconTrash" size="small" />
+            </cdx-button>
           </li>
         </ul>
         <!-- Search terms without a found object: folded away, only along when ticked. -->
@@ -91,14 +108,41 @@
           <ul class="cc-origineel-rijen">
             <li v-for="row in emptyRows" :key="row.key" class="cc-origineel-rij">
               <input v-model="row.checked" type="checkbox" :aria-label="t('original.include', { item: row.label })" />
+              <!-- As the proposals above (wish Olaf): the item's image, its description, another item. -->
+              <span :key="row.q" class="cc-item-beeld-kader"><img class="cc-item-beeld" :src="itemImage(row.q)" :alt="t('original.item_image', { item: row.label })" :title="t('original.item_image', { item: row.label })" loading="lazy" @mouseenter="showZoom($event, row.q)" @mouseleave="hideZoom" @error="noImage" /><span class="cc-geen-beeld">{{ t("original.no_image") }}</span></span>
               <div class="cc-origineel-item">
-                <a :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
-                <span class="cc-klein"> ({{ row.q }}) · {{ row.terms.join(", ") }}</span>
-                <ai-badge kind="beschrijving" :model="''" />
+                <div>
+                  <a :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
+                  <span class="cc-klein"> ({{ row.q }})</span>
+                  <ai-badge kind="beschrijving" :model="''" />
+                  <cdx-button action="progressive" weight="quiet" size="small" :aria-label="t('original.other_item')" :title="t('original.other_item')" @click="startOther(row)">
+                    <cdx-icon :icon="cdxIconEdit" size="small" />
+                  </cdx-button>
+                </div>
+                <div v-if="row.beschrijving" class="cc-klein">{{ row.beschrijving }}</div>
+                <div class="cc-klein cc-origineel-bron">{{ t("original.source_zoekterm") }} ({{ row.terms.join(", ") }}) · {{ t("original.no_objects") }}</div>
+                <div v-if="otherFor === row.key" class="cc-origineel-zoek">
+                  <cdx-text-input v-model="otherText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOther" />
+                  <ul class="cc-origineel-treffers">
+                    <li v-for="hit in otherHits" :key="hit.q">
+                      <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
+                      <button type="button" class="cc-link" @click="chooseOther(row, hit)">{{ hit.label }}</button>
+                      <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
+                    </li>
+                  </ul>
+                  <button type="button" class="cc-link" @click="otherFor = null">{{ t("actions.cancel") }}</button>
+                </div>
               </div>
+              <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('original.hide_row', { item: row.label })" :title="t('original.hide_row', { item: row.label })" @click="hideRow(row)">
+                <cdx-icon :icon="cdxIconTrash" size="small" />
+              </cdx-button>
             </li>
           </ul>
         </details>
+        <p v-if="hidden.length" class="cc-klein">
+          {{ t("original.hidden_rows", { n: hidden.length }) }}
+          <button type="button" class="cc-link" @click="hidden = []">{{ t("original.hidden_show") }}</button>
+        </p>
         <!-- Another item, for what the AI did not find. -->
         <div class="cc-origineel-zoek">
           <label class="cc-klein" for="cc-origineel-eigen">{{ t("original.add_item") }}</label>
@@ -114,13 +158,25 @@
 
       <!-- 2. Captions -->
       <cdx-tab name="captions" :label="t('original.tab_captions', { n: changedCaptions })">
-        <p v-if="data.ai_caption.beschrijvingsniveau && data.ai_caption.beschrijvingsniveau !== 'caption'" class="cc-uitleg">{{ t("original.caption_level_note") }}</p>
+        <div v-if="data.ai_caption.beschrijvingsniveau && data.ai_caption.beschrijvingsniveau !== 'caption'" class="cc-origineel-caption-vraag">
+          <p class="cc-uitleg">{{ t("original.caption_level_note") }}</p>
+          <!-- Ask the AI for a Commons caption (paid, with the confirmation of the app); the
+               current description goes to Earlier descriptions. Or shorten it here, free. -->
+          <cdx-button action="progressive" :disabled="busy" @click="emit('ask-caption')">
+            {{ t("original.caption_ask") }} <span class="cc-kosten">{{ cost }}</span>
+          </cdx-button>
+          <busy-note v-if="busy" :message="t('busy.muse_page')" />
+        </div>
         <p v-if="!data.ai_caption.nl && !data.ai_caption.en" class="cc-uitleg">{{ t("original.caption_no_ai") }}</p>
         <div v-for="lang in LANGUAGES" :key="lang" class="cc-origineel-caption">
           <h4 class="cc-commons-kop">{{ t(`original.lang_${lang}`) }}</h4>
           <p class="cc-klein"><strong>{{ t("original.caption_now") }}</strong> {{ captions[lang].existing || t("original.caption_none") }}</p>
           <p v-if="captions[lang].ai" class="cc-klein">
             <strong>{{ t("original.caption_ai") }}</strong> {{ captions[lang].ai }} <ai-badge kind="beschrijving" :model="''" />
+          </p>
+          <p v-if="captions[lang].ai && clean(captions[lang].ai).length > CAPTION_MAX" class="cc-klein cc-te-lang">
+            {{ t("original.caption_ai_too_long", { n: clean(captions[lang].ai).length, max: CAPTION_MAX }) }}
+            <button type="button" class="cc-link" @click="shorten(lang)">{{ t("original.caption_shorten") }}</button>
           </p>
           <!-- Without a caption on Commons: add (ticked), with an editable text. -->
           <template v-if="!captions[lang].existing">
@@ -150,11 +206,17 @@
       </cdx-tab>
     </cdx-tabs>
 
+    <!-- A larger view of an item's image while the mouse is on its thumbnail (wish Olaf);
+         on the page itself, so the dialog's edges do not cut it off. -->
+    <teleport to="body">
+      <img v-if="zoom.show" class="cc-item-zoom" :src="zoom.src" alt="" :style="{ left: `${zoom.x}px`, top: `${zoom.y}px` }" />
+    </teleport>
+
     <template #footer>
       <div class="cc-origineel-voet">
         <p class="cc-klein">{{ t("original.summary", { depicts: chosenRows.length + addPosition.length, captions: changedCaptions }) }}</p>
         <cdx-message v-if="savedAt" type="success" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" @user-dismissed="savedAt = ''">{{ t("original.saved") }}</cdx-message>
-        <p v-if="tooLong" class="cc-klein cc-te-lang">{{ t("original.too_long") }}</p>
+        <p v-if="tooLong" class="cc-klein cc-te-lang">{{ t("original.too_long_in", { languages: tooLongIn.map((lang) => t(`original.lang_${lang}`)).join(", ") }) }}</p>
         <div class="cc-origineel-knoppen">
           <cdx-button @click="emit('close')">{{ t("actions.cancel") }}</cdx-button>
           <!-- Saving on Commons comes in phase 2 (after logging in): disabled, not hidden. -->
@@ -168,21 +230,27 @@
 </template>
 
 <script setup>
-import { computed, inject, reactive, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxRadio, CdxTab, CdxTabs, CdxTextArea, CdxTextInput } from "@wikimedia/codex";
-import { cdxIconEdit } from "@wikimedia/codex-icons";
-import { errorText, get, pagePath, put } from "../api.js";
+import { cdxIconEdit, cdxIconTrash } from "@wikimedia/codex-icons";
+import { API, errorText, get, pagePath, put } from "../api.js";
 import { useT } from "../i18n.js";
 import { searchItems } from "../wikidata.js";
+import { forgetPlacement, makeMovable } from "../movable.js";
 import AiBadge from "./AiBadge.vue";
+import InfoDialog from "./InfoDialog.vue";
 import BusyNote from "./BusyNote.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   file: { type: Object, required: true },
   page: { type: Object, required: true },
+  // The page overview (for a new AI caption) and whether the app is busy asking it.
+  inventory: { type: Object, default: null },
+  busy: { type: Boolean, default: false },
+  cost: { type: String, default: "" },
 });
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "ask-caption"]);
 const t = useT();
 const config = inject("config");
 
@@ -198,15 +266,66 @@ const savedAt = ref("");
 const rows = ref([]);
 const addPosition = ref([]);
 const captions = reactive({});
+// The image (P18) of a Wikidata item, through our own server; hidden when there is none.
+const itemImage = (q, width = 120) => `${API}/wikidata/${q}/afbeelding?w=${width}`;
+const hideImage = (event) => (event.target.style.visibility = "hidden");
+// A larger view beside the thumbnail, kept on screen; only for a thumbnail that loaded.
+const ZOOM_SIZE = 260;
+const zoom = reactive({ show: false, src: "", x: 0, y: 0 });
+function showZoom(event, q) {
+  const img = event.target;
+  if (!img.naturalWidth) return;
+  const rect = img.getBoundingClientRect();
+  let x = rect.right + 8;
+  if (x + ZOOM_SIZE > window.innerWidth) x = Math.max(0, rect.left - ZOOM_SIZE - 8);
+  const y = Math.min(Math.max(0, rect.top - 40), window.innerHeight - ZOOM_SIZE - 8);
+  Object.assign(zoom, { show: true, src: itemImage(q, 240), x, y });
+}
+const hideZoom = () => (zoom.show = false);
+// Without an image: a grey square that says so, so the rows stay aligned (wish Olaf).
+const noImage = (event) => event.target.parentElement?.classList.add("cc-zonder-beeld");
 const commonsUrl = computed(() => `https://commons.wikimedia.org/wiki/${encodeURIComponent((props.file.titel || "").replace(/ /g, "_"))}#P180`);
 
 // -- Loading and building the rows ---------------------------------------------------------
 
 watch(
   () => props.open,
-  (open) => open && load(),
+  async (open) => {
+    if (!open) {
+      undoMovable?.();
+      undoMovable = null;
+      return;
+    }
+    load();
+    await nextTick();
+    enableMoving();
+  },
   { immediate: true }
 );
+
+// Move by the title bar, resize at the edges (wish Olaf), as the magnifier; Codex renders
+// the dialog elsewhere in the page (teleport). Double-click the title bar to centre it again.
+const PLACEMENT_KEY = "cc-origineel-plaats";
+let undoMovable = null;
+function enableMoving() {
+  undoMovable?.();
+  undoMovable = null;
+  const dialog = document.querySelector(".cc-origineel");
+  const header = dialog?.querySelector(".cdx-dialog__header");
+  if (!dialog || !header) return;
+  undoMovable = makeMovable(dialog, {
+    handle: header,
+    storageKey: PLACEMENT_KEY,
+    labels: { move: t("magnifier.move"), resize: t("magnifier.resize") },
+    min: { width: 420, height: 300 },
+  });
+  header.ondblclick = (event) => {
+    if (event.target.closest("button")) return;
+    forgetPlacement(PLACEMENT_KEY);
+    dialog.removeAttribute("style");
+  };
+}
+onBeforeUnmount(() => undoMovable?.());
 
 async function load() {
   loading.value = true;
@@ -245,7 +364,15 @@ async function buildRows() {
     await Promise.all(
       open.slice(i, i + 3).map(async (row) => {
         try {
-          const hit = (await searchItems(row.search, "en"))[0];
+          const hits = await searchItems(row.search, "en");
+          const term = row.search.trim().toLowerCase();
+          // The label exactly as the term first ("lemon" the fruit, not "LemON" the band),
+          // then the same letters in another case, then a label containing it, else the first hit.
+          const hit =
+            hits.find((h) => h.label === row.search.trim()) ||
+            hits.find((h) => (h.label || "").toLowerCase() === term) ||
+            hits.find((h) => (h.label || "").toLowerCase().includes(term)) ||
+            hits[0];
           if (hit) Object.assign(row, { q: hit.q, label: hit.label, beschrijving: hit.beschrijving || "" });
         } catch {
           // No answer from Wikidata: the row stays without an item (not shown).
@@ -263,6 +390,7 @@ async function buildRows() {
       else row.checked = false;
     }
     addPosition.value = [...(d.concept.positie_bij_bestaande || [])];
+    hidden.value = [...(d.concept.verborgen || [])];
   }
   rows.value = list.filter((row) => row.q);
 }
@@ -319,8 +447,17 @@ const commonsItems = computed(() => {
   return [...byQ.values()];
 });
 const onCommons = computed(() => new Set(commonsItems.value.map((item) => item.q)));
-const proposalRows = computed(() => merged.value.filter((row) => !onCommons.value.has(row.q) && (row.objecten.length || !row.bronnen.every((b) => b === "zoekterm"))));
-const emptyRows = computed(() => merged.value.filter((row) => !onCommons.value.has(row.q) && !row.objecten.length && row.bronnen.every((b) => b === "zoekterm")));
+// The (i) of the proposals: what a row shows and what "with place" means.
+const proposalsInfo = computed(() => [1, 2, 3, 4, 5].map((n) => t(`original.info_${n}`)));
+// Rows you removed with the bin (wish Olaf): out of view and unticked; kept in the draft.
+const hidden = ref([]);
+function hideRow(row) {
+  row.checked = false;
+  if (!hidden.value.includes(row.q)) hidden.value = [...hidden.value, row.q];
+}
+const visibleRows = computed(() => merged.value.filter((row) => !onCommons.value.has(row.q) && !hidden.value.includes(row.q)));
+const proposalRows = computed(() => visibleRows.value.filter((row) => row.objecten.length || !row.bronnen.every((b) => b === "zoekterm")));
+const emptyRows = computed(() => visibleRows.value.filter((row) => !row.objecten.length && row.bronnen.every((b) => b === "zoekterm")));
 const chosenRows = computed(() => [...proposalRows.value, ...emptyRows.value].filter((row) => row.checked));
 
 // -- Another item for a row, or an item of your own ---------------------------------------
@@ -377,7 +514,7 @@ function buildCaptions() {
       existing,
       ai,
       start,
-      include: stored ? stored.keuze === "toevoegen" : Boolean(ai),
+      include: stored ? stored.keuze === "toevoegen" : Boolean(ai) && clean(ai).length <= CAPTION_MAX,
       keuze: stored ? (existing ? stored.keuze : "toevoegen") : existing ? "zelf" : "toevoegen",
       tekst: stored?.tekst || start,
     };
@@ -391,6 +528,41 @@ const otherCaptions = computed(() =>
 const showText = (lang) => (captions[lang].existing ? captions[lang].keuze === "zelf" : captions[lang].include);
 const clean = (text) => String(text || "").split(/\s+/).filter(Boolean).join(" ");
 const length = (lang) => clean(captions[lang].tekst).length;
+// At most 250 characters: after the last whole sentence that fits, else the last whole
+// word with "…" (the same rule as the server's cap_caption).
+function capCaption(text) {
+  const all = clean(text);
+  if (all.length <= CAPTION_MAX) return all;
+  const head = all.slice(0, CAPTION_MAX);
+  const end = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "), head.endsWith(".") ? head.length - 1 : -1);
+  if (end >= CAPTION_MAX / 2) return head.slice(0, end + 1);
+  return all.slice(0, CAPTION_MAX - 1).replace(/\s+\S*$/, "").replace(/[\s,;:]+$/, "") + "…";
+}
+// Shorten the AI proposal into the text field (free), and choose to use it.
+function shorten(lang) {
+  const c = captions[lang];
+  c.tekst = capCaption(c.ai);
+  if (c.existing) c.keuze = "zelf";
+  else c.include = true;
+}
+// A new AI caption (asked from here): the proposals follow; your own edits stay.
+watch(
+  () => [props.inventory?.samenvatting, props.inventory?.samenvatting_en, props.inventory?.beschrijvingsniveau],
+  ([nl, en, level]) => {
+    if (!data.value) return;
+    data.value.ai_caption = { nl: nl || "", en: en || "", beschrijvingsniveau: level || null };
+    for (const lang of LANGUAGES) {
+      const c = captions[lang];
+      if (!c) continue;
+      const untouched = clean(c.tekst) === clean(c.start);
+      c.ai = (lang === "nl" ? nl : en) || "";
+      c.start = c.existing ? [c.existing, c.ai].filter(Boolean).join("\n") : c.ai;
+      if (untouched) c.tekst = c.start;
+      if (!c.existing && clean(c.ai).length <= CAPTION_MAX && c.ai) c.include = true;
+    }
+  }
+);
+
 function resetText(lang) {
   captions[lang].tekst = captions[lang].start;
 }
@@ -410,7 +582,13 @@ const changedCaptions = computed(() =>
     return choice && choice.keuze !== "houden" && choice.tekst && choice.tekst !== clean(captions[lang].existing);
   }).length
 );
-const tooLong = computed(() => LANGUAGES.some((lang) => captions[lang] && showText(lang) && length(lang) > CAPTION_MAX));
+const tooLongIn = computed(() =>
+  LANGUAGES.filter((lang) => {
+    const choice = captionChoice(lang);
+    return choice && choice.keuze !== "houden" && choice.tekst.length > CAPTION_MAX;
+  })
+);
+const tooLong = computed(() => tooLongIn.value.length > 0);
 
 // -- Saving the draft -----------------------------------------------------------------------
 
@@ -428,6 +606,7 @@ async function save() {
         term: row.members.find((m) => m.search)?.search || null,
       })),
       positie_bij_bestaande: addPosition.value,
+      verborgen: hidden.value,
       captions: Object.fromEntries(LANGUAGES.map((lang) => [lang, captionChoice(lang)])),
     };
     const result = await put(`${pagePath(props.file.mid, props.page.n)}/origineel`, body);

@@ -133,6 +133,9 @@ def save_draft(service, file, n, body):
     add_position = body.get("positie_bij_bestaande", [])
     if not isinstance(add_position, list) or not all(re.fullmatch(r"Q\d+", str(q)) for q in add_position):
         raise _invalid("'positie_bij_bestaande' is een lijst van Q-id's.")
+    hidden = body.get("verborgen", [])
+    if not isinstance(hidden, list) or not all(re.fullmatch(r"Q\d+", str(q)) for q in hidden):
+        raise _invalid("'verborgen' is een lijst van Q-id's.")
     captions = body.get("captions", {})
     if not isinstance(captions, dict):
         raise _invalid("'captions' is een object per taal.")
@@ -150,6 +153,7 @@ def save_draft(service, file, n, body):
     draft = {
         "beeldt_af": clean_depicts,
         "positie_bij_bestaande": add_position,
+        "verborgen": list(dict.fromkeys(hidden)),  # rows you do not want to see (the bin)
         "captions": clean_captions,
         "bewaard_op": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }

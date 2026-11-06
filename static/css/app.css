@@ -771,3 +771,21 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-aanvulling-versie img { max-width: 8rem; max-height: 8rem; object-fit: contain; background: repeating-conic-gradient(#eaecf0 0 25%, #fff 0 50%) 0 0 / 12px 12px; border: 1px solid var(--cc-rand, #c8ccd1); flex: none; }
 
 .cc-origineel-upload { color: #14866d; }
+
+/* The image (P18) of a Wikidata item in the structured-data window. */
+.cc-item-beeld { width: 3.5rem; height: 3.5rem; object-fit: contain; flex: none; background: var(--background-color-interactive-subtle, #f8f9fa); border: 1px solid var(--cc-rand, #eaecf0); border-radius: 2px; }
+.cc-item-beeld-klein { width: 1.6rem; height: 1.6rem; vertical-align: middle; margin-right: 0.3rem; }
+
+/* No image (P18) on Wikidata: a grey square with a short text instead. */
+.cc-item-beeld-kader { display: inline-flex; flex: none; }
+.cc-geen-beeld { display: none; width: 3.5rem; height: 3.5rem; align-items: center; justify-content: center; text-align: center; font-size: 0.625rem; line-height: 1.2; color: var(--color-subtle, #54595d); background: var(--background-color-interactive-subtle, #f8f9fa); border: 1px dashed var(--border-color-base, #a2a9b1); border-radius: 2px; padding: 0.15rem; }
+.cc-zonder-beeld img { display: none; }
+.cc-zonder-beeld .cc-geen-beeld { display: flex; }
+
+/* The larger view of an item's image while pointing at its thumbnail. */
+.cc-item-zoom { position: fixed; z-index: 1000; max-width: 260px; max-height: 260px; object-fit: contain; background: #fff; border: 1px solid var(--border-color-base, #a2a9b1); border-radius: 2px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); pointer-events: none; }
+.cc-item-beeld { cursor: zoom-in; }
+
+.cc-origineel-rij > .cdx-button { flex: none; }
+
+.cc-origineel-kop { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
