@@ -228,6 +228,19 @@ DETAIL_LEVELS = {
 }
 DEFAULT_DETAIL = "normaal"
 
+# How long the description of the whole image is (the slider at "Beschrijving laten maken",
+# wish Olaf 6-11-2026). Level -> (rule for samenvatting, rule for samenvatting_en).
+# "normaal" is the question as it was before the slider, so its answers stay in the cache.
+DESCRIPTION_LEVELS = {
+    "kort": ("a few words in Dutch: what the image shows, at most one short sentence.", "the same in English."),
+    "normaal": ("one sentence in Dutch about what is visible.", "the same sentence in English."),
+    "uitgebreid": (
+        "a paragraph of three to five sentences in Dutch: what is shown, the composition, notable details, colours and style.",
+        "the same paragraph in English.",
+    ),
+}
+DEFAULT_DESCRIPTION_LEVEL = "normaal"
+
 INVENTORY_SCHEMA = {
     "type": "object",
     "properties": {
@@ -260,8 +273,8 @@ INVENTORY_INSTRUCTIONS = """You look at one whole image on Wikimedia Commons: {p
 List the visual objects in this image (not text), so that an open-vocabulary object detector (SAM) can find them. Answer in JSON:
 - paginasoort: the kind of image in Dutch, a few words (e.g. "albumblad met wapens", "prent", "kaart", "pagina uit een getijdenboek").
 - paginasoort_en: the same in English.
-- samenvatting: one sentence in Dutch about what is visible.
-- samenvatting_en: the same sentence in English.
+- samenvatting: {summary_rule}
+- samenvatting_en: {summary_rule_en}
 - tekst: all text you can read in the image, including captions or verses printed under or around the picture, transcribed literally in its own language and spelling, with a newline between separate lines or blocks. Read it carefully; mark a word you cannot read with [?]. Leave it empty when there is no text.
 - zoektermen: {terms_rule} For each:
   - en: a short English noun phrase for the detector, singular, 1-3 words, concrete and visual (e.g. "portrait", "coat of arms", "saint", "angel", "decorated initial", "ship", "map", "flower", "ornament").
@@ -308,6 +321,8 @@ def page_description_snapshot(overview):
     made = page_description_made(overview)
     snapshot = {k: overview.get(k) or "" for k in PAGE_DESCRIPTION}
     snapshot.update({"model": made.get("model"), "tijdstempel": made.get("tijdstempel"), "versie": page_description_version(overview)})
+    # How long it was asked to be (the Length slider); before the slider every one was "normaal".
+    snapshot["beschrijvingsniveau"] = overview.get("beschrijvingsniveau") or DEFAULT_DESCRIPTION_LEVEL
     snapshot.update({k: overview[k] for k in DESCRIPTION_META if overview.get(k)})
     return json.loads(json.dumps(snapshot))
 
@@ -325,13 +340,15 @@ def inventory_schema(part=None):
     }
 
 
-def inventory_instructions(publication, part=None, detail=DEFAULT_DETAIL):
+def inventory_instructions(publication, part=None, detail=DEFAULT_DETAIL, description_level=DEFAULT_DESCRIPTION_LEVEL):
     """The question for the whole overview, or for one part: the same field
     descriptions as the whole question, so both parts stay alike. `detail`
     (DETAIL_LEVELS) says how many kinds of objects the search terms ask for."""
     terms_rule = DETAIL_LEVELS[detail][1]
+    summary_rule, summary_rule_en = DESCRIPTION_LEVELS[description_level]
+    rules = {"terms_rule": terms_rule, "summary_rule": summary_rule, "summary_rule_en": summary_rule_en}
     if part is None:
-        return INVENTORY_INSTRUCTIONS.format(publication=publication, terms_rule=terms_rule)
+        return INVENTORY_INSTRUCTIONS.format(publication=publication, **rules)
     keys, kept, keep = INVENTORY_PARTS[part], [], False
     for line in INVENTORY_INSTRUCTIONS.splitlines():
         field = re.match(r"- (\w+):", line)
@@ -346,7 +363,7 @@ def inventory_instructions(publication, part=None, detail=DEFAULT_DETAIL):
         "zoektermen": "Only list what you can actually see; do not guess. In zoektermen, skip plain text and borders.",
     }[part]
     text = f"You look at one whole image on Wikimedia Commons: {{publication}}.\n\n{PART_INTRO[part]}\n" + "\n".join(kept) + "\n" + end
-    return text.format(publication=publication, terms_rule=terms_rule)
+    return text.format(publication=publication, **rules)
 
 
 def parse_inventory(text, max_terms=MAX_TERMS):
@@ -1056,15 +1073,17 @@ class DescriptionService:
             "budget": self.objects.verbruik.status(user),
         }
 
-    def _inventory_cache_path(self, file, n, model, part=None, detail=DEFAULT_DETAIL):
+    def _inventory_cache_path(self, file, n, model, part=None, detail=DEFAULT_DETAIL, description_level=DEFAULT_DESCRIPTION_LEVEL):
         key = f"pagina|{file['sha1']}|{n}|{model}|{self._effort()}|{INVENTORY_VERSION}" + (f"|{part}" if part else "")
         # Each detail level has its own answer; "normaal" keeps the key from before the slider.
         if detail != DEFAULT_DETAIL and part != "beschrijving":
             key += f"|detail={detail}"
+        if description_level != DEFAULT_DESCRIPTION_LEVEL and part != "zoektermen":
+            key += f"|beschrijving={description_level}"
         digest = hashlib.sha1(key.encode()).hexdigest()
         return self.cache_dir / digest[:2] / f"{digest}.json"
 
-    def inventory(self, file, n, model=None, again=False, user=None, part=None, detail=None):
+    def inventory(self, file, n, model=None, again=False, user=None, part=None, detail=None, description_level=None):
         """Ask the model what is on the whole page (paid in live mode, cached)
         and keep the overview in the page's store ("inventaris"). With `part`
         ("beschrijving" or "zoektermen") only that part is asked anew, always a
@@ -1077,8 +1096,12 @@ class DescriptionService:
             detail = (self.objects._load_store(file, n).get("inventaris") or {}).get("detailniveau") or DEFAULT_DETAIL
         if detail not in DETAIL_LEVELS:
             raise DetectionError(f"Onbekend detailniveau '{detail}'; kies uit {', '.join(DETAIL_LEVELS)}.", status=400, code="invalid_body")
+        if description_level is None:
+            description_level = (self.objects._load_store(file, n).get("inventaris") or {}).get("beschrijvingsniveau") or DEFAULT_DESCRIPTION_LEVEL
+        if description_level not in DESCRIPTION_LEVELS:
+            raise DetectionError(f"Onbekend beschrijvingsniveau '{description_level}'; kies uit {', '.join(DESCRIPTION_LEVELS)}.", status=400, code="invalid_body")
         choice = self._model(file, model)
-        path = self._inventory_cache_path(file, n, choice["model"], part, detail)
+        path = self._inventory_cache_path(file, n, choice["model"], part, detail, description_level)
         if path.exists() and not again and part is None:
             mark_used(path)
             overview = json.loads(path.read_text(encoding="utf-8"))
@@ -1096,7 +1119,7 @@ class DescriptionService:
             image.save(buffer, format="JPEG", quality=85)
             data_url = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
             publication = f'"{file.get("naam")}"' + (f", page {n}" if file.get("paginas", 1) > 1 else "")
-            prompt = inventory_instructions(publication, part, detail)
+            prompt = inventory_instructions(publication, part, detail, description_level)
 
             body = self.vision.describe(choice["model"], prompt, data_url, None, effort, schema=inventory_schema(part))
             tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
@@ -1109,6 +1132,8 @@ class DescriptionService:
                 parsed = {k: parsed[k] for k in INVENTORY_PARTS[part]}
             if part != "beschrijving":
                 parsed["detailniveau"] = detail
+            if part != "zoektermen":
+                parsed["beschrijvingsniveau"] = description_level
             overview = {
                 **parsed,
                 "model": choice["model"],
@@ -1191,6 +1216,8 @@ class DescriptionService:
             overview["delen"] = {**(overview.get("delen") or {}), part: meta}
             if "detailniveau" in answer:  # the search terms asked anew at another level
                 overview["detailniveau"] = answer["detailniveau"]
+            if "beschrijvingsniveau" in answer:  # the description asked anew at another length
+                overview["beschrijvingsniveau"] = answer["beschrijvingsniveau"]
             store["inventaris"] = overview
             self.objects._write_store(file, n, store)
         return {"inventaris": overview, "uit_cache": False, "budget": self.objects.verbruik.status(user)}

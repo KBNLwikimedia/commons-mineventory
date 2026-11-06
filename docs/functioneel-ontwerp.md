@@ -310,6 +310,39 @@ Idee en opdracht van Olaf (5-11-2026, backlog 19b; gebouwd in 0.32.4). Waar op h
 - **Doorzichtig en zoombaar** (sinds 0.32.6): het wit dat met de rand verbonden is, wordt doorzichtig (op een schaakbord, zoals de uitsnede); wit binnen het onderwerp en binnen de vorm van de uitsnede blijft. Uitsnede en aangevulde versie zijn in de vergroter te zoomen en te verschuiven zoals in de hoofdviewer. *Bron* en *Resolutie* staan eronder in dezelfde stijl als bij de uitsnede.
 - **Eigen tabblad** *AI-aangevuld* in de vergroter, na *Uitsnede*, alleen als er een aangevulde versie is (sinds 0.32.5). Een schakelaar **Toon wat de AI invulde** legt een magenta laag over de plekken waar de uitsnede geen vorm had en de AI iets tekende; bij benadering.
 
+### 7.8 3D-model van een uitsnede (nice-to-have)
+
+Idee van Olaf (6-11-2026). **Nice-to-have, nog niet gepland en nog niet gebouwd** (backlog 19c). Van een uitgesneden object, bijvoorbeeld een luit op een stilleven, een 3D-model laten maken dat je in de vergroter kunt draaien en waarop je kunt inzoomen.
+
+**Welk model.** De Meta Model API kent geen 3D (nagekeken 6-11-2026). Meta heeft wel **[SAM 3D Objects](https://ai.meta.com/research/sam3d/)**, een apart onderzoeksmodel dat van één beeld met het masker van een object een 3D-model met textuur maakt, ook als het object deels bedekt is. Zelf draaien vraagt een GPU (niet op Toolforge). Het is te huur via **[Runware](https://runware.ai/collections/best-3d-models)**, een aanbieder met één API voor veel modellen:
+
+| Model (Runware) | Prijs per model (6-11-2026) | Kort |
+| --- | --- | --- |
+| **SAM 3D Objects** (`meta:sam@3d`, voorstel) | $0,005 tot $0,009 | Beeld + masker + prompt → GLB met textuur |
+| TRELLIS.2 (Microsoft, open) | $0,0077 | Beeld → 3D; tweede keuze, zonder masker |
+| Hunyuan 3D 3.1 Rapid / Pro | $0,225 | Pro met meerdere aanzichten en PBR-materialen |
+| Tripo 3D v3.1 | $0,30 | Nauwkeurige vorm en textuur |
+| Rodin Gen-2 | $0,40 | Nette mesh, lokaal bewerken |
+| Meshy-6 | $0,80 | Productieklare mesh, low-poly |
+
+SAM 3D Objects past het best: het vraagt precies wat de app al heeft (het originele beeld, het **masker** van het object en een prompt, bijv. de naam of de beschrijving) en geeft een **GLB** terug, voor ongeveer een halve cent. Runware vermeldt *Zero Data Retention*; bij de bouw nagaan wat dat precies inhoudt.
+
+**Zoals *Afbeelding aanvullen met AI* (7.7):**
+- Een knop **3D-model maken** in de vergroter, met het bedrag; eerst een bevestiging die zegt wat er gebeurt.
+- Een eigen tabblad **3D** (als er een model is), met een 3D-weergave om te draaien en te zoomen (`<model-viewer>` of three.js via npm, geen CDN), het AI-merkje, de prompt, en een waarschuwing: **de achterkant, de diepte en de zijkanten zijn verzonnen**; geen bron, **nooit als uitsnede naar Commons**.
+- Downloaden als **GLB**; weghalen (het bestand blijft de bewaartermijn lang in de cache, 12.1).
+- Gecachet per beeld, masker, prompt en model: nog eens vragen kost niets, *opnieuw* wel.
+- In de **proefmodus** een nagebootst 3D-model (bijv. een vlak met de uitsnede als textuur), zodat alles zonder kosten te testen is.
+- Later ook op het canvas (18), als laag die je draait.
+
+**Een tweede aanbieder naast Meta.** Dat vraagt:
+- een eigen sleutel `RUNWARE_API_KEY`, alleen als omgevingsvariabele (`.env.example` bijwerken);
+- een regel in de privacyverklaring (NL en EN) dat het beeld en het masker naar Runware gaan voor dit model;
+- verbruik en kosten in het verbruikslog, met de aanbieder erbij, en binnen de daglimieten en het dagbudget (6.4); bij het starttegoed (8.6) telt het als één aanroep;
+- bij de bouw: de licentie van SAM 3D (eigen licentie van Meta) en de voorwaarden van Runware nalezen, en of het resultaat gebruikt mag worden zoals hier bedoeld.
+
+**API** (voorstel), zoals 7.7: GET, POST en DELETE `…/objecten/{id}/model3d` en GET `…/objecten/{id}/model3d.glb`.
+
 ## 8. Inloggen en rechten (OAuth)
 
 ### 8.1 Patroon
@@ -871,6 +904,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 18. Eigen API-sleutel per gebruiker voor scripts.
 19. Meer talen in de interface.
 20. Nice-to-have: een canvas om uitsneden te combineren tot nieuwe werken (18), niet voor Commons.
+21. Nice-to-have: een 3D-model van een uitsnede via SAM 3D Objects op Runware (7.8), niet voor Commons.
 
 ## 14. Repo-structuur (doel)
 

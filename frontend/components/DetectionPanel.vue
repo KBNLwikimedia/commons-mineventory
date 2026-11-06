@@ -33,7 +33,10 @@
         <busy-note v-if="busy && where === 'inventory'" :message="t('busy.muse_page')" />
       </template>
       <template v-else>
-        <!-- (2) The AI's description of the image: editable, with its earlier versions (PageDescription.vue). -->
+        <!-- (2) The AI's description of the image: editable, with its earlier versions (PageDescription.vue).
+             Each of the two parts folds away on its own (wish Olaf). -->
+        <cdx-accordion v-model="open.beschrijving" class="cc-deel-uitklap">
+          <template #title>{{ t("panel.part_title_beschrijving") }}</template>
         <page-description
           :mid="file.mid"
           :n="page.n"
@@ -41,13 +44,15 @@
           :busy="busy"
           :cost="museCost(config.muse.pagina_usd)"
           @changed="emit('inventory-changed', $event)"
-          @again="act('beschrijving', 'inventory', { deel: 'beschrijving' })"
+          @again="act('beschrijving', 'inventory', { deel: 'beschrijving', beschrijvingsniveau: $event })"
           @forget="act('beschrijving', 'forget-inventory', { deel: 'beschrijving' })"
         />
         <busy-note v-if="busy && where === 'beschrijving'" :message="t('busy.muse_page')" />
+        </cdx-accordion>
 
         <!-- (3) The search terms. -->
-        <h4 class="cc-deel-kop">{{ t("panel.part_title_zoektermen") }}</h4>
+        <cdx-accordion v-model="open.zoektermen" class="cc-deel-uitklap">
+          <template #title>{{ t("panel.part_title_zoektermen") }}</template>
         <!-- First what makes the search terms (the level of detail, asking anew, removing), compact
              on one line; under it the terms themselves, the result of that (wish Olaf). -->
         <div class="cc-termen-bron">
@@ -127,6 +132,7 @@
           </p>
         </template>
         <p v-else class="cc-uitleg">{{ t("panel.part_none_zoektermen") }}</p>
+        </cdx-accordion>
       </template>
     </cdx-accordion>
 
@@ -164,6 +170,9 @@
     <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
     <cdx-accordion v-model="open.point" class="cc-sectie-aanwijzen">
       <template #title>{{ t("panel.point_or_draw") }} <info-dialog v-bind="info('point', 'panel.point_or_draw')" /></template>
+      <!-- Two ways, each folding away on its own, as in the AI suggestions (wish Olaf). -->
+      <cdx-accordion v-model="open.aanwijzen" class="cc-deel-uitklap">
+        <template #title>{{ t("panel.part_title_point") }}</template>
       <div class="cc-modus-keuze">
         <cdx-toggle-switch :model-value="pointMode" @update:model-value="emit('point-mode', $event)">
           {{ t("panel.point_switch") }}
@@ -172,6 +181,9 @@
         <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
         <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" :type="lastResult.outcome === 'niets' ? 'warning' : 'success'" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}</cdx-message>
       </div>
+      </cdx-accordion>
+      <cdx-accordion v-model="open.tekenen" class="cc-deel-uitklap">
+        <template #title>{{ t("panel.part_title_draw") }}</template>
       <div class="cc-modus-keuze">
         <cdx-toggle-switch :model-value="drawMode" @update:model-value="emit('draw-mode', $event)">
           {{ t("panel.draw_switch") }}
@@ -179,6 +191,7 @@
         <p class="cc-uitleg">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
         <cdx-message v-if="lastResult && resultAt === 'point' && lastResult.modus === 'rechthoek'" type="success" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}</cdx-message>
       </div>
+      </cdx-accordion>
     </cdx-accordion>
 
     <!-- CropTool: the usual tool for cropping on Commons, for the whole file (single images only). -->
@@ -263,7 +276,7 @@ function info(section, titleKey) {
     paragraphs: [1, 2, 3].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
   };
 }
-const open = reactive({ commons: true, search: false, suggestions: true, point: false, croptool: false });
+const open = reactive({ commons: true, search: false, suggestions: true, beschrijving: true, zoektermen: true, aanwijzen: true, tekenen: true, point: false, croptool: false });
 const cropTool = computed(() => cropToolLink(props.file));
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 
@@ -396,6 +409,7 @@ async function trySearch(result) {
 // Or open Point or draw with that way switched on at once: click the object, or draw around it.
 async function tryPoint(mode = "point") {
   open.point = true;
+  open[mode === "draw" ? "tekenen" : "aanwijzen"] = true;
   emit(mode === "draw" ? "draw-mode" : "point-mode", true);
   await nextTick();
   document.querySelector(".cc-sectie-aanwijzen")?.scrollIntoView({ block: "center", behavior: "smooth" });

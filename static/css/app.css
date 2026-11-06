@@ -677,3 +677,11 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-versies-stip { width: 0.6rem; height: 0.6rem; padding: 0; border-radius: 50%; border: 1px solid var(--color-progressive, #36c); background: transparent; cursor: pointer; }
 .cc-versies-stip.actief { background: var(--color-progressive, #36c); }
 .cc-versies-stip:focus-visible { outline: 2px solid var(--color-progressive, #36c); outline-offset: 2px; }
+
+/* The two parts of the AI suggestions (description, search terms), each folding away (DetectionPanel.vue). */
+.cc-deel-uitklap > summary .cdx-accordion__header__title { font-size: 0.9375rem; }
+.cc-deel-uitklap { margin-top: 0.25rem; }
+/* Third level inside such a part (e.g. Earlier descriptions under Description of the image):
+   smaller again, with a smaller subtitle (wish Olaf). */
+.cc-deel-uitklap .cc-beschrijving-blok > summary .cdx-accordion__header__title { font-size: 0.875rem; }
+.cc-deel-uitklap .cc-beschrijving-blok > summary .cdx-accordion__header__description { font-size: 0.8125rem; }

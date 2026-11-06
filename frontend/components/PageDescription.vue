@@ -9,6 +9,19 @@
 -->
 <template>
   <div class="cc-pagina-beschrijving">
+    <!-- First what makes the description (as with the search terms, wish Olaf): how long it is,
+         and under the slider, side by side, asking anew (paid) and removing (free). -->
+    <div class="cc-termen-bron">
+      <detail-slider v-model="descLevel" :disabled="busy" :levels="DESCRIPTION_LEVELS" prefix="descdetail" compact />
+      <div class="cc-termen-knoppen">
+        <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="`${t('panel.part_again_help_beschrijving')} ${t('panel.parts_help')}`" @click="emit('again', descLevel)">
+          {{ t(hasDescription ? "panel.part_again_beschrijving" : "panel.part_ask_beschrijving") }} <span class="cc-kosten">{{ cost }}</span>
+        </cdx-button>
+        <cdx-button v-if="hasDescription" action="destructive" weight="quiet" size="small" :disabled="busy" @click="emit('forget')">
+          <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget_beschrijving_button") }}
+        </cdx-button>
+      </div>
+    </div>
     <div v-if="hasDescription || editing" class="cc-ai-resultaat">
       <template v-for="group in GROUPS" :key="group.key">
         <div v-if="editing === group.key" ref="editBox" class="cc-veld-bewerken">
@@ -37,15 +50,6 @@
     </div>
     <p v-else class="cc-uitleg">{{ t("panel.part_none_beschrijving") }}</p>
 
-    <!-- Ask anew (paid) or remove (free); after a hand edit: back to the AI text, undo. -->
-    <div class="cc-deel-acties">
-      <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="t('panel.part_again_help_beschrijving')" @click="emit('again')">
-        {{ t(hasDescription ? "panel.part_again_beschrijving" : "panel.part_ask_beschrijving") }} <span class="cc-kosten">{{ cost }}</span>
-      </cdx-button>
-      <cdx-button v-if="hasDescription" action="destructive" weight="quiet" size="small" :disabled="busy" @click="emit('forget')">
-        <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget_beschrijving_button") }}
-      </cdx-button>
-    </div>
     <p v-if="inventory.bewerkt || undoTexts" class="cc-klein cc-tekst-acties">
       <template v-if="inventory.bewerkt">
         <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
@@ -101,6 +105,7 @@ import { del, errorText, get, pagePath, patch, put } from "../api.js";
 import { fitToText } from "../autosize.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
+import DetailSlider from "./DetailSlider.vue";
 import VersionCarousel from "./VersionCarousel.vue";
 import AiBadge from "./AiBadge.vue";
 import EditPencil from "./EditPencil.vue";
@@ -115,6 +120,25 @@ const props = defineProps({
 });
 // changed(overview): a new overview after an edit or a version put back; again; forget.
 const emit = defineEmits(["changed", "again", "forget"]);
+// The length of the description: that of the overview, else the last one chosen in this browser.
+const DESCRIPTION_LEVELS = ["kort", "normaal", "uitgebreid"];
+const DESC_KEY = "cc-beschrijvingsniveau";
+function storedDescLevel() {
+  try {
+    return window.localStorage.getItem(DESC_KEY) || "normaal";
+  } catch {
+    return "normaal";
+  }
+}
+const descLevel = ref(props.inventory?.beschrijvingsniveau || storedDescLevel());
+watch(() => props.inventory?.beschrijvingsniveau, (level) => level && (descLevel.value = level));
+watch(descLevel, (level) => {
+  try {
+    window.localStorage.setItem(DESC_KEY, level);
+  } catch {
+    // Blocked storage: the level holds until the page is reloaded.
+  }
+});
 const t = useT();
 const language = inject("language", "nl");
 
@@ -213,6 +237,9 @@ function fullText(entry) {
 const time = (value) => (value ? new Date(value).toLocaleString(language, { dateStyle: "short", timeStyle: "short" }) : "");
 function meta(entry) {
   if (entry.bewerkt_op) return t("describe.history_by_hand", { when: time(entry.bewerkt_op) });
-  return [time(entry.tijdstempel), entry.model].filter(Boolean).join(" · ");
+  // An AI version also says how long it was asked to be (Short, Normal, Extensive); versions
+  // that went into the history before this was kept do not know it, and then show nothing.
+  const length = entry.beschrijvingsniveau ? t("descdetail.used", { level: t(`descdetail.${entry.beschrijvingsniveau}`) }) : "";
+  return [time(entry.tijdstempel), entry.model, length].filter(Boolean).join(" · ");
 }
 </script>

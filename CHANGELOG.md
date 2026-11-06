@@ -3,6 +3,16 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.11] - 2026-11-06
+
+### Gewijzigd
+
+- Functioneel ontwerp 7.8 *3D-model van een uitsnede* (idee Olaf, nice-to-have, niet gepland): met SAM 3D Objects van Meta via Runware (beeld + masker → GLB, ongeveer $0,005), in een eigen tabblad om te draaien; achterkant verzonnen, nooit naar Commons. Met een vergelijking van de 3D-modellen op Runware. Backlog 19c.
+
+### Toegevoegd
+
+- Schuif **Uitgebreidheid** bij de beschrijving van de hele afbeelding (wens Olaf): *Kort* (een paar woorden), *Normaal* (één zin, zoals voorheen) of *Uitgebreid* (een alinea over wat er te zien is, de compositie, details, kleuren en stijl). Staat bovenaan, met daaronder naast elkaar *Beschrijving opnieuw laten maken* en *Beschrijving verwijderen*, net als bij de zoektermen, onder een eigen tussenkop *Beschrijving van de afbeelding* (wens Olaf); die en *Zoektermen* zijn elk in te klappen, net als *Aanwijzen* en *Tekenen* in *Aanwijzen of tekenen*; *Eerdere beschrijvingen* daarbinnen heeft als derde niveau een kleinere kop; los van het detailniveau van de zoektermen; de stand gaat mee in de vraag, staat bij het overzicht (`beschrijvingsniveau`) en heeft een eigen plek in de cache. API: `beschrijvingsniveau` bij POST `…/inventaris` en `…/inventaris/beschrijving`. Bij *Eerdere beschrijvingen* staat per AI-versie de gebruikte uitgebreidheid (bijv. *uitgebreidheid: Uitgebreid (een alinea)*); bij versies die al in de geschiedenis stonden, is de lengte onbekend en staat er niets (wens Olaf).
+
 ## [0.32.10] - 2026-11-06
 
 ### Gewijzigd

@@ -347,7 +347,7 @@ def inventory_part(mid, n, deel):
     a new answer, paid in live mode. The other part stays."""
     body = _body()
     _require_paid_access(_descriptions().vision.betaald)
-    return jsonify(_descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=True, user=_user(), part=deel, detail=body.get("detailniveau")))
+    return jsonify(_descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=True, user=_user(), part=deel, detail=body.get("detailniveau"), description_level=body.get("beschrijvingsniveau")))
 
 
 @api.post("/bestand/<mid>/pagina/<int:n>/inventaris")
@@ -356,7 +356,7 @@ def inventory(mid, n):
     body = _body()
     _require_paid_access(_descriptions().vision.betaald)
     return jsonify(
-        _descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=bool(body.get("opnieuw")), user=_user(), detail=body.get("detailniveau"))
+        _descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=bool(body.get("opnieuw")), user=_user(), detail=body.get("detailniveau"), description_level=body.get("beschrijvingsniveau"))
     )
 
 

@@ -221,6 +221,11 @@ def test_description_with_dummy(http):
     assert len(many["zoektermen"]) > 3 and many["detailniveau"] == "details"
     assert http.post(PAGE + "/inventaris/zoektermen", json={"detailniveau": "alles"}).status_code == 400
     http.post(PAGE + "/inventaris/zoektermen", json={"detailniveau": "normaal"})
+    long = http.post(PAGE + "/inventaris/beschrijving", json={"beschrijvingsniveau": "uitgebreid"}).get_json()["inventaris"]
+    assert long["beschrijvingsniveau"] == "uitgebreid"
+    history = http.get(PAGE + "/inventaris/geschiedenis").get_json()["geschiedenis"]
+    assert all("beschrijvingsniveau" in h for h in history)
+    assert http.post(PAGE + "/inventaris/beschrijving", json={"beschrijvingsniveau": "eindeloos"}).status_code == 400
     # The description of the image by hand, with its earlier versions.
     first = http.get(PAGE + "/inventaris").get_json()["inventaris"]
     edited = http.patch(PAGE + "/inventaris", json={"samenvatting": "Met de hand."}).get_json()["inventaris"]

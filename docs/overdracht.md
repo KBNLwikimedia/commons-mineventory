@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.32.10, 6 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.32.11, 6 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -15,7 +15,7 @@ Stand: versie 0.32.10, 6 november 2026. Voor wie (mens of Claude-sessie) het wer
   - **Afbeelding aanvullen met AI** (FO 7.7, `cutter/aanvulling.py`, Muse Image `muse-image-1.0`, $0,01 per beeld): gaten in een uitsnede laten invullen; eigen tabblad *AI-aangevuld* met doorzichtige achtergrond, de echte prompt, de resolutie en een schakelaar *Toon wat de AI invulde*. Verzonnen, geen bron, nooit als uitsnede naar Commons. **Live geprobeerd door Olaf** (de kat met de rode halsband).
   - In de vergroter zijn uitsnede en aangevulde versie te **zoomen** zoals in de hoofdviewer (`ZoomImage.vue`, dezelfde viewer-module).
   - Meldingen op hun plek: de prullenbakmelding in *Wat je vond*, *Niets gevonden* met links naar *Zoeken* en *Aanwijzen of tekenen*; in *Wat je vond* scrolt alleen de lijst.
-- Tests: 269 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.10.
+- Tests: 270 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.11.
 
 ## De interface in het kort
 
@@ -76,6 +76,7 @@ Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie
 - **Starttegoed** (backlog 15c, FO 8.6): besloten (FO 8.6.6), te bouwen na OAuth en de database.
 - **Morgen eerst (wacht op Olaf)**: het voorstel om het tabblad *Wat staat hierop?* in de vergroter opnieuw in te delen, met vier subtabbladen (backlog 12h). Het staat met schets en open vragen in [ontwerp-wat-is-dit.md](ontwerp-wat-is-dit.md). Pas bouwen na zijn akkoord.
 - **Later, nice-to-have**: het canvas om uitsneden te combineren tot nieuwe werken (FO 18, backlog 25); ontworpen, niet gepland.
+- **Later, nice-to-have**: een 3D-model van een uitsnede met SAM 3D Objects via Runware (FO 7.8, backlog 19c); ontworpen, niet gepland.
 - **Wacht op Olaf**: de vijf vragen bij backlog 15b (venster *Beeldt af en caption voor de hele afbeelding*, FO 9.7).
 - **Valkuil**: in scripts die tekst in bestanden zetten, nooit `\u0000` of andere stuurtekens als scheidingsteken gebruiken (er kwamen eens echte nul-tekens in `Magnifier.vue`); gebruik iets als `@@naam@@`. En een losse `cat` zonder invoer in een Bash-aanroep blijft wachten.
 - **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten) en 12e (verouderde API-paden weghalen in 0.33.0).

@@ -390,3 +390,13 @@ def test_group_instruction_follows_the_space_around_it():
     wide = build_prompt({"naam": "x"}, None, None, None, "lemon (1), bunch of grapes (1)", None, True)
     assert "ignore everything else" in tight and "use those only as context" not in tight
     assert "use those only as context" in wide and "ignore everything else" not in wide
+
+
+
+def test_description_levels_change_the_question():
+    from cutter.beschrijving import inventory_instructions
+
+    normal = inventory_instructions('"x"')
+    assert "- samenvatting: one sentence in Dutch about what is visible." in normal  # as before the slider
+    assert "three to five sentences" in inventory_instructions('"x"', part="beschrijving", description_level="uitgebreid")
+    assert "a few words" in inventory_instructions('"x"', description_level="kort")

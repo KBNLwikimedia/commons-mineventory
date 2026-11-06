@@ -97,7 +97,7 @@
           @dismiss-result="lastResult = null"
           :point-mode="pointMode"
           @detect="detect"
-          @inventory="askInventory(Boolean(inventory), $event?.deel || null, $event?.detailniveau)"
+          @inventory="askInventory(Boolean(inventory), $event?.deel || null, $event?.detailniveau, $event?.beschrijvingsniveau)"
           @forget-inventory="forgetInventory($event?.deel || null)"
           @inventory-changed="inventory = $event"
           :draw-mode="drawMode"
@@ -524,19 +524,22 @@ async function forgetInventory(part = null) {
 // The page overview. With `again` the model is really asked anew (paid);
 // otherwise a stored answer for this page and model comes from the cache, free.
 // With `part` ("beschrijving" or "zoektermen") only that part is asked anew.
-async function askInventory(again = false, part = null, detail = undefined) {
+async function askInventory(again = false, part = null, detail = undefined, descLevel = undefined) {
   const base = pagePath(file.value.mid, pageN.value);
   busy.value = true;
   try {
     const plan = await get(`${base}/inventaris`);
     const action =
       part === "beschrijving"
-        ? t("confirm.action_page_description")
+        ? t("confirm.action_page_description", { length: t(`descdetail.${descLevel || "normaal"}`) })
         : part === "zoektermen"
           ? t("confirm.action_page_terms", { level: t(`detail.${detail || "normaal"}`) })
           : t("confirm.action_page", { level: t(`detail.${detail || "normaal"}`) });
     if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd, action))) return;
-    const level = detail && part !== "beschrijving" ? { detailniveau: detail } : {};
+    const level = {
+      ...(detail && part !== "beschrijving" ? { detailniveau: detail } : {}),
+      ...(descLevel && part !== "zoektermen" ? { beschrijvingsniveau: descLevel } : {}),
+    };
     const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? level : { opnieuw: again, ...level });
     inventory.value = result.inventaris;
   } catch (error) {
