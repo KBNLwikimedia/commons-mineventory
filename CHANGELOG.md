@@ -3,6 +3,13 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.3] - 2026-11-06
+
+### Gewijzigd
+
+- **Bulkacties in vier tabbladen** onder de lijst (wens Olaf, FO 7.4): *Beschrijven*, *Ontdubbelen*, *Groeperen* en *Prullenbak*, elk met een knop voor de selectie en een voor alle zichtbare objecten, en bij groeperen en de prullenbak ook per soort. Het getal staat in de tabnaam. *Dubbelingen samenvoegen* heet nu *Ontdubbelen*, om het verschil met groeperen duidelijk te maken. Nieuw: ontdubbelen van alleen de selectie (API: `{"objecten": [ids]}` bij POST `…/samenvoegingen`), alles beschrijven, alles groeperen, en de selectie of alles naar de prullenbak.
+- Hernoemen (potloodje of dubbelklikken) begint met de huidige naam in het veld, geselecteerd, zodat je die kunt aanpassen in plaats van een lege regel met een grijze naam (wens Olaf). Leegmaken zet de automatische naam terug.
+
 ## [0.33.2] - 2026-11-06
 
 ### Toegevoegd

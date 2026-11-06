@@ -662,3 +662,22 @@ def test_describe_an_object_with_a_length(http):
     assert result["object"]["beschrijving"]["beschrijvingsniveau"] == "caption"
     bad = http.post(f"{PAGE}/objecten/{obj['id']}/beschrijving", json={"beschrijvingsniveau": "roman"})
     assert bad.status_code == 400
+
+
+def test_deduplicate_only_among_some_objects(app, http):
+    """Ontdubbelen with a list of ids: only duplicates among those are merged."""
+    from cutter.api import _page_file, _service
+
+    http.post(PAGE + "/detecties", json={"prompt": "wapen"})
+    with app.test_request_context():
+        service = _service()
+        file = _page_file(ALBUM_MID, 1)
+        store = service._load_store(file, 1)
+        base = store["objecten"][0]
+        store["objecten"].append({**base, "id": "obj-tweeling", "bron": "handmatig", "masker": None})
+        service._write_store(file, 1, store)
+    alone = http.post(PAGE + "/samenvoegingen", json={"objecten": ["obj-tweeling"]}).get_json()
+    assert alone["samengevoegd"] == 0
+    both = http.post(PAGE + "/samenvoegingen", json={"objecten": [base["id"], "obj-tweeling"]}).get_json()
+    assert both["samengevoegd"] == 1
+    assert http.post(PAGE + "/samenvoegingen", json={"objecten": "a"}).status_code == 400

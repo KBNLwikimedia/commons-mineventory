@@ -388,10 +388,14 @@ def remove_group(mid, n, object_id):
 
 @api.post("/bestand/<mid>/pagina/<int:n>/samenvoegingen")
 def merge_duplicates(mid, n):
-    """Merge the objects of the page that show the same picture (7.4). Free."""
+    """Merge the objects of the page that show the same picture (7.4, "Ontdubbelen").
+    Body (optional): {"objecten": [id, …]} to look only among those objects. Free."""
     file = _page_file(mid, n)
     service = _service()
-    merged = service.merge_duplicates(file, n)
+    ids = _body().get("objecten")
+    if ids is not None and not (isinstance(ids, list) and all(isinstance(i, str) for i in ids)):
+        raise DetectionError("'objecten' is een lijst van object-id's.", status=400, code="invalid_body")
+    merged = service.merge_duplicates(file, n, ids)
     return jsonify({"objecten": [service.public(file, n, o) for o in service.page_objects(file, n)], "samengevoegd": merged})
 
 

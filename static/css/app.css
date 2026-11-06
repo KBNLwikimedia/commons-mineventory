@@ -732,3 +732,10 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 
 /* The Commons mark beside "Commons caption" (a round mark, so square). */
 .cc-wikidata-schakelaar .cc-commons-logo { width: 1.1rem; height: 1.1rem; }
+
+/* The bulk actions in four tabs under the list (FO 7.4, wish Olaf). */
+.cc-bulk { display: block; }
+.cc-bulk .cdx-tab { padding: 0.5rem 0.5rem 0.25rem; }
+.cc-bulk-knoppen { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.4rem; }
+.cc-bulk .cc-groeperen { margin: 0.25rem 0; }
+.cc-bulk .cc-uitleg { margin: 0.25rem 0 0; }

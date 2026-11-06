@@ -40,7 +40,7 @@ ENDPOINTS = [
     ("get", PAGE + "/inventaris/geschiedenis", "Eerdere beschrijvingen van de afbeelding, nieuwste eerst", [MID, N], None, 200, False),
     ("delete", PAGE + "/inventaris/geschiedenis/{versie}", "Eén eerdere beschrijving van de afbeelding verwijderen (gratis)", [MID, N, VERSIE], None, 200, False),
     ("put", PAGE + "/inventaris/{deel}", "Een eerdere beschrijving van de afbeelding weer de huidige maken (alleen deel = beschrijving; gratis)", [MID, N, DEEL], '{"versie": "…"}', 200, False),
-    ("post", PAGE + "/samenvoegingen", "Dubbelingen samenvoegen (gratis)", [MID, N], None, 200, False),
+    ("post", PAGE + "/samenvoegingen", "Ontdubbelen: objecten die hetzelfde tonen samenvoegen, alle of alleen de opgegeven (gratis)", [MID, N], '{"objecten": [id]}', 200, False),
     ("get", OBJECT + "/aanvulling", "De AI-aangevulde versie van de uitsnede en de kosten van een nieuwe (gratis)", [MID, N, OID], None, 200, False),
     ("post", OBJECT + "/aanvulling", "De uitsnede laten aanvullen door Muse Image (betaald; verzonnen, nooit een bron)", [MID, N, OID], '{"opnieuw": false}', 201, True),
     ("delete", OBJECT + "/aanvulling", "De AI-aangevulde versie weghalen (gratis)", [MID, N, OID], None, 200, False),

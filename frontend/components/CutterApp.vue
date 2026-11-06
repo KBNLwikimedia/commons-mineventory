@@ -154,50 +154,77 @@
           <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }}</p>
           <!-- What you do with what you found: describe the ticked ones, merge duplicates,
                save. A button is disabled when there is nothing to do. -->
-          <div class="cc-acties-rij">
-            <cdx-button action="progressive" :disabled="busy || !toDescribe" :title="t('objects.describe_help')" @click="describeAll">
-              {{ t("panel.describe_all") }}<template v-if="toDescribe"> ({{ toDescribe }}) <span class="cc-kosten">{{ describeCost }}</span></template>
-            </cdx-button>
-            <cdx-button action="progressive" weight="quiet" :disabled="busy || objects.length < 2" :title="t('objects.merge_help')" @click="mergeDuplicates">
-              {{ t("panel.merge") }}
-            </cdx-button>
-            <cdx-button action="progressive" weight="quiet" :disabled="busy || selectedCount < 2" :title="t('objects.group_help')" @click="groupSelected">
-              {{ t("panel.group", { n: selectedCount }) }}
-            </cdx-button>
-            <!-- In bulk, per kind (all objects of one search term), under "Group selected objects":
-                 two tabs, group and move to the trash (7.4; wish Olaf, 6-11-2026). -->
-            <div v-if="trashableTerms.length" class="cc-per-soort">
-              <cdx-tabs v-model:active="bulkTab" :framed="true">
-                <cdx-tab name="groeperen" :label="t('panel.bulk_group')">
-                  <p v-if="groupableTerms.length" class="cc-groeperen">
-                    <template v-for="(item, i) in groupableTerms" :key="item.term">
-                      <template v-if="i"> · </template>
-                      <button type="button" class="cc-link" :disabled="busy" :title="t('panel.group_all_help')" @click="groupTerm(item.term)">
-                        {{ t("panel.group_all", { term: item.name, n: item.n }) }}
-                      </button>
-                    </template>
-                  </p>
-                  <p v-else class="cc-uitleg">{{ t("panel.bulk_group_none") }}</p>
-                  <p class="cc-uitleg">{{ t("panel.bulk_group_help") }}</p>
-                </cdx-tab>
-                <cdx-tab name="prullenbak" :label="t('panel.bulk_trash')">
-                  <p class="cc-groeperen">
-                    <template v-for="(item, i) in trashableTerms" :key="item.term">
-                      <template v-if="i"> · </template>
-                      <button type="button" class="cc-link cc-link-weg" :disabled="busy" :title="t('panel.bulk_trash_item_help')" @click="trashTerm(item.term)">
-                        {{ t("panel.group_all", { term: item.name, n: item.n }) }}
-                      </button>
-                    </template>
-                  </p>
-                  <p class="cc-uitleg">{{ t("panel.bulk_trash_help") }}</p>
-                </cdx-tab>
-              </cdx-tabs>
-            </div>
-            <!-- The outcome of describing or merging, directly under the buttons that asked for it;
+          <!-- What you do with what you found, in four tabs (wish Olaf, 6-11-2026; FO 7.4):
+               each with the selection, everything visible, and (group, trash) per kind.
+               A button is disabled when there is nothing to do. -->
+          <div class="cc-acties-rij cc-bulk">
+            <cdx-tabs v-model:active="bulkTab" :framed="true">
+              <cdx-tab name="beschrijven" :label="t('bulk.tab_describe', { n: toDescribe })">
+                <div class="cc-bulk-knoppen">
+                  <cdx-button action="progressive" :disabled="busy || !toDescribe" :title="t('objects.describe_help')" @click="describeAll('selectie')">
+                    {{ t("bulk.describe_selected", { n: toDescribe }) }} <span v-if="toDescribe" class="cc-kosten">{{ describeCost }}</span>
+                  </cdx-button>
+                  <cdx-button action="progressive" weight="quiet" :disabled="busy || !toDescribeAll" @click="describeAll('alle')">
+                    {{ t("bulk.describe_all", { n: toDescribeAll }) }} <span v-if="toDescribeAll" class="cc-kosten">{{ describeAllCost }}</span>
+                  </cdx-button>
+                </div>
+                <p class="cc-uitleg">{{ describeNote }} {{ t("bulk.describe_help") }}</p>
+              </cdx-tab>
+              <cdx-tab name="ontdubbelen" :label="t('bulk.tab_dedupe')">
+                <div class="cc-bulk-knoppen">
+                  <cdx-button action="progressive" :disabled="busy || selectedCount < 2" @click="mergeDuplicates('selectie')">
+                    {{ t("bulk.dedupe_selected", { n: selectedCount }) }}
+                  </cdx-button>
+                  <cdx-button action="progressive" weight="quiet" :disabled="busy || visibleObjects.length < 2" @click="mergeDuplicates('alle')">
+                    {{ t("bulk.dedupe_all", { n: visibleObjects.length }) }}
+                  </cdx-button>
+                </div>
+                <p class="cc-uitleg">{{ t("bulk.dedupe_help") }}</p>
+              </cdx-tab>
+              <cdx-tab name="groeperen" :label="t('bulk.tab_group', { n: selectedCount })">
+                <div class="cc-bulk-knoppen">
+                  <cdx-button action="progressive" :disabled="busy || selectedCount < 2" :title="t('objects.group_help')" @click="groupSelected">
+                    {{ t("bulk.group_selected", { n: selectedCount }) }}
+                  </cdx-button>
+                  <cdx-button action="progressive" weight="quiet" :disabled="busy || visibleObjects.length < 2" @click="groupAllVisible">
+                    {{ t("bulk.group_all", { n: visibleObjects.length }) }}
+                  </cdx-button>
+                </div>
+                <p v-if="groupableTerms.length" class="cc-groeperen">
+                  {{ t("bulk.per_kind") }}
+                  <template v-for="(item, i) in groupableTerms" :key="item.term">
+                    <template v-if="i"> · </template>
+                    <button type="button" class="cc-link" :disabled="busy" :title="t('panel.group_all_help')" @click="groupTerm(item.term)">
+                      {{ t("panel.group_all", { term: item.name, n: item.n }) }}
+                    </button>
+                  </template>
+                </p>
+                <p class="cc-uitleg">{{ t("panel.bulk_group_help") }}</p>
+              </cdx-tab>
+              <cdx-tab name="prullenbak" :label="t('bulk.tab_trash', { n: selectedCount })">
+                <div class="cc-bulk-knoppen">
+                  <cdx-button action="destructive" :disabled="busy || !selectedCount" @click="trashSelected">
+                    <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("bulk.trash_selected", { n: selectedCount }) }}
+                  </cdx-button>
+                  <cdx-button action="destructive" weight="quiet" :disabled="busy || !visibleObjects.length" @click="trashAllVisible">
+                    {{ t("bulk.trash_all", { n: visibleObjects.length }) }}
+                  </cdx-button>
+                </div>
+                <p v-if="trashableTerms.length" class="cc-groeperen">
+                  {{ t("bulk.per_kind") }}
+                  <template v-for="(item, i) in trashableTerms" :key="item.term">
+                    <template v-if="i"> · </template>
+                    <button type="button" class="cc-link cc-link-weg" :disabled="busy" :title="t('panel.bulk_trash_item_help')" @click="trashTerm(item.term)">
+                      {{ t("panel.group_all", { term: item.name, n: item.n }) }}
+                    </button>
+                  </template>
+                </p>
+                <p class="cc-uitleg">{{ t("panel.bulk_trash_help") }}</p>
+              </cdx-tab>
+            </cdx-tabs>
+            <!-- The outcome of the last action, directly under the tabs that asked for it;
                  red when nothing could be done. -->
             <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}</cdx-message>
-            <!-- Why the describe button does what it does: only ticked objects without a description. -->
-            <p class="cc-uitleg cc-acties-uitleg">{{ describeNote }}</p>
           </div>
           <busy-note v-if="busy && busyAt === 'objecten'" :message="t('busy.describe')" />
           <cdx-button action="progressive" weight="primary" :disabled="!selectedCount || busy" @click="saveSelection">
@@ -238,7 +265,7 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { CdxButton, CdxIcon, CdxMessage, CdxTab, CdxTabs } from "@wikimedia/codex";
-import { cdxIconDownload, cdxIconPrevious, cdxIconUpload } from "@wikimedia/codex-icons";
+import { cdxIconDownload, cdxIconPrevious, cdxIconTrash, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { askConfirm, askConfirmValue } from "../confirm.js";
 import { money, useT } from "../i18n.js";
@@ -632,18 +659,26 @@ const termKinds = computed(() => {
   return [...terms.values()];
 });
 const trashableTerms = computed(() => termKinds.value);
-const bulkTab = ref("groeperen");
+// The tab of the bulk actions: always Beschrijven to start with, also on another file (wish Olaf).
+const bulkTab = ref("beschrijven");
+watch(() => [file.value?.mid, pageN.value], () => (bulkTab.value = "beschrijven"));
 
 // "All hats" to the trash in one go: always a confirmation listing them; one notice with
 // Undo for all. Only the visible ones (the minimum certainty hides the others).
 async function trashTerm(term) {
   const members = visibleObjects.value.filter((o) => o.bron !== "groep" && o.zoekterm === term);
-  if (!members.length) return;
   const name = termKinds.value.find((item) => item.term === term)?.name || term;
+  await trashMany(members, name, t("panel.bulk_trash_title", { term: name }));
+}
+const trashSelected = () => trashMany(objects.value.filter((o) => o.status === "geselecteerd"), t("bulk.the_selection"), t("bulk.trash_selected_title"));
+const trashAllVisible = () => trashMany(visibleObjects.value, t("bulk.everything"), t("bulk.trash_all_title"));
+
+async function trashMany(members, name, title) {
+  if (!members.length) return;
   const fromCommons = members.some((o) => o.bron === "commons");
   const links = { ...objectsLinks(), ...(fromCommons ? { commons: { href: `https://commons.wikimedia.org/wiki/${encodeURIComponent((file.value.titel || "").replace(/ /g, "_"))}#P180`, label: t("objects.trash_commons_link") } } : {}) };
   const text = [t(members.length === 1 ? "panel.bulk_trash_confirm_one" : "panel.bulk_trash_confirm", { n: members.length, term: name }), fromCommons ? t("objects.trash_confirm_commons") : ""].filter(Boolean).join("\n\n");
-  if (!(await askConfirm(text, { title: t("panel.bulk_trash_title", { term: name }), go: t("panel.bulk_trash_go", { n: members.length }), destructive: true, links, objects: members.map((o) => shownObject(o)) }))) return;
+  if (!(await askConfirm(text, { title, go: t("panel.bulk_trash_go", { n: members.length }), destructive: true, links, objects: members.map((o) => shownObject(o)) }))) return;
   const n = pageN.value;
   const mid = file.value.mid;
   const ids = members.map((o) => o.id);
@@ -705,6 +740,17 @@ async function groupSelected() {
   }
 }
 
+// "Group all": everything visible as one group, after the same confirmation.
+async function groupAllVisible() {
+  actionResult.value = null;
+  try {
+    const members = visibleObjects.value;
+    await makeGroup(members, { objecten: members.map((o) => o.id) });
+  } catch (error) {
+    fail(error);
+  }
+}
+
 // "Groepeer alle …" at a search term, after the same confirmation.
 async function groupTerm(term) {
   try {
@@ -732,10 +778,11 @@ async function ungroupObject(id) {
   }
 }
 
-async function mergeDuplicates() {
+async function mergeDuplicates(scope = "alle") {
   actionResult.value = null;
   try {
-    const result = await post(`${pagePath(file.value.mid, pageN.value)}/samenvoegingen`, {});
+    const among = scope === "selectie" ? objects.value.filter((o) => o.status === "geselecteerd") : visibleObjects.value;
+    const result = await post(`${pagePath(file.value.mid, pageN.value)}/samenvoegingen`, { objecten: among.map((o) => o.id) });
     replaceObjects(result.objecten);
     actionResult.value = result.samengevoegd
       ? { type: "success", text: t("detect.merged", { n: result.samengevoegd }) }
@@ -748,6 +795,9 @@ async function mergeDuplicates() {
 // Ticked objects without a description: what "Describe selected objects" describes, and its price.
 const toDescribe = computed(() => objects.value.filter((o) => o.status === "geselecteerd" && !o.beschrijving).length);
 const describeCost = computed(() => (props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * toDescribe.value, props.config.taal)})` : t("panel.free")));
+// Everything visible without a description: "Describe all".
+const toDescribeAll = computed(() => visibleObjects.value.filter((o) => !o.beschrijving).length);
+const describeAllCost = computed(() => (props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * toDescribeAll.value, props.config.taal)})` : t("panel.free")));
 // The line under the describe button: what it will do with the ticked objects.
 const describeNote = computed(() => {
   const selected = selectedCount.value;
@@ -763,10 +813,10 @@ const busyAt = ref(null);
 const actionResult = ref(null);
 watch(() => [file.value?.mid, pageN.value], () => { actionResult.value = null; });
 
-async function describeAll() {
+async function describeAll(scope = "selectie") {
   busyAt.value = "objecten";
   actionResult.value = null;
-  const chosen = objects.value.filter((o) => o.status === "geselecteerd" && !o.beschrijving);
+  const chosen = (scope === "alle" ? visibleObjects.value : objects.value.filter((o) => o.status === "geselecteerd")).filter((o) => !o.beschrijving);
   if (!chosen.length) {
     actionResult.value = { type: "error", text: t("describe.nothing_to_do") };
     return;

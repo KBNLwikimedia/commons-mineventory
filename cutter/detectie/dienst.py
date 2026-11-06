@@ -574,22 +574,26 @@ class DetectionService:
         return merged
 
     @_locked
-    def merge_duplicates(self, file, n):
-        """Merge objects on a page that show the same picture ("Dubbelingen
-        samenvoegen", 7.4). Returns how many objects were merged away."""
+    def merge_duplicates(self, file, n, ids=None):
+        """Merge objects on a page that show the same picture ("Ontdubbelen", 7.4).
+        With `ids` only among those objects (the selection, or what is visible); the
+        others stay as they are. Returns how many objects were merged away."""
         store = self._load_store(file, n)
+        wanted = set(ids) if ids is not None else None
+        pool = [o for o in store["objecten"] if wanted is None or o["id"] in wanted]
+        rest = [o for o in store["objecten"] if wanted is not None and o["id"] not in wanted]
         # The same grouping as everywhere (_one_per_picture); each duplicate goes into
         # the object that is kept, which keeps its id, status and texts.
-        kept, duplicates = self._one_per_picture(store["objecten"])
-        by_id = {o["id"]: o for o in store["objecten"]}
+        kept, duplicates = self._one_per_picture(pool)
+        by_id = {o["id"]: o for o in pool}
         heads = {o["id"]: o for o in kept}
         for duplicate, head in duplicates.items():
             heads[head] = self._absorb(file, n, heads[head], by_id[duplicate])
         merged = list(heads.values())
-        count = len(store["objecten"]) - len(merged)
+        count = len(pool) - len(merged)
         if count:
             order = {o["id"]: i for i, o in enumerate(store["objecten"])}
-            store["objecten"] = sorted(merged, key=lambda o: order.get(o["id"], 0))
+            store["objecten"] = sorted(merged + rest, key=lambda o: order.get(o["id"], 0))
             self._write_store(file, n, store)
         return count
 

@@ -240,6 +240,32 @@ Klikken op een plek zonder bekend object: een puntprompt aan SAM (één betaalde
 
 ### 7.4 Bulk-operaties
 
+**Vier tabbladen** (wens Olaf, 6-11-2026, sinds 0.33.3). Onder de lijst in *Gevonden objecten (uitsneden)*, onder *27 objecten, 27 geselecteerd* en boven *Selectie opslaan*, staan de bulkacties in vier omkaderde tabbladen (`CdxTabs`). Zo staan ze niet meer door elkaar.
+
+```
+27 objecten, 27 geselecteerd
+┌ Beschrijven (26) │ Ontdubbelen │ Groeperen (27) │ Prullenbak (27) ┐
+│ [ Geselecteerde beschrijven (26)  $0,17 ]  Alle beschrijven (26)   │
+│ Wat de knop doet; alle = alle zichtbare objecten zonder beschrijving│
+└─────────────────────────────────────────────────────────────────────┘
+[ Selectie opslaan (27) ]  [ Downloaden (zip) ]  [ Naar Commons… ]
+```
+
+| Tabblad | Selectie | Alle (zichtbaar) | Per soort |
+| --- | --- | --- | --- |
+| **Beschrijven (n)** | *Geselecteerde beschrijven*: alleen die zonder beschrijving, betaald | *Alle beschrijven*: alle zichtbare zonder beschrijving, betaald | nee (besluit Olaf) |
+| **Ontdubbelen** | *Geselecteerde ontdubbelen*: alleen dubbelingen onder de geselecteerde | *Alle ontdubbelen*: onder alle zichtbare | nee |
+| **Groeperen (n)** | *Geselecteerde groeperen* (twee of meer) | *Alle groeperen*: alle zichtbare als één groep | *alle hoed (17)* |
+| **Prullenbak (n)** | *Geselecteerde naar de prullenbak* (rood) | *Alle naar de prullenbak* | *alle hoed (17)* |
+
+Besluiten van Olaf (6-11-2026, vragenformulier):
+- **Alle** betekent alle **zichtbare** objecten (boven de minimale zekerheid), naast de selectie en, bij groeperen en de prullenbak, per soort.
+- **Ontdubbelen** heet voortaan zo, niet meer *Dubbelingen samenvoegen*: *samenvoegen* en *groeperen* klinken voor een gebruiker hetzelfde. Ontdubbelen maakt van objecten die hetzelfde tonen één object (de rest staat erin onder *ook*); groeperen maakt van verschillende objecten samen één. Beide knoppen: de selectie en alle zichtbare (API: `{"objecten": [ids]}` bij POST `…/samenvoegingen`).
+- **Beschrijven** beschrijft alleen objecten zonder beschrijving, zoals voorheen; geen *per soort*.
+- Het tabblad **Beschrijven** staat steeds open bij het openen van een bestand of pagina.
+- **Het getal in de tabnaam**: bij *Beschrijven* hoeveel geselecteerde objecten nog een beschrijving krijgen, bij *Groeperen* en *Prullenbak* hoeveel er geselecteerd zijn. *Ontdubbelen* heeft geen getal.
+- Elke betaalde of verwijderende actie vraagt eerst om bevestiging, met de objecten in het venster; de prullenbak geeft één melding met *Ongedaan maken* voor allemaal. Bij regio's uit Commons zegt het venster dat er op Commons niets verandert. De uitkomst (bijv. *3 dubbelingen samengevoegd*) staat als melding onder de tabbladen.
+
 Sinds 0.30.0 (besluit Olaf, 5-11-2026) staan *Selectie beschrijven* (sinds 0.31.0 *Geselecteerde objecten beschrijven*) en *Dubbelingen samenvoegen* niet meer in de kolom *Beschrijven en vinden*, maar onderaan *Gevonden objecten (uitsneden)*, boven *Selectie opslaan*: ze werken op wat je gevonden en aangevinkt hebt. Het blok *Bulk-operaties* is daarmee vervallen.
 
 Geselecteerde objecten beschrijven (alleen de geselecteerde objecten zonder beschrijving) en Dubbelingen samenvoegen. Elke betaalde stap met bevestiging en kosten. Een knop is uitgeschakeld als er niets te doen is: geen aangevinkte objecten zonder beschrijving, of minder dan twee objecten. Onder de knoppen staat in een grijze regel wat *Geselecteerde objecten beschrijven* zal doen: hoeveel geselecteerde objecten nog geen beschrijving hebben, welke worden overgeslagen, en als ze allemaal al beschreven zijn dat opnieuw beschrijven per object in de vergroter gaat.

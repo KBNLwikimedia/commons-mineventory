@@ -108,7 +108,8 @@ function autoName(obj) {
 }
 async function startRename(obj) {
   editingId.value = obj.id;
-  draft.value = obj.naam || "";
+  // Start from the name as the list shows it, so you can edit it (wish Olaf); selected, so typing replaces it.
+  draft.value = listName(obj);
   await nextTick();
   const input = Array.isArray(nameInput.value) ? nameInput.value[0] : nameInput.value;
   input?.focus();
@@ -118,6 +119,7 @@ function saveName(obj) {
   if (editingId.value !== obj.id) return;
   editingId.value = null;
   const name = draft.value.trim();
+  if (!obj.naam && name === listName(obj)) return; // unchanged automatic name: nothing to store
   if (name !== (obj.naam || "")) emit("rename", obj.id, name);
 }
 const t = useT();
