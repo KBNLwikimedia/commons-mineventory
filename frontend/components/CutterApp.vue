@@ -426,14 +426,20 @@ function dismiss(id) {
 function fail(error) {
   notify("error", errorText(t, error));
 }
+// An error of a bulk action: in the tab, under the button that asked for it (wish Olaf),
+// not at the top of the page.
+function failInTab(error) {
+  actionResult.value = { type: "error", text: errorText(t, error) };
+}
 
 // -- Confirming paid actions (6.4): only in live mode, with the amount --------------------
 
 // `action`: what will happen, in one or two sentences, above the cost (wish Olaf).
-async function confirmCost(calls, usd, action = "") {
+async function confirmCost(calls, usd, action = "", objects = []) {
   if (!props.config.betaald || !calls) return true;
   const cost = t("confirm.cost", { n: calls, amount: money(usd, props.config.taal) });
-  return askConfirm(action ? `${action}\n\n${cost}` : cost, { title: t("confirm.cost_title") });
+  // `objects`: what the question is about, as a list with small cut-outs (like grouping).
+  return askConfirm(action ? `${action}\n\n${cost}` : cost, { title: t("confirm.cost_title"), objects });
 }
 
 // -- Loading --------------------------------------------------------------------------
@@ -695,7 +701,7 @@ async function trashMany(members, name, title) {
       link: { href: "/objecten?tab=prullenbak", label: t("objects.to_trash") },
     });
   } catch (error) {
-    fail(error);
+    failInTab(error);
     const data = await get(pagePath(mid, n)).catch(() => null); // some may have gone: show what is there
     if (data && mid === file.value?.mid && n === pageN.value) objects.value = data.objecten;
   } finally {
@@ -736,7 +742,7 @@ async function groupSelected() {
     // The confirmation said what happens; the group shows in the list (no extra notice).
     await makeGroup(members, { objecten: members.map((o) => o.id) });
   } catch (error) {
-    fail(error);
+    failInTab(error);
   }
 }
 
@@ -747,7 +753,7 @@ async function groupAllVisible() {
     const members = visibleObjects.value;
     await makeGroup(members, { objecten: members.map((o) => o.id) });
   } catch (error) {
-    fail(error);
+    failInTab(error);
   }
 }
 
@@ -757,7 +763,7 @@ async function groupTerm(term) {
     const members = objects.value.filter((o) => o.bron !== "groep" && o.zoekterm === term);
     await makeGroup(members, { zoekterm: term });
   } catch (error) {
-    fail(error);
+    failInTab(error);
   }
 }
 
@@ -788,7 +794,7 @@ async function mergeDuplicates(scope = "alle") {
       ? { type: "success", text: t("detect.merged", { n: result.samengevoegd }) }
       : { type: "error", text: t("objects.merged_none") };
   } catch (error) {
-    fail(error);
+    failInTab(error);
   }
 }
 
@@ -822,7 +828,9 @@ async function describeAll(scope = "selectie") {
     return;
   }
   const usd = props.config.muse.beschrijving_usd * chosen.length;
-  if (!(await confirmCost(chosen.length, usd, t("confirm.action_describe_all", { n: chosen.length, names: chosen.map((o) => listNames.value[o.id] || objectName(o, props.config.taal, t)).join(", ") })))) return;
+  // The objects as a list with small cut-outs, as when grouping (wish Olaf).
+  const action = t(scope === "alle" ? "confirm.action_describe_visible" : "confirm.action_describe_all", { n: chosen.length });
+  if (!(await confirmCost(chosen.length, usd, action, chosen.map((o) => shownObject(o))))) return;
   busy.value = true;
   try {
     for (const obj of chosen) {
@@ -831,7 +839,7 @@ async function describeAll(scope = "selectie") {
     }
     actionResult.value = { type: "success", text: t("describe.done", { n: chosen.length }) };
   } catch (error) {
-    fail(error);
+    failInTab(error);
   } finally {
     busy.value = false;
     busyAt.value = null;

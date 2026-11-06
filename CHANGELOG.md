@@ -3,6 +3,13 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.4] - 2026-11-06
+
+### Gewijzigd
+
+- Een fout bij een bulkactie (beschrijven, ontdubbelen, groeperen, prullenbak) staat in het tabblad, onder de knop, niet meer bovenaan de pagina (wens Olaf). Is de server niet bereikbaar, dan staat er een begrijpelijke melding in plaats van *Failed to fetch*.
+- Het kostenvenster van *Geselecteerde beschrijven* en *Alle beschrijven* toont de objecten als lijst met kleine uitsneden, zoals bij groeperen, in plaats van een rij namen (wens Olaf).
+
 ## [0.33.3] - 2026-11-06
 
 ### Gewijzigd

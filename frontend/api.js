@@ -50,5 +50,8 @@ export function errorText(t, error) {
   const key = `error.${error.code}`;
   const text = t(key);
   if (text !== key) return text;
-  return error instanceof ApiError ? t("error.error") : error.message;
+  if (error instanceof ApiError) return t("error.error");
+  // The browser could not reach the server at all (e.g. "Failed to fetch"): say so plainly.
+  if (error instanceof TypeError) return t("error.network");
+  return error.message;
 }
