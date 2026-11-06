@@ -16,8 +16,20 @@
     </p>
     <busy-note v-if="busy && where === 'top'" :message="t('busy.general')" />
 
-    <!-- Only when Commons has regions or notes for this page (they always refer to page 1). -->
-    <!-- The AI suggestions come first: they fit this image, unlike a fixed list. -->
+    <!-- From Commons comes first (wish Olaf, 6-11-2026): what people already put on Commons
+         goes before new AI suggestions, and it is free. Only when Commons has regions or
+         notes for this page (they always refer to page 1). -->
+    <cdx-accordion v-if="regionCount" v-model="open.commons">
+      <template #title>{{ t("panel.from_commons") }} <info-dialog v-bind="info('commons', 'panel.from_commons')" /></template>
+      <p class="cc-uitleg">{{ t("panel.from_commons_help") }}</p>
+      <cdx-button action="progressive" :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
+        {{ t("panel.regions_button", { n: regionCount }) }}
+      </cdx-button>
+      <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
+      <cdx-message v-if="lastResult && resultAt === 'commons' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}</cdx-message>
+    </cdx-accordion>
+
+    <!-- Then the AI suggestions: they fit this image, unlike a fixed list. -->
     <cdx-accordion v-model="open.suggestions">
       <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /></template>
       <!-- In the order of the work: (1) ask the AI what is on the image (one call), (2) its
@@ -134,16 +146,6 @@
         <p v-else class="cc-uitleg">{{ t("panel.part_none_zoektermen") }}</p>
         </cdx-accordion>
       </template>
-    </cdx-accordion>
-
-    <cdx-accordion v-if="regionCount" v-model="open.commons">
-      <template #title>{{ t("panel.from_commons") }} <info-dialog v-bind="info('commons', 'panel.from_commons')" /></template>
-      <p class="cc-uitleg">{{ t("panel.from_commons_help") }}</p>
-      <cdx-button action="progressive" :disabled="busy" @click="act('commons', 'detect', { modus: 'commons' })">
-        {{ t("panel.regions_button", { n: regionCount }) }}
-      </cdx-button>
-      <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
-      <cdx-message v-if="lastResult && resultAt === 'commons' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}</cdx-message>
     </cdx-accordion>
 
     <cdx-accordion v-model="open.search">

@@ -8,7 +8,7 @@ Punten met **[Vraag]** wachten op een keuze van Olaf; ze staan ook in hoofdstuk 
 
 ## Begrippen
 
-**Object en uitsnede.** Een *object* is wat er op de afbeelding gevonden is: een kader (soms met de vorm, het masker), een naam, een status en eventueel een beschrijving en een Commons-concept. Het is alleen gegevens, en het wordt bewaard tot de pagina een jaar niet geopend is. Een *uitsnede* is het beeldbestand dat je van een object maakt met *Selectie opslaan*: een JPG van het kader en een PNG van de vorm, in de volledige resolutie van het origineel. Uitsneden worden 30 dagen na het laatste gebruik verwijderd (tenzij ze op Commons staan); het object blijft dan, en opnieuw opslaan maakt de uitsnede opnieuw. Elke uitsnede hoort bij een object; een object heeft pas een uitsnede als je het opslaat. De miniaturen in de lijsten zijn geen uitsneden: die maakt de app telkens even voor het tonen. In de interface staat dit ook bij *Wat je vond*, de bewaartermijnen, de prullenbak en de lijst *Bekeken* (sinds 0.29.0).
+**Object en uitsnede.** Een *object* is wat er op de afbeelding gevonden is: een kader (soms met de vorm, het masker), een naam, een status en eventueel een beschrijving en een Commons-concept. Het is alleen gegevens, en het wordt bewaard tot de pagina een jaar niet geopend is. Een *uitsnede* is het beeldbestand dat je van een object maakt met *Selectie opslaan*: een JPG van het kader en een PNG van de vorm, in de volledige resolutie van het origineel. Uitsneden worden 30 dagen na het laatste gebruik verwijderd (tenzij ze op Commons staan); het object blijft dan, en opnieuw opslaan maakt de uitsnede opnieuw. Elke uitsnede hoort bij een object; een object heeft pas een uitsnede als je het opslaat. De miniaturen in de lijsten zijn geen uitsneden: die maakt de app telkens even voor het tonen. In de interface staat dit ook bij *Gevonden objecten (uitsneden)*, de bewaartermijnen, de prullenbak en de lijst *Bekeken* (sinds 0.29.0).
 
 ## 1. Doel
 
@@ -239,7 +239,7 @@ Klikken op een plek zonder bekend object: een puntprompt aan SAM (één betaalde
 
 ### 7.4 Bulk-operaties
 
-Sinds 0.30.0 (besluit Olaf, 5-11-2026) staan *Selectie beschrijven* (sinds 0.31.0 *Geselecteerde objecten beschrijven*) en *Dubbelingen samenvoegen* niet meer in de kolom *Objecten zoeken*, maar onderaan *Wat je vond*, boven *Selectie opslaan*: ze werken op wat je gevonden en aangevinkt hebt. Het blok *Bulk-operaties* is daarmee vervallen.
+Sinds 0.30.0 (besluit Olaf, 5-11-2026) staan *Selectie beschrijven* (sinds 0.31.0 *Geselecteerde objecten beschrijven*) en *Dubbelingen samenvoegen* niet meer in de kolom *Beschrijven en vinden*, maar onderaan *Gevonden objecten (uitsneden)*, boven *Selectie opslaan*: ze werken op wat je gevonden en aangevinkt hebt. Het blok *Bulk-operaties* is daarmee vervallen.
 
 Geselecteerde objecten beschrijven (alleen de geselecteerde objecten zonder beschrijving) en Dubbelingen samenvoegen. Elke betaalde stap met bevestiging en kosten. Een knop is uitgeschakeld als er niets te doen is: geen aangevinkte objecten zonder beschrijving, of minder dan twee objecten. Onder de knoppen staat in een grijze regel wat *Geselecteerde objecten beschrijven* zal doen: hoeveel geselecteerde objecten nog geen beschrijving hebben, welke worden overgeslagen, en als ze allemaal al beschreven zijn dat opnieuw beschrijven per object in de vergroter gaat.
 
@@ -247,7 +247,7 @@ Sinds 0.28.0 uit de interface (besluit Olaf, 4-11-2026): *Alles detecteren* (SAM
 
 **Groeperen** (wens Olaf, 5-11-2026, zoals in PowerPoint; gebouwd in 0.32.4, backlog 12g). Bij veel kleine objecten van één soort, zoals 15 waterdruppels en 9 bladeren op een stilleven, wil je niet 24 losse uitsneden, maar bijvoorbeeld *groep waterdruppels* en *groep bladeren*.
 
-- **Groeperen (n)** onder de objecten in *Wat je vond*, naast *Dubbelingen samenvoegen*: maakt van de geselecteerde objecten (twee of meer) één object. Uitgeschakeld bij minder dan twee.
+- **Groeperen (n)** onder de objecten in *Gevonden objecten (uitsneden)*, naast *Dubbelingen samenvoegen*: maakt van de geselecteerde objecten (twee of meer) één object. Uitgeschakeld bij minder dan twee.
 - **Groepeer alle …** per zoekterm, met één klik (besluit Olaf): onder de zoektermen staat *Groeperen: alle waterdruppels (15) · alle bladeren (9)* voor elke zoekterm met twee of meer losse objecten.
 - **Het groepsobject**: het kader is het kleinste kader om alle leden heen; het masker is de vereniging van hun maskers (wat in minstens één masker valt). De naam is *groep:* + de soort + het aantal (*groep: waterdruppel (15)*, Engels *group: water drop (15)*); een bijschrift geeft hem een eigen naam. Bron en zekerheid: die van de leden (de laagste zekerheid), met het merkje *groep (15)*.
 - **Bevestigen** (wens Olaf): groeperen en opheffen vragen eerst om bevestiging in een venster met de objecten, elk met een kleine uitsnede. Bij groeperen een veld voor een eigen naam (niet verplicht); de voorgestelde naam staat er in het grijs in. Geen aparte melding achteraf.
@@ -287,6 +287,14 @@ De opvolger van "Uit Delpher": regio's die op Commons al bestaan. Eis van Olaf (
 - **Bestandsnotities** (`{{ImageNote}}` van de ImageAnnotator-gadget) in de wikitekst: rechthoek plus tekst. De tekst wordt het bijschrift.
 - **Bestaande uitsneden**: `{{Image extracted}}` op het origineel noemt bestanden die al zijn uitgesneden. Die worden getoond als "staat al op Commons" (zonder positie, tenzij die af te leiden is). Een regio waarvan het item al op een bestaande uitsnede als *beeldt af* staat, krijgt het label "al uitgesneden".
 
+**Voorstel: alles wat het bestand op Commons al heeft** (6-11-2026, naar aanleiding van een vraag van Olaf over File:Atlas de Wit 1698-pl017-Leiden-St Pancraskerk.jpg, met een Nederlandse caption, veel P180 en twee regio's). Nog niet gebouwd (backlog 26). Nu leest de app alleen de regio's en de notities; de caption en de P180 zonder positie blijven ongebruikt. Het hoort in *Uit Commons*, niet bij de AI-suggesties: het is door mensen ingevoerd en gratis.
+- **Captions op Commons**: alleen lezen, in alle talen die het bestand heeft, met een link naar de bestandspagina.
+- **Regio's**: zoals nu (gratis objecten).
+- **Beeldt af zonder positie**: één chip per verklaring, met het Wikidata-label en de Q-id, zoals de zoektermen. Een klik zoekt het item met SAM op de afbeelding (betaald, zoals een zoekterm, met bedrag en bevestiging), met het Engelse label als zoekwoord; dat zoekwoord is per chip aan te passen (een naam of "Pieterskerk" vindt SAM slecht). Aanvinken en *Alle detecteren* zoals bij de zoektermen.
+- Wat zo gevonden wordt, krijgt meteen dat item als *beeldt af* in het Commons-concept (9.1), zonder gok van de AI. In het venster van 9.7 kan de positie daarna aan die bestaande verklaring worden toegevoegd (besluit 3 daar): zo helpt de app van gewone *beeldt af* regio's te maken.
+- **Context voor de AI**: de bestaande caption en P180 gaan mee als context bij *Beschrijf deze afbeelding*. Een AI-zoekterm voor een item dat het bestand al heeft, krijgt een merkje *al op Commons*.
+- Het blok *Uit Commons* verschijnt dan ook bij een bestand zonder regio's, als het een caption of P180 heeft.
+
 ### 7.6 Paginaoverzicht
 
 "Wat staat op deze pagina?" met zoektermen als chips in het blok *AI-suggesties voor deze afbeelding*, met per term hoeveel objecten op de afbeelding staan (en in de prullenbak), en een knop *Alle objecten detecteren* (sinds 0.29.0 alleen voor de aangevinkte termen).
@@ -295,7 +303,7 @@ Sinds 0.29.0 (besluit Olaf, 5-11-2026): de eerste vraag is één aanroep voor be
 
 **Detailniveau** (wens Olaf, 5-11-2026, sinds 0.32.3): een schuif bij *Beschrijf deze afbeelding* en bij *Zoektermen opnieuw* bepaalt hoeveel soorten objecten de AI als zoekterm voorstelt: *Alleen het hoofdonderwerp* (1), *Hoofdzaken* (ongeveer 3), *Normaal* (tot 12, zoals voorheen) of *Veel details* (tot 20, ook kleine dingen zoals insecten, knopen en ornamenten). SAM zelf kent geen aantal: het vindt alle exemplaren van een zoekterm. De schuif bepaalt dus *waarnaar* gezocht wordt. Elk niveau heeft een eigen antwoord in de cache; *Normaal* houdt de antwoorden van vóór de schuif. Meer zoektermen betekent meer SAM-aanroepen als je ze allemaal laat zoeken; de knop toont het bedrag.
 
-**Minimale zekerheid** (sinds 0.32.3): een schuif boven de objecten in *Wat je vond* (0 tot 95%) verbergt objecten van de AI-beelddetectie met een lagere zekerheid, ook wat al gevonden is, zonder nieuwe aanroep. Objecten zonder zekerheid (met de hand, uit Commons) blijven altijd zichtbaar. Wat verborgen is, is niet geselecteerd en gaat dus niet mee bij opslaan of beschrijven. De schuif bepaalt zo *hoeveel* je overhoudt. Onthouden in de browser.
+**Minimale zekerheid** (sinds 0.32.3): een schuif boven de objecten in *Gevonden objecten (uitsneden)* (0 tot 95%) verbergt objecten van de AI-beelddetectie met een lagere zekerheid, ook wat al gevonden is, zonder nieuwe aanroep. Objecten zonder zekerheid (met de hand, uit Commons) blijven altijd zichtbaar. Wat verborgen is, is niet geselecteerd en gaat dus niet mee bij opslaan of beschrijven. De schuif bepaalt zo *hoeveel* je overhoudt. Onthouden in de browser.
 
 ### 7.7 AI-aangevulde versie
 
@@ -617,7 +625,9 @@ Na de upload, in één `wbeditentity` op `M<pageid>`:
 
 ### 9.7 Beeldt af en caption voor de hele afbeelding
 
-Voorstel (4-11-2026, op verzoek van Olaf). Nog niet gebouwd. Punten met **[Vraag]** wachten op een keuze van Olaf.
+Voorstel 4-11-2026; besluiten van Olaf 6-11-2026 (onderaan deze paragraaf). Nog niet gebouwd. **Het samenstellen en het concept worden nu gebouwd, vóór OAuth** (gratis, alleen lezen); het opslaan op Commons volgt in fase 2.
+
+Kort gezegd: de AI-caption en de zoektermen (als kandidaten voor *beeldt af*, P180) worden **verzoend** met de captions en P180-verklaringen die het bestand op Commons al heeft. De app haalt die bestaande gegevens op (alleen lezen) en zet ze naast de voorstellen; de gebruiker vult aan.
 
 **Doel.** Wat de AI op de hele afbeelding vond, ook vastleggen in de gestructureerde gegevens van het origineel:
 - de herkende dingen (boy, girl, vintage car, …) als *beeldt af* (P180);
@@ -628,6 +638,7 @@ Er gaat alleen iets naar Commons wat de gebruiker heeft gecontroleerd en aangevi
 **Waar.** In een eigen venster (een brede `CdxDialog`), niet in het uitklapblok *AI-suggesties voor deze afbeelding*: dat wordt anders te vol.
 - In dat blok komt onder de zoektermen één knop: *Toevoegen aan de gegevens van deze afbeelding…*. Die knop is blauw maar niet gevuld; *Alle objecten detecteren* blijft de hoofdactie.
 - De knop verschijnt zodra er een paginaoverzicht is, of minstens één object met een gekozen *beeldt af*-item.
+- Bij een bestand met meer pagina's (PDF, TIFF, DjVu) is de knop uitgeschakeld, met uitleg: de gestructureerde gegevens horen bij het hele bestand, niet bij één pagina (besluit 6).
 
 **Indeling.**
 
@@ -656,7 +667,8 @@ Er gaat alleen iets naar Commons wat de gebruiker heeft gecontroleerd en aangevi
 
 **Tabblad Beeldt af (P180).**
 
-1. ***Al op Commons*** (grijs, alleen lezen): de P180-items die het origineel al heeft, met hun label. Heeft een item een positie (P2677), dan staat er een merkje bij. Hier verandert niets aan.
+1. ***Al op Commons*** (grijs, alleen lezen): de P180-items die het origineel al heeft, met hun label. Heeft een item een positie (P2677), dan staat er een merkje bij. Hier verandert niets aan: de app **vult alleen aan**.
+   - Erboven staat uitleg (klein en grijs): *Deze app vervangt Commons niet. Wil je een bestaande verklaring aanpassen of verwijderen, doe dat dan op Commons zelf*, met een link naar de bestandspagina (tabblad *Structured data*).
 2. ***Voorstellen***: één regel per Wikidata-item. Elke regel heeft:
    - een vinkje;
    - het item: label, Q-id, korte beschrijving en een link naar Wikidata;
@@ -671,6 +683,7 @@ Er gaat alleen iets naar Commons wat de gebruiker heeft gecontroleerd en aangevi
    Waar die bronnen samenkomen:
    - Hetzelfde item uit meer bronnen wordt één regel.
    - Een item dat het origineel al heeft, staat alleen bij *Al op Commons*.
+   - Heeft die bestaande verklaring **geen positie** en vond de app wel een object, dan staat bij die regel een keuze: *Overslaan* (standaard) of *Positie toevoegen aan deze verklaring*. Dat laatste wijzigt de verklaring van een ander; de app zegt dat erbij en toont het in de bevestiging. Het is de enige wijziging aan iets wat al op Commons staat (besluit 3).
    - Objecten in de prullenbak of met de status *uitgesloten* tellen niet mee.
    - Zoektermen waarbij geen object is gevonden (in het voorbeeld door en lawn), staan ingeklapt onderaan. Ze komen alleen mee als je ze openklapt en aanvinkt.
 3. ***Ander item toevoegen***: een zoekveld met autosuggestie, voor wat de AI niet vond.
@@ -679,16 +692,16 @@ Er gaat alleen iets naar Commons wat de gebruiker heeft gecontroleerd en aangevi
 - **Met positie** wordt elk object een eigen verklaring: P180 met P2677 `pct:x,y,b,h`, uit het kader van het object in het hele beeld. Zo werkt ook het Book of Hours (7.5). Commons tekent die regio's op de bestandspagina, en de app leest ze de volgende keer gratis terug als objecten (7.5).
 - **Zonder positie** wordt het één verklaring zonder kwalificator.
 
-**[Vraag]** Positie standaard aan of uit?
+Standaard **met positie** (besluit 1).
 
-**Tabblad Captions.** Per taal, Nederlands en Engels, een kaart met drie delen:
+**Tabblad Captions.** Per taal een kaart: Nederlands, Engels en de taal van de interface (nu altijd een van die twee; komt er een taal bij, dan ook die). De AI geeft alleen Nederlands en Engels; voor een andere taal is er alleen *Zelf schrijven*. Elke kaart heeft drie delen:
 - ***Nu op Commons***: de bestaande caption, of "nog geen caption".
-- ***AI-voorstel***: de samenvatting van het paginaoverzicht (`samenvatting` en `samenvatting_en`), met een AI-merkje.
+- ***AI-voorstel***: de samenvatting van het paginaoverzicht (`samenvatting` en `samenvatting_en`) **in de stand *Wikidata-caption*** (7.6, hooguit 250 tekens), met een AI-merkje.
   - Zonder de paginasoort ervoor ("prentenboekpagina —"), want dat is geen beschrijving.
-  - Is het voorstel langer dan 250 tekens, dan zegt het venster dat het moet worden ingekort.
+  - Is de huidige beschrijving in een andere stand (kort, normaal, uitgebreid), dan zegt het venster dat en biedt het aan de beschrijving opnieuw te vragen in de stand *Wikidata-caption* (betaald, met het bedrag en een bevestiging). Een eerdere versie in die stand (carrousel) wordt gratis gebruikt (besluit 4).
 - ***De keuze***:
   - Zonder bestaande caption: *Toevoegen*, aangevinkt. Het AI-voorstel staat in een tekstvak dat je kunt aanpassen, met *Ongedaan maken* en een teller tot 250 tekens.
-  - Met een bestaande caption: *Bestaande houden* (standaard), *Vervangen door het AI-voorstel* of *Zelf schrijven* (een tekstvak dat begint met het AI-voorstel). Bij vervangen staan de oude en de nieuwe tekst onder elkaar.
+  - Met een bestaande caption: *Zelf schrijven* (standaard), *Bestaande houden* of *Vervangen door het AI-voorstel*. Bij *Zelf schrijven* begint het tekstvak met **beide**: de bestaande caption en daaronder het AI-voorstel, zodat je ze samenvoegt; met een teller tot 250 tekens en *Ongedaan maken*. Bij vervangen staan de oude en de nieuwe tekst onder elkaar. Opgeslagen wordt alleen wat in het tekstvak staat als het verschilt van de bestaande caption (besluit 5).
 
 Captions in andere talen staan eronder, alleen lezen; die blijven zoals ze zijn.
 
@@ -716,12 +729,16 @@ Is er nog geen paginaoverzicht, dan legt het venster uit dat het voorstel uit *A
 
 **Niet in dit venster.** De gelezen tekst in en onder het beeld. Op het origineel zou dat wikitekst zijn (`{{Inscription}}`), geen SDC, en dat is een andere bewerking.
 
-**[Vraag] voor Olaf:**
-1. **Positie**: standaard één verklaring per object, met P2677 (voorstel)? Of standaard één verklaring per item, zonder positie?
-2. **Item al aanwezig zonder positie**: een AI-voorstel voor een item dat het origineel al heeft, maar zonder positie. Overslaan (voorstel)? Of de positie als kwalificator toevoegen aan die bestaande verklaring? Dat laatste wijzigt de verklaring van een ander.
-3. **AI-herkomst**: moet een verklaring of caption die uit een AI-voorstel komt dat ook in de SDC tonen, met een kwalificator of referentie ("gevonden met AI, gecontroleerd door een mens")? Of is de bewerkingssamenvatting genoeg? Voorstel: alleen de samenvatting. Een vaste Commons-conventie hiervoor is niet bekend (zie 16).
-4. **Bestaande caption**: standaard *Bestaande houden* (voorstel)?
-5. **Bestanden met meer pagina's** (PDF, TIFF, DjVu): de SDC hoort bij het hele bestand, niet bij één pagina. Het venster dan uitzetten? Of alleen P180 zonder positie en zonder caption toestaan?
+**Besluiten Olaf (6-11-2026)**, via een vragenformulier:
+1. **Positie**: standaard één verklaring per object, met P2677.
+2. **Bestaande P180**: alleen aanvullen. Bestaande verklaringen vervangen of verwijderen kan niet in de app; het venster legt uit dat de app geen vervanging is voor alles wat op Commons kan, en dat je dat op Commons zelf doet (link naar de bestandspagina).
+3. **Item al aanwezig zonder positie**: de gebruiker kiest per regel, *Overslaan* (standaard) of *Positie toevoegen aan deze verklaring*.
+4. **Bron van de caption**: de stand *Wikidata-caption* (7.6); is die er niet, dan biedt het venster aan erom te vragen (betaald, met bevestiging).
+5. **Bestaande caption**: standaard *Zelf schrijven*, met een tekstvak dat begint met de bestaande caption en het AI-voorstel samen.
+6. **Bestanden met meer pagina's**: het venster is uit (knop uitgeschakeld, met uitleg).
+7. **Talen**: Nederlands, Engels en de taal van de interface.
+8. **AI-herkomst**: alleen in de bewerkingssamenvatting, niet in de gegevens zelf. Bij de bouw nagaan of Commons hier inmiddels een afspraak over heeft (16).
+9. **Wanneer**: het samenstellen en het concept nu bouwen, vóór OAuth (gratis, alleen lezen); het opslaan op Commons in fase 2, eerst op de testwiki.
 
 ## 10. Interface met Codex
 
@@ -766,8 +783,8 @@ Zoals in de Delpher Uitsnijder, met Commons-inhoud:
 Sinds 0.29.0 van links naar rechts in de volgorde van het werk, zoals in de Delpher Uitsnijder (besluit Olaf, 4-11-2026): beeld, objecten zoeken, wat je vond.
 
 - **Links**: de viewer met zoom en pan, overlays voor boxen en maskers, Aanwijzen met een groene rand.
-- **Midden**: *Objecten zoeken*, het detectiepaneel in uitklapbare blokken (Codex *Accordion*), sinds 0.14.0 in deze volgorde: AI-suggesties voor deze afbeelding, Uit Commons, Zoeken, Aanwijzen of tekenen, Bijsnijden in CropTool (0.18.0).
-- **Rechts**: *Wat je vond*: laatst bezocht › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › de objecten met vinkjes, en onderaan (blijft in beeld) de knoppen **Geselecteerde objecten beschrijven**, **Dubbelingen samenvoegen**, **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
+- **Midden**: *Beschrijven en vinden*, het detectiepaneel in uitklapbare blokken (Codex *Accordion*), sinds 0.32.12 in deze volgorde (wens Olaf: wat al op Commons staat gaat voor nieuwe AI-suggesties): Uit Commons (alleen als er iets is), AI-suggesties voor deze afbeelding, Zoeken, Aanwijzen of tekenen, Bijsnijden in CropTool (0.18.0).
+- **Rechts**: *Gevonden objecten (uitsneden)*: laatst bezocht › pagina's (bij PDF/DjVu/TIFF, als miniaturen) › de objecten met vinkjes, en onderaan (blijft in beeld) de knoppen **Geselecteerde objecten beschrijven**, **Dubbelingen samenvoegen**, **Selectie opslaan**, **Downloaden (zip)** en **Naar Commons…**.
 - Elke kolom heeft een kop met één regel uitleg en een (i)-venster (0.28.0).
 - **Vergroter**: de uitsnede, "Wat staat hierop?", het bijschrift en het Commons-concept (tab).
 - **Gebouwd in fase 1 (stand 0.9.0)**: de randen tussen de drie kolommen zijn versleepbaar (ook met de pijltjestoetsen; breedte per browser onthouden); de objectenlijst toont een miniatuur per object, en een regel licht op als de muis erboven of boven die uitsnede in het beeld staat; alle knoppen zijn Codex-blauw (*progressive*), verwijderen blijft rood; in het Commons-concept zitten de invulacties per veld in een klein menu (⋯) met *Ongedaan maken* direct erna; de namen die de app zelf geeft (klik, rechthoek, regio) en soort en zekerheid volgen de taal van de interface.

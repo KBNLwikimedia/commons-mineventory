@@ -877,7 +877,7 @@ function openMagnifier(id) {
   magnifierOpen.value = true;
 }
 
-// Previous and next in the magnifier: the order of the list "Wat je vond".
+// Previous and next in the magnifier: the order of the list "Gevonden objecten (uitsneden)".
 const listNames = computed(() => numberedNames(objects.value, props.config.taal, t));
 const listOrder = computed(() => Object.keys(listNames.value).filter((id) => visibleObjects.value.some((o) => o.id === id)));
 const magnifiedIndex = computed(() => listOrder.value.indexOf(magnifiedId.value));

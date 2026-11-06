@@ -55,7 +55,7 @@ Opruimen volgens de bewaartermijnen (originelen 7 dagen, uitsneden 30 dagen, det
 
 ## Wat de app nu doet
 
-- Een Commons-bestand openen via de URL, de titel of de M-id; ook PDF- en DjVu-pagina's, en originelen boven 100 megapixel (die worden met libvips stuk voor stuk gelezen). Het werkblad heeft vier kolommen in de volgorde van het werk: *Bekeken* (je geopende afbeeldingen, met *Opzij gezet*), *Beeld*, *Objecten zoeken* en *Wat je vond*; elke kolom schuift in tot een strook. Op een telefoon zijn de kolommen tabbladen.
+- Een Commons-bestand openen via de URL, de titel of de M-id; ook PDF- en DjVu-pagina's, en originelen boven 100 megapixel (die worden met libvips stuk voor stuk gelezen). Het werkblad heeft vier kolommen in de volgorde van het werk: *Bekeken* (je geopende afbeeldingen, met *Opzij gezet*), *Beeld*, *Beschrijven en vinden* en *Gevonden objecten (uitsneden)*; elke kolom schuift in tot een strook. Op een telefoon zijn de kolommen tabbladen.
 - Objecten en maskers detecteren met SAM 3.1 (Meta Model API): zoeken met een zoekterm, AI-suggesties voor de afbeelding (de aangevinkte zoektermen in één keer, met een schuif voor het **detailniveau**: van alleen het hoofdonderwerp tot veel kleine details), Aanwijzen (ook binnen het kader van een ander object). Of zelf een rechthoek tekenen (gratis) en er later een transparante PNG van laten maken. Na elke actie staat de uitkomst in het paneel; met een schuif **minimale zekerheid** verberg je minder zekere vondsten.
 - **Groeperen**, zoals in PowerPoint: van veel kleine objecten (bijvoorbeeld vijftien waterdruppels) één object maken, met één kader en de maskers samen, en weer opheffen. Een groep wordt beschreven aan de hand van zijn objecten.
 - **Afbeelding aanvullen met AI** (Muse Image): gaten in een uitsnede laten invullen, bijvoorbeeld waar iets voor het object stond. Apart van de echte uitsnede, met een AI-merkje en een laag die toont wat de AI verzon; nooit als uitsnede naar Commons.
@@ -73,7 +73,7 @@ Klik op een afbeelding voor de volledige grootte. Afbeelding 4 tot en met 9 kome
 
 <table>
   <tr>
-    <td width="33%"><a href="docs/screenshots/01-werkblad-ai.png"><img src="docs/screenshots/01-werkblad-ai.png" alt="Het werkblad met objecten en maskers van de AI"></a><br><sub><b>1. Het werkblad.</b> Bekeken, Beeld, Objecten zoeken en Wat je vond; de AI-beschrijving van de hele afbeelding en de gevonden objecten met hun maskers.</sub></td>
+    <td width="33%"><a href="docs/screenshots/01-werkblad-ai.png"><img src="docs/screenshots/01-werkblad-ai.png" alt="Het werkblad met objecten en maskers van de AI"></a><br><sub><b>1. Het werkblad.</b> Bekeken, Beeld, Beschrijven en vinden en Gevonden objecten (uitsneden); de AI-beschrijving van de hele afbeelding en de gevonden objecten met hun maskers.</sub></td>
     <td width="33%"><a href="docs/screenshots/02-album-maskers.png"><img src="docs/screenshots/02-album-maskers.png" alt="Een albumblad met 23 gevonden objecten"></a><br><sub><b>2. Veel objecten tegelijk.</b> 23 objecten op een blad uit een album amicorum, met kaders en maskers.</sub></td>
     <td width="33%"><a href="docs/screenshots/03-zoektermen-engels.png"><img src="docs/screenshots/03-zoektermen-engels.png" alt="AI-zoektermen met aantallen, in de Engelse interface"></a><br><sub><b>3. AI-zoektermen.</b> Per zoekterm hoeveel objecten er gevonden zijn, en alles in één keer detecteren. Hier in de Engelse interface.</sub></td>
   </tr>

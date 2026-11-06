@@ -228,12 +228,35 @@ DETAIL_LEVELS = {
 }
 DEFAULT_DETAIL = "normaal"
 
+CAPTION_MAX = 250  # characters: the limit of a caption (label) in the structured data on Commons
+CAPTION_ASK = 230  # what the question asks for, to leave some room
+
+
+def cap_caption(text, limit=CAPTION_MAX):
+    """A text of at most `limit` characters: cut after the last whole sentence that fits,
+    else after the last whole word, with "…" (which counts)."""
+    text = " ".join(str(text or "").split())
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    end = max(head.rfind(". "), head.rfind("! "), head.rfind("? "))
+    if end >= limit // 2:
+        return head[: end + 1]
+    cut = text[: limit - 1].rsplit(" ", 1)[0].rstrip(" ,;:")
+    return cut + "…"
+
 # How long the description of the whole image is (the slider at "Beschrijving laten maken",
 # wish Olaf 6-11-2026). Level -> (rule for samenvatting, rule for samenvatting_en).
 # "normaal" is the question as it was before the slider, so its answers stay in the cache.
 DESCRIPTION_LEVELS = {
     "kort": ("a few words in Dutch: what the image shows, at most one short sentence.", "the same in English."),
     "normaal": ("one sentence in Dutch about what is visible.", "the same sentence in English."),
+    # A caption for the structured data on Commons (wish Olaf, 6-11-2026): at most 250 characters
+    # (Commons:File captions). Asked a little shorter; cut to the limit afterwards if needed.
+    "caption": (
+        f"a caption in Dutch for Wikimedia Commons: one or two plain sentences about what is shown, at most {CAPTION_ASK} characters, no markup, no links.",
+        f"the same caption in English, also at most {CAPTION_ASK} characters.",
+    ),
     "uitgebreid": (
         "a paragraph of three to five sentences in Dutch: what is shown, the composition, notable details, colours and style.",
         "the same paragraph in English.",
@@ -1134,6 +1157,10 @@ class DescriptionService:
                 parsed["detailniveau"] = detail
             if part != "zoektermen":
                 parsed["beschrijvingsniveau"] = description_level
+                if description_level == "caption":  # never longer than Commons allows
+                    for key in ("samenvatting", "samenvatting_en"):
+                        if key in parsed:
+                            parsed[key] = cap_caption(parsed[key])
             overview = {
                 **parsed,
                 "model": choice["model"],

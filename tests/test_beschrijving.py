@@ -400,3 +400,17 @@ def test_description_levels_change_the_question():
     assert "- samenvatting: one sentence in Dutch about what is visible." in normal  # as before the slider
     assert "three to five sentences" in inventory_instructions('"x"', part="beschrijving", description_level="uitgebreid")
     assert "a few words" in inventory_instructions('"x"', description_level="kort")
+
+
+
+def test_caption_level_never_longer_than_250():
+    from cutter.beschrijving import CAPTION_MAX, cap_caption, inventory_instructions
+
+    assert "at most 230 characters" in inventory_instructions('"x"', part="beschrijving", description_level="caption")
+    long = "Een gedekte tafel met fruit. " * 20
+    capped = cap_caption(long)
+    assert len(capped) <= CAPTION_MAX and capped.endswith(".")
+    words = "woord " * 80
+    capped = cap_caption(words)
+    assert len(capped) <= CAPTION_MAX and capped.endswith("…")
+    assert cap_caption("Kort.") == "Kort."

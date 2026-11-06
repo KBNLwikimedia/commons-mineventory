@@ -3,6 +3,25 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.12] - 2026-11-06
+
+### Gewijzigd
+
+- Nieuwe koppen van de kolommen (wens Olaf): *Objecten zoeken* heet nu **Beschrijven en vinden** (*Describe and find*), want de kolom beschrijft ook de hele afbeelding en maakt captions en zoektermen; *Wat je vond* heet nu **Gevonden objecten (uitsneden)** (*Found objects (cut-outs)*). De uitleg (i) zegt dat ook. Functioneel ontwerp, overdracht en README bijgewerkt.
+- In *Beschrijven en vinden* staat *Uit Commons* nu boven *AI-suggesties voor deze afbeelding* (wens Olaf): wat al op Commons staat, gaat voor nieuwe AI-suggesties. De uitleg (i) volgt die volgorde.
+- De uitleg (i) bij *Gevonden objecten (uitsneden)* heeft een eigen alinea over **het potloodje** (een object een eigen naam geven) (wens Olaf).
+
+### Ontwerp
+
+- Functioneel ontwerp 7.5, voorstel: ook de bestaande captions en de *beeldt af* (P180) zonder positie gebruiken in *Uit Commons*, als chips waarmee je het item op de afbeelding laat zoeken; als context voor de AI (backlog 26).
+- Functioneel ontwerp 9.7 *Beeldt af en caption voor de hele afbeelding*: de besluiten van Olaf over het verzoenen van de AI-caption en de zoektermen (P180) met wat al op Commons staat. Alleen aanvullen, met uitleg dat je bestaande gegevens op Commons zelf aanpast; de caption uit de stand *Wikidata-caption*; een bestaande caption standaard samenvoegen in een tekstvak; geen venster bij bestanden met meer pagina's. Het samenstellen en het concept komen nu, vóór OAuth (backlog 15b).
+- De schakelaar *Wikidata-caption* heeft kleinere letters en een kleiner schuifje (wens Olaf).
+- Onder *Generate description again* en *Remove description* staat nu uitleg, net als onder de zoektermen: wat de AI beschrijft, aanpassen met het potloodje, eerdere versies, de stand *Wikidata-caption*, en dat opnieuw vragen weer kost (wens Olaf).
+
+### Toegevoegd
+
+- Stand **Wikidata-caption (hooguit 250 tekens)** (naam op aanwijzing van Olaf), ook met één klik via een schakelaar met het Wikidata-logo naast de schuif; uit zet de schuif terug op de stand ervoor in de schuif *Uitgebreidheid* van de beschrijving van de hele afbeelding (wens Olaf). 250 tekens is de grens van een caption in de gestructureerde gegevens op Commons (nagekeken op Commons:File captions; niet 255). De vraag aan de AI vraagt om hooguit 230 tekens; is het antwoord toch langer, dan kapt de server het af na de laatste hele zin (of het laatste hele woord, met …), zodat het nooit langer is dan 250, in het Nederlands en het Engels.
+
 ## [0.32.11] - 2026-11-06
 
 ### Gewijzigd

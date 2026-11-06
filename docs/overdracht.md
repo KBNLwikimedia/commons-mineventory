@@ -14,7 +14,7 @@ Stand: versie 0.32.11, 6 november 2026. Voor wie (mens of Claude-sessie) het wer
   - **Groeperen** (FO 7.4, `POST/DELETE …/groepen`): van veel kleine objecten één object met één kader en samengevoegde maskers; bevestigingsvensters met de objecten en een eigen naam; *Groep opheffen* zet de leden terug. Bij het beschrijven van een groep gaat een **AI-prompt** mee die meebeweegt met de ruimte rond de uitsnede, met de eerdere beschrijvingen van de leden als context, en een schakelaar *Alleen deze objecten*.
   - **Afbeelding aanvullen met AI** (FO 7.7, `cutter/aanvulling.py`, Muse Image `muse-image-1.0`, $0,01 per beeld): gaten in een uitsnede laten invullen; eigen tabblad *AI-aangevuld* met doorzichtige achtergrond, de echte prompt, de resolutie en een schakelaar *Toon wat de AI invulde*. Verzonnen, geen bron, nooit als uitsnede naar Commons. **Live geprobeerd door Olaf** (de kat met de rode halsband).
   - In de vergroter zijn uitsnede en aangevulde versie te **zoomen** zoals in de hoofdviewer (`ZoomImage.vue`, dezelfde viewer-module).
-  - Meldingen op hun plek: de prullenbakmelding in *Wat je vond*, *Niets gevonden* met links naar *Zoeken* en *Aanwijzen of tekenen*; in *Wat je vond* scrolt alleen de lijst.
+  - Meldingen op hun plek: de prullenbakmelding in *Gevonden objecten (uitsneden)*, *Niets gevonden* met links naar *Zoeken* en *Aanwijzen of tekenen*; in *Gevonden objecten (uitsneden)* scrolt alleen de lijst.
 - Tests: 270 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.11.
 
 ## De interface in het kort
@@ -25,8 +25,8 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 | --- | --- | --- |
 | **Bekeken** | geopende afbeeldingen met miniatuur; daaronder **Opzij gezet** (inklapbaar, slepen of prullenbakje; pijl omhoog zet terug) | `ViewedPanel.vue`, `HistoryList.vue`, `state.js` |
 | **Beeld** | de viewer (gewone JS, niet herschrijven in Vue) met zoom, Maskers/Kaders/Namen | `ViewerPane.vue`, `viewer/viewer.js` |
-| **Objecten zoeken** | AI-suggesties (beschrijving en zoektermen, elk apart opnieuw of weg; beschrijving met de hand aan te passen, met versies), Uit Commons, Zoeken, Aanwijzen of tekenen, CropTool | `DetectionPanel.vue`, `PageDescription.vue` |
-| **Wat je vond** | de objecten (genummerd: *man 1*, *man 2*; *beschreven* bij een object met een beschrijving), onderaan Geselecteerde objecten beschrijven (met een regel over wat de knop doet), Dubbelingen samenvoegen (de uitkomst als melding direct onder de knoppen, rood of groen, met een X), Selectie opslaan, zip, Naar Commons, en daaronder *Bewaartermijnen* | `ObjectList.vue`, `CutterApp.vue` |
+| **Beschrijven en vinden** | AI-suggesties (beschrijving en zoektermen, elk apart opnieuw of weg; beschrijving met de hand aan te passen, met versies), Uit Commons, Zoeken, Aanwijzen of tekenen, CropTool | `DetectionPanel.vue`, `PageDescription.vue` |
+| **Gevonden objecten (uitsneden)** | de objecten (genummerd: *man 1*, *man 2*; *beschreven* bij een object met een beschrijving), onderaan Geselecteerde objecten beschrijven (met een regel over wat de knop doet), Dubbelingen samenvoegen (de uitkomst als melding direct onder de knoppen, rood of groen, met een X), Selectie opslaan, zip, Naar Commons, en daaronder *Bewaartermijnen* | `ObjectList.vue`, `CutterApp.vue` |
 
 - Elke kolom schuift in tot een strook (`ColumnHeader.vue`, `ColumnStrip.vue`) en heeft een kop met uitleg en een (i).
 - De **vergroter** (`Magnifier.vue`) heeft Vorige/Volgende (ook ← →), slaat een niet-opgeslagen bijschrift vanzelf op, en blijft open na *Naar de prullenbak*. Tabbladen: *Uitsnede*, *AI-aangevuld* (als er een is), *Wat staat hierop?* en *Commons-concept*. Bevestigingen met een lijst objecten of een tekstveld gaan via `askConfirmValue()` in `confirm.js`.

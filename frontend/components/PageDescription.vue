@@ -13,6 +13,19 @@
          and under the slider, side by side, asking anew (paid) and removing (free). -->
     <div class="cc-termen-bron">
       <detail-slider v-model="descLevel" :disabled="busy" :levels="DESCRIPTION_LEVELS" prefix="descdetail" compact />
+      <!-- A Wikidata caption (at most 250 characters) in one click: puts the slider on that stop. -->
+      <cdx-toggle-switch :model-value="descLevel === 'caption'" :disabled="busy" class="cc-wikidata-schakelaar" :title="t('descdetail.caption_help')" @update:model-value="setCaption">
+        <svg class="cc-wikidata-logo" viewBox="0 0 22 14" aria-hidden="true" focusable="false">
+          <rect x="0" y="0" width="2" height="14" fill="#990000" />
+          <rect x="3" y="0" width="3" height="14" fill="#990000" />
+          <rect x="7" y="0" width="3" height="14" fill="#339966" />
+          <rect x="11" y="0" width="2" height="14" fill="#339966" />
+          <rect x="14" y="0" width="3" height="14" fill="#006699" />
+          <rect x="18" y="0" width="1" height="14" fill="#006699" />
+          <rect x="20" y="0" width="2" height="14" fill="#006699" />
+        </svg>
+        {{ t("descdetail.caption_switch") }}
+      </cdx-toggle-switch>
       <div class="cc-termen-knoppen">
         <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="`${t('panel.part_again_help_beschrijving')} ${t('panel.parts_help')}`" @click="emit('again', descLevel)">
           {{ t(hasDescription ? "panel.part_again_beschrijving" : "panel.part_ask_beschrijving") }} <span class="cc-kosten">{{ cost }}</span>
@@ -21,6 +34,8 @@
           <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget_beschrijving_button") }}
         </cdx-button>
       </div>
+      <!-- Explanation under the buttons, like under the search terms (wish Olaf). -->
+      <p class="cc-uitleg cc-termen-uitleg">{{ t("panel.description_help") }} {{ t("panel.parts_help") }}</p>
     </div>
     <div v-if="hasDescription || editing" class="cc-ai-resultaat">
       <template v-for="group in GROUPS" :key="group.key">
@@ -99,7 +114,7 @@
 
 <script setup>
 import { computed, inject, nextTick, reactive, ref, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxTextArea, CdxTextInput } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxTextArea, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconTrash } from "@wikimedia/codex-icons";
 import { del, errorText, get, pagePath, patch, put } from "../api.js";
 import { fitToText } from "../autosize.js";
@@ -121,7 +136,7 @@ const props = defineProps({
 // changed(overview): a new overview after an edit or a version put back; again; forget.
 const emit = defineEmits(["changed", "again", "forget"]);
 // The length of the description: that of the overview, else the last one chosen in this browser.
-const DESCRIPTION_LEVELS = ["kort", "normaal", "uitgebreid"];
+const DESCRIPTION_LEVELS = ["kort", "normaal", "caption", "uitgebreid"];
 const DESC_KEY = "cc-beschrijvingsniveau";
 function storedDescLevel() {
   try {
@@ -131,6 +146,16 @@ function storedDescLevel() {
   }
 }
 const descLevel = ref(props.inventory?.beschrijvingsniveau || storedDescLevel());
+// The Wikidata switch: on puts the slider on "caption"; off goes back to the stop before it.
+let levelBeforeCaption = descLevel.value === "caption" ? "normaal" : descLevel.value;
+function setCaption(on) {
+  if (on) {
+    if (descLevel.value !== "caption") levelBeforeCaption = descLevel.value;
+    descLevel.value = "caption";
+  } else {
+    descLevel.value = levelBeforeCaption === "caption" ? "normaal" : levelBeforeCaption;
+  }
+}
 watch(() => props.inventory?.beschrijvingsniveau, (level) => level && (descLevel.value = level));
 watch(descLevel, (level) => {
   try {

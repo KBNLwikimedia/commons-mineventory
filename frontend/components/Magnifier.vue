@@ -24,7 +24,7 @@
           </template>
         </p>
       </div>
-      <!-- Previous and next object, in the order of the list "Wat je vond" (also ← and →). -->
+      <!-- Previous and next object, in the order of the list "Gevonden objecten (uitsneden)" (also ← and →). -->
       <span v-if="position.total > 1" class="cc-vergroter-nav" role="group" :aria-label="t('magnifier.nav')">
         <cdx-button weight="quiet" type="button" :disabled="position.index <= 1" :aria-label="t('magnifier.previous')" :title="t('magnifier.previous')" @click="step(-1)">
           <cdx-icon :icon="cdxIconPrevious" />

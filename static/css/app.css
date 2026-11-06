@@ -685,3 +685,10 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
    smaller again, with a smaller subtitle (wish Olaf). */
 .cc-deel-uitklap .cc-beschrijving-blok > summary .cdx-accordion__header__title { font-size: 0.875rem; }
 .cc-deel-uitklap .cc-beschrijving-blok > summary .cdx-accordion__header__description { font-size: 0.8125rem; }
+
+/* The Wikidata caption switch beside the Length slider (PageDescription.vue). */
+.cc-wikidata-schakelaar { margin: 0.15rem 0; font-size: 0.75rem; align-items: center; }
+.cc-wikidata-schakelaar .cdx-label__label__text, .cc-wikidata-schakelaar label { font-size: 0.75rem; }
+/* A smaller switch than Codex's default, to match the small text (wish Olaf). */
+.cc-wikidata-schakelaar .cdx-toggle-switch__switch { transform: scale(0.7); transform-origin: left center; margin-right: -0.5rem; }
+.cc-wikidata-logo { width: 1.1rem; height: 0.7rem; vertical-align: -0.05rem; margin-right: 0.3rem; }
