@@ -98,7 +98,6 @@
           @detect="detect"
           @inventory="askInventory(Boolean(inventory), $event?.deel || null, $event?.detailniveau)"
           @forget-inventory="forgetInventory($event?.deel || null)"
-          @group="groupTerm($event.zoekterm)"
           @inventory-changed="inventory = $event"
           :draw-mode="drawMode"
           @point-mode="setMode('point', $event)"
@@ -161,6 +160,16 @@
             <cdx-button action="progressive" weight="quiet" :disabled="busy || selectedCount < 2" :title="t('objects.group_help')" @click="groupSelected">
               {{ t("panel.group", { n: selectedCount }) }}
             </cdx-button>
+            <!-- Grouping per kind, right under "Group selected objects": all objects of one search term (7.4). -->
+            <p v-if="groupableTerms.length" class="cc-groeperen">
+              {{ t("panel.group_all_intro") }}
+              <template v-for="(item, i) in groupableTerms" :key="item.term">
+                <template v-if="i"> · </template>
+                <button type="button" class="cc-link" :disabled="busy" :title="t('panel.group_all_help')" @click="groupTerm(item.term)">
+                  {{ t("panel.group_all", { term: item.name, n: item.n }) }}
+                </button>
+              </template>
+            </p>
             <!-- The outcome of describing or merging, directly under the buttons that asked for it;
                  red when nothing could be done. -->
             <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}</cdx-message>
@@ -525,6 +534,19 @@ async function makeGroup(members, body) {
   objects.value = result.objecten;
   return { n: result.object.groep.aantal, name: objectName(result.object, props.config.taal, t) };
 }
+
+// Search terms with two or more loose objects (not groups), to group per kind in one click;
+// named as in the list (Dutch name when there is one).
+const groupableTerms = computed(() => {
+  const terms = new Map();
+  for (const o of visibleObjects.value) {
+    if (o.bron === "groep" || !o.zoekterm) continue;
+    const item = terms.get(o.zoekterm) || { term: o.zoekterm, name: props.config.taal === "en" ? o.zoekterm : o.label_nl || o.zoekterm, n: 0 };
+    item.n += 1;
+    terms.set(o.zoekterm, item);
+  }
+  return [...terms.values()].filter((item) => item.n >= 2);
+});
 
 // "Groeperen (n)": the selected objects; the outcome under the buttons.
 async function groupSelected() {

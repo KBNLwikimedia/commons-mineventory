@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.7] - 2026-11-06
+
+### Gewijzigd
+
+- *Groeperen: alle … (n)* staat nu in *Wat je vond*, direct onder *Geselecteerde objecten groeperen*, zodat beide manieren van groeperen bij elkaar staan; niet meer onder de zoektermen (wens Olaf). Het werkt voor elke zoekterm met twee of meer losse objecten, ook van *Zoeken*.
+
 ## [0.32.6] - 2026-11-06
 
 ### Toegevoegd
