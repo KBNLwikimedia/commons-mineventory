@@ -3,6 +3,24 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.10] - 2026-11-06
+
+### Gewijzigd
+
+- *Afbeelding aanvullen met AI*: het onderwerp in de prompt is eerst de naam die je zelf gaf (bijv. *lute*), dan het onderwerp uit de beschrijving, het bijschrift of de zoekterm; nooit meer een interne naam als *klik* of *rechthoek*, dan staat er *an object* (melding Olaf). Ook in de AI-prompt van een groep. Een nieuwe vraag geeft dus een nieuwe aanvulling (en kost in live-modus weer $0,01); bestaande versies blijven.
+
+- *Naar de prullenbak* vraagt altijd om bevestiging, overal (in de lijst, in de vergroter en op de pagina *Objecten*); de keuze *Niet meer vragen* is weg (wens Olaf). In de bewerker staat het object met zijn uitsnede in het venster.
+
+- *Eerdere beschrijvingen* (van de afbeelding, en van een object in *Wat staat hierop?*) zijn een carrousel in plaats van een lange lijst (wens Olaf): één versie tegelijk, met *Vorige* en *Volgende* (ook ← en →), *2 van 5*, en ronde stippen eronder om naar een versie te springen. *Deze gebruiken* en het prullenbakje staan bij de versie. Eén onderdeel voor beide (`VersionCarousel.vue`).
+
+- Elke bevestiging van kosten zegt nu ook wat er gaat gebeuren, boven het bedrag (wens Olaf): zoeken met welke zoektermen, de hele afbeelding laten bekijken of alleen de beschrijving of de zoektermen opnieuw (met het detailniveau), welke objecten beschreven worden, aanwijzen, de vorm in een rechthoek zoeken, en een object beschrijven in de vergroter.
+
+- *Zoektermen*: eerst wat de zoektermen maakt, compact: de schuif *Detailniveau*, en daaronder altijd naast elkaar *Zoektermen opnieuw laten maken* (met het bedrag) en *Alle zoektermen verwijderen*, daaronder de zoektermen zelf als het resultaat, met de melding van het zoeken direct eronder (wens Olaf). De uitleg bij de schuif en over *opnieuw* staat nu in de tooltip. De knoppen heten *Zoektermen opnieuw laten maken* / *Generate search terms again* en *Alle zoektermen verwijderen* / *Remove all search terms* (wens Olaf), en zo heten ook het bevestigingsvenster, de knop erin en de melding daarna. Bij de beschrijving van de afbeelding: *Beschrijving opnieuw laten maken* / *Generate description again* en *Beschrijving verwijderen* / *Remove description* (wens Olaf).
+
+### Opgelost
+
+- De melding na het zoeken telde alles wat de AI vond, ook vondsten die niet als eigen object in de lijst komen (melding Olaf: *2 objecten gevonden* bij één zichtbaar trosje druiven). Nu telt *gevonden* alleen wat rechts en in het beeld staat, en zegt de melding waar de rest bleef: samengevallen met een object dat er al stond (met de naam), al in een groep, in de prullenbak, of verborgen door de minimale zekerheid. API: `nieuw` is alleen wat op de pagina staat, plus `elders`. De objecten waar de melding over gaat, de gevonden objecten en de groepen of objecten waarin een vondst opging, hebben in *Wat je vond* een groene rand (wens Olaf). De lijst schuift naar het eerste van die objecten. De melding heeft een kruisje om hem te sluiten; dan verdwijnen ook de groene randen (wens Olaf). Gingen alle vondsten elders heen, dan is de melding blauw in plaats van geel. Bij *Niets gevonden* staan de andere manieren als opsomming, met een hoofdletter: *Zoek met een ander woord*, *Wijs het object aan* en *Teken een rechthoek*; de laatste twee zetten die manier meteen aan (wens Olaf).
+
 ## [0.32.9] - 2026-11-06
 
 ### Toegevoegd

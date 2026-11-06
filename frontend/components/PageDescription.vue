@@ -43,7 +43,7 @@
         {{ t(hasDescription ? "panel.part_again_beschrijving" : "panel.part_ask_beschrijving") }} <span class="cc-kosten">{{ cost }}</span>
       </cdx-button>
       <cdx-button v-if="hasDescription" action="destructive" weight="quiet" size="small" :disabled="busy" @click="emit('forget')">
-        <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget") }}
+        <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget_beschrijving_button") }}
       </cdx-button>
     </div>
     <p v-if="inventory.bewerkt || undoTexts" class="cc-klein cc-tekst-acties">
@@ -62,9 +62,9 @@
     <cdx-accordion v-if="history.length" v-model="historyOpen" class="cc-beschrijving-blok">
       <template #title>{{ t("describe.history", { n: history.length }) }}</template>
       <template #description>{{ t("describe.history_short") }}</template>
-      <ul class="cc-geschiedenis-lijst">
-        <li v-for="entry in history" :key="entry.versie">
-          <!-- Clamped to two lines; hover shows the whole text, a click unfolds it. -->
+      <!-- One version at a time: Previous / Next, "2 of 5" and dots (VersionCarousel.vue). -->
+      <version-carousel :items="history" item-key="versie" :label="t('describe.history_short')">
+        <template #default="{ item: entry }">
           <div
             class="cc-geschiedenis-tekstblok"
             :class="{ open: expanded[entry.versie] }"
@@ -81,14 +81,14 @@
             <span class="cc-klein cc-geschiedenis-meta">{{ meta(entry) }}</span>
             <span class="cc-link cc-klein cc-geschiedenis-meer">{{ expanded[entry.versie] ? t("describe.history_less") : t("describe.history_more") }}</span>
           </div>
-          <span class="cc-geschiedenis-knoppen">
-            <cdx-button action="progressive" size="small" :disabled="busy" @click="use(entry)">{{ t("describe.history_use") }}</cdx-button>
-            <cdx-button action="destructive" weight="quiet" size="small" :disabled="busy" :aria-label="t('describe.history_delete')" :title="t('describe.history_delete')" @click="remove(entry)">
-              <cdx-icon :icon="cdxIconTrash" size="small" />
-            </cdx-button>
-          </span>
-        </li>
-      </ul>
+        </template>
+        <template #actions="{ item: entry }">
+          <cdx-button action="progressive" size="small" :disabled="busy" @click="use(entry)">{{ t("describe.history_use") }}</cdx-button>
+          <cdx-button action="destructive" weight="quiet" size="small" :disabled="busy" :aria-label="t('describe.history_delete')" :title="t('describe.history_delete')" @click="remove(entry)">
+            <cdx-icon :icon="cdxIconTrash" size="small" />
+          </cdx-button>
+        </template>
+      </version-carousel>
     </cdx-accordion>
   </div>
 </template>
@@ -101,6 +101,7 @@ import { del, errorText, get, pagePath, patch, put } from "../api.js";
 import { fitToText } from "../autosize.js";
 import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
+import VersionCarousel from "./VersionCarousel.vue";
 import AiBadge from "./AiBadge.vue";
 import EditPencil from "./EditPencil.vue";
 

@@ -26,14 +26,16 @@ from .opruimen import mark_used
 MODEL = "muse-image-1.0"
 PRICE_USD = 0.01  # per generated image, whatever the prompt or tools (Meta's price list)
 SEND_SIDE = 1536  # longest side of the cut-out sent to the model, in pixels
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2  # 2: "Complete it" (the subject may be "an object"); your own name first
+# Labels the app gives itself (a click, a drawn rectangle, a region): never a subject for the AI.
+INTERNAL_LABELS = {"klik", "rechthoek", "regio"}
 WHITE = 236  # a pixel with every channel at or above this counts as background
 FILLED_COLOUR = (230, 0, 140, 150)  # magenta, half transparent: what the AI filled in
 
 PROMPT = (
     "This is a cut-out of {name} from a historical image on Wikimedia Commons. "
     "Some parts of it are missing and show as plain white, because something else was in front of it in the original. "
-    "Complete the {name}: fill in only the missing parts, in exactly the same drawing style, technique, colours and line work, "
+    "Complete it: fill in only the missing parts, in exactly the same drawing style, technique, colours and line work, "
     "so that it looks whole. Do not change anything that is already there, do not add any other objects or text, "
     "and keep the background plain white."
 )
@@ -166,10 +168,12 @@ def white_background(pixels, keep=None, side=400):
 
 
 def subject(obj):
-    """What the cut-out shows, in English, for the question. A group (7.4) without a
-    description of its own: its own name, else its members, e.g. "cardboard box and boy"."""
+    """What the cut-out shows, for the question: the name you gave it, else the subject of
+    its description (English), its caption, for a group its own name or its members (e.g.
+    "cardboard box and boy"), else its search term; "an object" when there is only a label
+    the app gave itself (a click, a rectangle)."""
     description = obj.get("beschrijving") or {}
-    own = description.get("onderwerp_en") or (obj.get("bijschrift") or {}).get("tekst")
+    own = obj.get("naam") or description.get("onderwerp_en") or (obj.get("bijschrift") or {}).get("tekst")
     if own:
         return own
     group = obj.get("groep")
@@ -178,7 +182,8 @@ def subject(obj):
             return group["naam"]
         names = list(dict.fromkeys(subject(m) for m in group.get("leden", [])))
         return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
-    return obj.get("label_en") or obj.get("label") or "object"
+    label = obj.get("label_en") or obj.get("label") or ""
+    return label if label and label.lower() not in INTERNAL_LABELS else "an object"
 
 
 class CompletionService:

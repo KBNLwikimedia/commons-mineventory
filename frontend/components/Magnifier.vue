@@ -345,9 +345,9 @@
         <cdx-accordion v-if="history.length" v-model="openHistory" class="cc-beschrijving-blok">
           <template #title>{{ t("describe.history", { n: history.length }) }}</template>
           <template #description>{{ t("describe.history_short") }}</template>
-          <ul class="cc-geschiedenis-lijst">
-            <li v-for="entry in history" :key="entry.versie">
-              <!-- Clamped to two lines; hover shows the whole text, a click unfolds it. -->
+          <!-- One version at a time: Previous / Next, "2 of 5" and dots (VersionCarousel.vue). -->
+          <version-carousel :items="history" item-key="versie" :label="t('describe.history_short')">
+            <template #default="{ item: entry }">
               <div
                 class="cc-geschiedenis-tekstblok"
                 :class="{ open: expanded[entry.versie] }"
@@ -365,22 +365,14 @@
                 <span class="cc-klein cc-geschiedenis-meta">{{ historyMeta(entry) }}</span>
                 <span class="cc-link cc-klein cc-geschiedenis-meer">{{ expanded[entry.versie] ? t("describe.history_less") : t("describe.history_more") }}</span>
               </div>
-              <span class="cc-geschiedenis-knoppen">
-                <cdx-button action="progressive" size="small" :disabled="busy" @click="restoreDescription(entry)">{{ t("describe.history_use") }}</cdx-button>
-                <cdx-button
-                  action="destructive"
-                  weight="quiet"
-                  size="small"
-                  :disabled="busy"
-                  :aria-label="t('describe.history_delete')"
-                  :title="t('describe.history_delete')"
-                  @click="deleteVersion(entry)"
-                >
-                  <cdx-icon :icon="cdxIconTrash" size="small" />
-                </cdx-button>
-              </span>
-            </li>
-          </ul>
+            </template>
+            <template #actions="{ item: entry }">
+              <cdx-button action="progressive" size="small" :disabled="busy" @click="restoreDescription(entry)">{{ t("describe.history_use") }}</cdx-button>
+              <cdx-button action="destructive" weight="quiet" size="small" :disabled="busy" :aria-label="t('describe.history_delete')" :title="t('describe.history_delete')" @click="deleteVersion(entry)">
+                <cdx-icon :icon="cdxIconTrash" size="small" />
+              </cdx-button>
+            </template>
+          </version-carousel>
         </cdx-accordion>
 
         <!-- Suggestions for depicts: the next step after a description. -->
@@ -458,6 +450,7 @@ import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIco
 import { API, del, errorText, get, objectPath, patch, post, put } from "../api.js";
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import VersionCarousel from "./VersionCarousel.vue";
 import BusyNote from "./BusyNote.vue";
 import ZoomImage from "./ZoomImage.vue";
 import SavedLabel from "./SavedLabel.vue";
@@ -737,7 +730,7 @@ async function describe(again) {
   // Asking again always costs money; a first question may still come from the
   // cache (free), but the estimate is asked to confirm all the same.
   const paid = again || !description.value;
-  if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) }), { title: t("confirm.cost_title") }))) return;
+  if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(`${t("confirm.action_describe", { name: name.value })}\n\n${t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) })}`, { title: t("confirm.cost_title") }))) return;
   busy.value = true;
   seconds.value = 0;
   ticker = setInterval(() => seconds.value++, 1000);

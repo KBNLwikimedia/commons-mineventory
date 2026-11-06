@@ -185,7 +185,7 @@ async function trashMany(list) {
 async function trashShown() {
   const n = shown.value.length;
   const text = t(filtered.value ? "objects.trash_shown_confirm" : "objects.trash_all_confirm", { n });
-  if (!(await askConfirm(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true, dontAsk: "trash" }))) return;
+  if (!(await askConfirm(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true }))) return;
   await trashMany([...shown.value]);
 }
 

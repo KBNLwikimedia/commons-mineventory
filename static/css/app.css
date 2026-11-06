@@ -652,3 +652,28 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-groep-context li { margin-bottom: 0.2rem; }
 .cc-groep-schakelaar { display: flex; margin: 0 0 0.35rem; }
 .cc-object-naam-veld { font: inherit; width: 100%; max-width: 14rem; padding: 0.1rem 0.3rem; border: 1px solid var(--border-color-progressive, #36c); border-radius: 2px; }
+
+/* Above the search terms: what makes them, on one line (level of detail, ask anew, remove). */
+.cc-termen-bron { margin: 0.25rem 0 0.5rem; }
+.cc-termen-bron .cc-schuif-compact { margin: 0; }
+/* Always side by side; in a narrow column the button texts wrap instead of the buttons. */
+.cc-termen-knoppen { display: flex; flex-wrap: nowrap; align-items: center; gap: 0.75rem; margin-top: 0.15rem; }
+.cc-termen-knoppen .cdx-button { white-space: normal; text-align: left; min-width: 0; max-width: none; height: auto; }
+.cc-termen-bron .cc-schuif-compact input[type="range"] { max-width: 9rem; }
+
+/* The objects the latest search message is about (ObjectList.vue): a green outline. */
+.cc-objecten li.cc-uitkomst { outline: 2px solid var(--color-success, #14866d); outline-offset: -2px; }
+.cc-andere-weg { margin: 0.25rem 0 0; padding-left: 1.2rem; }
+.cc-andere-weg li { margin: 0.1rem 0; }
+
+/* Earlier versions as a carousel (VersionCarousel.vue): bar, one version, dots. */
+.cc-versies { border: 1px solid var(--cc-rand); border-radius: 2px; padding: 0.4rem 0.6rem 0.5rem; background: var(--background-color-interactive-subtle, #f8f9fa); }
+.cc-versies:focus-visible { outline: 2px solid var(--color-progressive, #36c); outline-offset: 1px; }
+.cc-versies-balk { display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.25rem; }
+.cc-versies-positie { font-size: 0.875rem; font-variant-numeric: tabular-nums; min-width: 4.5rem; text-align: center; }
+.cc-versies-acties { margin-left: auto; display: inline-flex; align-items: center; gap: 0.25rem; }
+.cc-versies-inhoud .cc-geschiedenis-tekstblok { display: flex; flex-direction: column; gap: 0.15rem; }
+.cc-versies-stippen { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.cc-versies-stip { width: 0.6rem; height: 0.6rem; padding: 0; border-radius: 50%; border: 1px solid var(--color-progressive, #36c); background: transparent; cursor: pointer; }
+.cc-versies-stip.actief { background: var(--color-progressive, #36c); }
+.cc-versies-stip:focus-visible { outline: 2px solid var(--color-progressive, #36c); outline-offset: 2px; }

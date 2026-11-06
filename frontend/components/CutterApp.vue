@@ -94,6 +94,7 @@
           :objects="objects"
           :trash-terms="trashTerms"
           :last-result="lastResult"
+          @dismiss-result="lastResult = null"
           :point-mode="pointMode"
           @detect="detect"
           @inventory="askInventory(Boolean(inventory), $event?.deel || null, $event?.detailniveau)"
@@ -138,6 +139,7 @@
           :focused="focusedId"
           :hovered="hoveredId"
           :new-ids="newIds"
+          :result-ids="resultIds"
           @toggle="toggleSelected"
           @select="setSelection"
           @focus="focusObject"
@@ -380,9 +382,11 @@ function fail(error) {
 
 // -- Confirming paid actions (6.4): only in live mode, with the amount --------------------
 
-async function confirmCost(calls, usd) {
+// `action`: what will happen, in one or two sentences, above the cost (wish Olaf).
+async function confirmCost(calls, usd, action = "") {
   if (!props.config.betaald || !calls) return true;
-  return askConfirm(t("confirm.cost", { n: calls, amount: money(usd, props.config.taal) }), { title: t("confirm.cost_title") });
+  const cost = t("confirm.cost", { n: calls, amount: money(usd, props.config.taal) });
+  return askConfirm(action ? `${action}\n\n${cost}` : cost, { title: t("confirm.cost_title") });
 }
 
 // -- Loading --------------------------------------------------------------------------
@@ -461,6 +465,7 @@ function replaceObject(changed) {
 
 // The outcome of the last detection, for the panel ({found, excluded, prompt, modus}).
 const lastResult = ref(null);
+const resultIds = computed(() => lastResult.value?.ids || []);
 
 async function detect(request) {
   lastResult.value = null;
@@ -469,13 +474,33 @@ async function detect(request) {
   try {
     if (request.modus !== "commons") {
       const estimate = await get(`${base}/detecties/raming${query(request)}`);
-      if (!(await confirmCost(estimate.aanroepen.betaald, estimate.aanroepen.betaald * props.config.sam_usd))) return;
+      const action = request.modus === "prompt" ? t("confirm.action_detect", { terms: request.prompt }) : t("confirm.action_detect_all");
+      if (!(await confirmCost(estimate.aanroepen.betaald, estimate.aanroepen.betaald * props.config.sam_usd, action))) return;
     }
     const result = await post(`${base}/detecties`, request);
     replaceObjects(result.objecten, result.nieuw);
     // The outcome is shown in the panel, under the button that asked for it.
-    const excluded = result.objecten.filter((o) => result.nieuw.includes(o.id) && o.status === "uitgesloten").length;
-    lastResult.value = { found: result.nieuw.length - excluded, excluded, prompt: request.prompt || "", modus: request.modus, at: Date.now() };
+    const fresh = result.objecten.filter((o) => result.nieuw.includes(o.id));
+    const excluded = fresh.filter((o) => o.status === "uitgesloten").length;
+    // Found, but not shown: below the minimum certainty (hidden in the list and the image).
+    const hidden = fresh.filter((o) => o.status !== "uitgesloten" && !isVisible(o)).length;
+    // Found, but not as an object of its own: merged, in a group, or in the trash.
+    const elders = result.elders || {};
+    const holders = [...new Set([...(elders.samengevoegd || []), ...(elders.in_groep || [])].map((e) => e.met))];
+    lastResult.value = {
+      // The objects this message is about: what was found, and where the rest went (green in the list).
+      ids: [...fresh.map((o) => o.id), ...holders],
+      found: fresh.length - excluded - hidden,
+      excluded,
+      hidden,
+      merged: (elders.samengevoegd || []).length,
+      inGroup: (elders.in_groep || []).length,
+      inTrash: (elders.in_prullenbak || []).length,
+      holders: holders.map((id) => listNames.value[id] || objectName(result.objecten.find((o) => o.id === id) || {}, props.config.taal, t)).filter(Boolean),
+      prompt: request.prompt || "",
+      modus: request.modus,
+      at: Date.now(),
+    };
   } catch (error) {
     fail(error);
   } finally {
@@ -486,7 +511,7 @@ async function detect(request) {
 // Remove the page overview, or one part of it ("beschrijving" or "zoektermen"), after a confirmation.
 async function forgetInventory(part = null) {
   const key = part || "alles";
-  if (!(await askConfirm(t(`panel.part_forget_confirm_${key}`), { title: t(`panel.part_forget_title_${key}`), go: t("panel.part_forget"), destructive: true }))) return;
+  if (!(await askConfirm(t(`panel.part_forget_confirm_${key}`), { title: t(`panel.part_forget_title_${key}`), go: t(key === "zoektermen" ? "panel.part_forget_zoektermen_button" : key === "beschrijving" ? "panel.part_forget_beschrijving_button" : "panel.part_forget"), destructive: true }))) return;
   try {
     const result = await del(`${pagePath(file.value.mid, pageN.value)}/inventaris${part ? `/${part}` : ""}`);
     inventory.value = result.inventaris;
@@ -504,7 +529,13 @@ async function askInventory(again = false, part = null, detail = undefined) {
   busy.value = true;
   try {
     const plan = await get(`${base}/inventaris`);
-    if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd))) return;
+    const action =
+      part === "beschrijving"
+        ? t("confirm.action_page_description")
+        : part === "zoektermen"
+          ? t("confirm.action_page_terms", { level: t(`detail.${detail || "normaal"}`) })
+          : t("confirm.action_page", { level: t(`detail.${detail || "normaal"}`) });
+    if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd, action))) return;
     const level = detail && part !== "beschrijving" ? { detailniveau: detail } : {};
     const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? level : { opnieuw: again, ...level });
     inventory.value = result.inventaris;
@@ -637,7 +668,7 @@ async function describeAll() {
     return;
   }
   const usd = props.config.muse.beschrijving_usd * chosen.length;
-  if (!(await confirmCost(chosen.length, usd))) return;
+  if (!(await confirmCost(chosen.length, usd, t("confirm.action_describe_all", { n: chosen.length, names: chosen.map((o) => listNames.value[o.id] || objectName(o, props.config.taal, t)).join(", ") })))) return;
   busy.value = true;
   try {
     for (const obj of chosen) {
@@ -658,7 +689,7 @@ async function onPoint({ x, y }) {
   lastResult.value = null;
   // Always the price first: only a click on the shape of a known object is free,
   // and the shapes are on the server (a click in a box beside its shape is a new search).
-  if (!(await confirmCost(1, props.config.sam_usd))) return;
+  if (!(await confirmCost(1, props.config.sam_usd, t("confirm.action_point")))) return;
   busy.value = true;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { punt: { x, y } });
@@ -691,7 +722,7 @@ async function onRectangle(rect) {
 }
 
 async function refineMask(obj) {
-  if (!(await confirmCost(1, props.config.sam_usd))) return;
+  if (!(await confirmCost(1, props.config.sam_usd, t("confirm.action_mask", { name: listNames.value[obj.id] || objectName(obj, props.config.taal, t) })))) return;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { masker_voor: obj.id });
     replaceObject(result.object);
@@ -739,7 +770,11 @@ async function trashObject(id) {
     go: t("objects.trash"),
     destructive: true,
     links: objectsLinks(),
-    dontAsk: "trash", // the trash can be undone (notice with Undo), so this may be switched off
+    // Always asked (wish Olaf), with the object itself in the question; no "don't ask again".
+    objects: (() => {
+      const obj = objects.value.find((o) => o.id === id);
+      return obj ? [shownObject(obj)] : [];
+    })(),
   });
   if (!ok) return;
   const n = pageN.value;

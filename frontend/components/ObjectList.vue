@@ -21,7 +21,7 @@
         v-for="obj in sorted"
         :key="obj.id"
         :data-id="obj.id"
-        :class="[`cc-object-${obj.status}`, `cc-bron-${obj.bron}`, { focus: obj.id === focused, hover: obj.id === hovered, 'cc-nieuw': newIds.includes(obj.id) }]"
+        :class="[`cc-object-${obj.status}`, `cc-bron-${obj.bron}`, { focus: obj.id === focused, hover: obj.id === hovered, 'cc-nieuw': newIds.includes(obj.id), 'cc-uitkomst': resultIds.includes(obj.id) }]"
         @mouseenter="emit('hover', obj.id, true)"
         @mouseleave="emit('hover', obj.id, false)"
       >
@@ -91,6 +91,8 @@ const props = defineProps({
   hovered: { type: String, default: null },
   // Objects from the latest search: their frame is orange, so is their outline here.
   newIds: { type: Array, default: () => [] },
+  // Objects the latest search message is about (found, or where a hit went): a green outline.
+  resultIds: { type: Array, default: () => [] },
   mid: { type: String, required: true },
   n: { type: Number, required: true },
 });
@@ -184,4 +186,15 @@ const sorted = computed(() =>
 // as the names in the image (numberedNames); the magnifier and Commons keep the name.
 const numbered = computed(() => numberedNames(props.objects, language, t));
 const listName = (obj) => numbered.value[obj.id] || name(obj);
+// A new search message: the first object it is about (in list order) scrolls into view,
+// once the list shows it (wish Olaf).
+watch(
+  () => props.resultIds,
+  async (ids) => {
+    if (!ids?.length) return;
+    await nextTick();
+    const first = sorted.value.find((obj) => ids.includes(obj.id));
+    if (first) revealRow(first.id);
+  }
+);
 </script>

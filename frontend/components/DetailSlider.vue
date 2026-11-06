@@ -4,7 +4,7 @@
   details. A slider with four stops; the chosen stop is shown in words beside it.
 -->
 <template>
-  <div class="cc-schuif">
+  <div class="cc-schuif" :class="{ 'cc-schuif-compact': compact }" :title="compact ? t('detail.help') : undefined">
     <label class="cc-schuif-kop" :for="id">{{ t("detail.label") }}</label>
     <input
       :id="id"
@@ -18,7 +18,8 @@
       @input="emit('update:modelValue', DETAIL_LEVELS[Number($event.target.value)])"
     />
     <span class="cc-schuif-waarde">{{ t(`detail.${modelValue}`) }}</span>
-    <p class="cc-uitleg">{{ t("detail.help") }}</p>
+    <!-- Compact (above the search terms): the explanation is the tooltip instead. -->
+    <p v-if="!compact" class="cc-uitleg">{{ t("detail.help") }}</p>
   </div>
 </template>
 
@@ -32,6 +33,7 @@ const DETAIL_LEVELS = ["hoofdonderwerp", "hoofdzaken", "normaal", "details"];
 const props = defineProps({
   modelValue: { type: String, default: "normaal" },
   disabled: { type: Boolean, default: false },
+  compact: { type: Boolean, default: false },
 });
 const emit = defineEmits(["update:modelValue"]);
 const t = useT();

@@ -215,9 +215,14 @@ class DetectionService:
                 obj["status"] = "uitgesloten"
 
         objects = self._merge_into_page(file, n, found)
+        shown, elsewhere = self._where_found(file, n, [o["id"] for o in found])
         result.update(
             {
-                "nieuw": [o["id"] for o in found],
+                # Hits that stand on the page as an object of their own (new or found again);
+                # the others, under "elders": merged into an object that was already there,
+                # inside a group, or in the trash (so the message matches what you see).
+                "nieuw": shown,
+                "elders": elsewhere,
                 "objecten": [self.public(file, n, o) for o in objects],
                 "niets_gevonden": not found,
                 "budget": self.verbruik.status(user),
@@ -532,6 +537,30 @@ class DetectionService:
             store["objecten"] = sorted(merged, key=lambda o: order.get(o["id"], 0))
             self._write_store(file, n, store)
         return count
+
+    def _where_found(self, file, n, ids):
+        """Where each found id is now: on the page as itself, merged into another
+        object ("ook"), a member of a group, or in the trash. Returns (ids on the
+        page, {"samengevoegd": [{id, met}], "in_groep": [{id, met}], "in_prullenbak": [id]})."""
+        store = self._load_store(file, n)
+        top = {o["id"] for o in store["objecten"]}
+        container = {}
+        for obj in store["objecten"]:
+            for entry in obj.get("ook", []):
+                container.setdefault(entry["id"], ("samengevoegd", obj["id"]))
+            for member_id in _ids(obj)[1:]:
+                container.setdefault(member_id, ("in_groep" if obj.get("groep") else "samengevoegd", obj["id"]))
+        trash = {i for obj in store["prullenbak"] for i in _ids(obj)}
+        shown, elsewhere = [], {"samengevoegd": [], "in_groep": [], "in_prullenbak": []}
+        for object_id in dict.fromkeys(ids):
+            if object_id in top:
+                shown.append(object_id)
+            elif object_id in container:
+                kind, holder = container[object_id]
+                elsewhere[kind].append({"id": object_id, "met": holder})
+            elif object_id in trash:
+                elsewhere["in_prullenbak"].append(object_id)
+        return shown, elsewhere
 
     # -- Groups (7.4): many small objects as one --------------------------------------
 

@@ -48,6 +48,21 @@
 
         <!-- (3) The search terms. -->
         <h4 class="cc-deel-kop">{{ t("panel.part_title_zoektermen") }}</h4>
+        <!-- First what makes the search terms (the level of detail, asking anew, removing), compact
+             on one line; under it the terms themselves, the result of that (wish Olaf). -->
+        <div class="cc-termen-bron">
+          <detail-slider v-model="detail" :disabled="busy" compact />
+          <!-- Always side by side, under the slider: ask anew, and remove all. -->
+          <div class="cc-termen-knoppen">
+          <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="`${t('panel.part_again_help_zoektermen')} ${t('panel.parts_help')}`" @click="act('zoektermen', 'inventory', { deel: 'zoektermen', detailniveau: detail })">
+            {{ t(inventory.zoektermen?.length ? "panel.part_again_zoektermen" : "panel.part_ask_zoektermen") }} <span class="cc-kosten">{{ museCost(config.muse.pagina_usd) }}</span>
+          </cdx-button>
+          <cdx-button v-if="inventory.zoektermen?.length" action="destructive" weight="quiet" size="small" :disabled="busy" @click="act('zoektermen', 'forget-inventory', { deel: 'zoektermen' })">
+            <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget_zoektermen_button") }}
+          </cdx-button>
+          </div>
+        </div>
+        <busy-note v-if="busy && where === 'zoektermen'" :message="t('busy.muse_page')" />
         <template v-if="inventory.zoektermen?.length">
           <!-- What the terms are for: finding where on the image each thing is. -->
           <p class="cc-uitleg cc-termen-uitleg">
@@ -94,13 +109,16 @@
             </cdx-button>
           </div>
           <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
-          <cdx-message v-if="lastResult && resultAt === 'suggestions' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">
+          <cdx-message v-if="lastResult && resultAt === 'suggestions' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">
             {{ resultText(lastResult) }}
             <!-- Nothing found: the other ways to get the object, as links to the sections below. -->
             <template v-if="isNone(lastResult)"> {{ t("panel.result_none_next") }}
-            <button type="button" class="cc-link" @click="trySearch(lastResult)">{{ t("panel.result_try_search") }}</button>
-            {{ t("panel.result_or") }}
-            <button type="button" class="cc-link" @click="tryPoint">{{ t("panel.result_try_point") }}</button>.</template>
+              <ul class="cc-andere-weg">
+                <li><button type="button" class="cc-link" @click="trySearch(lastResult)">{{ t("panel.result_try_search") }}</button></li>
+                <li><button type="button" class="cc-link" @click="tryPoint('point')">{{ t("panel.result_try_point") }}</button></li>
+                <li><button type="button" class="cc-link" @click="tryPoint('draw')">{{ t("panel.result_try_draw") }}</button></li>
+              </ul>
+            </template>
           </cdx-message>
           <!-- What of these suggestions is on the image now, and what went to the trash. -->
           <p class="cc-status">
@@ -109,18 +127,6 @@
           </p>
         </template>
         <p v-else class="cc-uitleg">{{ t("panel.part_none_zoektermen") }}</p>
-        <!-- Asking the search terms anew, at the level of detail chosen here. -->
-        <detail-slider v-model="detail" :disabled="busy" />
-        <div class="cc-deel-acties">
-          <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="t('panel.part_again_help_zoektermen')" @click="act('zoektermen', 'inventory', { deel: 'zoektermen', detailniveau: detail })">
-            {{ t(inventory.zoektermen?.length ? "panel.part_again_zoektermen" : "panel.part_ask_zoektermen") }} <span class="cc-kosten">{{ museCost(config.muse.pagina_usd) }}</span>
-          </cdx-button>
-          <cdx-button v-if="inventory.zoektermen?.length" action="destructive" weight="quiet" size="small" :disabled="busy" @click="act('zoektermen', 'forget-inventory', { deel: 'zoektermen' })">
-            <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget") }}
-          </cdx-button>
-        </div>
-        <busy-note v-if="busy && where === 'zoektermen'" :message="t('busy.muse_page')" />
-        <p class="cc-uitleg">{{ t("panel.parts_help") }}</p>
       </template>
     </cdx-accordion>
 
@@ -131,7 +137,7 @@
         {{ t("panel.regions_button", { n: regionCount }) }}
       </cdx-button>
       <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
-      <cdx-message v-if="lastResult && resultAt === 'commons' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
+      <cdx-message v-if="lastResult && resultAt === 'commons' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}</cdx-message>
     </cdx-accordion>
 
     <cdx-accordion v-model="open.search">
@@ -141,13 +147,16 @@
         <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
       </form>
       <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
-      <cdx-message v-if="lastResult && resultAt === 'search' && !busy" :type="lastResult.found || lastResult.excluded ? 'success' : 'warning'" :inline="true" class="cc-zoekresultaat">
+      <cdx-message v-if="lastResult && resultAt === 'search' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">
             {{ resultText(lastResult) }}
             <!-- Nothing found: the other ways to get the object, as links to the sections below. -->
             <template v-if="isNone(lastResult)"> {{ t("panel.result_none_next") }}
-            <button type="button" class="cc-link" @click="trySearch(lastResult)">{{ t("panel.result_try_search") }}</button>
-            {{ t("panel.result_or") }}
-            <button type="button" class="cc-link" @click="tryPoint">{{ t("panel.result_try_point") }}</button>.</template>
+              <ul class="cc-andere-weg">
+                <li><button type="button" class="cc-link" @click="trySearch(lastResult)">{{ t("panel.result_try_search") }}</button></li>
+                <li><button type="button" class="cc-link" @click="tryPoint('point')">{{ t("panel.result_try_point") }}</button></li>
+                <li><button type="button" class="cc-link" @click="tryPoint('draw')">{{ t("panel.result_try_draw") }}</button></li>
+              </ul>
+            </template>
           </cdx-message>
       <p class="cc-uitleg">{{ t("panel.search_help") }} {{ cost(1) }}</p>
     </cdx-accordion>
@@ -161,14 +170,14 @@
         </cdx-toggle-switch>
         <p class="cc-uitleg">{{ t("panel.point_help") }} {{ cost(1) }}</p>
         <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
-        <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" :type="lastResult.outcome === 'niets' ? 'warning' : 'success'" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
+        <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" :type="lastResult.outcome === 'niets' ? 'warning' : 'success'" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}</cdx-message>
       </div>
       <div class="cc-modus-keuze">
         <cdx-toggle-switch :model-value="drawMode" @update:model-value="emit('draw-mode', $event)">
           {{ t("panel.draw_switch") }}
         </cdx-toggle-switch>
         <p class="cc-uitleg">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
-        <cdx-message v-if="lastResult && resultAt === 'point' && lastResult.modus === 'rechthoek'" type="success" :inline="true" class="cc-zoekresultaat">{{ resultText(lastResult) }}</cdx-message>
+        <cdx-message v-if="lastResult && resultAt === 'point' && lastResult.modus === 'rechthoek'" type="success" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}</cdx-message>
       </div>
     </cdx-accordion>
 
@@ -213,7 +222,7 @@ const props = defineProps({
   // The outcome of the last detection: shown in the section whose button asked for it.
   lastResult: { type: Object, default: null },
 });
-const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode"]);
+const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode", "dismiss-result"]);
 const t = useT();
 const config = inject("config");
 // The two models in the live-mode line link to Meta's own pages. Muse Spark
@@ -338,6 +347,13 @@ watch(
   }
 );
 watch(() => [props.file.mid, props.page.n], () => (resultAt.value = null));
+// Green when something was found, blue when the hits went elsewhere (merged, a group,
+// the trash, hidden), yellow when nothing was found at all.
+function resultType(result) {
+  if (result.found || result.excluded) return "success";
+  return result.merged || result.inGroup || result.inTrash || result.hidden ? "notice" : "warning";
+}
+
 function resultText(result) {
   // Pointing and drawing: about one object.
   if (result.modus === "punt") {
@@ -347,14 +363,25 @@ function resultText(result) {
   if (result.modus === "rechthoek") return t("panel.result_rectangle", { name: result.name });
   const terms = result.prompt.split(",").map((s) => s.trim()).filter(Boolean);
   const what = result.modus === "commons" ? t("panel.result_commons") : terms.length > 1 ? t("panel.result_terms", { n: terms.length }) : t("panel.result_term", { term: terms[0] || "" });
-  if (!result.found && !result.excluded) return t("panel.result_none", { what });
-  const found = result.found === 1 ? t("panel.result_one", { what }) : t("panel.result_found", { n: result.found, what });
-  return result.excluded ? `${found} ${t("panel.result_excluded", { n: result.excluded })}` : found;
+  // Hits that are not shown as an object of their own, each with the reason.
+  const elsewhere = [
+    result.merged && t(result.merged === 1 ? "panel.result_merged_one" : "panel.result_merged", { n: result.merged, names: (result.holders || []).join(", ") }),
+    result.inGroup && t(result.inGroup === 1 ? "panel.result_in_group_one" : "panel.result_in_group", { n: result.inGroup }),
+    result.inTrash && t(result.inTrash === 1 ? "panel.result_in_trash_one" : "panel.result_in_trash", { n: result.inTrash }),
+    result.hidden && t(result.hidden === 1 ? "panel.result_hidden_one" : "panel.result_hidden", { n: result.hidden }),
+  ].filter(Boolean);
+  if (!result.found && !result.excluded && !elsewhere.length) return t("panel.result_none", { what });
+  const parts = [];
+  if (result.found) parts.push(result.found === 1 ? t("panel.result_one", { what }) : t("panel.result_found", { n: result.found, what }));
+  else if (!result.excluded) parts.push(t("panel.result_nothing_new", { what }));
+  if (result.excluded) parts.push(t("panel.result_excluded", { n: result.excluded }));
+  if (elsewhere.length) parts.push(`${t("panel.result_also")} ${elsewhere.join("; ")}.`);
+  return parts.join(" ");
 }
 
 // A search with terms that found nothing (not "from Commons", pointing or drawing).
 function isNone(result) {
-  return Boolean(result) && result.modus === "prompt" && !result.found && !result.excluded;
+  return Boolean(result) && result.modus === "prompt" && !result.found && !result.excluded && !result.merged && !result.inGroup && !result.inTrash && !result.hidden;
 }
 // After nothing was found: open Search with the term filled in, ready to change it.
 async function trySearch(result) {
@@ -366,9 +393,10 @@ async function trySearch(result) {
   input?.focus();
   input?.select();
 }
-// Or open Point or draw, to point at the object or draw a rectangle around it.
-async function tryPoint() {
+// Or open Point or draw with that way switched on at once: click the object, or draw around it.
+async function tryPoint(mode = "point") {
   open.point = true;
+  emit(mode === "draw" ? "draw-mode" : "point-mode", true);
   await nextTick();
   document.querySelector(".cc-sectie-aanwijzen")?.scrollIntoView({ block: "center", behavior: "smooth" });
 }

@@ -567,3 +567,24 @@ def test_rename_object(http):
     assert http.patch(url, json={"naam": "  Mand met  fruit "}).get_json()["naam"] == "Mand met fruit"
     assert http.patch(url, json={"naam": 3}).status_code == 400
     assert "naam" not in http.patch(url, json={"naam": ""}).get_json()
+
+
+
+def test_detection_says_where_hits_went(http):
+    first = http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "grape bunch"}).get_json()
+    assert first["nieuw"] and first["elders"] == {"samengevoegd": [], "in_groep": [], "in_prullenbak": []}
+    # One of them to the trash: searching again does not bring it back, and says so.
+    gone = first["nieuw"][0]
+    http.delete(f"{PAGE}/objecten/{gone}")
+    again = http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "grape bunch"}).get_json()
+    assert gone not in again["nieuw"] and gone in again["elders"]["in_prullenbak"]
+
+
+
+def test_completion_subject_never_an_internal_label():
+    from cutter.aanvulling import subject
+
+    assert subject({"label": "klik"}) == "an object"
+    assert subject({"label": "klik", "naam": "lute"}) == "lute"
+    assert subject({"label": "rechthoek", "bijschrift": {"tekst": "Een luit"}}) == "Een luit"
+    assert subject({"label": "lute"}) == "lute"
