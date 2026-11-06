@@ -870,6 +870,7 @@ Tests: `pytest` voor Python en `npm test` (Vitest) voor de frontend.
 17. IIIF-annotaties exporteren.
 18. Eigen API-sleutel per gebruiker voor scripts.
 19. Meer talen in de interface.
+20. Nice-to-have: een canvas om uitsneden te combineren tot nieuwe werken (18), niet voor Commons.
 
 ## 14. Repo-structuur (doel)
 
@@ -1163,3 +1164,143 @@ Daarna itereren op aanwijzing van Olaf. De voorscan (17.5) en acties over de hel
 7. **Fasering**: nu bouwen, vóór OAuth, lokaal onder de gebruiker `lokaal` (13, fase 1 punt 6a). Backlog 15a wordt daarmee het eerstvolgende punt.
 8. **Al bewerkt**: alleen waarschuwen, met een merkje en een melding; nooit tegenhouden.
 9. **Werk van anderen in de app**: onzichtbaar tot het op Commons staat.
+
+
+## 18. Canvas: een speelveld voor uitsneden (nice-to-have)
+
+Idee van Olaf (6-11-2026). **Nice-to-have, nog niet gepland en nog niet gebouwd** (backlog 25). Olafs antwoorden op het vragenformulier staan in 18.12.
+
+### 18.1 Doel
+
+Uit één boek, vriendenboek, atlas, tijdschrift of handschrift (één Commons-categorie) ontstaan veel losse transparante uitsneden, al dan niet aangevuld met AI (7.7). Het **canvas** is een speelveld om daarmee te spelen: objecten erop slepen, verschuiven, schalen, draaien, combineren en groeperen tot **nieuwe samengestelde werken**, ook met uitsneden uit andere werken en met transparante beelden van anderen op Commons.
+
+Zo'n werk heeft geen documentaire of encyclopedische waarde. Het gaat daarom **nooit naar Commons**: je bewaart het om verder te werken, en je exporteert het als beeld, met de bronnen en licenties erbij.
+
+### 18.2 Bronnen
+
+Links op het scherm staan de objecten die je kunt gebruiken, als miniaturen om naar het canvas te slepen:
+
+- **Al je eigen uitsneden**, uit alle bestanden, te filteren per collectie of categorie (17), per bestand en op naam. Van elke uitsnede het origineel en, als die er is, de AI-aangevulde versie (7.7). Alleen objecten met een vorm (transparante PNG) of een rechthoek.
+- **Wikimedia Commons**:
+  - standaard de categorie [Category:Transparent background](https://commons.wikimedia.org/wiki/Category:Transparent_background) (wens Olaf), met subcategorieën op aanvraag;
+  - **zelf categorieën toevoegen** (bijv. de categorie van een ander boek of van uploads met de Commons Mineventory); de app onthoudt ze per gebruiker;
+  - **zoeken** op Commons, beperkt tot bestanden die transparantie kunnen hebben (PNG, WebP, SVG, GIF).
+  Alles via de server (privacy, 12.3), met de gewone regels voor Commons: eigen User-Agent, caching, ongeveer één verzoek per seconde.
+- **Eigen afbeelding uploaden** vanaf je computer (PNG, WebP of SVG met transparantie, ook JPG). Zo'n bestand blijft privé, in je eigen map (8.5), en gaat niet naar Commons.
+- **Openverse** (beelden met een vrije licentie, open API) als dienst buiten Commons, als die er later bij komt; niet in de eerste versie (zie 18.12, vraag 1 en 2).
+
+### 18.3 Het scherm
+
+Een eigen pagina **`/canvas`**, te openen vanaf het dashboard (17) en vanaf een collectie; elk canvas heeft een eigen adres (`/canvas/<id>`).
+
+```
+┌ Commons Mineventory · Canvas: "Vriendenboek-collage" ────────── Opslaan  Exporteren ▾ ┐
+│ ┌ Objecten ──────────────┐ ┌──────────────────────────────────┐ ┌ Lagen ───────────┐ │
+│ │ Bron: [Mijn uitsneden ▾]│ │                                  │ │ 👁 🔒 tekst       │ │
+│ │ 🔍 zoeken               │ │     🐈 (AI)        🌸            │ │ 👁 🔒 groep: 🍋×3 │ │
+│ │ ┌──┐┌──┐┌──┐┌──┐       │ │          👦📦 ← geselecteerd     │ │ 👁 🔒 jongen ●    │ │
+│ │ │🐈││👦││🌸││🍋│       │ │   🍋🍋🍋                         │ │ 👁 🔒 kat (AI)    │ │
+│ │ └──┘└──┘└──┘└──┘       │ │                 🦅               │ │ 👁 🔒 achtergrond │ │
+│ │ ── Commons ──          │ │                                  │ ├ Eigenschappen ───┤ │
+│ │ Transparent background  │ └──────────────────────────────────┘ │ (●) origineel    │ │
+│ │ + categorie toevoegen   │  A4 staand · 100% · raster aan       │ ( ) AI-aangevuld │ │
+│ │ ── Eigen bestand ──     │                                      │ schaal, draai,   │ │
+│ │ [ Uploaden ]            │                                      │ dekking, bron ↗  │ │
+│ └────────────────────────┘                                      └──────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Links**: de bronnen (18.2). Slepen naar het canvas plaatst het object op ware grootte, of passend als het groter is dan het canvas.
+- **Midden**: het canvas, met zoom en verschuiven zoals in de viewer (muiswiel, slepen met de spatiebalk), een raster en uitlijnhulp.
+- **Rechts boven**: het **lagenpaneel**, zoals in Photoshop (wens Olaf): elk object is een eigen laag, de bovenste ligt vooraan. Per laag: zichtbaar (oog), vergrendeld (slot), naam, en slepen om de volgorde te veranderen. Een groep is een laag die je openklapt.
+- **Rechts onder**: de eigenschappen van de geselecteerde laag (18.5).
+- Tweetalig en in Codex-stijl, zoals de rest van de app.
+
+### 18.4 Bewerkingen
+
+| Bewerking | Hoe |
+| --- | --- |
+| Verplaatsen, schalen, draaien | Slepen; hoekgrepen (Shift houdt de verhouding); draaigreep; of getallen in de eigenschappen |
+| Spiegelen | Horizontaal of verticaal, knop of toets |
+| Voor en achter | In het lagenpaneel slepen, of *Naar voren*, *Naar achteren*, *Helemaal voor*, *Helemaal achter* |
+| Kopiëren en plakken | Ctrl+C en Ctrl+V dupliceren de laag (ook een groep), iets verschoven |
+| Groeperen | Ctrl+G groepeert de geselecteerde lagen, Ctrl+Shift+G heft de groep op; een groep verplaats, schaal en draai je als geheel |
+| Ongedaan maken | Ctrl+Z en Ctrl+Y (of Ctrl+Shift+Z), voor elke bewerking |
+| Doorzichtigheid | Per laag, 0 tot 100% |
+| Achtergrond | Doorzichtig, een kleur, of een afbeelding (uit dezelfde bronnen) als onderste laag |
+| Tekst | Een tekstlaag met lettertype (alleen meegeleverde lettertypen, geen externe), grootte, kleur |
+| Uitlijnhulp | Een raster en hulplijnen die opspringen bij randen en middens van andere lagen |
+| Verwijderen | Del of Backspace; ongedaan te maken |
+
+Meer selecteren met Shift-klik of een rechthoek trekken. Met de pijltjes schuif je een laag een pixel, met Shift tien.
+
+### 18.5 Origineel of AI-aangevuld
+
+- Elke laag die uit een eigen uitsnede komt, heeft in de eigenschappen een schakelaar **origineel / AI-aangevuld** (wens Olaf). Standaard **het origineel**; AI-aangevuld kan alleen als die versie er is (7.7).
+- Een AI-aangevulde laag heeft in het lagenpaneel het AI-merkje, zodat altijd te zien is wat verzonnen is.
+- Vanuit de eigenschappen kun je een uitsnede zonder aangevulde versie meteen laten aanvullen (*Afbeelding aanvullen met AI*, met het bedrag en een bevestiging, zoals in de vergroter).
+
+### 18.6 Bewaren
+
+- **Meerdere canvassen per gebruiker op de server** (besluit Olaf), in de eigen map (8.5): `uitvoer/gebruikers/<id>/canvassen/<canvas-id>.json`, met een lijst op het dashboard (naam, miniatuur, laatst bewerkt).
+- Een canvas bewaart **verwijzingen**, geen kopieën: per laag de bron (eigen uitsnede met M-id, pagina en object-id; een Commons-bestand; een eigen upload), de versie (origineel of AI-aangevuld), positie, schaal, draaiing, spiegeling, dekking, zichtbaarheid en volgorde. Eigen uploads staan in `uitvoer/gebruikers/<id>/canvas-bestanden/`.
+- **Automatisch opslaan** na elke bewerking (na een korte pauze), plus *Opslaan als* om een kopie te maken.
+- Verdwijnt een bron (uitsnede in de prullenbak, verlopen bewaartermijn, verwijderd van Commons), dan blijft de laag staan met een merkje en de laatst bekende miniatuur, en kun je hem vervangen.
+- **Bewaartermijn**: een canvas dat een jaar niet geopend is, ruimt `opruimen` op (12.1). De uitsneden die een canvas gebruikt, tellen als gebruikt, zodat ze niet verlopen zolang het canvas leeft.
+
+### 18.7 Exporteren
+
+- **PNG** (ook met doorzichtige achtergrond), **JPG**, **PDF** (bijvoorbeeld om te printen), **SVG** (met een eigen groep per laag) en een **projectbestand** (JSON met de verwijzingen, om te delen of later weer te openen).
+- **Resolutie**: in het formaat van het canvas (18.8), met de lagen in de beste beschikbare resolutie: uitsneden in volledige resolutie van het origineel, AI-aangevulde versies in hun eigen (lagere) resolutie.
+- **Bronvermelding** (besluit Olaf): bij elke export automatisch een lijst met de gebruikte bronnen en hun licenties, **als bijlage** (een tekstbestand naast het beeld, of een pagina in de PDF) **en onder het beeld** (een smalle strook, uit te zetten). Per bron: titel, maker, licentie en link naar Commons; bij een AI-aangevulde versie *aangevuld met AI (Muse Image)*; bij een eigen upload *eigen bestand*. Een waarschuwing als een licentie *gelijk delen* vraagt (CC BY-SA), of als een bron geen vrije licentie heeft.
+- **Niet naar Commons**: er is geen uploadknop. Delen gaat via de export of het projectbestand (besluit Olaf).
+- De export wordt op de server gemaakt (de originelen staan daar), als downloadbestand.
+
+### 18.8 Formaat
+
+Een **gekozen formaat** bij het aanmaken, later te wijzigen (besluit Olaf): A4 en A3 (staand of liggend), vierkant, 16:9, of een eigen maat in pixels. Voor A4 en A3 een resolutie in dpi (standaard 300) voor het printen.
+
+### 18.9 AI op het canvas (betaalde extra)
+
+Besluit Olaf: mag, als **betaalde extra met Muse Image** (7.7), met het bedrag op de knop en eerst een bevestiging. Voorbeelden, uit te werken bij de bouw:
+
+- een **achtergrond laten maken** bij een omschrijving (bijv. *a 17th-century landscape*), als onderste laag;
+- het geheel **in één stijl laten samenvloeien** (licht, schaduw, kleur), als nieuwe laag of nieuw canvas, met het origineel bewaard.
+
+Wat de AI maakt, krijgt het AI-merkje en staat in de bronvermelding als *gemaakt met AI*.
+
+### 18.10 Techniek (bij de bouw kiezen)
+
+- Een canvasbibliotheek via npm (bijv. Konva of Fabric.js), meegebouwd door Vite; **geen CDN** (12.3). De viewer uit de Delpher Uitsnijder blijft zoals hij is; het canvas is een eigen onderdeel.
+- Beelden van Commons komen via de server (een proxy met cache), net als de miniaturen in 17.3, zodat de browser niets van Wikimedia laadt en het canvas geen CORS-problemen heeft bij de export.
+- Grote originelen: op het canvas een verkleinde versie (bijv. hooguit 2000 px), bij de export de volledige resolutie.
+
+### 18.11 Pagina's en REST-API (voorstel)
+
+| Methode | Pad | Wat |
+| --- | --- | --- |
+| GET | `/canvas`, `/canvas/<id>` | Pagina's: de lijst en één canvas |
+| GET, POST | `/api/v1/canvassen` | Je canvassen; een nieuw aanmaken (naam, formaat). 201 |
+| GET, PUT, DELETE | `/api/v1/canvassen/{id}` | Eén canvas (lagen en instellingen); bewaren; verwijderen |
+| GET | `/api/v1/canvas-bronnen?soort=uitsneden\|commons\|eigen&zoek=…&categorie=…` | Wat links staat: eigen uitsneden, Commons (categorieën en zoeken), eigen uploads. Gratis |
+| POST | `/api/v1/canvas-bestanden` | Een eigen afbeelding uploaden (privé). 201 |
+| POST | `/api/v1/canvassen/{id}/exports` | Een export maken (`{"formaat": "png" \| "jpg" \| "pdf" \| "svg" \| "json"}`), met de bronvermelding. 201 met een downloadlink |
+
+### 18.12 Antwoorden van Olaf (6-11-2026)
+
+1. **Bronnen**: al je eigen uitsneden uit alle bestanden; zoeken op Wikimedia Commons; een eigen afbeelding uploaden. Andere zoekdiensten koos Olaf hier niet.
+2. **Buiten Commons**: als het er komt, dan **Openverse** (alleen vrije licenties, open API). Omdat Olaf bij vraag 1 geen andere zoekdiensten koos: niet in de eerste versie.
+3. **Bronvermelding**: automatisch, als bijlage en onder het beeld.
+4. **Bewerkingen**: alles uit 18.4: verplaatsen, schalen, draaien, spiegelen, voor en achter, kopiëren en plakken, groeperen, ongedaan maken, doorzichtigheid, achtergrond, tekst, uitlijnhulp en raster.
+5. **Standaardversie**: het origineel, AI-aangevuld met de schakelaar.
+6. **Bewaren**: meerdere canvassen per gebruiker op de server.
+7. **Export**: PNG (ook doorzichtig), JPG, PDF, SVG en een projectbestand.
+8. **Formaat**: een gekozen formaat.
+9. **Plek**: een eigen pagina `/canvas`, vanaf het dashboard en een collectie.
+10. **AI**: ja, als betaalde extra met Muse Image, met bedrag en bevestiging.
+11. **Delen**: alleen via export of projectbestand.
+12. **Extra (opmerking Olaf)**: [Category:Transparent background](https://commons.wikimedia.org/wiki/Category:Transparent_background) als vaste bron; zelf andere Commons-categorieën toevoegen; werken in **lagen** zoals in Photoshop, met een eigen laag per object (PNG en andere formaten met transparantie).
+
+**Nog open** (later, bij het oppakken): de naam van de functie (*Canvas*, *Speelveld*, *Collage*?), welke AI-extra's eerst (18.9), en of een canvas ook objecten uit de collecties van andere gebruikers mag gebruiken zodra die op Commons staan.
+
+**Afhankelijk van**: werk per gebruiker (8.5) voor het bewaren, het dashboard (17) als ingang, de AI-aangevulde versie (7.7).

@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.32.8] - 2026-11-06
+
+### Gewijzigd
+
+- Functioneel ontwerp hoofdstuk 18 *Canvas: een speelveld voor uitsneden* (idee Olaf, nice-to-have, niet gepland): uitsneden en transparante beelden combineren tot nieuwe werken, in lagen, met export en bronvermelding; nooit naar Commons. Met Olafs antwoorden op het vragenformulier (18.12). Backlog 25.
+
 ## [0.32.7] - 2026-11-06
 
 ### Gewijzigd
