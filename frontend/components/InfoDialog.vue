@@ -24,20 +24,28 @@
     :default-action="{ label: t('actions.close') }"
     @default="open = false"
   >
-    <!-- **text** in a paragraph is shown bold (no HTML from the texts). -->
-    <p v-for="(paragraph, i) in paragraphs" :key="i">
-      <template v-for="(part, j) in paragraph.split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
-    </p>
+    <!-- **text** in a paragraph is shown bold (no HTML from the texts); lines starting
+         with "- " become a bulleted list. -->
+    <template v-for="(block, i) in blocks" :key="i">
+      <p v-if="block.text">
+        <template v-for="(part, j) in block.text.split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
+      </p>
+      <ul v-if="block.items.length" class="cc-info-lijst">
+        <li v-for="(item, k) in block.items" :key="k">
+          <template v-for="(part, j) in item.split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
+        </li>
+      </ul>
+    </template>
   </cdx-dialog>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { CdxButton, CdxDialog, CdxIcon } from "@wikimedia/codex";
 import { cdxIconInfo } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 
-defineProps({
+const props = defineProps({
   title: { type: String, required: true },
   label: { type: String, required: true },
   paragraphs: { type: Array, default: () => [] },
@@ -46,4 +54,13 @@ defineProps({
 });
 const t = useT();
 const open = ref(false);
+
+// Each paragraph: its text, and the "- " lines as list items.
+const blocks = computed(() =>
+  (props.paragraphs || []).map((paragraph) => {
+    const lines = String(paragraph).split("\n");
+    const items = lines.filter((line) => line.startsWith("- ")).map((line) => line.slice(2));
+    return { text: lines.filter((line) => !line.startsWith("- ")).join(" ").trim(), items };
+  })
+);
 </script>

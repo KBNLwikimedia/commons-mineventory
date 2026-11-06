@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 from flask import Blueprint, Response, current_app, g, jsonify, request, session
 
-from . import __version__, concept, export, weergave
+from . import __version__, concept, export, origineel, weergave
 from .cache import FetchError
 from .commons import CommonsError, public as public_file
 from .detectie.basis import DetectionError
@@ -185,6 +185,20 @@ def find_file():
 @api.get("/bestand/<mid>")
 def get_file(mid):
     return jsonify(_file_resource(_file(mid)))
+
+
+@api.get("/bestand/<mid>/pagina/<int:n>/origineel")
+def original_data(mid, n):
+    """Depicts and captions for the whole image (9.7): what Commons has, the proposals of
+    this app and the draft so far. Free; Wikidata lookups for the terms happen per term."""
+    return jsonify(origineel.gather(_service(), _page_file(mid, n), n))
+
+
+@api.put("/bestand/<mid>/pagina/<int:n>/origineel")
+def original_draft(mid, n):
+    """Keep the choices of the window as a draft (9.7). Free; nothing changes on Commons."""
+    file = _page_file(mid, n)
+    return jsonify({"concept": origineel.save_draft(_service(), file, n, _body())})
 
 
 @api.post("/bestand/<mid>/opnieuw-lezen")
@@ -529,18 +543,38 @@ def _completions():
 
 @api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
 def completion_plan(mid, n, object_id):
-    """The AI-completed version of the cut-out, if any, and what a new one costs. Free."""
-    return jsonify(_completions().plan(_page_file(mid, n), n, object_id))
+    """The AI-completed version of the cut-out, if any, what a new one costs, and the
+    prompt the app would send (to edit it). Free."""
+    file = _page_file(mid, n)
+    return jsonify({**_completions().plan(file, n, object_id), "standaard_prompt": _completions().default_prompt(file, n, object_id)})
 
 
 @api.post("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
 def completion_make(mid, n, object_id):
     """Have Muse Image fill in what is missing in the cut-out (paid in live mode,
-    cached; {"opnieuw": true} asks anew). The result is invented: never a source."""
+    cached; {"opnieuw": true} asks anew; {"prompt": "…"} sends your own prompt). The
+    result is invented: never a source."""
     _require_paid_access(_completions().editor.betaald)
     body = _body()
-    result = _completions().complete(_page_file(mid, n), n, object_id, again=bool(body.get("opnieuw")), user=_user())
+    if not isinstance(body.get("prompt") or "", str):
+        raise DetectionError("'prompt' is een tekst.", status=400, code="invalid_body")
+    result = _completions().complete(_page_file(mid, n), n, object_id, again=bool(body.get("opnieuw")), user=_user(), prompt=body.get("prompt"))
     return jsonify(result), 201
+
+
+@api.put("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
+def completion_use(mid, n, object_id):
+    """An earlier AI-completed version becomes the current one again: {"sleutel": "…"}. Free."""
+    key = _body().get("sleutel")
+    if not isinstance(key, str) or not key:
+        raise DetectionError("Geef 'sleutel' van een eerdere versie.", status=400, code="invalid_body")
+    return jsonify({"object": _completions().use_version(_page_file(mid, n), n, object_id, key)})
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling/geschiedenis/<sleutel>")
+def completion_delete_version(mid, n, object_id, sleutel):
+    """Remove an earlier AI-completed version from the history. Free."""
+    return jsonify({"object": _completions().delete_version(_page_file(mid, n), n, object_id, sleutel)})
 
 
 @api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/vorm")
@@ -564,10 +598,10 @@ def completion_filled(mid, n, object_id):
 
 @api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aangevuld.png")
 def completion_image(mid, n, object_id):
-    """The PNG of the AI-completed version."""
+    """The PNG of the AI-completed version; ?sleutel= for an earlier version."""
     file = _page_file(mid, n)
     name = _download_name(file, n, object_id, "png").rsplit(".", 1)[0] + " (AI-augmented).png"
-    return _image(_completions().image(file, n, object_id), "image/png", name)
+    return _image(_completions().image(file, n, object_id, request.args.get("sleutel") or None), "image/png", name)
 
 
 # -- Description ----------------------------------------------------------------------------
@@ -710,6 +744,8 @@ def _concept(file, n, obj):
     result = concept.concept(file, obj, facts, service.client.load_page(file, n))
     result.update(
         {
+            # Items the window "Gestructureerde gegevens van deze afbeelding" has for this object (9.7).
+            "in_venster": origineel.items_in_draft(service, file, n, obj["id"]),
             "id": obj["id"],
             "pagina": n,
             "opgeslagen": bool(obj.get("opgeslagen")),

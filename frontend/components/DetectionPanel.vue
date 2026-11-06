@@ -275,6 +275,16 @@
         <p v-else class="cc-uitleg">{{ t("panel.part_none_zoektermen") }}</p>
         </cdx-accordion>
       </template>
+      <!-- Depicts and captions for the whole image (FO 9.7): a window of its own, so this
+           block does not get too full. Blue but not filled: detecting stays the main action.
+           Disabled for files with more pages, where the data belongs to the whole file. -->
+      <div class="cc-origineel-knop">
+        <cdx-button action="progressive" :disabled="busy || file.paginas > 1" :title="file.paginas > 1 ? t('original.button_pages') : t('original.button_help')" @click="originalOpen = true">
+          {{ t("original.button") }}
+        </cdx-button>
+        <p class="cc-uitleg">{{ file.paginas > 1 ? t("original.button_pages") : t("original.button_help") }}</p>
+      </div>
+      <original-data v-if="originalOpen" :open="originalOpen" :file="file" :page="page" @close="originalOpen = false" />
     </cdx-accordion>
 
     <cdx-accordion v-model="open.search">
@@ -352,6 +362,7 @@ import BusyNote from "./BusyNote.vue";
 import DetailSlider from "./DetailSlider.vue";
 import PageDescription from "./PageDescription.vue";
 import InfoDialog from "./InfoDialog.vue";
+import OriginalData from "./OriginalData.vue";
 
 const props = defineProps({
   file: { type: Object, required: true },
@@ -404,12 +415,14 @@ function info(section, titleKey) {
   return {
     title: t(titleKey),
     label: t("panel.info_label", { section: t(titleKey) }),
-    paragraphs: [1, 2, 3].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
+    paragraphs: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
   };
 }
 const open = reactive({ captions: true, regios: true, beeldtaf: true, commons: true, search: false, suggestions: true, beschrijving: true, zoektermen: true, aanwijzen: true, tekenen: true, point: false, croptool: false });
 const cropTool = computed(() => cropToolLink(props.file));
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
+// The window "Gegevens van deze afbeelding" (9.7).
+const originalOpen = ref(false);
 
 // What the file already has on Commons (backlog 26): captions and depicts without a
 // position. Read with the file, free. Like the regions, only on page 1.

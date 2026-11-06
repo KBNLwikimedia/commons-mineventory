@@ -186,6 +186,14 @@ def subject(obj):
     return label if label and label.lower() not in INTERNAL_LABELS else "an object"
 
 
+MAX_PROMPT = 2000  # characters of your own prompt
+MAX_HISTORY = 20  # earlier AI-completed versions kept per object
+
+
+def clean_prompt(text):
+    return " ".join(str(text or "").split())[:MAX_PROMPT]
+
+
 class CompletionService:
     """Ask, keep and serve the AI-completed version of an object's cut-out."""
 
@@ -203,13 +211,21 @@ class CompletionService:
     def _path(self, key):
         return self.cache_dir / key[:2] / f"{key}.png"
 
-    def complete(self, file, n, object_id, again=False, user=None):
+    def default_prompt(self, file, n, object_id):
+        """The prompt the app would send, with the object's subject (free)."""
+        return PROMPT.format(name=subject(self.objects._find(file, n, object_id)))
+
+    def complete(self, file, n, object_id, again=False, user=None, prompt=None):
         """Make the AI-completed version (paid in live mode, cached) and note it on
-        the object ("aangevuld"). With `again` the model is really asked anew."""
+        the object ("aangevuld"). With `again` the model is really asked anew. With
+        `prompt` your own (edited) prompt goes to the model instead of the app's; the
+        version before goes to the history ("aangevuld_geschiedenis")."""
         obj = self.objects._find(file, n, object_id)
         sent, size = prepare(self.objects.saved_file(file, n, object_id, "png"))
         name = subject(obj)
-        prompt = PROMPT.format(name=name)
+        default = PROMPT.format(name=name)
+        own = clean_prompt(prompt)
+        prompt = own or default
         key = hashlib.sha1(f"{MODEL}|{PROMPT_VERSION}|{prompt}|{hashlib.sha1(sent).hexdigest()}".encode()).hexdigest()
         path = self._path(key)
         cached = path.exists() and not again
@@ -242,27 +258,70 @@ class CompletionService:
             "onderwerp": name,
             "prompt": prompt,  # exactly what went to the model, to show it
             "prompt_versie": PROMPT_VERSION,
+            "prompt_eigen": bool(own) and own != default,  # your own, edited prompt
             "afmetingen": dimensions,
             "kosten_usd": cost,
             "uit_cache": cached,
             "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
             "appversie": __version__,
         }
-        return {"object": self.objects.set_field(file, n, object_id, "aangevuld", note), "uit_cache": cached, "budget": self.objects.verbruik.status(user)}
+        return {"object": self._set_current(file, n, object_id, note), "uit_cache": cached, "budget": self.objects.verbruik.status(user)}
 
-    def _completed_path(self, file, n, object_id):
-        note = self.objects._find(file, n, object_id).get("aangevuld")
+    def _set_current(self, file, n, object_id, note):
+        """Make `note` the current version (None: none); the one before goes on top of
+        the history, each version once, at most MAX_HISTORY."""
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            previous = obj.get("aangevuld")
+            keep = {note["sleutel"]} if note else set()
+            history = [h for h in obj.get("aangevuld_geschiedenis") or [] if h.get("sleutel") not in keep]
+            if previous and previous.get("sleutel") not in keep:
+                history = [previous] + [h for h in history if h.get("sleutel") != previous.get("sleutel")]
+            obj["aangevuld"] = note
+            obj["aangevuld_geschiedenis"] = history[:MAX_HISTORY]
+            self.objects._write_store(file, n, store)
+            return self.objects.public(file, n, obj)
+
+    def _version(self, file, n, object_id, key):
+        """The note of a version: the current one or one from the history; 404 otherwise."""
+        obj = self.objects._find(file, n, object_id)
+        for note in [obj.get("aangevuld"), *(obj.get("aangevuld_geschiedenis") or [])]:
+            if note and note.get("sleutel") == key:
+                return note
+        raise DetectionError("Deze versie van de AI-aangevulde versie bestaat niet (meer).", status=404, code="not_found")
+
+    def use_version(self, file, n, object_id, key):
+        """An earlier version becomes the current one again (free, from the cache)."""
+        note = self._version(file, n, object_id, key)
+        if not self._path(key).exists():
+            raise DetectionError("Het beeld van deze versie is niet meer bewaard (bewaartermijn); vraag opnieuw.", status=410, code="expired")
+        return self._set_current(file, n, object_id, {**note, "uit_cache": True})
+
+    def delete_version(self, file, n, object_id, key):
+        """Remove an earlier version from the history (the image stays in the cache)."""
+        self._version(file, n, object_id, key)
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            obj["aangevuld_geschiedenis"] = [h for h in obj.get("aangevuld_geschiedenis") or [] if h.get("sleutel") != key]
+            self.objects._write_store(file, n, store)
+            return self.objects.public(file, n, obj)
+
+    def _completed_path(self, file, n, object_id, key=None):
+        note = self._version(file, n, object_id, key) if key else self.objects._find(file, n, object_id).get("aangevuld")
         path = self._path(note["sleutel"]) if note else None
         if not path or not path.exists():
             raise DetectionError("Er is (nog) geen AI-aangevulde versie van dit object.", status=404, code="not_found")
         mark_used(path)
         return path
 
-    def image(self, file, n, object_id):
+    def image(self, file, n, object_id, key=None):
         """The PNG of the AI-completed version with a transparent background, like the
         cut-out (Muse Image always returns an opaque image on white); 404 when there is
-        none (or it expired). Made once and cached next to the image itself."""
-        completed_path = self._completed_path(file, n, object_id)
+        none (or it expired). Made once and cached next to the image itself. With `key`
+        an earlier version (for the carousel)."""
+        completed_path = self._completed_path(file, n, object_id, key)
         path = completed_path.with_name(completed_path.stem + "_transparant.png")
         if path.exists():
             mark_used(path)
@@ -301,7 +360,8 @@ class CompletionService:
         return buffer.getvalue()
 
     def forget(self, file, n, object_id):
-        """Remove the note from the object; the image stays in the cache (free to get back)."""
+        """Remove the current version from the object; it goes to the history, and the
+        image stays in the cache (free to get back with "Use this version")."""
         self.objects._find(file, n, object_id)
-        return self.objects.set_field(file, n, object_id, "aangevuld", None)
+        return self._set_current(file, n, object_id, None)
 

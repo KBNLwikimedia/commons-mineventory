@@ -142,6 +142,10 @@
         <ul v-if="concept.origineel.regios.some((r) => r.aanwezig)" class="cc-klein">
           <li v-for="r in concept.origineel.regios.filter((x) => x.aanwezig)" :key="r.q">{{ t("concept.original_region_present", { item: concept.sdc_labels?.[r.q]?.[language] || r.q }) }}</li>
         </ul>
+        <!-- Rule 1 of 9.7: one list of planned changes per original; what the window has too. -->
+        <p v-if="concept.in_venster?.length" class="cc-klein">
+          {{ t("concept.in_window", { items: concept.in_venster.map((q) => concept.sdc_labels?.[q]?.[language] || q).join(", ") }) }}
+        </p>
         <template v-if="concept.origineel.sdc.claims.length">
           <sdc-preview v-if="originalView === 'weergave'" :sdc="concept.origineel.sdc" :labels="concept.sdc_labels || {}" :captions-shown="false" />
           <pre v-else class="cc-wikitekst">{{ JSON.stringify(concept.origineel.sdc, null, 2) }}</pre>

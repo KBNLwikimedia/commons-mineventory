@@ -291,7 +291,7 @@ De opvolger van "Uit Delpher": regio's die op Commons al bestaan. Eis van Olaf (
 
 **Regio's in de gestructureerde gegevens (belangrijkste bron)**
 
-- Op Commons kun je bij *beeldt af* (P180) met de kwalificator P2677 *relatieve positie in afbeelding* aangeven waar het item staat. De bestandspagina tekent die als gele rechthoeken met de naam van het item.
+- Op Commons kun je bij *beeldt af* (P180) met de kwalificator P2677 *relatieve positie in afbeelding* aangeven waar het item staat. Commons zelf tekent die niet (nagekeken 6-11-2026): er is geen standaard-gadget voor. Wie het gebruikersscript van Lucas Werkmeister heeft aangezet (User:Lucas_Werkmeister/wd-image-positions.js, bij de tool Wikidata Image Positions), ziet ze bij het aanwijzen van het beeld als rechthoeken met **alleen het label van het item**; kwalificatoren zoals *aantal* (P1114) toont die tool niet. De notities ({{ImageNote}}) worden wel standaard getekend, door de gadget ImageAnnotator, met hun volledige tekst. In deze app tekent de viewer de regio's geel met hun naam (7.5).
 - De waarde is `pct:x,y,b,h`: linksboven en de afmetingen, in procenten van de breedte en hoogte van de afbeelding. Volgens IIIF bestaat ook de vorm in pixels (`x,y,b,h` zonder `pct:`); de app leest beide.
 - Voorbeeld, het bestand met Alle Heiligen (M83565772), gelezen op 3-11-2026: 13 verklaringen P180 met P2677, bijvoorbeeld Catharina van Alexandrië (Q179718) op `pct:35.5814,68.7074,21.0853,24.2104` en Johannes de Doper (Q40662) op `pct:45.1206,35.0335,9.75884,16.4123`.
 - De app leest ze met `wbgetentities` (zie 5.2), rekent ze om naar pixels van het origineel en maakt per regio een object:
@@ -347,6 +347,12 @@ Idee en opdracht van Olaf (5-11-2026, backlog 19b; gebouwd in 0.32.4). Waar op h
 - **Downloaden** als PNG met *(AI-augmented)* in de bestandsnaam, of bekijken in een nieuw tabblad.
 - **Doorzichtig en zoombaar** (sinds 0.32.6): het wit dat met de rand verbonden is, wordt doorzichtig (op een schaakbord, zoals de uitsnede); wit binnen het onderwerp en binnen de vorm van de uitsnede blijft. Uitsnede en aangevulde versie zijn in de vergroter te zoomen en te verschuiven zoals in de hoofdviewer. *Bron* en *Resolutie* staan eronder in dezelfde stijl als bij de uitsnede.
 - **Eigen tabblad** *AI-aangevuld* in de vergroter, na *Uitsnede*, alleen als er een aangevulde versie is (sinds 0.32.5). Een schakelaar **Toon wat de AI invulde** legt een magenta laag over de plekken waar de uitsnede geen vorm had en de AI iets tekende; bij benadering.
+
+**Eigen prompt en eerdere versies** (wens Olaf, 6-11-2026, sinds 0.33.5):
+- Bij de *AI-prompt* in het tabblad *AI-aangevuld* staat een potloodje. Het opent de prompt in een tekstvak, om hem aan te passen voor de volgende *Afbeelding opnieuw aanvullen met AI* (betaald, met bevestiging); *Terug naar de prompt van de app* zet de standaardprompt terug. Een aangepaste prompt staat in de notitie als `prompt_eigen` en heet in de interface *eigen prompt*. Elke prompt is een eigen antwoord in de cache.
+- **Eerdere versies**: een nieuwe versie, of *Weghalen*, zet de vorige in de lijst *Eerdere versies* (hooguit 20 per object, `aangevuld_geschiedenis`), als carrousel zoals bij de beschrijvingen: per versie een klein beeld, de prompt en de tijd, met *Deze gebruiken* (gratis, uit de cache) en het prullenbakje. Is het beeld van een versie niet meer bewaard (bewaartermijn), dan zegt de app dat. Het tabblad *AI-aangevuld* blijft er zolang er een eerdere versie is.
+- **Zo werkt opnieuw vragen**: elke keer gaan de oorspronkelijke uitsnede en alleen de prompt van dat moment naar het model; de vorige prompt en het vorige resultaat gaan niet mee, en het model onthoudt niets. Een aangepaste prompt vervangt de oude dus helemaal. Verder bouwen op een eerdere versie is een idee voor later (backlog 19d).
+- API: `prompt` bij `POST …/aanvulling`, `standaard_prompt` bij `GET`, `PUT …/aanvulling` met `{"sleutel"}`, `DELETE …/aanvulling/geschiedenis/{sleutel}` en `aangevuld.png?sleutel=`.
 
 ### 7.8 3D-model van een uitsnede (nice-to-have)
 
@@ -655,7 +661,7 @@ Na de upload, in één `wbeditentity` op `M<pageid>`:
 
 ### 9.7 Beeldt af en caption voor de hele afbeelding
 
-Voorstel 4-11-2026; besluiten van Olaf 6-11-2026 (onderaan deze paragraaf). Nog niet gebouwd. **Het samenstellen en het concept worden nu gebouwd, vóór OAuth** (gratis, alleen lezen); het opslaan op Commons volgt in fase 2.
+Voorstel 4-11-2026; besluiten van Olaf 6-11-2026 (onderaan deze paragraaf). **Sinds 0.33.5 gebouwd: het venster en het concept** (gratis, alleen lezen; `GET` en `PUT …/origineel`, `cutter/origineel.py`, `OriginalData.vue`). Het opslaan op Commons volgt in fase 2; de knop *Op Commons opslaan…* staat er al, uitgeschakeld. Nog niet gebouwd: de kleine weergave van de hele afbeelding met de kaders in de kop van het venster, en een knop om de beschrijving in de stand *Commons-caption* opnieuw te vragen vanuit het venster (nu een uitleg).
 
 Kort gezegd: de AI-caption en de zoektermen (als kandidaten voor *beeldt af*, P180) worden **verzoend** met de captions en P180-verklaringen die het bestand op Commons al heeft. De app haalt die bestaande gegevens op (alleen lezen) en zet ze naast de voorstellen; de gebruiker vult aan.
 
@@ -755,7 +761,23 @@ Is er nog geen paginaoverzicht, dan legt het venster uit dat het voorstel uit *A
 | PUT | `/bestand/{mid}/pagina/{n}/origineel` | De keuzes bewaren (concept). Gratis |
 | POST | `/bestand/{mid}/pagina/{n}/origineel/opslaan` | Naar Commons (fase 2): ingelogd, na bevestiging, met `baserevid` |
 
-**Verhouding tot 9.4.** De regio op het origineel per geüploade uitsnede (9.4) en dit venster schrijven dezelfde soort verklaringen, P180 met P2677, met dezelfde code. Fase 4 punt 15 (regio's terugschrijven, ook los van een upload) valt hiermee samen.
+**Verhouding tot 9.4: geen botsingen** (vraag Olaf, 6-11-2026). Er zijn twee bestanden en twee wegen:
+
+| Weg | Bestand | Wat |
+| --- | --- | --- |
+| *Commons-concept* van een uitsnede (9.1, 9.4) | **de uitsnede** (een nieuw bestand) | *beeldt af* zonder positie: de uitsnede toont alleen dat item |
+| idem, bij de upload (9.4, *Regio op het origineel*) | **het origineel** | *beeldt af* met positie (P2677) van de uitsnede |
+| dit venster (9.7) | **het origineel** | *beeldt af* met of zonder positie, en captions |
+
+*Goblet* zonder positie op de uitsnede en *goblet* met positie op het origineel botsen dus niet: dat zijn verschillende bestanden, en beide kloppen. Botsen kan alleen op **het origineel**, waar de upload (9.4) en dit venster allebei schrijven. Daarvoor gelden deze regels, in één stuk code (`cutter/origineel.py`) dat beide wegen gebruiken:
+
+1. **Eén lijst geplande wijzigingen per origineel.** De regio's die bij een upload mee zouden gaan en de keuzes in dit venster komen in hetzelfde concept (`origineel.json`). Het venster toont wat al met een uitsnede mee gaat (*gaat mee met de upload van …*), en het Commons-concept van een uitsnede toont wat in het venster al gekozen is.
+2. **Ontdubbelen vóór het schrijven.** Vlak voor een bewerking leest de app het origineel opnieuw (met `baserevid`) en vergelijkt per item en positie (`_same_region`, 1% marge, zoals nu in 9.4). Wat er al staat, of wat in dezelfde bewerking al zit, gaat niet nog eens mee.
+3. **Met positie gaat voor zonder positie.** Komt hetzelfde item met positie (een object, of de uitsnede bij de upload) en zonder positie (een regel in het venster zonder *met plek*), dan gaat alleen de verklaring met positie mee: die zonder positie zegt niets extra's. Staat het item al zonder positie op Commons, dan geldt besluit 3: de gebruiker kiest of de positie aan die bestaande verklaring wordt toegevoegd; anders wordt er geen tweede verklaring zonder positie gemaakt.
+4. **Eén verklaring per object.** Een object dat zowel als uitsnede geüpload wordt als in het venster staat, krijgt één verklaring P180 met P2677 op het origineel, niet twee.
+5. **De bewerkingssamenvatting** noemt wat er werkelijk ging, na het ontdubbelen.
+
+Fase 4 punt 15 (regio's terugschrijven, ook los van een upload) valt hiermee samen. Het schrijven zelf is fase 2; de regels 1 tot en met 4 kunnen al in het concept en in het venster zichtbaar worden (backlog 15e).
 
 **Niet in dit venster.** De gelezen tekst in en onder het beeld. Op het origineel zou dat wikitekst zijn (`{{Inscription}}`), geen SDC, en dat is een andere bewerking.
 
@@ -769,6 +791,40 @@ Is er nog geen paginaoverzicht, dan legt het venster uit dat het voorstel uit *A
 7. **Talen**: Nederlands, Engels en de taal van de interface.
 8. **AI-herkomst**: alleen in de bewerkingssamenvatting, niet in de gegevens zelf. Bij de bouw nagaan of Commons hier inmiddels een afspraak over heeft (16).
 9. **Wanneer**: het samenstellen en het concept nu bouwen, vóór OAuth (gratis, alleen lezen); het opslaan op Commons in fase 2, eerst op de testwiki.
+
+### 9.8 Notitie op het origineel ({{ImageNote}})
+
+Voorstel (6-11-2026, op vraag van Olaf). **Nog niet gebouwd** (backlog 15d); punten met **[Vraag]** wachten op Olaf.
+
+**Doel.** Een object met zijn uitgebreidere beschrijving zichtbaar maken op de bestandspagina van het origineel, als een rechthoek met tekst die verschijnt als je het beeld aanwijst. Niet alleen het label van een Wikidata-item.
+
+**Waarom een notitie en geen kwalificator** (nagekeken 6-11-2026; besluit Olaf: de notitie is beter, omdat die niet van een gebruikersscript afhangt):
+- Commons tekent regio's uit de gestructureerde gegevens (P180 met P2677) zelf niet. Alleen het gebruikersscript van de tool Wikidata Image Positions doet dat, op verzoek van de gebruiker, en dan met alleen het label van het item; kwalificatoren zoals *media legend* (P2096) of *aantal* (P1114) toont het niet (7.5).
+- Notities (`{{ImageNote}}`) worden voor **iedereen** getekend door de gadget ImageAnnotator, ook zonder inloggen (nagekeken op de Atlas de Wit-pagina): gele rechthoeken als je het beeld aanwijst, en de tekst van de notitie in een venstertje als je een rechthoek aanwijst.
+- Een notitie is wikitekst, geen gestructureerde gegevens. Voor machines blijft *beeldt af* (P180, met P2677) de plek (9.4, 9.7); de notitie is voor mensen.
+
+**De notitie** (zoals ImageAnnotator die zelf schrijft):
+
+```
+{{ImageNote|id=3|x=461|y=667|w=56|h=46|dimx=887|dimy=741|style=2}}
+{{LangSwitch|nl=Een klein hondje snuffelt aan de grond bij een groep mannen in zwarte mantels.|en=A small dog sniffs at the ground near a group of men in black cloaks.}}
+{{ImageNoteEnd|id=3}}
+```
+
+- **Kader**: het kader van het object in het hele beeld; `dimx` en `dimy` zijn de afmetingen waarop de getallen slaan (de app gebruikt de volledige resolutie van het origineel; ImageAnnotator rekent zelf om).
+- **id**: één hoger dan de hoogste bestaande notitie op de pagina.
+- **Plaats**: onderaan de bestandspagina, zoals de gadget het doet.
+- **Tekst**: kort, over wat in het kader staat, neutraal (Commons:Image annotations). In meer talen met `{{LangSwitch}}`, zodat de lezer zijn eigen taal ziet; dat raadt Commons aan boven `{{en}}`/`{{nl}}` naast elkaar.
+- **Afspraken van Commons**: notities zijn voor details in het beeld, niet voor een beschrijving van het hele beeld; ze moeten kort zijn. Bewerken via de gadget kan alleen voor *autoconfirmed* gebruikers; de app vraagt dat ook (via OAuth bekend).
+
+**In de app.**
+- **Waar** **[Vraag]**: in het tabblad *Commons-concept* van een object (een vinkje *Ook als notitie op het origineel*), in het venster van 9.7 (per regel), of beide.
+- De tekst begint met de beschrijving uit *Wat staat hierop?* in de gekozen talen, met de hand aan te passen, met een teller; AI-tekst alleen na controle door de gebruiker (zoals 9.7).
+- **Al een notitie op die plek**: de app leest notities al (7.5). Staat er al een notitie met (bijna) hetzelfde kader, dan stelt de app geen nieuwe voor, maar toont hij de bestaande (alleen lezen); aanpassen doe je op Commons zelf.
+- **Opslaan** (fase 2): één bewerking van de wikitekst van het origineel (`action=edit` met `baserevid`, zoals 9.7), alleen toevoegen, met bevestiging die precies de toe te voegen tekst toont, eerst op de testwiki. Bewerkingssamenvatting bijv. `Added 1 image note with Commons Mineventory; text checked by the user`.
+- **Daarna** leest de app het origineel opnieuw; de notitie staat dan ook in *Uit Commons* (7.5). Een object en zijn eigen notitie worden niet twee keer getoond.
+
+**[Vraag] voor Olaf**: zie het vragenformulier van 6-11-2026 (tekst, talen, samen met *beeldt af* of los, waar in de app, lengte).
 
 ## 10. Interface met Codex
 

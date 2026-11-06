@@ -3,6 +3,25 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.5] - 2026-11-06
+
+### Toegevoegd
+
+- **Geen dubbele verklaringen op het origineel, zichtbaar** (backlog 15e, regels 1 en 4 van FO 9.7): het venster *Gestructureerde gegevens van deze afbeelding* zegt per regel welke objecten hun plek al met de upload van hun uitsnede krijgen (één verklaring per object), en het *Commons-concept* van een object noemt de items die het venster er al voor heeft. API: `upload` per object in `GET …/origineel`, `in_venster` in het Commons-concept.
+- **AI-aangevuld: eigen prompt en eerdere versies** (wens Olaf, FO 7.7): een potloodje bij de AI-prompt om die aan te passen voor de volgende keer, met *Terug naar de prompt van de app*; eerdere versies als carrousel met klein beeld, prompt en tijd, *Deze gebruiken* (gratis) en verwijderen. *Weghalen* bewaart de versie bij de eerdere. API: `prompt` bij `POST …/aanvulling`, `PUT …/aanvulling`, `DELETE …/aanvulling/geschiedenis/{sleutel}`, `aangevuld.png?sleutel=`.
+- **Venster *Gestructureerde gegevens van deze afbeelding*** (FO 9.7, backlog 15b, wens Olaf), met de knop *Toevoegen aan de gestructureerde gegevens van deze afbeelding (op Commons)* in *AI-suggesties voor deze afbeelding*. Tabblad *Beeldt af (P180)*: wat al op Commons staat (alleen lezen; bij een item zonder plek dat de app vond, kun je de plek laten toevoegen), en de voorstellen: items die je bij uitsneden koos (aangevinkt), de AI-zoektermen en de suggesties van *Wat staat hierop?*, gratis opgezocht op Wikidata (niet aangevinkt, met AI-merkje, ander item te kiezen), hetzelfde item uit meer bronnen als één regel, *met plek* per regel, zoektermen zonder object ingeklapt, en zelf een item toevoegen. Tabblad *Captions*: per taal de caption op Commons en het AI-voorstel, met *Toevoegen*, of bij een bestaande caption *Zelf schrijven* (standaard, begint met beide), *Bestaande houden* of *Vervangen*, met een teller tot 250 tekens. *Concept bewaren* (API: `GET` en `PUT …/origineel`); *Op Commons opslaan…* komt in fase 2 en staat er uitgeschakeld. Uit bij bestanden met meer pagina's.
+
+### Gewijzigd
+
+- FO 9.7 *Verhouding tot 9.4: geen botsingen* (vraag Olaf): de uitsnede krijgt *beeldt af* zonder positie (ander bestand, geen botsing); op het origineel schrijven de upload en het venster allebei, met regels: één lijst geplande wijzigingen, ontdubbelen vóór het schrijven, met positie gaat voor zonder, één verklaring per object. Backlog 15e.
+- Backlog 19d (idee Olaf): *Verder vanaf deze versie* bij een AI-aangevulde versie; FO 7.7 legt uit dat opnieuw vragen altijd bij de oorspronkelijke uitsnede begint.
+- *Afbeelding aanvullen met AI* staat op het tabblad *Uitsnede* alleen de eerste keer; opnieuw vragen doe je op het tabblad *AI-aangevuld* (wens Olaf).
+- De uitleg onder de knop voor de gestructureerde gegevens zegt dat de zoektermen en gevonden objecten kandidaten zijn voor 'beeldt af' (P180), en dat je ze in het venster zelf bekijkt en goedkeurt (wens Olaf).
+- Het deel *Zoektermen* in *AI-suggesties voor deze afbeelding* heet nu *Zoeken en objecten detecteren* (*Search & detect objects*), en de knop *Toevoegen aan de gestructureerde gegevens van deze afbeelding (op Commons)* (wens Olaf).
+- De uitleg (i) bij *Uit Commons* noemt de vier soorten gegevens als opsomming, met daarna een alinea per soort (wens Olaf). Een (i)-uitleg kan nu opsommingen en meer dan drie alinea's hebben.
+- Functioneel ontwerp 9.8 *Notitie op het origineel* (voorstel, backlog 15d): een object met zijn beschrijving als `{{ImageNote}}` op de bestandspagina, omdat ImageAnnotator notities voor iedereen tekent en Commons regio's uit de gestructureerde gegevens niet (besluit Olaf).
+- Functioneel ontwerp 7.5: nagekeken hoe Commons de regio's (P180 met P2677) tekent. Niet standaard; alleen met het gebruikersscript van de tool Wikidata Image Positions, en dan met alleen het label van het item.
+
 ## [0.33.4] - 2026-11-06
 
 ### Gewijzigd

@@ -129,8 +129,9 @@
             {{ t("magnifier.refine_mask", { cost: config.betaald ? money(config.sam_usd, config.taal) : t("panel.free").replace(/[()]/g, "") }) }}
           </cdx-button>
           <!-- Fill in what is missing (Muse Image): invented by AI, kept apart from the cut-out (7.7). -->
-          <cdx-button action="progressive" :disabled="completing" :title="t('completion.help')" @click="complete">
-            {{ t(object.aangevuld ? "completion.again" : "completion.make") }} <span class="cc-kosten">{{ completionCost }}</span>
+          <!-- Only the first time; asking again is on the AI-completed tab (wish Olaf). -->
+          <cdx-button v-if="!object.aangevuld && !completionHistory.length" action="progressive" :disabled="completing" :title="t('completion.help')" @click="complete">
+            {{ t("completion.make") }} <span class="cc-kosten">{{ completionCost }}</span>
           </cdx-button>
           <cdx-button action="destructive" @click="emit('trashed', object.id)"><cdx-icon :icon="cdxIconTrash" /> {{ t("objects.trash") }}</cdx-button>
         </div>
@@ -140,8 +141,15 @@
 
       <!-- The AI-completed version (7.7): its own tab, only when there is one. Never a source,
            never to Commons as a cut-out. A switch shows what the AI filled in. -->
-      <cdx-tab v-if="object.aangevuld" name="aangevuld" :label="t('completion.tab')">
+      <cdx-tab v-if="object.aangevuld || completionHistory.length" name="aangevuld" :label="t('completion.tab')">
         <section class="cc-aanvulling">
+          <template v-if="!object.aangevuld">
+            <p class="cc-uitleg">{{ t("completion.none_current") }}</p>
+            <cdx-button action="progressive" :disabled="completing" :title="t('completion.help')" @click="complete">
+              {{ t("completion.again") }} <span class="cc-kosten">{{ completionCost }}</span>
+            </cdx-button>
+          </template>
+          <template v-else>
           <h4>{{ t("completion.title") }} <ai-badge kind="aanvulling" :model="object.aangevuld.model" /></h4>
           <cdx-message type="warning" :inline="true">{{ t("completion.warning") }}</cdx-message>
           <cdx-toggle-switch v-model="showFilled" class="cc-aanvulling-schakelaar">{{ t("completion.show_filled") }}</cdx-toggle-switch>
@@ -165,7 +173,22 @@
             </dd>
             <dt>{{ t("describe.group_prompt") }}</dt>
             <dd class="cc-groep-prompt">
-              <em><template v-for="(part, i) in completionPrompt" :key="i"><span v-if="part.pill" class="cc-groep-pillen"><cdx-info-chip>{{ part.text }}</cdx-info-chip></span><template v-else>{{ part.text }}</template></template></em>
+              <!-- The prompt, with a pencil to change it for the next question (wish Olaf). -->
+              <template v-if="!editingPrompt">
+                <em><template v-for="(part, i) in completionPrompt" :key="i"><span v-if="part.pill" class="cc-groep-pillen"><cdx-info-chip>{{ part.text }}</cdx-info-chip></span><template v-else>{{ part.text }}</template></template></em>
+                <span v-if="object.aangevuld.prompt_eigen" class="cc-klein"> ({{ t("completion.prompt_own") }})</span>
+                <cdx-button action="progressive" weight="quiet" size="small" :aria-label="t('completion.prompt_edit')" :title="t('completion.prompt_edit')" @click="startPrompt">
+                  <cdx-icon :icon="cdxIconEdit" size="small" />
+                </cdx-button>
+              </template>
+              <template v-else>
+                <cdx-text-area v-model="promptDraft" :rows="5" :aria-label="t('completion.prompt_edit')" />
+                <p class="cc-klein">
+                  {{ t("completion.prompt_edit_help") }}
+                  <button type="button" class="cc-link" @click="resetPrompt">{{ t("completion.prompt_default") }}</button>
+                  · <button type="button" class="cc-link" @click="editingPrompt = false">{{ t("actions.cancel") }}</button>
+                </p>
+              </template>
             </dd>
           </dl>
           <p class="cc-uitleg">{{ t("completion.after") }}</p>
@@ -177,8 +200,31 @@
             </cdx-button>
             <cdx-button action="destructive" weight="quiet" @click="forgetCompletion"><cdx-icon :icon="cdxIconTrash" /> {{ t("completion.remove") }}</cdx-button>
           </div>
+          </template>
           <busy-note v-if="completing" :message="t('completion.busy')" />
           <cdx-message v-if="completionError" type="error" :inline="true">{{ completionError }}</cdx-message>
+          <!-- Earlier versions, one at a time, with their prompt: use one again (free, from
+               the cache) or remove it, as with the descriptions (wish Olaf). -->
+          <template v-if="completionHistory.length">
+            <h4 class="cc-commons-kop">{{ t("completion.history", { n: completionHistory.length }) }}</h4>
+            <version-carousel :items="completionHistory" item-key="sleutel" :label="t('completion.history_short')">
+              <template #default="{ item: entry }">
+                <div class="cc-aanvulling-versie">
+                  <img :src="`${base}/aangevuld.png?sleutel=${entry.sleutel}`" alt="" loading="lazy" @error="(e) => (e.target.style.visibility = 'hidden')" />
+                  <div>
+                    <em class="cc-klein">{{ entry.prompt }}</em>
+                    <div class="cc-klein">{{ formatTime(entry.tijdstempel) }}<template v-if="entry.prompt_eigen"> · {{ t("completion.prompt_own") }}</template></div>
+                  </div>
+                </div>
+              </template>
+              <template #actions="{ item: entry }">
+                <cdx-button action="progressive" size="small" :disabled="completing" @click="useCompletion(entry)">{{ t("describe.history_use") }}</cdx-button>
+                <cdx-button action="destructive" weight="quiet" size="small" :disabled="completing" :aria-label="t('describe.history_delete')" :title="t('describe.history_delete')" @click="deleteCompletion(entry)">
+                  <cdx-icon :icon="cdxIconTrash" size="small" />
+                </cdx-button>
+              </template>
+            </version-carousel>
+          </template>
         </section>
       </cdx-tab>
 
@@ -1013,7 +1059,8 @@ const showFilled = ref(false);
 watch(
   () => props.object.aangevuld,
   (note) => {
-    if (!note && tab.value === "aangevuld") tab.value = "uitsnede";
+    if (!note && !completionHistory.value.length && tab.value === "aangevuld") tab.value = "uitsnede";
+    editingPrompt.value = false;
   }
 );
 const completionError = ref("");
@@ -1029,7 +1076,10 @@ async function complete() {
   }
   completing.value = true;
   try {
-    const result = await post(`${base.value}/aanvulling`, { opnieuw: again });
+    // Your own prompt, when you changed it with the pencil.
+    const own = editingPrompt.value && promptDraft.value.trim() ? { prompt: promptDraft.value.trim() } : {};
+    const result = await post(`${base.value}/aanvulling`, { opnieuw: again, ...own });
+    editingPrompt.value = false;
     emit("changed", result.object);
     // Show the result in its own tab, once it is there.
     await nextTick();
@@ -1049,6 +1099,39 @@ async function forgetCompletion() {
     completionError.value = errorText(t, failure);
   }
 }
+
+// The prompt for the next "Complete again": start from the current one; the app's own is one click away.
+const editingPrompt = ref(false);
+const promptDraft = ref("");
+function startPrompt() {
+  promptDraft.value = props.object.aangevuld?.prompt || "";
+  editingPrompt.value = true;
+}
+async function resetPrompt() {
+  try {
+    promptDraft.value = (await get(`${base.value}/aanvulling`)).standaard_prompt || promptDraft.value;
+  } catch (failure) {
+    completionError.value = errorText(t, failure);
+  }
+}
+const completionHistory = computed(() => props.object.aangevuld_geschiedenis || []);
+async function useCompletion(entry) {
+  completionError.value = "";
+  try {
+    emit("changed", (await put(`${base.value}/aanvulling`, { sleutel: entry.sleutel })).object);
+  } catch (failure) {
+    completionError.value = errorText(t, failure);
+  }
+}
+async function deleteCompletion(entry) {
+  if (!(await askConfirm(t("completion.history_delete_confirm"), { title: t("describe.history_delete"), go: t("describe.history_delete"), destructive: true }))) return;
+  try {
+    emit("changed", (await del(`${base.value}/aanvulling/geschiedenis/${encodeURIComponent(entry.sleutel)}`)).object);
+  } catch (failure) {
+    completionError.value = errorText(t, failure);
+  }
+}
+const formatTime = (stamp) => (stamp ? new Date(stamp).toLocaleString(language === "en" ? "en-GB" : "nl-NL", { dateStyle: "medium", timeStyle: "short" }) : "");
 
 function downloadCompletion() {
   window.location.href = `${base.value}/aangevuld.png?download=1`;

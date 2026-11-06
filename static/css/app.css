@@ -739,3 +739,35 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bulk-knoppen { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.4rem; }
 .cc-bulk .cc-groeperen { margin: 0.25rem 0; }
 .cc-bulk .cc-uitleg { margin: 0.25rem 0 0; }
+
+/* "Gegevens van deze afbeelding" (FO 9.7): a wide window with two tabs. */
+.cc-origineel.cdx-dialog { max-width: 52rem; width: 95vw; }
+.cc-origineel-knop { margin-top: 0.75rem; }
+.cc-origineel-commons { margin: 0 0 0.25rem; padding-left: 1.1rem; font-size: 0.875rem; }
+.cc-origineel-commons li { margin: 0.15rem 0; }
+.cc-merkje { margin-left: 0.35rem; padding: 0 0.3em; border-radius: 2px; background: #fef6e7; color: #705000; font-size: 0.75rem; }
+.cc-origineel-positie-toevoegen { display: block; font-size: 0.8125rem; margin: 0.1rem 0 0.2rem; }
+.cc-origineel-rijen { list-style: none; margin: 0.25rem 0; padding: 0; }
+.cc-origineel-rij { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid var(--cc-rand, #eaecf0); }
+.cc-origineel-rij > input { margin-top: 0.3rem; }
+.cc-origineel-item { flex: 1; min-width: 0; }
+.cc-origineel-bron { color: var(--color-subtle, #54595d); }
+.cc-origineel-met-positie { font-size: 0.8125rem; white-space: nowrap; }
+.cc-origineel-zoek { margin: 0.5rem 0; }
+.cc-origineel-treffers { list-style: none; margin: 0.25rem 0; padding: 0; font-size: 0.875rem; }
+.cc-origineel-leeg { margin: 0.5rem 0; font-size: 0.875rem; }
+.cc-origineel-caption { margin-bottom: 0.75rem; }
+.cc-origineel-keuze { display: flex; flex-direction: column; gap: 0.25rem; margin: 0.25rem 0; }
+.cc-te-lang { color: var(--color-destructive, #d73333); }
+.cc-origineel-voet { display: flex; flex-direction: column; gap: 0.4rem; width: 100%; }
+.cc-origineel-knoppen { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; }
+
+/* A list in an (i) explanation. */
+.cc-info-lijst { margin: 0.25rem 0 0.75rem; padding-left: 1.25rem; }
+.cc-info-lijst li { margin: 0.1rem 0; }
+
+/* Earlier AI-completed versions in the carousel: a small image beside the prompt. */
+.cc-aanvulling-versie { display: flex; gap: 0.75rem; align-items: flex-start; }
+.cc-aanvulling-versie img { max-width: 8rem; max-height: 8rem; object-fit: contain; background: repeating-conic-gradient(#eaecf0 0 25%, #fff 0 50%) 0 0 / 12px 12px; border: 1px solid var(--cc-rand, #c8ccd1); flex: none; }
+
+.cc-origineel-upload { color: #14866d; }

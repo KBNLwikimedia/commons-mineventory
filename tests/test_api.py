@@ -681,3 +681,56 @@ def test_deduplicate_only_among_some_objects(app, http):
     both = http.post(PAGE + "/samenvoegingen", json={"objecten": [base["id"], "obj-tweeling"]}).get_json()
     assert both["samengevoegd"] == 1
     assert http.post(PAGE + "/samenvoegingen", json={"objecten": "a"}).status_code == 400
+
+
+def test_original_data_and_draft(http):
+    """The window for the whole image (9.7): proposals and a draft; nothing goes to Commons."""
+    found = http.post(BOOK + "/detecties", json={"modus": "commons"}).get_json()
+    data = http.get(BOOK + "/origineel").get_json()
+    assert data["op_commons"]["beeldt_af"] and data["concept"] is None
+    chosen = {row["q"]: row for row in data["gekozen"]}
+    assert "Q179718" in chosen and chosen["Q179718"]["objecten"][0]["positie"].startswith("pct:")
+    body = {
+        "beeldt_af": [{"q": "Q179718", "label": "Catharina", "met_positie": True, "objecten": [found["objecten"][0]["id"]], "bron": "gekozen"}],
+        "positie_bij_bestaande": [],
+        "captions": {"nl": {"keuze": "toevoegen", "tekst": "Een getijdenboek  met heiligen."}},
+    }
+    saved = http.put(BOOK + "/origineel", json=body).get_json()["concept"]
+    assert saved["captions"]["nl"]["tekst"] == "Een getijdenboek met heiligen." and saved["bewaard_op"]
+    assert http.get(BOOK + "/origineel").get_json()["concept"]["beeldt_af"][0]["q"] == "Q179718"
+    too_long = {**body, "captions": {"nl": {"keuze": "toevoegen", "tekst": "x" * 251}}}
+    assert http.put(BOOK + "/origineel", json=too_long).status_code == 400
+    assert http.put(BOOK + "/origineel", json={"beeldt_af": [{"q": "kerk"}]}).status_code == 400
+
+
+def test_ai_completed_versions_and_own_prompt(http):
+    """Your own prompt for the AI-completed version, and earlier versions to use again."""
+    obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
+    url = f"{PAGE}/objecten/{obj['id']}"
+    plan = http.get(url + "/aanvulling").get_json()
+    assert "Complete it" in plan["standaard_prompt"]
+    first = http.post(url + "/aanvulling", json={}).get_json()["object"]["aangevuld"]
+    own = http.post(url + "/aanvulling", json={"prompt": "Complete the  shield only."}).get_json()["object"]
+    assert own["aangevuld"]["prompt"] == "Complete the shield only." and own["aangevuld"]["prompt_eigen"] is True
+    assert [h["sleutel"] for h in own["aangevuld_geschiedenis"]] == [first["sleutel"]]
+    assert http.get(url + f"/aangevuld.png?sleutel={first['sleutel']}").status_code == 200
+    back = http.put(url + "/aanvulling", json={"sleutel": first["sleutel"]}).get_json()["object"]
+    assert back["aangevuld"]["sleutel"] == first["sleutel"] and back["aangevuld_geschiedenis"][0]["sleutel"] == own["aangevuld"]["sleutel"]
+    removed = http.delete(url + "/aanvulling").get_json()["object"]
+    assert removed["aangevuld"] is None and len(removed["aangevuld_geschiedenis"]) == 2
+    gone = http.delete(url + f"/aanvulling/geschiedenis/{first['sleutel']}").get_json()["object"]
+    assert [h["sleutel"] for h in gone["aangevuld_geschiedenis"]] == [own["aangevuld"]["sleutel"]]
+    assert http.put(url + "/aanvulling", json={"sleutel": "onbekend"}).status_code == 404
+
+
+def test_window_and_concept_know_of_each_other(http):
+    """Rules 1 and 4 of 9.7: the window marks objects whose upload brings their region, and
+    the Commons concept names the items the window has for the object."""
+    found = http.post(BOOK + "/detecties", json={"modus": "commons"}).get_json()["objecten"]
+    region = next(o for o in found if o.get("wikidata") == "Q179718")
+    http.post(f"{BOOK}/uitsneden", json={"ids": [region["id"]]})
+    row = next(r for r in http.get(BOOK + "/origineel").get_json()["gekozen"] if r["q"] == "Q179718")
+    assert next(o for o in row["objecten"] if o["id"] == region["id"])["upload"] is True
+    http.put(BOOK + "/origineel", json={"beeldt_af": [{"q": "Q179718", "label": "Catharina", "met_positie": True, "objecten": [region["id"]], "bron": "gekozen"}], "captions": {}})
+    concept = http.get(f"{BOOK}/objecten/{region['id']}/commons").get_json()
+    assert concept["in_venster"] == ["Q179718"]
