@@ -164,16 +164,35 @@
             <cdx-button action="progressive" weight="quiet" :disabled="busy || selectedCount < 2" :title="t('objects.group_help')" @click="groupSelected">
               {{ t("panel.group", { n: selectedCount }) }}
             </cdx-button>
-            <!-- Grouping per kind, right under "Group selected objects": all objects of one search term (7.4). -->
-            <p v-if="groupableTerms.length" class="cc-groeperen">
-              {{ t("panel.group_all_intro") }}
-              <template v-for="(item, i) in groupableTerms" :key="item.term">
-                <template v-if="i"> · </template>
-                <button type="button" class="cc-link" :disabled="busy" :title="t('panel.group_all_help')" @click="groupTerm(item.term)">
-                  {{ t("panel.group_all", { term: item.name, n: item.n }) }}
-                </button>
-              </template>
-            </p>
+            <!-- In bulk, per kind (all objects of one search term), under "Group selected objects":
+                 two tabs, group and move to the trash (7.4; wish Olaf, 6-11-2026). -->
+            <div v-if="trashableTerms.length" class="cc-per-soort">
+              <cdx-tabs v-model:active="bulkTab" :framed="true">
+                <cdx-tab name="groeperen" :label="t('panel.bulk_group')">
+                  <p v-if="groupableTerms.length" class="cc-groeperen">
+                    <template v-for="(item, i) in groupableTerms" :key="item.term">
+                      <template v-if="i"> · </template>
+                      <button type="button" class="cc-link" :disabled="busy" :title="t('panel.group_all_help')" @click="groupTerm(item.term)">
+                        {{ t("panel.group_all", { term: item.name, n: item.n }) }}
+                      </button>
+                    </template>
+                  </p>
+                  <p v-else class="cc-uitleg">{{ t("panel.bulk_group_none") }}</p>
+                  <p class="cc-uitleg">{{ t("panel.bulk_group_help") }}</p>
+                </cdx-tab>
+                <cdx-tab name="prullenbak" :label="t('panel.bulk_trash')">
+                  <p class="cc-groeperen">
+                    <template v-for="(item, i) in trashableTerms" :key="item.term">
+                      <template v-if="i"> · </template>
+                      <button type="button" class="cc-link cc-link-weg" :disabled="busy" :title="t('panel.bulk_trash_item_help')" @click="trashTerm(item.term)">
+                        {{ t("panel.group_all", { term: item.name, n: item.n }) }}
+                      </button>
+                    </template>
+                  </p>
+                  <p class="cc-uitleg">{{ t("panel.bulk_trash_help") }}</p>
+                </cdx-tab>
+              </cdx-tabs>
+            </div>
             <!-- The outcome of describing or merging, directly under the buttons that asked for it;
                  red when nothing could be done. -->
             <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}</cdx-message>
@@ -218,7 +237,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
-import { CdxButton, CdxIcon, CdxMessage } from "@wikimedia/codex";
+import { CdxButton, CdxIcon, CdxMessage, CdxTab, CdxTabs } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconPrevious, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { askConfirm, askConfirmValue } from "../confirm.js";
@@ -601,6 +620,68 @@ async function makeGroup(members, body) {
 
 // Search terms with two or more loose objects (not groups), to group per kind in one click;
 // named as in the list (Dutch name when there is one).
+// The visible objects per search term (no groups), for grouping and the trash in bulk.
+const termKinds = computed(() => {
+  const terms = new Map();
+  for (const o of visibleObjects.value) {
+    if (o.bron === "groep" || !o.zoekterm) continue;
+    const item = terms.get(o.zoekterm) || { term: o.zoekterm, name: props.config.taal === "en" ? o.zoekterm : o.label_nl || o.zoekterm, n: 0 };
+    item.n += 1;
+    terms.set(o.zoekterm, item);
+  }
+  return [...terms.values()];
+});
+const trashableTerms = computed(() => termKinds.value);
+const bulkTab = ref("groeperen");
+
+// "All hats" to the trash in one go: always a confirmation listing them; one notice with
+// Undo for all. Only the visible ones (the minimum certainty hides the others).
+async function trashTerm(term) {
+  const members = visibleObjects.value.filter((o) => o.bron !== "groep" && o.zoekterm === term);
+  if (!members.length) return;
+  const name = termKinds.value.find((item) => item.term === term)?.name || term;
+  const fromCommons = members.some((o) => o.bron === "commons");
+  const links = { ...objectsLinks(), ...(fromCommons ? { commons: { href: `https://commons.wikimedia.org/wiki/${encodeURIComponent((file.value.titel || "").replace(/ /g, "_"))}#P180`, label: t("objects.trash_commons_link") } } : {}) };
+  const text = [t(members.length === 1 ? "panel.bulk_trash_confirm_one" : "panel.bulk_trash_confirm", { n: members.length, term: name }), fromCommons ? t("objects.trash_confirm_commons") : ""].filter(Boolean).join("\n\n");
+  if (!(await askConfirm(text, { title: t("panel.bulk_trash_title", { term: name }), go: t("panel.bulk_trash_go", { n: members.length }), destructive: true, links, objects: members.map((o) => shownObject(o)) }))) return;
+  const n = pageN.value;
+  const mid = file.value.mid;
+  const ids = members.map((o) => o.id);
+  busy.value = true;
+  try {
+    let result = null;
+    for (const id of ids) result = await del(objectPath(mid, n, id));
+    if (magnifierOpen.value && ids.includes(magnifiedId.value)) magnifierOpen.value = false;
+    if (result) objects.value = result.objecten;
+    refreshTrashTerms(n);
+    notify("notice", t(ids.length === 1 ? "panel.bulk_trashed_one" : "panel.bulk_trashed", { n: ids.length, term: name }), {
+      where: "objecten",
+      actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreMany(ids, n, mid, name) }],
+      link: { href: "/objecten?tab=prullenbak", label: t("objects.to_trash") },
+    });
+  } catch (error) {
+    fail(error);
+    const data = await get(pagePath(mid, n)).catch(() => null); // some may have gone: show what is there
+    if (data && mid === file.value?.mid && n === pageN.value) objects.value = data.objecten;
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function restoreMany(ids, n, mid, name) {
+  try {
+    for (const id of ids) await patch(objectPath(mid, n, id), { prullenbak: false });
+    if (mid === file.value?.mid && n === pageN.value) {
+      const data = await get(pagePath(mid, n));
+      objects.value = data.objecten;
+      trashTerms.value = data.prullenbak_termen || {};
+    }
+    notify("success", t(ids.length === 1 ? "panel.bulk_restored_one" : "panel.bulk_restored", { n: ids.length, term: name }), { where: "objecten" });
+  } catch (error) {
+    fail(error);
+  }
+}
+
 const groupableTerms = computed(() => {
   const terms = new Map();
   for (const o of visibleObjects.value) {

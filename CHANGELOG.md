@@ -3,6 +3,12 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.1] - 2026-11-06
+
+### Toegevoegd
+
+- **Per soort in bulk** onder *Geselecteerde objecten groeperen*: twee tabbladen, *Groeperen* (zoals voorheen *Groeperen: alle …*) en *Naar de prullenbak* (wens Olaf). Met *alle hoed (17)* gaan alle zichtbare objecten van die soort in één keer naar de prullenbak, na een bevestiging met de lijst; één melding met *Ongedaan maken* voor allemaal. Bij regio's uit Commons zegt het venster dat er op Commons niets verandert.
+
 ## [0.33.0] - 2026-11-06
 
 ### Toegevoegd

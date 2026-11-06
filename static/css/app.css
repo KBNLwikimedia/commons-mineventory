@@ -723,3 +723,9 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-term.cc-term-niets { border-color: var(--border-color-base, #a2a9b1); background: var(--background-color-disabled-subtle, #eaecf0); }
 .cc-term.cc-term-niets .cdx-button { background: var(--background-color-disabled-subtle, #eaecf0); color: var(--color-subtle, #54595d); }
 .cc-term.cc-term-niets .cc-term-aantal { background: #fff; color: var(--color-subtle, #54595d); }
+
+/* In bulk per kind: tabs Group / Move to the trash under the object buttons (wish Olaf). */
+.cc-per-soort { flex-basis: 100%; margin: 0.25rem 0 0.5rem; }
+.cc-per-soort .cdx-tab { padding: 0.4rem 0.5rem 0.2rem; }
+.cc-per-soort .cc-groeperen { margin: 0 0 0.25rem; }
+.cc-link.cc-link-weg { color: var(--color-destructive, #d73333); }
