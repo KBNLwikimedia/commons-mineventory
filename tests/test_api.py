@@ -654,3 +654,11 @@ def test_fresh_reads_skip_the_cache():
         client._json({"titles": "File:X.jpg"})
     client._json({"titles": "File:X.jpg"})
     assert asked == [86400, 0, 86400]
+
+
+def test_describe_an_object_with_a_length(http):
+    obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
+    result = http.post(f"{PAGE}/objecten/{obj['id']}/beschrijving", json={"beschrijvingsniveau": "caption"}).get_json()
+    assert result["object"]["beschrijving"]["beschrijvingsniveau"] == "caption"
+    bad = http.post(f"{PAGE}/objecten/{obj['id']}/beschrijving", json={"beschrijvingsniveau": "roman"})
+    assert bad.status_code == 400

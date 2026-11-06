@@ -99,8 +99,8 @@ Answer in JSON with these fields:
 - bedrijf_of_naam: the person, family, company or place it belongs to, if a name is legible or clearly given in the context; otherwise null. Do not guess.
 - tekst_in_beeld: the text that is legible inside the object itself, verbatim. null if none.
 - tekst_rond_beeld: legible text directly above, below or beside the object in the margin, verbatim. null if none.
-- beschrijving: one or two sentences in Dutch describing what is shown.
-- beschrijving_en: the same in English.
+- beschrijving: {description_rule}
+- beschrijving_en: {description_rule_en}
 - zekerheid: hoog, middel or laag: how sure you are about the name and the description.
 - wikidata_suggesties: at most {max_suggestions} short English search terms for Wikidata items this cut-out depicts (e.g. "coat of arms", "Catherine of Alexandria"). Search terms only, never Q-ids.
 
@@ -559,9 +559,29 @@ def clean_hint(hint):
     return " ".join(str(hint or "").split())[:MAX_HINT]
 
 
-def build_prompt(file, caption=None, hint=None, page_text=None, group=None, members_context=None, surroundings=False):
+# How long the description of one object is (the Length slider in the AI modifiers, wish
+# Olaf 6-11-2026): the same stops as for the whole image. "normaal" keeps the question as it
+# was, so earlier answers stay in the cache.
+OBJECT_DESCRIPTION_LEVELS = {
+    "kort": ("a few words in Dutch: what the object is, at most one short sentence.", "the same in English."),
+    "normaal": ("one or two sentences in Dutch describing what is shown.", "the same in English."),
+    "caption": None,  # filled in below: the Commons caption rule of DESCRIPTION_LEVELS
+    "uitgebreid": (
+        "a paragraph of three to five sentences in Dutch: what is shown, notable details, colours and style.",
+        "the same paragraph in English.",
+    ),
+}
+
+
+OBJECT_DESCRIPTION_LEVELS["caption"] = DESCRIPTION_LEVELS["caption"]
+
+
+def build_prompt(file, caption=None, hint=None, page_text=None, group=None, members_context=None, surroundings=False, description_level=DEFAULT_DESCRIPTION_LEVEL):
     caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
+    rule, rule_en = OBJECT_DESCRIPTION_LEVELS.get(description_level) or OBJECT_DESCRIPTION_LEVELS[DEFAULT_DESCRIPTION_LEVEL]
     prompt = INSTRUCTIONS.format(
+        description_rule=rule,
+        description_rule_en=rule_en,
         kinds=", ".join(KINDS),
         max_suggestions=MAX_SUGGESTIONS,
         title=f'"{file.get("naam") or file.get("titel")}"',
@@ -854,7 +874,7 @@ class DescriptionService:
         path.write_bytes(data)
         return data
 
-    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None, group_focus=True):
+    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None, group_focus=True, description_level=None):
         """Describe an object (paid in live mode) and store the answer on it.
         `hint` is an extra instruction from the user for this question;
         `margin` the share of the box shown around it (default MARGIN)."""
@@ -862,6 +882,11 @@ class DescriptionService:
         choice = self._model(file, model)
         hint = clean_hint(hint)
         margin = clean_margin(margin)
+        # The length of the description (the slider): without one, what the last answer used.
+        if description_level is None:
+            description_level = (obj.get("beschrijving") or {}).get("beschrijvingsniveau") or DEFAULT_DESCRIPTION_LEVEL
+        if description_level not in OBJECT_DESCRIPTION_LEVELS:
+            raise DetectionError(f"Onbekend beschrijvingsniveau '{description_level}'; kies uit {', '.join(OBJECT_DESCRIPTION_LEVELS)}.", status=400, code="invalid_body")
         # The text read in the whole image (page overview) goes along as context.
         page_text = self._page_text(file, n)
         # A group: the instruction to look at its members only, unless switched off ("Only these
@@ -872,6 +897,8 @@ class DescriptionService:
         # The members (and what they were described as) go into the cache key too: an answer
         # from before the group instruction, or from before a member was described, is not reused.
         key_hint = hint + (f"|groep: {group}" + ("|omgeving" if surroundings else "") if group else "") + (f"|context: {hashlib.sha1(members_context.encode()).hexdigest()[:12]}" if members_context else "")
+        if description_level != DEFAULT_DESCRIPTION_LEVEL:  # "normaal" keeps the key from before the slider
+            key_hint += f"|beschrijving={description_level}"
         path = self._cache_path(file, n, obj, choice["model"], key_hint, margin, page_text)
         if path.exists() and not again:
             mark_used(path)
@@ -886,7 +913,7 @@ class DescriptionService:
         with booking:
             page = self.objects.client.load_page(file, n)
             data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
-            prompt = build_prompt(file, self._caption(obj), hint, page_text, group, members_context, surroundings)
+            prompt = build_prompt(file, self._caption(obj), hint, page_text, group, members_context, surroundings, description_level)
 
             body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
             tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
@@ -894,8 +921,14 @@ class DescriptionService:
                 amount = cost(choice["model"], tokens_in, tokens_out) if tokens_in is not None else estimate(choice["model"], effort)
             else:
                 amount = 0.0
+            answer = parse_answer(output_text(body))
+            if description_level == "caption":  # never longer than a caption on Commons may be
+                for key in ("beschrijving", "beschrijving_en"):
+                    if answer.get(key):
+                        answer[key] = cap_caption(answer[key])
             description = {
-                **parse_answer(output_text(body)),
+                **answer,
+                "beschrijvingsniveau": description_level,
                 "model": choice["model"],
                 "model_reden": choice["reden"],
                 "model_reden_code": choice["reden_code"],

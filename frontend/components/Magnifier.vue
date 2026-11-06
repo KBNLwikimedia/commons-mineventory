@@ -319,6 +319,8 @@
                 <template #help-text>{{ t("describe.hint_help") }}</template>
                 <cdx-text-input v-model="hint" :placeholder="t('describe.hint_placeholder')" :maxlength="300" @keydown.enter="describe(Boolean(description))" />
               </cdx-field>
+              <!-- How long the description is, as for the whole image (wish Olaf), with the Commons caption stop. -->
+              <detail-slider v-model="descLevel" :disabled="busy" :levels="OBJECT_DESCRIPTION_LEVELS" prefix="objdetail" />
               <label class="cc-marge">
                 <span>{{ t("describe.margin", { pct: Math.round(margin * 100) }) }}</span>
                 <input v-model.number="margin" type="range" min="0" max="1" step="0.05" :aria-label="t('describe.margin_label')" />
@@ -451,6 +453,7 @@ import { API, del, errorText, get, objectPath, patch, post, put } from "../api.j
 import { askConfirm, textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import VersionCarousel from "./VersionCarousel.vue";
+import DetailSlider from "./DetailSlider.vue";
 import BusyNote from "./BusyNote.vue";
 import ZoomImage from "./ZoomImage.vue";
 import SavedLabel from "./SavedLabel.vue";
@@ -563,11 +566,15 @@ const groupNames = computed(() => {
 // side (0-1): what the last description used, else 25 %.
 const DEFAULT_MARGIN = 0.25;
 const margin = ref(props.object.beschrijving?.marge ?? DEFAULT_MARGIN);
+// How long the description is (the same stops as for the whole image): what the last answer used.
+const OBJECT_DESCRIPTION_LEVELS = ["kort", "normaal", "caption", "uitgebreid"];
+const descLevel = ref(props.object.beschrijving?.beschrijvingsniveau || "normaal");
 // What the next question will use besides the defaults, in a few words
 // (shown beside the button and on the folded AI modifiers).
 const modifiersSummary = computed(() => {
   const parts = [];
   if (props.object.groep && !groupOnly.value) parts.push(t("describe.history_group_off"));
+  if (descLevel.value !== "normaal") parts.push(t("descdetail.used", { level: t(`objdetail.${descLevel.value}`) }));
   if (Math.round(margin.value * 100) !== Math.round(DEFAULT_MARGIN * 100)) parts.push(t("describe.history_margin", { pct: Math.round(margin.value * 100) }));
   if (hint.value.trim()) parts.push(t("describe.history_hint", { hint: hint.value.trim() }));
   return parts.join(" · ");
@@ -701,6 +708,7 @@ watch(
     removedCaption.value = "";
     hint.value = "";
     margin.value = props.object.beschrijving?.marge ?? DEFAULT_MARGIN;
+    descLevel.value = props.object.beschrijving?.beschrijvingsniveau || "normaal";
     shownMargin.value = margin.value;
     loadHistory();
     cancelEditing();
@@ -736,7 +744,7 @@ async function describe(again) {
   ticker = setInterval(() => seconds.value++, 1000);
   error.value = "";
   try {
-    const body = { opnieuw: again, marge: margin.value };
+    const body = { opnieuw: again, marge: margin.value, beschrijvingsniveau: descLevel.value };
     if (props.object.groep && !groupOnly.value) body.alleen_groep = false;
     if (hint.value.trim()) body.aanwijzing = hint.value.trim();
     const result = await post(`${base.value}/beschrijving`, body);

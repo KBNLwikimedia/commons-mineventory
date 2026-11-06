@@ -3,6 +3,20 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.2] - 2026-11-06
+
+### Toegevoegd
+
+- **Lengte** bij de beschrijving van een object: in de *AI-modifiers* van *Wat staat hierop?* dezelfde schuif als bij de hele afbeelding, met *Kort*, *Normaal*, *Commons-caption* (hooguit 250 tekens) en *Uitgebreid* (wens Olaf). API: `beschrijvingsniveau` bij `POST …/beschrijving`. In het functioneel ontwerp (6.2) en het ontwerp van *Wat staat hierop?*.
+
+### Gewijzigd
+
+- De stand en de schakelaar heten nu **Commons-caption** in plaats van Wikidata-caption, met een Commons-teken in plaats van het Wikidata-logo: het gaat om captions op Commons (wens Olaf). Ook in de documentatie.
+
+### Opgelost
+
+- Een *beeldt af*-chip in *Uit Commons* toont na het aanpassen met het potloodje je eigen zoekwoord, zoals de AI-zoektermen; het Wikidata-label en de Q-id staan in de tooltip (wens Olaf).
+
 ## [0.33.1] - 2026-11-06
 
 ### Toegevoegd

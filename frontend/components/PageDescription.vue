@@ -13,16 +13,13 @@
          and under the slider, side by side, asking anew (paid) and removing (free). -->
     <div class="cc-termen-bron">
       <detail-slider v-model="descLevel" :disabled="busy" :levels="DESCRIPTION_LEVELS" prefix="descdetail" compact />
-      <!-- A Wikidata caption (at most 250 characters) in one click: puts the slider on that stop. -->
+      <!-- A Commons caption (at most 250 characters) in one click: puts the slider on that stop.
+           A caption belongs to the structured data on Commons, hence a Commons mark (wish Olaf). -->
       <cdx-toggle-switch :model-value="descLevel === 'caption'" :disabled="busy" class="cc-wikidata-schakelaar" :title="t('descdetail.caption_help')" @update:model-value="setCaption">
-        <svg class="cc-wikidata-logo" viewBox="0 0 22 14" aria-hidden="true" focusable="false">
-          <rect x="0" y="0" width="2" height="14" fill="#990000" />
-          <rect x="3" y="0" width="3" height="14" fill="#990000" />
-          <rect x="7" y="0" width="3" height="14" fill="#339966" />
-          <rect x="11" y="0" width="2" height="14" fill="#339966" />
-          <rect x="14" y="0" width="3" height="14" fill="#006699" />
-          <rect x="18" y="0" width="1" height="14" fill="#006699" />
-          <rect x="20" y="0" width="2" height="14" fill="#006699" />
+        <svg class="cc-wikidata-logo cc-commons-logo" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <circle cx="10" cy="10" r="6.5" fill="none" stroke="#069" stroke-width="2" />
+          <circle cx="10" cy="10" r="2.6" fill="#900" />
+          <path d="M10 0.5v3.2M10 16.3v3.2M0.5 10h3.2M16.3 10h3.2" stroke="#396" stroke-width="2" />
         </svg>
         {{ t("descdetail.caption_switch") }}
       </cdx-toggle-switch>

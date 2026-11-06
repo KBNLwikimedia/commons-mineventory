@@ -581,7 +581,7 @@ def description_plan(mid, n, object_id):
 def describe_object(mid, n, object_id):
     """"Wat staat hierop?" (paid in live mode, cached). Body: {"model": "auto" |
     "standaard" | "contributor", "opnieuw": false, "aanwijzing": "…", "marge": 0.25,
-    "alleen_groep": true}; the optional hint is an extra instruction for the model ("only the
+    "alleen_groep": true, "beschrijvingsniveau": "kort|normaal|caption|uitgebreid"}; the optional hint is an extra instruction for the model ("only the
     boy"), the margin the share of the box shown around it (0-1); for a group, "alleen_groep":
     false leaves out the instruction to look at its members only."""
     body = _body()
@@ -595,6 +595,7 @@ def describe_object(mid, n, object_id):
         _descriptions().describe(
             file, n, object_id, body.get("model"), again=bool(body.get("opnieuw")), user=_user(),
             hint=body.get("aanwijzing"), margin=body.get("marge"), group_focus=body.get("alleen_groep", True),
+            description_level=body.get("beschrijvingsniveau"),
         )
     )
 

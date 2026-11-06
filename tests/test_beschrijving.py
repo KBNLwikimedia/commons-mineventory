@@ -432,3 +432,14 @@ def test_commons_context_lists_captions_and_depicts():
     assert "- caption (nl): De Pieterskerk in Leiden" in text and "(en)" not in text
     assert "- depicts: dog, kerk" in text
     assert commons_context({}) == ""
+
+
+
+def test_object_description_length():
+    from cutter.beschrijving import build_prompt
+
+    normal = build_prompt({"naam": "x"})
+    assert "one or two sentences in Dutch describing what is shown." in normal  # as before: same cache key
+    caption = build_prompt({"naam": "x"}, description_level="caption")
+    assert "at most 230 characters" in caption and "one or two sentences in Dutch describing" not in caption
+    assert "a paragraph of three to five sentences" in build_prompt({"naam": "x"}, description_level="uitgebreid")

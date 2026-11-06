@@ -61,7 +61,7 @@ ENDPOINTS = [
     ("get", OBJECT + "/uitsnede.png", "De vorm van het object als transparante PNG, in volledige resolutie", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/masker.png", "Het masker (wit is het object)", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/beschrijving", "Opgeslagen beschrijving en de kosten van een nieuwe", [MID, N, OID], None, 200, False),
-    ("post", OBJECT + "/beschrijving", "Wat staat hierop? (Muse Spark)", [MID, N, OID], '{"model": "auto|standaard|contributor", "opnieuw": false, "aanwijzing": "…", "marge": 0.25}', 200, True),
+    ("post", OBJECT + "/beschrijving", "Wat staat hierop? (Muse Spark)", [MID, N, OID], '{"model": "auto|standaard|contributor", "opnieuw": false, "aanwijzing": "…", "marge": 0.25, "beschrijvingsniveau": "kort|normaal|caption|uitgebreid"}', 200, True),
     ("patch", OBJECT + "/beschrijving", "De teksten van de beschrijving met de hand wijzigen", [MID, N, OID], '{"onderwerp", "onderwerp_en", "bedrijf_of_naam", "beschrijving", "beschrijving_en", "tekst_in_beeld", "tekst_rond_beeld"}', 200, False),
     ("delete", OBJECT + "/beschrijving", "Beschrijving vergeten (het antwoord blijft in de cache)", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/commons", "Het Commons-concept: naam, teksten, licentie, categorieën, beeldt af, rechtenlabel, wikitekst, SDC", [MID, N, OID], None, 200, False),

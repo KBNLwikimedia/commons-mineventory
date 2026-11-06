@@ -98,7 +98,8 @@
               :title="itemTitle(item)"
               @click="act('commons-depicts', 'detect', { modus: 'prompt', prompt: itemWord(item), items: { [itemWord(item)]: item.q } })"
             >
-              {{ item.label }}
+              <!-- Your own search word when you changed it (wish Olaf); the item stays in the tooltip. -->
+              {{ itemWords[item.q] ? itemWord(item) : item.label }}
               <span v-if="itemCount(item.q) || wasSearched(itemWord(item))" class="cc-term-aantal">{{ itemCount(item.q) }}</span>
             </cdx-button>
             <cdx-button
@@ -498,7 +499,7 @@ function saveItemWord(item) {
 }
 const itemCount = (q) => props.objects.filter((o) => o.wikidata === q).length;
 function itemTitle(item) {
-  return [t("panel.commons_depicts_item", { q: item.q, word: itemWord(item) }), t("panel.term_found", { n: itemCount(item.q) })].join(" · ");
+  return [t("panel.commons_depicts_item", { label: item.label, q: item.q, word: itemWord(item) }), t("panel.term_found", { n: itemCount(item.q) })].join(" · ");
 }
 // Items left out of "Detect all", like the terms (per file, this browser only).
 const excludedItems = ref([]);

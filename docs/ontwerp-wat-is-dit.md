@@ -44,6 +44,7 @@ Negen blokken onder elkaar:
 - **AI-prompt en bijsturing**: alles wat de volgende vraag stuurt, op één plek:
   - de **AI-prompt** van een groep, met de schakelaar *Alleen deze objecten* en de eerdere beschrijvingen van de objecten (alleen bij een groep);
   - de **aanwijzing voor de AI**;
+  - **Lengte** van de beschrijving (sinds 0.33.2, wens Olaf): dezelfde schuif als bij de hele afbeelding, *Kort*, *Normaal*, *Commons-caption* (hooguit 250 tekens) en *Uitgebreid*;
   - **Ruimte rond de uitsnede**, met het voorbeeld ernaast dat meebeweegt;
   - onderaan dezelfde knop *Beschrijf deze afbeelding* met het bedrag, zodat je meteen kunt vragen.
 - **Beeldt af (P180)**: de Wikidata-suggesties en zelf zoeken. De volgende stap na een beschrijving; hoort bij het Commons-concept.
