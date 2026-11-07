@@ -94,17 +94,33 @@
                 <button type="button" class="cc-link" @click="otherFor = null">{{ t("actions.cancel") }}</button>
               </div>
             </div>
-            <label v-if="row.objecten.length && !data.meerdere_paginas" class="cc-origineel-met-positie" :title="t('original.with_position_help')">
-              <input v-model="row.met_positie" type="checkbox" /> {{ t("original.with_position_toggle") }}
-            </label>
+            <!-- "With place", with an (i) that explains it for this very row (wish Olaf). -->
+            <span v-if="row.objecten.length && !data.meerdere_paginas" class="cc-origineel-met-positie">
+              <!-- The property links to Wikidata (a link inside a label does not tick the box). -->
+              <label>
+                <input v-model="row.met_positie" type="checkbox" />
+                {{ t("original.with_position_before") }}
+                (<a href="https://www.wikidata.org/wiki/Property:P2677" target="_blank" rel="noopener">P2677</a>)
+                {{ t("original.with_position_after") }}
+              </label>
+              <info-dialog
+                :title="t('original.with_position_title')"
+                :label="t('panel.info_label', { section: t('original.with_position_title') })"
+                :paragraphs="[
+                  t('original.with_position_on', { item: row.label, n: row.objecten.length }),
+                  t('original.with_position_off', { item: row.label }),
+                  t('original.with_position_default'),
+                ]"
+              />
+            </span>
             <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('original.hide_row', { item: row.label })" :title="t('original.hide_row', { item: row.label })" @click="hideRow(row)">
               <cdx-icon :icon="cdxIconTrash" size="small" />
             </cdx-button>
           </li>
         </ul>
-        <!-- Search terms without a found object: folded away, only along when ticked. -->
-        <details v-if="emptyRows.length" class="cc-origineel-leeg">
-          <summary>{{ t("original.terms_without_objects", { n: emptyRows.length }) }}</summary>
+        <!-- Search terms without a found object: under their own heading, only along when ticked. -->
+        <div v-if="emptyRows.length" class="cc-origineel-leeg">
+          <h4 class="cc-commons-kop">{{ t("original.terms_without_objects", { n: emptyRows.length }) }}</h4>
           <ul class="cc-origineel-rijen">
             <li v-for="row in emptyRows" :key="row.key" class="cc-origineel-rij">
               <input v-model="row.checked" type="checkbox" :aria-label="t('original.include', { item: row.label })" />
@@ -138,7 +154,7 @@
               </cdx-button>
             </li>
           </ul>
-        </details>
+        </div>
         <p v-if="hidden.length" class="cc-klein">
           {{ t("original.hidden_rows", { n: hidden.length }) }}
           <button type="button" class="cc-link" @click="hidden = []">{{ t("original.hidden_show") }}</button>

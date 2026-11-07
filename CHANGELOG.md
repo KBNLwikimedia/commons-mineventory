@@ -3,6 +3,14 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.7] - 2026-11-07
+
+### Gewijzigd
+
+- *Zoektermen zonder gevonden object* is een gewone kop in plaats van een uitklapblok (wens Olaf).
+- *Met plek* heet nu *Neem 'relatieve positie in afbeelding' (P2677) op als kwalificator*, met een link naar P2677 op Wikidata (wens Olaf).
+- *Met plek* in het venster heeft een (i) in plaats van een tooltip, met uitleg voor die regel zelf: wat er met en zonder plek op Commons komt, met het item en het aantal objecten (wens Olaf).
+
 ## [0.33.6] - 2026-11-06
 
 ### Opgelost
