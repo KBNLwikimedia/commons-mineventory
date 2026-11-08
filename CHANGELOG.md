@@ -5,6 +5,12 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.33.14] - 2026-11-08
+
+### Opgelost
+
+- *Maskers*, *Kaders* of *Namen* aan- of uitzetten wiste de filters in de afbeelding: alle maskers kwamen terug terwijl er maar één soort aangevinkt stond (gemeld door Olaf). Vue herschreef bij elke wijziging de hele class-lijst van de viewer, en daarmee ook wat de viewer zelf had gezet (filter, vervagen, kruisdraad bij aanwijzen of tekenen). De schakelaars zetten nu alleen nog hun eigen class.
+
 ## [0.33.13] - 2026-11-08
 
 ### Gewijzigd

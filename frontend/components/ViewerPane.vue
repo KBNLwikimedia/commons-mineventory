@@ -86,7 +86,7 @@
       </div>
     </cdx-accordion>
     <div class="cc-viewer-vlak">
-      <div ref="host" class="viewer" :class="{ 'maskers-verborgen': !show.maskers, 'boxen-verborgen': !show.boxen, 'namen-zichtbaar': show.namen, 'cc-skelet': imageState === 'loading' }" :aria-busy="imageState === 'loading' ? 'true' : 'false'"></div>
+      <div ref="host" class="viewer" :aria-busy="imageState === 'loading' ? 'true' : 'false'"></div>
       <!-- Waiting feedback while the image comes in: the first time, the server fetches the original from Commons. -->
       <busy-note v-if="imageState === 'loading'" class="cc-viewer-laden" :message="t('viewer.loading')" />
       <cdx-message v-else-if="imageState === 'error'" type="error" class="cc-viewer-laden">{{ t("viewer.load_error") }}</cdx-message>
@@ -95,7 +95,7 @@
 </template>
 
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch, watchEffect } from "vue";
 import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon, CdxMessage } from "@wikimedia/codex";
 import { cdxIconZoomIn, cdxIconZoomOut } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
@@ -243,6 +243,20 @@ function label(obj) {
 
 // "loading" until the browser has the first image of the page; a sharper image swapped in on zooming does not count.
 const imageState = ref("loading");
+// The classes of the switches, one by one and not with :class: Vue would then rewrite the whole
+// class list at every change and wipe what the viewer set on this element itself (the filter
+// on kinds and statuses, the fading, the crosshair).
+watchEffect(
+  () => {
+    const el = host.value;
+    if (!el) return;
+    el.classList.toggle("maskers-verborgen", !show.maskers);
+    el.classList.toggle("boxen-verborgen", !show.boxen);
+    el.classList.toggle("namen-zichtbaar", show.namen);
+    el.classList.toggle("cc-skelet", imageState.value === "loading");
+  },
+  { flush: "post" }
+);
 
 function load() {
   const page = props.page;
