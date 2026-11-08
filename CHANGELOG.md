@@ -5,6 +5,12 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.33.11] - 2026-11-08
+
+### Gewijzigd
+
+- *Alleen tonen* in de viewer: de soorten zijn nu **vinkjes** in plaats van links, met **Alle · Geen · Omkeren** zoals in de lijst met objecten (wens Olaf). Aangevinkt is zichtbaar; in het begin staan alle soorten aan, en een soort die later gevonden wordt ook. Kleine letters en vinkjes, zoals de rest van de regel.
+
 ## [0.33.10] - 2026-11-08
 
 ### Toegevoegd

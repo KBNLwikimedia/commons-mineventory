@@ -187,16 +187,18 @@ export class PageViewer {
     this._scaleLabels();
   }
 
-  /* Show only the objects of one kind (class-colors.js), the others faded; null shows all. */
-  setKindFilter(kind) {
-    this.kindFilter = kind || null;
+  /* Show only the objects of the given kinds (class-colors.js), the others faded; null shows
+     all, an empty list none. A single kind as a string works too. */
+  setKindFilter(kinds) {
+    this.kindFilter = kinds == null ? null : new Set(Array.isArray(kinds) ? kinds : [kinds]);
     this._applyKindFilter();
   }
 
   _applyKindFilter() {
-    const kind = this.kindFilter;
-    this.el.classList.toggle("soort-filter", Boolean(kind));
-    this.objectElements.forEach((group) => group.classList.toggle("object-soort-aan", Boolean(kind) && classKey(group.object) === kind));
+    const kinds = this.kindFilter || new Set();
+    const on = this.kindFilter != null;
+    this.el.classList.toggle("soort-filter", on);
+    this.objectElements.forEach((group) => group.classList.toggle("object-soort-aan", on && kinds.has(classKey(group.object))));
   }
 
   _classes(obj, fresh) {

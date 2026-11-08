@@ -235,8 +235,14 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .object-klasse .object-masker { fill: var(--klasse); }
 .cc-klasse-stip { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: 0.05em; flex: none; }
 .cc-legenda-soorten { margin: 0; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--cc-rand); align-items: center; }
-.cc-soort-link { display: inline-flex; align-items: center; }
-.cc-soort-gekozen { font-weight: 700; text-decoration: underline; }
+.cc-soort-vinkje.cdx-checkbox { margin: 0; }
+/* As small as the rest of the row (wish Olaf): the label and a smaller box. */
+.cc-soort-vinkje .cdx-label__label__text { font-size: 0.75rem; line-height: 1.4; }
+.cc-soort-vinkje .cdx-checkbox__icon { min-width: 14px; min-height: 14px; width: 14px; height: 14px; }
+.cc-soort-vinkje .cdx-checkbox__wrapper { gap: 0.25rem; }
+.cc-legenda-soorten { column-gap: 0.75rem; }
+.cc-soorten-alles { white-space: nowrap; }
+.cc-soort-vinkje .cdx-label__label__text { display: inline-flex; align-items: center; }
 .cc-maskers-kleur { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: 0.75rem; }
 .cc-maskers-kleur .cdx-toggle-button { min-height: 1.5rem; padding: 0 0.5rem; font-size: 0.75rem; }
 /* One kind chosen: the other objects fade, their masks and outlines disappear. */

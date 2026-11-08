@@ -42,8 +42,8 @@
         <li><info-dialog :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" /></li>
       </ul>
     </cdx-accordion>
-    <!-- A colour per kind of object, each a link that shows only the masks of that kind
-         (wish Olaf); "All kinds" shows them all again. Only with the masks shown. -->
+    <!-- A colour per kind of object, each a checkbox: ticked kinds are shown (all to start
+         with), with All · None · Invert as in the object list (wish Olaf). Only with the masks shown. -->
     <ul v-if="show.maskers && kinds.length" class="cc-legenda cc-legenda-soorten">
       <!-- What the colour of the masks shows: the kind (default) or, as the frames, the status. -->
       <li class="cc-maskers-kleur">
@@ -54,11 +54,17 @@
       </li>
       <li class="cc-legenda-soorten-kop">{{ t("legend.kinds") }}</li>
       <li v-for="[kind, color] in kinds" :key="kind">
-        <button type="button" class="cc-link cc-soort-link" :class="{ 'cc-soort-gekozen': kindFilter === kind }" :aria-pressed="kindFilter === kind ? 'true' : 'false'" :title="t('legend.kind_only', { kind })" @click="setKind(kindFilter === kind ? null : kind)">
+        <cdx-checkbox v-model="shownKinds" :input-value="kind" :inline="true" class="cc-soort-vinkje" :title="t('legend.kind_only', { kind })">
           <span v-if="byKind" class="cc-klasse-stip" :style="{ background: color }"></span>{{ kind }}
-        </button>
+        </cdx-checkbox>
       </li>
-      <li><button type="button" class="cc-link" :disabled="!kindFilter" @click="setKind(null)">{{ t("legend.kinds_all") }}</button></li>
+      <li class="cc-soorten-alles">
+        <button type="button" class="cc-link" :disabled="!hiddenKinds.length" @click="hiddenKinds = []">{{ t("objects.all") }}</button>
+        ·
+        <button type="button" class="cc-link" :disabled="hiddenKinds.length === kinds.length" @click="hiddenKinds = kinds.map(([kind]) => kind)">{{ t("objects.none") }}</button>
+        ·
+        <button type="button" class="cc-link" @click="hiddenKinds = shownKinds">{{ t("objects.invert") }}</button>
+      </li>
     </ul>
     <div class="cc-viewer-vlak">
       <div ref="host" class="viewer" :class="{ 'maskers-verborgen': !show.maskers, 'boxen-verborgen': !show.boxen, 'namen-zichtbaar': show.namen, 'cc-skelet': imageState === 'loading' }" :aria-busy="imageState === 'loading' ? 'true' : 'false'"></div>
@@ -112,14 +118,18 @@ const maskColorings = computed(() => [
 ]);
 // The colours the viewer uses for the masks: per kind, or none (then the colour of the status).
 const shownColors = computed(() => (byKind.value ? props.classColors : {}));
-// The kind whose masks alone are shown (null: all). Forgotten when that kind is gone.
-const kindFilter = ref(null);
-const setKind = (kind) => {
-  kindFilter.value = kind;
-  viewer.value?.setKindFilter(kind);
-};
+// The kinds you unticked: their objects fade. Kept as the hidden ones, so a kind found later
+// shows (ticked) at once. A kind that is gone is dropped.
+const hiddenKinds = ref([]);
+const shownKinds = computed({
+  get: () => kinds.value.map(([kind]) => kind).filter((kind) => !hiddenKinds.value.includes(kind)),
+  set: (list) => (hiddenKinds.value = kinds.value.map(([kind]) => kind).filter((kind) => !list.includes(kind))),
+});
+// To the viewer: null when nothing is hidden (no filter), else the kinds to show.
+watch(shownKinds, (list) => viewer.value?.setKindFilter(hiddenKinds.value.length ? list : null));
 watch(kinds, (list) => {
-  if (kindFilter.value && !list.some(([kind]) => kind === kindFilter.value)) setKind(null);
+  const present = new Set(list.map(([kind]) => kind));
+  if (hiddenKinds.value.some((kind) => !present.has(kind))) hiddenKinds.value = hiddenKinds.value.filter((kind) => present.has(kind));
 });
 const legend = computed(() => {
   const objects = props.objects;

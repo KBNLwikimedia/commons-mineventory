@@ -564,8 +564,13 @@ describe("a colour per kind of object", () => {
     expect(host.querySelector('g.object[data-id="b"]').classList.contains("object-soort-aan")).toBe(false);
     viewer.setObjects(list, [], classColors(list)); // a redraw keeps the choice
     expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
-    viewer.setKindFilter(null);
+    viewer.setKindFilter(["plate", "wine glass"]); // several kinds at once
+    expect(host.querySelectorAll(".object-soort-aan")).toHaveLength(2);
+    viewer.setKindFilter([]); // None: every object fades
     expect(host.querySelectorAll(".object-soort-aan")).toHaveLength(0);
+    expect(viewer.el.classList.contains("soort-filter")).toBe(true);
+    viewer.setKindFilter(null); // no filter
+    expect(viewer.el.classList.contains("soort-filter")).toBe(false);
   });
 
   it("outlines each mask in neutral white, and uses the status colours without kinds", () => {
