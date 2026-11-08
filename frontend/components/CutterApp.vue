@@ -137,19 +137,45 @@
           :mid="file.mid"
           :n="pageN"
           :objects="visibleObjects"
+          :empty-text="objectQuery.trim() && certainObjects.length ? t('objects.search_none') : ''"
           :focused="focusedId"
           :hovered="hoveredId"
           :new-ids="newIds"
           :result-ids="resultIds"
           @toggle="toggleSelected"
-          @select="setSelection"
+          @select="selectInList"
           @focus="focusObject"
           @open="openMagnifier"
           @hover="hoverObject"
           @trash="trashObject"
           @ungroup="ungroupObject"
           @rename="renameObject"
-        />
+        >
+          <!-- Search the list (wish Olaf), next to All · None · Invert: only objects whose name, search
+               term, item, caption or description contain every word. A view only: nothing is unticked. -->
+          <template #search>
+            <span v-if="objects.length" class="cc-objecten-zoek-groep">
+            <cdx-text-input
+              v-model="objectQuery"
+              class="cc-objecten-zoek"
+              input-type="search"
+              :start-icon="cdxIconSearch"
+              clearable
+              :placeholder="t('objects.search_placeholder')"
+              :aria-label="t('objects.search_label')"
+              :title="t('objects.search_help')"
+            />
+            <info-dialog
+              :title="t('objects.search_info_title')"
+              :label="t('objects.search_info_label')"
+              :paragraphs="[1, 2, 3, 4].map((n) => t(`objects.search_info_${n}`))"
+            />
+            </span>
+          </template>
+          <template #under-header>
+            <p v-if="objectQuery.trim()" class="cc-uitleg cc-objecten-zoek-uitkomst">{{ t("objects.search_result", { n: visibleObjects.length, total: certainObjects.length }) }}</p>
+          </template>
+        </object-list>
         <div class="cc-acties">
           <p class="cc-telling">{{ t("objects.count", { n: objects.length, selected: selectedCount }) }}</p>
           <!-- What you do with what you found: describe the ticked ones, merge duplicates,
@@ -157,6 +183,9 @@
           <!-- What you do with what you found, in four tabs (wish Olaf, 6-11-2026; FO 7.4):
                each with the selection, everything visible, and (group, trash) per kind.
                A button is disabled when there is nothing to do. -->
+          <!-- Two fold-outs, closed by default (wish Olaf): Bulk actions, and Save and export. -->
+          <cdx-accordion v-model="actionsOpen.bulk" class="cc-acties-uitklap">
+          <template #title>{{ t("bulk.title") }}</template>
           <div class="cc-acties-rij cc-bulk">
             <cdx-tabs v-model:active="bulkTab" :framed="true">
               <cdx-tab name="beschrijven" :label="t('bulk.tab_describe', { n: toDescribe })">
@@ -168,6 +197,17 @@
                     {{ t("bulk.describe_all", { n: toDescribeAll }) }} <span v-if="toDescribeAll" class="cc-kosten">{{ describeAllCost }}</span>
                   </cdx-button>
                 </div>
+                <!-- Per kind, as in Group and Trash (wish Olaf, 7-11-2026): the visible objects of one
+                     search term without a description; paid, so each link carries its amount. -->
+                <p v-if="describableTerms.length" class="cc-groeperen">
+                  {{ t("bulk.per_kind") }}
+                  <template v-for="(item, i) in describableTerms" :key="item.term">
+                    <template v-if="i"> · </template>
+                    <button type="button" class="cc-link" :disabled="busy" :title="t('bulk.describe_kind_help')" @click="describeAll({ term: item.term })">
+                      {{ t("panel.group_all", { term: item.name, n: item.n }) }} <span class="cc-kosten">{{ costFor(item.n) }}</span>
+                    </button>
+                  </template>
+                </p>
                 <p class="cc-uitleg">{{ describeNote }} {{ t("bulk.describe_help") }}</p>
               </cdx-tab>
               <cdx-tab name="ontdubbelen" :label="t('bulk.tab_dedupe')">
@@ -227,6 +267,10 @@
             <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}</cdx-message>
           </div>
           <busy-note v-if="busy && busyAt === 'objecten'" :message="t('busy.describe')" />
+          </cdx-accordion>
+          <cdx-accordion v-model="actionsOpen.save" class="cc-acties-uitklap">
+          <template #title>{{ t("bulk.save_title") }}</template>
+          <div class="cc-acties-opslaan">
           <cdx-button action="progressive" weight="primary" :disabled="!selectedCount || busy" @click="saveSelection">
             {{ t("actions.save", { n: selectedCount }) }}
           </cdx-button>
@@ -238,6 +282,8 @@
           </cdx-button>
           <!-- Retention is about saved cut-outs, so it goes with saving, not with the selection count. -->
           <p class="cc-bewaar-regel"><retention-info labelled /></p>
+          </div>
+          </cdx-accordion>
         </div>
         </div>
         <column-strip v-if="closed.objecten" :name="t('layout.left_title')" :count="objects.length" side="right" @open="setClosed('objecten', false)" />
@@ -259,16 +305,26 @@
     />
 
     <confirm-dialog />
+    <!-- Describe in bulk: the AI settings made explicit before anything is sent (wish Olaf). -->
+    <bulk-describe-dialog
+      :open="bulkDescribe.open"
+      :objects="bulkDescribe.objects"
+      :paths="bulkDescribe.paths"
+      :action="bulkDescribe.action"
+      :cost-line="bulkDescribe.costLine"
+      @answer="answerBulkDescribe"
+    />
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
-import { CdxButton, CdxIcon, CdxMessage, CdxTab, CdxTabs } from "@wikimedia/codex";
-import { cdxIconDownload, cdxIconPrevious, cdxIconTrash, cdxIconUpload } from "@wikimedia/codex-icons";
+import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTab, CdxTabs, CdxTextInput } from "@wikimedia/codex";
+import { cdxIconDownload, cdxIconPrevious, cdxIconSearch, cdxIconTrash, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { askConfirm, askConfirmValue } from "../confirm.js";
 import { money, useT } from "../i18n.js";
+import BulkDescribeDialog from "./BulkDescribeDialog.vue";
 import BusyNote from "./BusyNote.vue";
 import ColumnHeader from "./ColumnHeader.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
@@ -281,6 +337,7 @@ import FileBar from "./FileBar.vue";
 import Magnifier from "./Magnifier.vue";
 import NoticeList from "./NoticeList.vue";
 import RetentionInfo from "./RetentionInfo.vue";
+import InfoDialog from "./InfoDialog.vue";
 import ObjectList from "./ObjectList.vue";
 import PageList from "./PageList.vue";
 import ViewerPane from "./ViewerPane.vue";
@@ -393,8 +450,34 @@ const scoreRange = computed(() => {
 const shownCertainty = computed(() => Math.min(scoreRange.value.max, Math.max(scoreRange.value.min, Math.round(minScore.value * 100))));
 // Compared in whole percents, as the slider shows them; the threshold kept within the slider's range.
 const isVisible = (o) => o.score == null || Math.round(o.score * 100) >= shownCertainty.value;
-const visibleObjects = computed(() => objects.value.filter(isVisible));
-const hiddenCount = computed(() => objects.value.length - visibleObjects.value.length);
+const certainObjects = computed(() => objects.value.filter(isVisible));
+const hiddenCount = computed(() => objects.value.length - certainObjects.value.length);
+// The search box above the list (wish Olaf): every word must occur in the object's texts,
+// case-insensitive. It narrows what you see, in the list and in the image, and what "all"
+// means in the bulk actions; unlike the certainty it unticks nothing.
+const objectQuery = ref("");
+function objectText(o) {
+  const description = o.beschrijving && typeof o.beschrijving === "object" ? Object.values(o.beschrijving).filter((v) => typeof v === "string") : [];
+  return [listNames.value[o.id], o.naam, o.label, o.label_nl, o.label_item, o.zoekterm, o.wikidata, o.bijschrift?.tekst, ...description]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+const visibleObjects = computed(() => {
+  const words = objectQuery.value.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return certainObjects.value;
+  return certainObjects.value.filter((o) => {
+    const text = objectText(o);
+    return words.every((word) => text.includes(word));
+  });
+});
+// All, None and Invert in the list act on what the list shows; the selection outside a
+// search stays as it was.
+function selectInList(ids) {
+  const shown = new Set(visibleObjects.value.map((o) => o.id));
+  const kept = objects.value.filter((o) => o.status === "geselecteerd" && !shown.has(o.id)).map((o) => o.id);
+  setSelection([...kept, ...ids]);
+}
 // What you do not see is not selected: saving or describing never takes a hidden object along.
 function deselectHidden() {
   const selected = objects.value.filter((o) => o.status === "geselecteerd");
@@ -667,7 +750,12 @@ const termKinds = computed(() => {
 const trashableTerms = computed(() => termKinds.value);
 // The tab of the bulk actions: always Beschrijven to start with, also on another file (wish Olaf).
 const bulkTab = ref("beschrijven");
-watch(() => [file.value?.mid, pageN.value], () => (bulkTab.value = "beschrijven"));
+// The fold-outs Bulk actions and Save and export: closed by default (wish Olaf).
+const actionsOpen = reactive({ bulk: false, save: false });
+watch(() => [file.value?.mid, pageN.value], () => {
+  bulkTab.value = "beschrijven";
+  objectQuery.value = "";
+});
 
 // "All hats" to the trash in one go: always a confirmation listing them; one notice with
 // Undo for all. Only the visible ones (the minimum certainty hides the others).
@@ -803,7 +891,23 @@ const toDescribe = computed(() => objects.value.filter((o) => o.status === "gese
 const describeCost = computed(() => (props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * toDescribe.value, props.config.taal)})` : t("panel.free")));
 // Everything visible without a description: "Describe all".
 const toDescribeAll = computed(() => visibleObjects.value.filter((o) => !o.beschrijving).length);
-const describeAllCost = computed(() => (props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * toDescribeAll.value, props.config.taal)})` : t("panel.free")));
+const describeAllCost = computed(() => costFor(toDescribeAll.value));
+// The price of describing n objects, as on the buttons.
+function costFor(n) {
+  return props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * n, props.config.taal)})` : t("panel.free");
+}
+// Per kind (wish Olaf): the visible objects of a search term without a description (no groups,
+// as in Group and Trash), named as in the list.
+const describableTerms = computed(() => {
+  const terms = new Map();
+  for (const o of visibleObjects.value) {
+    if (o.bron === "groep" || !o.zoekterm || o.beschrijving) continue;
+    const item = terms.get(o.zoekterm) || { term: o.zoekterm, name: props.config.taal === "en" ? o.zoekterm : o.label_nl || o.zoekterm, n: 0 };
+    item.n += 1;
+    terms.set(o.zoekterm, item);
+  }
+  return [...terms.values()];
+});
 // The line under the describe button: what it will do with the ticked objects.
 const describeNote = computed(() => {
   const selected = selectedCount.value;
@@ -819,22 +923,42 @@ const busyAt = ref(null);
 const actionResult = ref(null);
 watch(() => [file.value?.mid, pageN.value], () => { actionResult.value = null; });
 
+// scope: "selectie", "alle" (everything visible) or { term } (the visible objects of one kind).
 async function describeAll(scope = "selectie") {
   busyAt.value = "objecten";
   actionResult.value = null;
-  const chosen = (scope === "alle" ? visibleObjects.value : objects.value.filter((o) => o.status === "geselecteerd")).filter((o) => !o.beschrijving);
+  const kind = scope && typeof scope === "object" ? scope.term : null;
+  const among = kind
+    ? visibleObjects.value.filter((o) => o.bron !== "groep" && o.zoekterm === kind)
+    : scope === "alle"
+      ? visibleObjects.value
+      : objects.value.filter((o) => o.status === "geselecteerd");
+  const chosen = among.filter((o) => !o.beschrijving);
   if (!chosen.length) {
     actionResult.value = { type: "error", text: t("describe.nothing_to_do") };
     return;
   }
   const usd = props.config.muse.beschrijving_usd * chosen.length;
-  // The objects as a list with small cut-outs, as when grouping (wish Olaf).
-  const action = t(scope === "alle" ? "confirm.action_describe_visible" : "confirm.action_describe_all", { n: chosen.length });
-  if (!(await confirmCost(chosen.length, usd, action, chosen.map((o) => shownObject(o))))) return;
+  // The objects as a list with small cut-outs, as when grouping, and the AI settings (wish Olaf).
+  const kindName = kind ? describableTerms.value.find((item) => item.term === kind)?.name || kind : "";
+  const action = kind
+    ? t("confirm.action_describe_kind", { n: chosen.length, term: kindName })
+    : t(scope === "alle" ? "confirm.action_describe_visible" : "confirm.action_describe_all", { n: chosen.length });
+  const settings = await askBulkDescribe({
+    objects: chosen.map((o) => ({ ...shownObject(o), ownPrompt: Boolean(o.prompt_eigen) })),
+    paths: chosen.map((o) => objectPath(file.value.mid, pageN.value, o.id)),
+    action,
+    costLine: props.config.betaald ? t("confirm.cost", { n: chosen.length, amount: money(usd, props.config.taal) }) : t("bulkdescribe.free"),
+  });
+  if (!settings) {
+    busyAt.value = null;
+    return;
+  }
   busy.value = true;
   try {
-    for (const obj of chosen) {
-      const result = await post(`${objectPath(file.value.mid, pageN.value, obj.id)}/beschrijving`, {});
+    // Every object with its own settings from the dialog (wish Olaf).
+    for (const [i, obj] of chosen.entries()) {
+      const result = await post(`${objectPath(file.value.mid, pageN.value, obj.id)}/beschrijving`, settings[i]);
       replaceObject(result.object);
     }
     actionResult.value = { type: "success", text: t("describe.done", { n: chosen.length }) };
@@ -844,6 +968,19 @@ async function describeAll(scope = "selectie") {
     busy.value = false;
     busyAt.value = null;
   }
+}
+
+// The dialog of Describe in bulk: resolves with the settings per object, or null when cancelled.
+const bulkDescribe = reactive({ open: false, objects: [], paths: [], action: "", costLine: "" });
+let bulkDescribeAnswer = null;
+function askBulkDescribe(question) {
+  Object.assign(bulkDescribe, question, { open: true });
+  return new Promise((resolve) => (bulkDescribeAnswer = resolve));
+}
+function answerBulkDescribe(settings) {
+  bulkDescribe.open = false;
+  bulkDescribeAnswer?.(settings);
+  bulkDescribeAnswer = null;
 }
 
 async function onPoint({ x, y }) {

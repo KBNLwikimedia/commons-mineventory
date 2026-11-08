@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.32.11, 6 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.33.8, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -15,7 +15,15 @@ Stand: versie 0.32.11, 6 november 2026. Voor wie (mens of Claude-sessie) het wer
   - **Afbeelding aanvullen met AI** (FO 7.7, `cutter/aanvulling.py`, Muse Image `muse-image-1.0`, $0,01 per beeld): gaten in een uitsnede laten invullen; eigen tabblad *AI-aangevuld* met doorzichtige achtergrond, de echte prompt, de resolutie en een schakelaar *Toon wat de AI invulde*. Verzonnen, geen bron, nooit als uitsnede naar Commons. **Live geprobeerd door Olaf** (de kat met de rode halsband).
   - In de vergroter zijn uitsnede en aangevulde versie te **zoomen** zoals in de hoofdviewer (`ZoomImage.vue`, dezelfde viewer-module).
   - Meldingen op hun plek: de prullenbakmelding in *Gevonden objecten (uitsneden)*, *Niets gevonden* met links naar *Zoeken* en *Aanwijzen of tekenen*; in *Gevonden objecten (uitsneden)* scrolt alleen de lijst.
-- Tests: 270 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.32.11.
+- **Nieuw sinds 0.32.12 (6 tot 8-11-2026, op aanwijzing van Olaf)**; details in de CHANGELOG:
+  - **Uit Commons** bovenaan *Beschrijven en vinden*: captions, regio's en *Beeldt af, zonder regio* als chips; een klik zoekt het item met SAM en koppelt het gevonden object aan dat Q-item (backlog 26). *Opnieuw lezen van Commons*.
+  - **Venster *Gestructureerde gegevens van deze afbeelding*** (FO 9.7, `OriginalData.vue`, `cutter/origineel.py`): beeldt af en captions voor het origineel als concept, met P18-miniaturen via de eigen server, versleepbaar. Schrijven naar Commons pas in fase 2 (OAuth). Botsregels met de upload van uitsneden: FO 9.7, backlog 15e. Olaf koos ImageNote boven P2096 (FO 9.8, backlog 15d; vragenformulier nog open).
+  - **Objectenlijst**: zoekveld (NL en EN, met (i)), label *nog niet beschreven*, uitklappers *Bulkacties* (vier tabbladen Beschrijven, Ontdubbelen, Groeperen, Prullenbak, elk ook *per soort*) en *Bewaren en exporteren*.
+  - **Beschrijven in bulk** opent een eigen venster (`BulkDescribeDialog.vue`, FO 7.4): tabel met per object lengte, ruimte, aanwijzing en prompt; *Alle objecten* of één object aanpassen; begint op Commons-caption en 0% ruimte; voorbeeld *wat de AI ziet*; de prompt (`GET …/beschrijving/prompt`).
+  - **Eigen AI-prompt** per object in *Wat staat hierop?* (FO 6.2): potlood, bewaren, terug naar de prompt van de app, eerdere prompts. Bij een groep zit de groepszin erin.
+  - **Aanwijzing uit de detectie** in de prompt (FO 6.2): eigen naam, Commons-label of SAM-zoekterm met zekerheid. **Nog te toetsen door Olaf** (backlog 12i).
+  - **Lengte** bij *Wat staat hierop?* en de beschrijving van de hele afbeelding, met de schakelaar *Commons-caption* (hooguit 250 tekens) en het Commons-logo uit Codex (`CommonsLogo.vue`).
+- Tests: 285 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.33.8.
 
 ## De interface in het kort
 
@@ -26,7 +34,7 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 | **Bekeken** | geopende afbeeldingen met miniatuur; daaronder **Opzij gezet** (inklapbaar, slepen of prullenbakje; pijl omhoog zet terug) | `ViewedPanel.vue`, `HistoryList.vue`, `state.js` |
 | **Beeld** | de viewer (gewone JS, niet herschrijven in Vue) met zoom, Maskers/Kaders/Namen | `ViewerPane.vue`, `viewer/viewer.js` |
 | **Beschrijven en vinden** | AI-suggesties (beschrijving en zoektermen, elk apart opnieuw of weg; beschrijving met de hand aan te passen, met versies), Uit Commons, Zoeken, Aanwijzen of tekenen, CropTool | `DetectionPanel.vue`, `PageDescription.vue` |
-| **Gevonden objecten (uitsneden)** | de objecten (genummerd: *man 1*, *man 2*; *beschreven* bij een object met een beschrijving), onderaan Geselecteerde objecten beschrijven (met een regel over wat de knop doet), Dubbelingen samenvoegen (de uitkomst als melding direct onder de knoppen, rood of groen, met een X), Selectie opslaan, zip, Naar Commons, en daaronder *Bewaartermijnen* | `ObjectList.vue`, `CutterApp.vue` |
+| **Gevonden objecten (uitsneden)** | Minimale zekerheid; de objecten met een zoekveld en *Alle · Geen · Omkeren* (genummerd: *man 1*, *man 2*; *beschreven* of *nog niet beschreven*); daaronder de uitklappers *Bulkacties* (vier tabbladen) en *Bewaren en exporteren* (Selectie opslaan, zip, Naar Commons, *Bewaartermijnen*), standaard dicht | `ObjectList.vue`, `CutterApp.vue`, `BulkDescribeDialog.vue` |
 
 - Elke kolom schuift in tot een strook (`ColumnHeader.vue`, `ColumnStrip.vue`) en heeft een kop met uitleg en een (i).
 - De **vergroter** (`Magnifier.vue`) heeft Vorige/Volgende (ook ← →), slaat een niet-opgeslagen bijschrift vanzelf op, en blijft open na *Naar de prullenbak*. Tabbladen: *Uitsnede*, *AI-aangevuld* (als er een is), *Wat staat hierop?* en *Commons-concept*. Bevestigingen met een lijst objecten of een tekstveld gaan via `askConfirmValue()` in `confirm.js`.
@@ -74,10 +82,12 @@ Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie
 - **Een terminal starten**: Flask staat alleen in `.venv`. Zet de omgeving aan met `.venv\Scripts\Activate.ps1`, of start met `.venv\Scripts\flask --app app run --debug`.
 - **Volgende bouw**: het dashboard met collecties (backlog 15a, FO 17), nu al, vóór OAuth, onder de gebruiker `lokaal`, zonder voorscan door AI. Volgorde in FO 17.9, stap 1 tot en met 4; Olafs besluiten in FO 17.10.
 - **Starttegoed** (backlog 15c, FO 8.6): besloten (FO 8.6.6), te bouwen na OAuth en de database.
-- **Morgen eerst (wacht op Olaf)**: het voorstel om het tabblad *Wat staat hierop?* in de vergroter opnieuw in te delen, met vier subtabbladen (backlog 12h). Het staat met schets en open vragen in [ontwerp-wat-is-dit.md](ontwerp-wat-is-dit.md). Pas bouwen na zijn akkoord.
+- **Morgen eerst (Olaf, 9-11-2026)**: de vergelijking of de **detectie-aanwijzing** in de prompt helpt (backlog 12i). Betaald, dus Olaf doet het zelf op zijn server; de checklijst staat in [vergelijking-detectie-aanwijzing.md](vergelijking-detectie-aanwijzing.md). Daarna houden, bijstellen of weghalen.
+- **Wacht op Olaf**: het herontwerp van het tabblad *Wat staat hierop?* met vier subtabbladen (backlog 12h, [ontwerp-wat-is-dit.md](ontwerp-wat-is-dit.md)). De eigen prompt is er al (8-11-2026); hij staat nu nog als rij boven *AI-modifiers*. Olaf vindt het tabblad nog rommelig; pas herindelen na zijn akkoord.
+- **Wacht op Olaf**: het vragenformulier over ImageNote (FO 9.8, backlog 15d) en of de verouderde API-paden (gepland weg in 0.33.0) nu weg mogen (backlog 12e).
 - **Later, nice-to-have**: het canvas om uitsneden te combineren tot nieuwe werken (FO 18, backlog 25); ontworpen, niet gepland.
 - **Later, nice-to-have**: een 3D-model van een uitsnede met SAM 3D Objects via Runware (FO 7.8, backlog 19c); ontworpen, niet gepland.
-- **Wacht op Olaf**: de vijf vragen bij backlog 15b (venster *Beeldt af en caption voor de hele afbeelding*, FO 9.7).
+- **Venster gestructureerde gegevens** (backlog 15b, FO 9.7): gebouwd als concept (0.33.5–0.33.7); open: het mini-beeld met kaders in de kop van het venster, en het schrijven naar Commons (fase 2, na OAuth).
 - **Valkuil**: in scripts die tekst in bestanden zetten, nooit `\u0000` of andere stuurtekens als scheidingsteken gebruiken (er kwamen eens echte nul-tekens in `Magnifier.vue`); gebruik iets als `@@naam@@`. En een losse `cat` zonder invoer in een Bash-aanroep blijft wachten.
-- **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten) en 12e (verouderde API-paden weghalen in 0.33.0).
+- **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten).
 - **Fase 2**: OAuth (13) met werk per gebruiker (13a, FO 8.5: eigen uitvoermap per gebruiker, gedeelde cache), upload via de stash op een testwiki (14), beheerpaneel (15), categorie als invoer (15a). Pas daarna kan per gebruiker gescheiden worden (12c).

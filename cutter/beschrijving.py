@@ -129,6 +129,50 @@ HINT_INSTRUCTION = """
 
 Instruction from the user for this question (follow it; it overrides the context above where they differ): {hint}"""
 
+# What the app already knows about the object, as a clue (wish Olaf, 8-11-2026): the name the
+# user gave it, its region label on Commons, or the search term the image detection (SAM)
+# found it with and how sure it was. A clue, not the truth: the model checks what it sees.
+CLUE_SURE = 0.5  # below this certainty the detection is called unsure
+PLACEHOLDER_TERMS = {"rechthoek", "klik"}  # what the app calls a drawn box and a click
+CLUE_NAME = """
+
+The user named this object: "{name}". Take this as what it shows, unless the image clearly shows something else."""
+CLUE_COMMONS = """
+
+On Wikimedia Commons this region of the image is marked as "{name}" (by a person; it may be incomplete). Take this as what it shows, unless the image clearly shows something else."""
+CLUE_TERM = """
+
+An image detector (SAM) found this object when searching for "{term}" (certainty {pct}%). It is probably (part of) what "{term}" describes, or something related to it. Check what you see; if it is something else, describe what it really is."""
+CLUE_TERM_UNSURE = """
+
+An image detector (SAM) found this object when searching for "{term}", but it was unsure (certainty {pct}%). It may be (part of) what "{term}" describes, or something else entirely; describe what you actually see."""
+
+
+def detection_clue(obj):
+    """The clue sentence for an object (with its leading blank line), and what it was based on;
+    ("", None) when there is none: a group (its members are named already) or a box drawn by
+    hand without a name."""
+    if obj.get("bron") == "groep" or obj.get("groep"):
+        return "", None
+    name = " ".join(str(obj.get("naam") or "").split())[:120]
+    if name:
+        return CLUE_NAME.format(name=name), "naam"
+    if obj.get("bron") == "commons":
+        label = " ".join(str(obj.get("label_item") or obj.get("label") or "").split())[:120]
+        return (CLUE_COMMONS.format(name=label), "commons") if label else ("", None)
+    # A box drawn by hand ("rechthoek") or a click ("klik") has no real search term.
+    if obj.get("bron") == "handmatig":
+        return "", None
+    term = " ".join(str(obj.get("zoekterm") or "").split())[:80]
+    if not term or term.lower() in PLACEHOLDER_TERMS:
+        return "", None
+    score = obj.get("score")
+    if score is None:
+        return CLUE_TERM.format(term=term, pct="unknown").replace(" (certainty unknown%)", ""), "zoekterm"
+    template = CLUE_TERM if score >= CLUE_SURE else CLUE_TERM_UNSURE
+    return template.format(term=term, pct=round(score * 100)), "zoekterm"
+
+
 # A group (7.4): its box also shows what lies between its members, so the question
 # says what the group is made of and to look at those only (wish Olaf, 5-11-2026).
 GROUP_INSTRUCTION = """
@@ -490,6 +534,17 @@ def choose_model(file, config):
 # ---------------------------------------------------------------------------
 
 
+MAX_OWN_PROMPT = 12000  # characters of a prompt of your own ("What is this?", wish Olaf)
+MAX_PROMPT_HISTORY = 20  # earlier prompts of your own kept per object
+
+
+def clean_own_prompt(text):
+    """A prompt of your own: its lines kept (the app's prompt has a structure), trailing
+    spaces and empty lines at the ends removed, at most MAX_OWN_PROMPT characters."""
+    lines = [line.rstrip() for line in str(text or "").replace("\r\n", "\n").split("\n")]
+    return "\n".join(lines).strip()[:MAX_OWN_PROMPT]
+
+
 def clean_margin(margin):
     """The margin as a share of the box, 0 to MAX_MARGIN in steps of 0.05;
     MARGIN when not given or not a number."""
@@ -576,7 +631,7 @@ OBJECT_DESCRIPTION_LEVELS = {
 OBJECT_DESCRIPTION_LEVELS["caption"] = DESCRIPTION_LEVELS["caption"]
 
 
-def build_prompt(file, caption=None, hint=None, page_text=None, group=None, members_context=None, surroundings=False, description_level=DEFAULT_DESCRIPTION_LEVEL):
+def build_prompt(file, caption=None, hint=None, page_text=None, group=None, members_context=None, surroundings=False, description_level=DEFAULT_DESCRIPTION_LEVEL, clue=""):
     caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
     rule, rule_en = OBJECT_DESCRIPTION_LEVELS.get(description_level) or OBJECT_DESCRIPTION_LEVELS[DEFAULT_DESCRIPTION_LEVEL]
     prompt = INSTRUCTIONS.format(
@@ -588,6 +643,7 @@ def build_prompt(file, caption=None, hint=None, page_text=None, group=None, memb
         cutout_caption=f'"{caption}"' if caption else "none",
         **context(file),
     )
+    prompt += clue or ""  # what the app already knows about this object (detection_clue)
     # The markers that frame the text cannot occur in it (a text that "closes" its own block).
     page_text = (page_text or "").replace("<<<", "").replace(">>>", "").strip()[:MAX_PAGE_TEXT]
     if page_text:
@@ -874,15 +930,9 @@ class DescriptionService:
         path.write_bytes(data)
         return data
 
-    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None, group_focus=True, description_level=None):
-        """Describe an object (paid in live mode) and store the answer on it.
-        `hint` is an extra instruction from the user for this question;
-        `margin` the share of the box shown around it (default MARGIN)."""
-        obj = self.objects._find(file, n, object_id)
-        choice = self._model(file, model)
-        hint = clean_hint(hint)
-        margin = clean_margin(margin)
-        # The length of the description (the slider): without one, what the last answer used.
+    def _question(self, file, n, obj, hint, margin, group_focus, description_level):
+        """The parts of the question about an object: the prompt as it goes to the model,
+        and what goes into the cache key. Checks the description level."""
         if description_level is None:
             description_level = (obj.get("beschrijving") or {}).get("beschrijvingsniveau") or DEFAULT_DESCRIPTION_LEVEL
         if description_level not in OBJECT_DESCRIPTION_LEVELS:
@@ -894,11 +944,102 @@ class DescriptionService:
         group = group_members(obj) if group_focus else ""
         members_context = group_context(obj) if group else ""
         surroundings = bool(group) and margin > 0
+        clue, clue_source = detection_clue(obj)
+        standard = build_prompt(file, self._caption(obj), hint, page_text, group, members_context, surroundings, description_level, clue)
+        own = ((obj.get("prompt_eigen") or {}).get("tekst") or "").strip()
+        prompt = (own + HINT_INSTRUCTION.format(hint=hint) if hint else own) if own else standard
+        return {
+            "prompt": prompt,
+            "standard": standard,
+            "own": own,
+            "clue": "" if own else clue,
+            "clue_source": None if own else clue_source,
+            "beschrijvingsniveau": description_level,
+            "page_text": page_text,
+            "group": group,
+            "members_context": members_context,
+            "surroundings": surroundings,
+        }
+
+    def prompt_preview(self, file, n, object_id, hint=None, margin=None, group_focus=True, description_level=None):
+        """The prompt a question about this object would send, with these settings (the image
+        goes along separately). Free: nothing is sent to the model."""
+        obj = self.objects._find(file, n, object_id)
+        question = self._question(file, n, obj, clean_hint(hint), clean_margin(margin), group_focus, description_level)
+        return {
+            "prompt": question["prompt"],
+            # The app's own prompt for these settings, and the one you wrote (null: none).
+            "standaard_prompt": question["standard"],
+            "eigen": bool(question["own"]),
+            "eigen_prompt": obj.get("prompt_eigen"),
+            "geschiedenis": obj.get("prompt_geschiedenis") or [],
+            "beschrijvingsniveau": question["beschrijvingsniveau"],
+            "marge": clean_margin(margin),
+            "aanwijzing": clean_hint(hint) or None,
+        }
+
+    def _set_own_prompt(self, file, n, object_id, text):
+        """Make `text` the prompt of your own (None or "": back to the app's prompt); the
+        one before goes on top of the history, each text once, at most MAX_PROMPT_HISTORY."""
+        text = clean_own_prompt(text)
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            previous = obj.get("prompt_eigen")
+            history = [h for h in obj.get("prompt_geschiedenis") or [] if h.get("tekst") != text]
+            if previous and previous.get("tekst") != text:
+                history = [previous] + [h for h in history if h.get("tekst") != previous.get("tekst")]
+            if text:
+                obj["prompt_eigen"] = {"tekst": text, "bewaard_op": datetime.now(timezone.utc).isoformat(timespec="milliseconds")}
+            else:
+                obj.pop("prompt_eigen", None)
+            obj["prompt_geschiedenis"] = history[:MAX_PROMPT_HISTORY]
+            self.objects._write_store(file, n, store)
+
+    def save_prompt(self, file, n, object_id, text):
+        """Your own prompt for this object (free; nothing goes to the model)."""
+        self.objects._find(file, n, object_id)
+        if not isinstance(text, str) or not text.strip():
+            raise DetectionError("Geef een 'prompt' (tekst); terug naar de prompt van de app gaat met DELETE.", status=400, code="invalid_body")
+        self._set_own_prompt(file, n, object_id, text)
+
+    def reset_prompt(self, file, n, object_id):
+        """Back to the app's prompt; yours goes to the history (free)."""
+        self.objects._find(file, n, object_id)
+        self._set_own_prompt(file, n, object_id, None)
+
+    def forget_prompt_version(self, file, n, object_id, version):
+        """Remove an earlier prompt from the history; `version` is its "bewaard_op" (free)."""
+        obj = self.objects._find(file, n, object_id)
+        if not any(h.get("bewaard_op") == version for h in obj.get("prompt_geschiedenis") or []):
+            raise DetectionError("Deze eerdere prompt bestaat niet (meer).", status=404, code="not_found")
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            obj = self.objects._find_in(store, object_id)
+            obj["prompt_geschiedenis"] = [h for h in obj.get("prompt_geschiedenis") or [] if h.get("bewaard_op") != version]
+            self.objects._write_store(file, n, store)
+
+    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None, group_focus=True, description_level=None):
+        """Describe an object (paid in live mode) and store the answer on it.
+        `hint` is an extra instruction from the user for this question;
+        `margin` the share of the box shown around it (default MARGIN)."""
+        obj = self.objects._find(file, n, object_id)
+        choice = self._model(file, model)
+        hint = clean_hint(hint)
+        margin = clean_margin(margin)
+        # The length of the description (the slider): without one, what the last answer used.
+        question = self._question(file, n, obj, hint, margin, group_focus, description_level)
+        description_level = question["beschrijvingsniveau"]
+        page_text, group, members_context, surroundings = question["page_text"], question["group"], question["members_context"], question["surroundings"]
         # The members (and what they were described as) go into the cache key too: an answer
         # from before the group instruction, or from before a member was described, is not reused.
         key_hint = hint + (f"|groep: {group}" + ("|omgeving" if surroundings else "") if group else "") + (f"|context: {hashlib.sha1(members_context.encode()).hexdigest()[:12]}" if members_context else "")
         if description_level != DEFAULT_DESCRIPTION_LEVEL:  # "normaal" keeps the key from before the slider
             key_hint += f"|beschrijving={description_level}"
+        if question["clue"]:  # the clue (name, label or search term) is part of the question
+            key_hint += f"|aanwijzing detectie: {hashlib.sha1(question['clue'].encode()).hexdigest()[:12]}"
+        if question["own"]:  # another prompt is another question
+            key_hint += f"|eigen prompt: {hashlib.sha1(question['own'].encode()).hexdigest()[:12]}"
         path = self._cache_path(file, n, obj, choice["model"], key_hint, margin, page_text)
         if path.exists() and not again:
             mark_used(path)
@@ -913,7 +1054,7 @@ class DescriptionService:
         with booking:
             page = self.objects.client.load_page(file, n)
             data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
-            prompt = build_prompt(file, self._caption(obj), hint, page_text, group, members_context, surroundings, description_level)
+            prompt = question["prompt"]
 
             body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
             tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
@@ -940,6 +1081,8 @@ class DescriptionService:
                 "verstuurde_afmetingen": list(size),
                 "promptversie": PROMPT_VERSION,
                 "aanwijzing": hint or None,
+                "prompt_eigen": bool(question["own"]),  # asked with a prompt of your own
+                "detectie_aanwijzing": question["clue_source"],  # naam, commons, zoekterm or None
                 "alleen_naar": group or None,  # a group: the AI was asked to look at its members only
                 "marge": margin,
                 "paginatekst": bool(page_text),

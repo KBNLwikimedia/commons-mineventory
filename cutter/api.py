@@ -682,6 +682,44 @@ def restore_description(mid, n, object_id):
     return jsonify(_descriptions().restore(_page_file(mid, n), n, object_id, body.get("tijdstempel"), body.get("bewerkt"), body.get("versie")))
 
 
+def _prompt_answer(mid, n, object_id):
+    return _descriptions().prompt_preview(
+        _page_file(mid, n), n, object_id, hint=request.args.get("aanwijzing"), margin=request.args.get("marge"),
+        group_focus=request.args.get("alleen_groep", "true") != "false",
+        description_level=request.args.get("beschrijvingsniveau") or None,
+    )
+
+
+@api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/prompt")
+def description_prompt(mid, n, object_id):
+    """The prompt "Wat staat hierop?" would send for this object, with ?beschrijvingsniveau=,
+    ?marge= and ?aanwijzing= as in the POST (the image goes along separately); also the app's
+    own prompt, yours and your earlier ones. Free."""
+    return jsonify(_prompt_answer(mid, n, object_id))
+
+
+@api.put("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/prompt")
+def save_description_prompt(mid, n, object_id):
+    """Your own prompt for this object: {"prompt": "…"}; the one before goes to the history.
+    The next question uses it (your hint still comes on top). Free."""
+    _descriptions().save_prompt(_page_file(mid, n), n, object_id, _body().get("prompt"))
+    return jsonify(_prompt_answer(mid, n, object_id))
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/prompt")
+def reset_description_prompt(mid, n, object_id):
+    """Back to the app's prompt; yours goes to the history. Free."""
+    _descriptions().reset_prompt(_page_file(mid, n), n, object_id)
+    return jsonify(_prompt_answer(mid, n, object_id))
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/prompt/geschiedenis/<versie>")
+def forget_description_prompt(mid, n, object_id, versie):
+    """Remove one earlier prompt of your own (its "bewaard_op"). Free."""
+    _descriptions().forget_prompt_version(_page_file(mid, n), n, object_id, versie)
+    return jsonify(_prompt_answer(mid, n, object_id))
+
+
 @api.get("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/invoer.jpg")
 @api.get("/bestand/<mid>/pagina/<int:n>/object/<object_id>/beschrijving/invoer.jpg")
 def description_input(mid, n, object_id):

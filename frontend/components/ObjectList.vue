@@ -3,6 +3,10 @@
   <section ref="root" class="cc-objecten">
     <header class="cc-objecten-kop">
       <h3>{{ t("objects.title") }} <small>({{ objects.length }})</small></h3>
+      <!-- The search box (slot "search", from the app) on one line with All · None · Invert (wish Olaf);
+           outside the v-if, so it stays when a search finds nothing. -->
+      <div class="cc-objecten-rechts">
+      <slot name="search" />
       <span v-if="objects.length" class="cc-objecten-alles">
         <button type="button" class="cc-link" @click="emit('select', objects.filter((o) => o.status !== 'uitgesloten').map((o) => o.id))">
           {{ t("objects.all") }}
@@ -14,8 +18,10 @@
           {{ t("objects.invert") }}
         </button>
       </span>
+      </div>
     </header>
-    <p v-if="!objects.length" class="cc-leeg">{{ t("objects.empty") }}</p>
+    <slot name="under-header" />
+    <p v-if="!objects.length" class="cc-leeg">{{ emptyText || t("objects.empty") }}</p>
     <ul>
       <li
         v-for="obj in sorted"
@@ -53,6 +59,8 @@
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
             <!-- Described: "Describe selected objects" skips it, so show it in the row. -->
             <template v-if="obj.beschrijving"> · <span class="cc-beschreven-label" :title="t('objects.described_help')">{{ t("objects.described") }}</span></template>
+            <!-- Not described yet, neither by the AI nor with a caption of your own (wish Olaf). -->
+            <template v-else-if="!obj.bijschrift?.tekst"> · <span class="cc-onbeschreven-label" :title="t('objects.not_described_help')">{{ t("objects.not_described") }}</span></template>
             <template v-if="obj.opgeslagen"> · <saved-label :object="obj" /></template>
             <template v-if="obj.al_uitgesneden"> · {{ t("objects.already_extracted") }}</template>
             <span v-if="obj.bijschrift?.tekst && name(obj) !== obj.bijschrift.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
@@ -86,6 +94,8 @@ import SavedLabel from "./SavedLabel.vue";
 import { numberedNames, objectName } from "../state.js";
 
 const props = defineProps({
+  // Shown instead of "No objects yet" when a search in the list finds nothing.
+  emptyText: { type: String, default: "" },
   objects: { type: Array, required: true },
   focused: { type: String, default: null },
   hovered: { type: String, default: null },

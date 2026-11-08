@@ -443,3 +443,22 @@ def test_object_description_length():
     caption = build_prompt({"naam": "x"}, description_level="caption")
     assert "at most 230 characters" in caption and "one or two sentences in Dutch describing" not in caption
     assert "a paragraph of three to five sentences" in build_prompt({"naam": "x"}, description_level="uitgebreid")
+
+
+def test_detection_clue_tells_what_the_app_knows():
+    clue = beschrijving.detection_clue
+    sure, source = clue({"bron": "sam", "zoekterm": "table", "score": 0.75})
+    assert source == "zoekterm" and '"table"' in sure and "75%" in sure and "probably (part of) what \"table\" describes" in sure
+    unsure, _ = clue({"bron": "sam", "zoekterm": "lemon", "score": 0.3})
+    assert "unsure" in unsure and "30%" in unsure
+    # Your own name beats the search term; a Commons region gives its label.
+    named, source = clue({"bron": "sam", "zoekterm": "table", "score": 0.9, "naam": "side table with cloth"})
+    assert source == "naam" and "side table with cloth" in named and "table\"" not in named
+    assert clue({"bron": "commons", "label": "coat of arms"})[1] == "commons"
+    # No clue for a group, a drawn box or a click.
+    assert clue({"bron": "groep", "zoekterm": "bottle"}) == ("", None)
+    assert clue({"bron": "handmatig", "zoekterm": "rechthoek"}) == ("", None)
+    assert clue({"bron": "sam", "zoekterm": "klik", "score": 0.8}) == ("", None)
+    # It goes into the question.
+    prompt = beschrijving.build_prompt({"titel": "File:X.jpg"}, clue=sure)
+    assert prompt.endswith(sure)

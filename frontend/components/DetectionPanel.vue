@@ -53,20 +53,27 @@
         <template #title>{{ t("panel.commons_depicts", { n: commonsDepicts.length }) }}</template>
         <!-- The explanation as a short list (wish Olaf). -->
         <div class="cc-uitleg cc-termen-uitleg">
-          <p>{{ t("panel.commons_depicts_intro") }}</p>
+          <p>
+            {{ t("panel.commons_depicts_intro_before") }}
+            (<a href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">P180</a>)
+            {{ t("panel.commons_depicts_intro_after") }}
+          </p>
           <ul class="cc-uitleg-lijst">
-            <li>{{ t("panel.commons_depicts_click") }}</li>
-            <li>{{ t("panel.commons_depicts_pencil") }}</li>
+            <li><strong>{{ t("panel.commons_depicts_single") }}</strong> {{ t("panel.commons_depicts_click") }}</li>
             <li>
-              {{ t("panel.commons_depicts_untick") }}
+              <strong>{{ t("panel.commons_depicts_bulk") }}</strong> {{ t("panel.commons_depicts_untick") }}
               <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems([])">{{ t("panel.terms_all") }}</button>
               ·
               <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems(commonsDepicts.map((item) => item.q))">{{ t("panel.terms_none") }}</button>
               ·
               <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems(commonsDepicts.map((item) => item.q).filter((q) => !excludedItems.includes(q)))">{{ t("panel.terms_invert") }}</button>
             </li>
-            <li>{{ t("panel.terms_colours") }}</li>
-            <li>{{ t("panel.commons_depicts_cost") }} {{ cost(1) }}</li>
+            <li><strong>{{ t("panel.commons_depicts_search_word") }}</strong> {{ t("panel.commons_depicts_pencil") }}</li>
+            <li><strong>{{ t("panel.commons_depicts_results") }}</strong> {{ t("panel.terms_colours") }}</li>
+            <li>
+              <strong>{{ t("panel.commons_depicts_new_region") }}</strong> {{ t("panel.commons_depicts_new_region_go") }}
+              <button type="button" class="cc-link" @click="showPointOrDraw">{{ t("panel.point_or_draw") }}</button>.
+            </li>
           </ul>
         </div>
         <div class="cc-knoppen">
@@ -765,6 +772,12 @@ async function trySearch(result) {
   input?.select();
 }
 // Or open Point or draw with that way switched on at once: click the object, or draw around it.
+// Only unfold Point or draw and scroll to it, no way switched on (link under 'Depicts, without a region').
+async function showPointOrDraw() {
+  open.point = true;
+  await nextTick();
+  document.querySelector(".cc-sectie-aanwijzen")?.scrollIntoView({ block: "center", behavior: "smooth" });
+}
 async function tryPoint(mode = "point") {
   open.point = true;
   open[mode === "draw" ? "tekenen" : "aanwijzen"] = true;

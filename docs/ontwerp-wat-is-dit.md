@@ -43,6 +43,7 @@ Negen blokken onder elkaar:
 - **Antwoord** (standaard): wat de AI zei, met bewerken en ongedaan maken, en de knop om (opnieuw) te vragen, met het bedrag. Rechts staat altijd hetzelfde voorbeeld *wat de AI ziet*; het springt niet meer. *Model, kosten en kwaliteit* staat ingeklapt onderaan, als achtergrondinformatie.
 - **AI-prompt en bijsturing**: alles wat de volgende vraag stuurt, op één plek:
   - de **AI-prompt** van een groep, met de schakelaar *Alleen deze objecten* en de eerdere beschrijvingen van de objecten (alleen bij een groep);
+  - de **volledige AI-prompt**, voor elk object (wens Olaf, 8-11-2026; **al gebouwd in 0.33.8**, nu nog als rij *AI-prompt* boven *AI-modifiers*, zie FO 6.2): welke prompt de volgende vraag gebruikt (die van de app of je eigen), *Tonen*, een **potlood** om hem aan te passen met **Prompt bewaren**, *Annuleren* en *Begin opnieuw met de prompt van de app*, **Terug naar de prompt van de app** (terugdraaien) en **Eerdere prompts (n)** in een carrousel, met *Opnieuw gebruiken* en verwijderen. Sinds 8-11-2026 is de groepsprompt al een deel van deze ene rij (*Deel van de prompt van de app voor deze groep*, grijs bij een eigen prompt). In het herontwerp komt de rij bovenaan dit subtabblad;
   - de **aanwijzing voor de AI**;
   - **Lengte** van de beschrijving (sinds 0.33.2, wens Olaf): dezelfde schuif als bij de hele afbeelding, *Kort*, *Normaal*, *Commons-caption* (hooguit 250 tekens) en *Uitgebreid*;
   - **Ruimte rond de uitsnede**, met het voorbeeld ernaast dat meebeweegt;
@@ -61,6 +62,8 @@ Negen blokken onder elkaar:
 
 ## Open punten voor Olaf
 
+0. ~~Groepsprompt los of in de volledige prompt?~~ Besloten 8-11-2026: één rij *AI-prompt*; de groepszin staat erin als *Deel van de prompt van de app voor deze groep* en wordt grijs bij een eigen prompt.
+
 1. Akkoord met de vier subtabbladen en hun namen?
 2. *Model, kosten en kwaliteit* ingeklapt onder *Antwoord* (voorstel), of een eigen subtabblad?
 3. *Beeldt af (P180)* hier, of naar het tabblad *Commons-concept*, waar het voor gebruikt wordt?
@@ -68,6 +71,6 @@ Negen blokken onder elkaar:
 
 ## Bij het bouwen
 
-- Alleen `Magnifier.vue` (en de stijl in `static/css/app.css`) verandert; de API niet.
+- Alleen `Magnifier.vue` (en de stijl in `static/css/app.css`) verandert; de API niet (de eigen prompt heeft zijn API al sinds 0.33.8).
 - Vertalingen in `frontend/i18n/nl.json` en `en.json` voor de namen van de subtabbladen en de link.
 - Testen op de proefserver (poort 5055, proefmodus), met een gewoon object en met een groep.

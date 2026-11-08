@@ -30,6 +30,7 @@ DOCS = {
     "docs/privacy.en.md": ("docs/privacy.en.html", "Privacy (English)"),
     "docs/overdracht.md": ("docs/overdracht.html", "Overdracht"),
     "docs/ontwerp-wat-is-dit.md": ("docs/ontwerp-wat-is-dit.html", "Ontwerp: Wat staat hierop?"),
+    "docs/vergelijking-detectie-aanwijzing.md": ("docs/vergelijking-detectie-aanwijzing.html", "Vergelijking: detectie-aanwijzing"),
     "BACKLOG.md": ("backlog.html", "Backlog"),
     "CHANGELOG.md": ("changelog.html", "Changelog"),
 }

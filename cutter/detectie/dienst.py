@@ -52,7 +52,7 @@ def _write_atomic(path, text):
 MAX_TERMS_PER_REQUEST = 20  # search terms in one request (each uncached term is one paid SAM call)
 SAVED_META = ("tijdstempel", "breedte", "hoogte")  # in "opgeslagen", next to the file paths
 # Fields made by the user or paid for, kept when a search returns an object again.
-KEPT_ON_UPDATE = ("bijschrift", "ook", "beschrijving", "commons", "masker", "masker_herkomst", "status", "wikidata", "label_item")
+KEPT_ON_UPDATE = ("bijschrift", "ook", "beschrijving", "commons", "masker", "masker_herkomst", "status", "wikidata", "label_item", "prompt_eigen", "prompt_geschiedenis")
 
 
 def iou(a, b):

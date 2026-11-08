@@ -328,28 +328,75 @@
         <cutout-preview v-if="!previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" :large="largeInputUrl" :lightbox-title="name" :texts="readTexts" @save-text="saveTexts({ [$event.key]: $event.value })" />
         </div>
 
-        <!-- A group: the prompt the app adds itself to every question about it (7.4). -->
-        <dl v-if="groupNames" class="cc-gegevens cc-groep-opdracht">
+        <!-- The whole prompt of the next question, with a pencil to write your own, Save, back to
+             the app's prompt and your earlier prompts (wish Olaf, 8-11-2026; ontwerp-wat-is-dit.md). -->
+        <dl class="cc-gegevens cc-ai-prompt-rij">
           <dt>{{ t("describe.group_prompt") }}</dt>
-          <dd class="cc-groep-prompt">
-            <!-- On: the AI looks at the members only (with space around: the surroundings as context). -->
-            <cdx-toggle-switch v-model="groupOnly" class="cc-groep-schakelaar">{{ t("describe.group_only") }}</cdx-toggle-switch>
-            <template v-if="groupOnly">
-            <em>{{ groupFocus[0] }}<span class="cc-groep-pillen"><cdx-info-chip v-for="(member, i) in groupMemberNames" :key="i">{{ member }}</cdx-info-chip></span>{{ groupFocus[1] }}</em>
-            <!-- What the members were described as before, alone: goes along as context. -->
-            <template v-if="groupContext.length">
-              <br /><em>{{ t("describe.group_context") }}</em>
-              <ul class="cc-groep-context">
-                <li v-for="(member, i) in groupContext" :key="i">
-                  <cdx-info-chip>{{ member.name }}</cdx-info-chip> <em>{{ member.text }}</em>
-                  <em v-if="member.inText"> {{ t("describe.group_context_in") }}: “{{ member.inText }}”.</em>
-                  <em v-if="member.around"> {{ t("describe.group_context_around") }}: “{{ member.around }}”.</em>
-                </li>
-              </ul>
+          <dd>
+            <template v-if="!editingOwnPrompt">
+              <span :class="{ 'cc-eigen-prompt': promptInfo?.eigen }">
+                {{ promptInfo?.eigen ? t("describe.prompt_own_on", { time: formatTime(promptInfo.eigen_prompt?.bewaard_op) }) : t("describe.prompt_app") }}
+              </span>
+              <cdx-button action="progressive" weight="quiet" size="small" :disabled="!promptInfo" :aria-label="t('describe.prompt_edit')" :title="t('describe.prompt_edit')" @click="startOwnPrompt">
+                <cdx-icon :icon="cdxIconEdit" size="small" />
+              </cdx-button>
+              <button type="button" class="cc-link" :disabled="!promptInfo" @click="showPrompt = !showPrompt">{{ showPrompt ? t("describe.prompt_hide") : t("describe.prompt_show") }}</button>
+              <template v-if="promptInfo?.eigen"> · <button type="button" class="cc-link" @click="resetOwnPrompt">{{ t("describe.prompt_back") }}</button></template>
+              <pre v-if="showPrompt && promptInfo" class="cc-prompt-tekst">{{ promptInfo.prompt }}</pre>
+              <p class="cc-uitleg">{{ t("describe.prompt_help") }}</p>
             </template>
+            <template v-else>
+              <cdx-text-area v-model="ownDraft" :rows="12" class="cc-eigen-prompt-veld" :aria-label="t('describe.prompt_edit')" />
+              <p class="cc-klein">{{ t("describe.prompt_edit_help") }}</p>
+              <div class="cc-knoppen">
+                <cdx-button action="progressive" :disabled="!ownDraft.trim() || ownDraft.trim() === currentPromptText" @click="saveOwnPrompt">{{ t("describe.prompt_save") }}</cdx-button>
+                <cdx-button weight="quiet" @click="editingOwnPrompt = false">{{ t("actions.cancel") }}</cdx-button>
+                <button type="button" class="cc-link" @click="ownDraft = promptInfo?.standaard_prompt || ownDraft">{{ t("describe.prompt_from_app") }}</button>
+              </div>
             </template>
-            <span v-else class="cc-uitleg">{{ t("describe.group_off") }}</span>
-            <br /><span class="cc-uitleg">{{ t("describe.group_prompt_help") }}</span></dd>
+            <!-- A group: the part the app adds itself to its prompt (7.4), inside the one AI prompt row
+                 (wish Olaf, 8-11-2026); greyed out while your own prompt replaces it. -->
+            <div v-if="groupNames" class="cc-groep-deel" :class="{ 'cc-groep-deel-uit': promptInfo?.eigen }">
+              <p class="cc-klein"><strong>{{ t("describe.group_part") }}</strong></p>
+              <!-- On: the AI looks at the members only (with space around: the surroundings as context). -->
+              <cdx-toggle-switch v-model="groupOnly" class="cc-groep-schakelaar" :disabled="promptInfo?.eigen">{{ t("describe.group_only") }}</cdx-toggle-switch>
+              <template v-if="groupOnly">
+              <em>{{ groupFocus[0] }}<span class="cc-groep-pillen"><cdx-info-chip v-for="(member, i) in groupMemberNames" :key="i">{{ member }}</cdx-info-chip></span>{{ groupFocus[1] }}</em>
+              <!-- What the members were described as before, alone: goes along as context. -->
+              <template v-if="groupContext.length">
+                <br /><em>{{ t("describe.group_context") }}</em>
+                <ul class="cc-groep-context">
+                  <li v-for="(member, i) in groupContext" :key="i">
+                    <cdx-info-chip>{{ member.name }}</cdx-info-chip> <em>{{ member.text }}</em>
+                    <em v-if="member.inText"> {{ t("describe.group_context_in") }}: “{{ member.inText }}”.</em>
+                    <em v-if="member.around"> {{ t("describe.group_context_around") }}: “{{ member.around }}”.</em>
+                  </li>
+                </ul>
+              </template>
+              </template>
+              <span v-else class="cc-uitleg">{{ t("describe.group_off") }}</span>
+              <p class="cc-uitleg">{{ promptInfo?.eigen ? t("describe.prompt_own_group") : t("describe.group_prompt_help") }}</p>
+            </div>
+            <cdx-message v-if="ownPromptError" type="error" :inline="true">{{ ownPromptError }}</cdx-message>
+            <!-- Your earlier prompts, one at a time: use one again or remove it (free). -->
+            <template v-if="promptInfo?.geschiedenis?.length">
+              <h4 class="cc-commons-kop">{{ t("describe.prompt_history", { n: promptInfo.geschiedenis.length }) }}</h4>
+              <version-carousel :items="promptInfo.geschiedenis" item-key="bewaard_op" :label="t('describe.prompt_history_short')">
+                <template #default="{ item: entry }">
+                  <div>
+                    <pre class="cc-prompt-tekst cc-prompt-kort">{{ entry.tekst }}</pre>
+                    <div class="cc-klein">{{ formatTime(entry.bewaard_op) }}</div>
+                  </div>
+                </template>
+                <template #actions="{ item: entry }">
+                  <cdx-button action="progressive" size="small" @click="useOwnPrompt(entry)">{{ t("describe.history_use") }}</cdx-button>
+                  <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('describe.history_delete')" :title="t('describe.history_delete')" @click="deleteOwnPrompt(entry)">
+                    <cdx-icon :icon="cdxIconTrash" size="small" />
+                  </cdx-button>
+                </template>
+              </version-carousel>
+            </template>
+          </dd>
         </dl>
 
         <!-- 2. AI modifiers: steer the next question (hint, and the space around the cut-out). -->
@@ -1131,6 +1178,63 @@ async function deleteCompletion(entry) {
     completionError.value = errorText(t, failure);
   }
 }
+// The prompt of "What is this?" (wish Olaf): the app's or your own, with its history. Fetched
+// with the settings (length, space, group) but without the hint, which comes on top.
+const promptInfo = ref(null);
+const showPrompt = ref(false);
+const editingOwnPrompt = ref(false);
+const ownDraft = ref("");
+const ownPromptError = ref("");
+const promptQuery = () => `?${new URLSearchParams({ beschrijvingsniveau: descLevel.value, marge: String(margin.value), alleen_groep: String(groupOnly.value) })}`;
+const currentPromptText = computed(() => (promptInfo.value?.eigen ? promptInfo.value.eigen_prompt?.tekst : "") || "");
+let promptTimer = null;
+async function loadPromptInfo() {
+  const id = props.object.id;
+  try {
+    const info = await get(`${base.value}/beschrijving/prompt${promptQuery()}`);
+    if (id === props.object.id) {
+      promptInfo.value = info;
+      ownPromptError.value = "";
+    }
+  } catch (failure) {
+    if (id === props.object.id) ownPromptError.value = errorText(t, failure);
+  }
+}
+watch(
+  () => props.object.id,
+  () => {
+    promptInfo.value = null;
+    editingOwnPrompt.value = false;
+    showPrompt.value = false;
+    loadPromptInfo();
+  },
+  { immediate: true }
+);
+watch([descLevel, margin, groupOnly], () => {
+  clearTimeout(promptTimer);
+  promptTimer = setTimeout(loadPromptInfo, 300);
+});
+function startOwnPrompt() {
+  ownDraft.value = currentPromptText.value || promptInfo.value?.standaard_prompt || "";
+  editingOwnPrompt.value = true;
+}
+async function changeOwnPrompt(request) {
+  ownPromptError.value = "";
+  try {
+    promptInfo.value = await request();
+    editingOwnPrompt.value = false;
+  } catch (failure) {
+    ownPromptError.value = errorText(t, failure);
+  }
+}
+const saveOwnPrompt = () => changeOwnPrompt(() => put(`${base.value}/beschrijving/prompt${promptQuery()}`, { prompt: ownDraft.value }));
+const resetOwnPrompt = () => changeOwnPrompt(() => del(`${base.value}/beschrijving/prompt${promptQuery()}`));
+const useOwnPrompt = (entry) => changeOwnPrompt(() => put(`${base.value}/beschrijving/prompt${promptQuery()}`, { prompt: entry.tekst }));
+async function deleteOwnPrompt(entry) {
+  if (!(await askConfirm(t("describe.prompt_history_delete_confirm"), { title: t("describe.history_delete"), go: t("describe.history_delete"), destructive: true }))) return;
+  await changeOwnPrompt(() => del(`${base.value}/beschrijving/prompt/geschiedenis/${encodeURIComponent(entry.bewaard_op)}${promptQuery()}`));
+}
+
 const formatTime = (stamp) => (stamp ? new Date(stamp).toLocaleString(language === "en" ? "en-GB" : "nl-NL", { dateStyle: "medium", timeStyle: "short" }) : "");
 
 function downloadCompletion() {

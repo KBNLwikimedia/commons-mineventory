@@ -3,6 +3,27 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [0.33.8] - 2026-11-08
+
+### Toegevoegd
+
+- **Aanwijzing uit de detectie** in de vraag *Wat staat hierop?* (wens Olaf): één zin over wat de app al weet, met voorrang een eigen naam, het label van een Commons-regio, of de zoekterm van SAM met de zekerheid (*probably (part of) what "table" describes … Check what you see*; onder 50% *unsure*). Niet bij een groep, een getekend kader, een klik of een eigen prompt. Zichtbaar in de prompt; het antwoord bewaart `detectie_aanwijzing`. Of het helpt, toetst Olaf: docs/vergelijking-detectie-aanwijzing.md, backlog 12i. FO 6.2.
+- *Wat is dit?*: een eigen **AI-prompt** per object (wens Olaf). Eén rij *AI-prompt*, ook bij een groep (de groepszin met *Alleen deze objecten* staat erin als *Deel van de prompt van de app voor deze groep*, grijs bij een eigen prompt), toont welke prompt de volgende vraag gebruikt (*Tonen*), met een potlood om hem aan te passen, *Prompt bewaren*, *Terug naar de prompt van de app* en *Eerdere prompts* om opnieuw te gebruiken of te verwijderen. API: `PUT`/`DELETE …/beschrijving/prompt`, `DELETE …/beschrijving/prompt/geschiedenis/{versie}`; het antwoord bewaart `prompt_eigen`. Opgenomen in het herontwerp van het tabblad (docs/ontwerp-wat-is-dit.md, backlog 12h). FO 6.2.
+- Het venster van *Describe* in de bulkacties toont naast de instellingen *wat de AI ziet* (met het rode kader), dat de ruimte rond de uitsnede volgt; klik op een object of gebruik de pijltjes om een ander te zien. De prompt hoort bij het gekozen object. Het venster legt zichzelf uit, zonder verwijzing naar *Wat is dit?* (wens Olaf). Naast de schuif *Lengte* staat de schakelaar *Commons-caption* met het Commons-merkje, zoals bij de beschrijving van de hele afbeelding; de lengte begint hier op *Commons-caption* (hooguit 250 tekens). De objecten staan in een tabel met hun AI-parameters (lengte, ruimte, aanwijzing, prompt), met vaste kolombreedtes. Elk object heeft eigen instellingen: met *Alle objecten (n)* gekozen (standaard) gaat een wijziging naar alle, met één object gekozen alleen naar dat object (wens Olaf). *Reset defaults (for all objects)* zet ze allemaal terug. De instellingen, tot en met de prompt, staan in de uitklapper *Settings for the AI* (standaard dicht, grotere kop); een klik op één object klapt hem open. Drie niveaus van koppen: secties, instellingen en uitleg. Onderaan *Unhappy with the AI descriptions?*: daarna pas je elke beschrijving per object aan in de vergroter (het oog).
+- *Describe* in de bulkacties opent een eigen venster met de instellingen voor de AI, net als *Wat is dit?* (wens Olaf): een optionele aanwijzing, de lengte (tot een Commons-caption van hooguit 250 tekens), de ruimte rond de uitsnede (begint op 0%) en de prompt zoals hij naar het model gaat (alleen te lezen). Die instellingen gaan mee met elk object. Nieuw: `GET …/objecten/{id}/beschrijving/prompt` (gratis). FO 7.4.
+- Bulkactie *Describe* heeft nu ook *Per kind*, zoals Group en Trash (wens Olaf): per zoekterm de zichtbare objecten zonder beschrijving, met het bedrag bij elke link en de gewone bevestiging met miniaturen. FO 7.4.
+- Een smal zoekveld in de kop van de objectenlijst, naast *All · None · Invert* (wens Olaf): alleen objecten waarvan de naam, zoekterm, het item, het bijschrift of de beschrijving alle woorden bevat, in de lijst en in het beeld. *Alle · Geen · Omkeren* en *alle* in de bulkacties gaan dan over de gevonden objecten; vinkjes daarbuiten blijven staan. Zoeken kan in het Nederlands en het Engels; een (i) naast het veld legt het uit. FO 7.6.
+- Twee uitklappers onder de objectenlijst, standaard dicht: *Bulk actions* (de vier tabbladen Describe, Deduplicate, Group en Trash) en *Save and export* (Save selection, Download (zip), To Commons en de bewaartermijnen) (wens Olaf).
+- De (i) bij *Found objects (cut-outs)* legt *Bulk actions* en *Save and export* elk in een eigen alinea uit, in plaats van het oude *At the bottom*; de inleiding en *Ticking* verwijzen naar *Save and export* (wens Olaf).
+- In de objectenlijst krijgt een object dat nog geen beschrijving heeft (niet door de AI en geen eigen bijschrift) een klein label *not described yet*, met uitleg bij de muis (wens Olaf).
+
+### Gewijzigd
+
+- *Beeldt af, zonder regio*: de knop heet *Locate all items* (was *Detect all items*), en de *Bulk*-uitleg zegt *locating* (wens Olaf).
+- *Beeldt af, zonder regio*: de uitleg in een nieuwe volgorde: *Single items:* (vet; klikken op een item), *Bulk:* (vet; de vinkjes met alles aan · alles uit · omkeren), *Search word:* (vet; het potlood), *Results:* (vet; groen/grijs) en *Add new region:* (vet), met een link die *Point or draw* openklapt en ernaartoe scrolt. De regel *Cost per item* is weg (wens Olaf).
+- Uitleg boven de vinkjes bij *Beeldt af, zonder regio* en bij de zoektermen: *Unselect an item that should not go along when detecting all items in bulk* (wens Olaf; de zoektermen net zo).
+- *Van Commons*, *Beeldt af, zonder regio*: de uitleg luidt nu *According to Commons, these items are already 'depicted' (P180) in the image, but without a specific location / bounding box*, met een link naar P180 op Wikidata (wens Olaf).
+
 ## [0.33.7] - 2026-11-07
 
 ### Gewijzigd

@@ -187,6 +187,28 @@ def test_description_with_dummy(http):
     large = PILImage.open(io.BytesIO(http.get(url + "/invoer.jpg?marge=0.5&max=3000").data)).size
     assert max(large) >= max(small) and max(large) <= 3000
     assert http.get(url + "/invoer.jpg?max=veel").status_code == 400
+    # The prompt the question would send, with the settings of the bulk describe dialog (free).
+    shown = http.get(url + "/prompt?beschrijvingsniveau=caption&marge=0&aanwijzing=alleen%20het%20wapen").get_json()
+    assert shown["beschrijvingsniveau"] == "caption" and shown["marge"] == 0 and shown["aanwijzing"] == "alleen het wapen"
+    assert "alleen het wapen" in shown["prompt"]
+    assert "alleen het wapen" not in http.get(url + "/prompt").get_json()["prompt"]
+    assert http.get(url + "/prompt?beschrijvingsniveau=enorm").status_code == 400
+    # A prompt of your own (pencil in "What is this?"): saved, used, rolled back, history.
+    standard = http.get(url + "/prompt").get_json()
+    assert standard["eigen"] is False and standard["prompt"] == standard["standaard_prompt"]
+    mine = http.put(url + "/prompt", json={"prompt": "Describe the coat of arms.\n\nOnly the shield. "}).get_json()
+    assert mine["eigen"] is True and mine["prompt"] == "Describe the coat of arms.\n\nOnly the shield."
+    assert "alleen de rand" in http.get(url + "/prompt?aanwijzing=alleen%20de%20rand").get_json()["prompt"]
+    asked = http.post(url, json={"opnieuw": True}).get_json()["object"]["beschrijving"]
+    assert asked["prompt_eigen"] is True
+    second = http.put(url + "/prompt", json={"prompt": "Second prompt"}).get_json()
+    assert [h["tekst"] for h in second["geschiedenis"]] == ["Describe the coat of arms.\n\nOnly the shield."]
+    back = http.delete(url + "/prompt").get_json()
+    assert back["eigen"] is False and back["eigen_prompt"] is None and len(back["geschiedenis"]) == 2
+    gone = http.delete(f"{url}/prompt/geschiedenis/{quote(back['geschiedenis'][0]['bewaard_op'], safe='')}").get_json()
+    assert len(gone["geschiedenis"]) == 1
+    assert http.delete(f"{url}/prompt/geschiedenis/nooit").status_code == 404
+    assert http.put(url + "/prompt", json={"prompt": "  "}).status_code == 400
     wide = http.post(url, json={"opnieuw": True, "marge": 0.5}).get_json()
     assert wide["object"]["beschrijving"]["marge"] == 0.5
     hinted = http.post(url, json={"opnieuw": True, "aanwijzing": "alleen het wapen"}).get_json()
