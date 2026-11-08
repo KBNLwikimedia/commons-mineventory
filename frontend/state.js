@@ -3,7 +3,7 @@
 export function readStart(search) {
   const params = new URLSearchParams(search);
   const read = (key) => params.get(key) || "";
-  return { url: read("url"), titel: read("titel"), mid: read("mid"), pagina: read("pagina"), object: read("object") };
+  return { url: read("url"), titel: read("titel"), mid: read("mid"), pagina: read("pagina"), object: read("object"), vergroten: read("vergroten") };
 }
 
 // History ("Laatst bezocht"): the files opened in this browser, newest first,

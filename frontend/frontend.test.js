@@ -8,6 +8,7 @@ import { createI18n, money, translate } from "./i18n.js";
 import { appUrl, objectName, readStart } from "./state.js";
 import { nextZoomStep, normaliseRect, PageViewer, ZOOM_STEPS } from "./viewer/viewer.js";
 import ObjectList from "./components/ObjectList.vue";
+import { classColors, classKey } from "./class-colors.js";
 
 describe("translation files", () => {
   it("have the same keys in Dutch and English", () => {
@@ -524,5 +525,57 @@ describe("confirmation that may be switched off", async () => {
     confirmState.open = false;
     expect(await askConfirm("x", { dontAsk: "trash", store })).toBe(true);
     expect(confirmState.open).toBe(false); // not asked
+  });
+});
+
+describe("a colour per kind of object", () => {
+  const sam = (id, zoekterm, extra = {}) => ({ id, bron: "sam", zoekterm, label: zoekterm, status: "kandidaat", box: { x: 0, y: 0, w: 10, h: 10 }, masker: "m.png", masker_url: "/m.png", ...extra });
+
+  it("gives each search term a colour, only with two kinds or more", () => {
+    expect(classColors([sam("a", "plate"), sam("b", "Plate")])).toEqual({});
+    const colors = classColors([sam("a", "plate"), sam("b", "wine glass"), sam("c", "klik"), { id: "d", bron: "handmatig", zoekterm: "rechthoek" }]);
+    expect(Object.keys(colors)).toEqual(["plate", "wine glass"]);
+    expect(colors.plate).not.toBe(colors["wine glass"]);
+    expect(classKey({ bron: "groep", zoekterm: "plate" })).toBeNull();
+    expect(classKey({ bron: "commons", zoekterm: "plate" })).toBeNull();
+  });
+
+  it("colours the masks in the viewer and a dot in the list", () => {
+    const list = [sam("a", "plate"), sam("b", "wine glass")];
+    const colors = classColors(list);
+    const { host, viewer } = viewerWithPage();
+    viewer.setObjects(list, [], colors);
+    const group = host.querySelector('g.object[data-id="a"]');
+    expect(group.getAttribute("class")).toContain("object-klasse");
+    expect(group.style.getPropertyValue("--klasse")).toBe(colors.plate);
+    viewer.setSelection(["a"]);
+    expect(group.getAttribute("class")).toContain("object-klasse");
+    const wrapper = mount(ObjectList, { props: { mid: "M1", n: 1, objects: list, classColors: colors }, global: { provide: { t: (key) => key, language: "nl" } } });
+    expect(wrapper.findAll(".cc-klasse-stip")).toHaveLength(2);
+  });
+
+  it("shows only the masks of one kind, and all again", () => {
+    const list = [sam("a", "plate"), sam("b", "wine glass")];
+    const { host, viewer } = viewerWithPage();
+    viewer.setObjects(list, [], classColors(list));
+    viewer.setKindFilter("plate");
+    expect(viewer.el.classList.contains("soort-filter")).toBe(true);
+    expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
+    expect(host.querySelector('g.object[data-id="b"]').classList.contains("object-soort-aan")).toBe(false);
+    viewer.setObjects(list, [], classColors(list)); // a redraw keeps the choice
+    expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
+    viewer.setKindFilter(null);
+    expect(host.querySelectorAll(".object-soort-aan")).toHaveLength(0);
+  });
+
+  it("outlines each mask in neutral white, and uses the status colours without kinds", () => {
+    const list = [sam("a", "plate"), sam("b", "wine glass")];
+    const { host, viewer } = viewerWithPage();
+    viewer.setObjects(list, [], {}); // "by status": no colours per kind
+    expect(host.querySelectorAll(".object-klasse")).toHaveLength(0);
+    expect(host.querySelectorAll(".object-masker-rand")).toHaveLength(2);
+    const floods = [...host.querySelectorAll("#masker-rand feFlood")].map((f) => f.getAttribute("flood-color"));
+    expect(floods).toEqual(["#fff", "#000"]);
+    expect(host.querySelectorAll("#masker-rand feMorphology")).toHaveLength(2);
   });
 });

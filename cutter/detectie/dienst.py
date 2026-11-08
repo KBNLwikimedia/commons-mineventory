@@ -901,6 +901,19 @@ class DetectionService:
             "objecten": [self.public(file, n, o) for o in store["objecten"]],
         }
 
+    def saved_path(self, file, n, object_id):
+        """Where the saved cut-out of an object is on disk (the PNG of the shape, else the JPG),
+        or None when it has none (any more). Always inside the output folder."""
+        saved = self._find(file, n, object_id).get("opgeslagen") or {}
+        root = self.output_dir.resolve()
+        for kind in ("png", "jpg"):
+            if not saved.get(kind):
+                continue
+            path = (self._file_dir(file) / saved[kind]).resolve()
+            if path.is_file() and root in path.parents:
+                return path
+        return None
+
     def saved_file(self, file, n, object_id, kind):
         """Bytes of a saved cut-out ("jpg" or "png") at full resolution; made
         on the fly (not stored) when the object was not saved yet."""

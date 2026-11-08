@@ -64,6 +64,8 @@
           :mid="file.mid"
           :page="page"
           :objects="visibleObjects"
+          :class-colors="kindColors"
+          v-model:mask-coloring="maskColoring"
           :new-ids="newIds"
           :point-mode="pointMode"
           :draw-mode="drawMode"
@@ -137,6 +139,7 @@
           :mid="file.mid"
           :n="pageN"
           :objects="visibleObjects"
+          :class-colors="listKindColors"
           :empty-text="objectQuery.trim() && certainObjects.length ? t('objects.search_none') : ''"
           :focused="focusedId"
           :hovered="hoveredId"
@@ -298,6 +301,7 @@
       :object="magnified"
       :position="{ index: magnifiedIndex + 1, total: listOrder.length }"
       :list-name="listNames[magnifiedId] || ''"
+      :start-tab="magnifierTab"
       @step="stepMagnifier"
       @changed="replaceObject"
       @trashed="trashObject($event)"
@@ -322,6 +326,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTab, CdxTabs, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconPrevious, cdxIconSearch, cdxIconTrash, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
+import { classColors } from "../class-colors.js";
 import { askConfirm, askConfirmValue } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import BulkDescribeDialog from "./BulkDescribeDialog.vue";
@@ -451,6 +456,28 @@ const shownCertainty = computed(() => Math.min(scoreRange.value.max, Math.max(sc
 // Compared in whole percents, as the slider shows them; the threshold kept within the slider's range.
 const isVisible = (o) => o.score == null || Math.round(o.score * 100) >= shownCertainty.value;
 const certainObjects = computed(() => objects.value.filter(isVisible));
+// A colour per kind of object (wish Olaf), from all objects of the page, so it stays put while
+// the certainty slider or the search hides some.
+const kindColors = computed(() => classColors(objects.value));
+// What the colour of the masks shows: the kind (default) or the status, as the frames (wish
+// Olaf). Remembered in the browser. The dots in the list only go with the colours per kind.
+const MASK_COLORING_KEY = "cc-maskers-kleur";
+const maskColoring = ref(readMaskColoring());
+function readMaskColoring() {
+  try {
+    return window.localStorage.getItem(MASK_COLORING_KEY) === "status" ? "status" : "soort";
+  } catch {
+    return "soort";
+  }
+}
+watch(maskColoring, (value) => {
+  try {
+    window.localStorage.setItem(MASK_COLORING_KEY, value);
+  } catch {
+    // no storage: the choice lasts as long as the page
+  }
+});
+const listKindColors = computed(() => (maskColoring.value === "status" ? {} : kindColors.value));
 const hiddenCount = computed(() => objects.value.length - certainObjects.value.length);
 // The search box above the list (wish Olaf): every word must occur in the object's texts,
 // case-insensitive. It narrows what you see, in the list and in the image, and what "all"
@@ -587,8 +614,13 @@ async function goToPage(n) {
       .catch(() => {});
     if (start.object) {
       const id = start.object;
+      const magnify = start.vergroten; // from the eye on the Objects page
       start.object = "";
-      setTimeout(() => focusObject(id), 300);
+      start.vergroten = "";
+      setTimeout(() => {
+        focusObject(id);
+        if (magnify && objects.value.some((o) => o.id === id)) openMagnifier(id, magnify === "aangevuld" ? "aangevuld" : "");
+      }, 300);
     }
   } catch (error) {
     fail(error);
@@ -1195,8 +1227,11 @@ async function forgetAll() {
   if (await askConfirm(t("history.clear_confirm"), { title: t("history.clear"), go: t("history.clear"), destructive: true, links: objectsLinks() })) visited.value = clearHistory();
 }
 
-function openMagnifier(id) {
+// `tab`: the tab to open on ("aangevuld" from the eye on the Objects page); else the cut-out.
+const magnifierTab = ref("");
+function openMagnifier(id, tab = "") {
   magnifiedId.value = id;
+  magnifierTab.value = tab;
   magnifierOpen.value = true;
 }
 

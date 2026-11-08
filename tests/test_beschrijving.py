@@ -459,6 +459,12 @@ def test_detection_clue_tells_what_the_app_knows():
     assert clue({"bron": "groep", "zoekterm": "bottle"}) == ("", None)
     assert clue({"bron": "handmatig", "zoekterm": "rechthoek"}) == ("", None)
     assert clue({"bron": "sam", "zoekterm": "klik", "score": 0.8}) == ("", None)
+    # ... unless you named it: your name always goes along (wish Olaf).
+    drawn, source = clue({"bron": "handmatig", "zoekterm": "rechthoek", "naam": "silver ewer"})
+    assert source == "naam" and "silver ewer" in drawn and "rechthoek" not in drawn
+    assert clue({"bron": "sam", "zoekterm": "klik", "naam": "nautilus cup"})[1] == "naam"
+    group, source = clue({"bron": "groep", "groep": {"leden": []}, "naam": "fruit bowl"})
+    assert source == "naam" and "group as a whole" in group and "fruit bowl" in group
     # It goes into the question.
     prompt = beschrijving.build_prompt({"titel": "File:X.jpg"}, clue=sure)
     assert prompt.endswith(sure)

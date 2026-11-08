@@ -46,7 +46,7 @@
     </template>
     <cdx-tabs v-model:active="tab" :framed="true">
       <cdx-tab name="uitsnede" :label="t('magnifier.cutout')">
-        <div v-if="object.masker" class="cc-weergave">
+        <div v-if="object.masker && !inTrash" class="cc-weergave">
           <cdx-toggle-button-group v-model="view" :buttons="views" :aria-label="t('magnifier.view')" />
           <span class="cc-klein">{{ t(`concept.format_${view}`) }}</span>
         </div>
@@ -78,6 +78,8 @@
             <dd><saved-label :object="object" /> <retention-info /><br /><span class="cc-klein">{{ savedInfo.title }}</span></dd>
           </template>
           <template v-if="object.herkomst?.p2677"><dt>P2677</dt><dd><code>{{ object.herkomst.p2677 }}</code></dd></template>
+          <!-- A trashed object is only looked at (wish Olaf): no caption, downloads or actions. -->
+          <template v-if="!inTrash">
           <dt>{{ t("magnifier.caption") }}</dt>
           <dd class="cc-bijschrift">
             <span class="cc-invoer-met-knop" :class="{ 'met-tekstknop': removedCaption && !caption }">
@@ -112,8 +114,10 @@
             </span>
             <cdx-button action="progressive" size="small" :disabled="caption === (object.bijschrift?.tekst || '')" @click="saveCaption">{{ t("actions.save_short") }}</cdx-button>
           </dd>
+          </template>
         </dl>
-        <div class="cc-knoppen">
+        <p v-if="inTrash" class="cc-uitleg">{{ t("magnifier.in_trash") }}</p>
+        <div v-else class="cc-knoppen">
           <span class="cc-knopgroep" role="group" :aria-label="t('magnifier.download')">
             <span class="cc-klein">{{ t("magnifier.download") }}</span>
             <cdx-button action="progressive" @click="download('jpg')"><cdx-icon :icon="cdxIconDownload" /> JPG</cdx-button>
@@ -141,7 +145,7 @@
 
       <!-- The AI-completed version (7.7): its own tab, only when there is one. Never a source,
            never to Commons as a cut-out. A switch shows what the AI filled in. -->
-      <cdx-tab v-if="object.aangevuld || completionHistory.length" name="aangevuld" :label="t('completion.tab')">
+      <cdx-tab v-if="!inTrash && (object.aangevuld || completionHistory.length)" name="aangevuld" :label="t('completion.tab')">
         <section class="cc-aanvulling">
           <template v-if="!object.aangevuld">
             <p class="cc-uitleg">{{ t("completion.none_current") }}</p>
@@ -228,7 +232,8 @@
         </section>
       </cdx-tab>
 
-      <cdx-tab name="beschrijving" :label="t('describe.title')">
+      <!-- Not for a trashed object, which is only looked at (wish Olaf). -->
+      <cdx-tab v-if="!inTrash" name="beschrijving" :label="t('describe.title')">
         <!--
           One flow for the first and every later question:
           1. the answer (or, before the first one, what you get), with its own actions;
@@ -530,7 +535,7 @@
         </cdx-accordion>
       </cdx-tab>
 
-      <cdx-tab name="commons" :label="t('concept.tab')">
+      <cdx-tab v-if="!inTrash" name="commons" :label="t('concept.tab')">
         <concept-editor ref="editor" :mid="file.mid" :n="n" :object-id="object.id" @texts-changed="emit('changed', $event)" />
       </cdx-tab>
     </cdx-tabs>
@@ -568,6 +573,10 @@ const props = defineProps({
   position: { type: Object, default: () => ({ index: 1, total: 1 }) },
   // The name as the list shows it ("boom 2"), for the title only.
   listName: { type: String, default: "" },
+  // The tab to open on: "aangevuld" (the AI-augmented version, from the Objects page) or "".
+  startTab: { type: String, default: "" },
+  // The object is in the trash (opened from the trash on the Objects page): no trash button.
+  inTrash: { type: Boolean, default: false },
 });
 const emit = defineEmits(["update:open", "changed", "trashed", "refine", "step"]);
 
@@ -584,7 +593,11 @@ onMounted(() => window.addEventListener("keydown", onStepKey));
 const t = useT();
 const language = inject("language", "nl");
 const config = inject("config");
-const tab = ref("uitsnede");
+const startingTab = () => (props.startTab === "aangevuld" && props.object.aangevuld ? "aangevuld" : "uitsnede");
+const tab = ref(startingTab());
+watch(() => [props.startTab, props.open], () => {
+  if (props.open && props.startTab) tab.value = startingTab();
+});
 const caption = ref(props.object.bijschrift?.tekst || "");
 const savedInfo = computed(() => savedLabel(props.object, t, language));
 const plan = ref(null);
@@ -786,6 +799,12 @@ const views = [
   { value: "jpg", label: "JPG" },
 ];
 const view = ref(props.object.masker ? "png" : "jpg");
+// A trashed object is read-only (wish Olaf): only the cut-out tab, the shape when it has one.
+watch(() => props.inTrash, (trashed) => {
+  if (!trashed) return;
+  tab.value = "uitsnede";
+  view.value = props.object.masker ? "png" : "jpg";
+}, { immediate: true });
 // "loading" until the browser has the cut-out; again after switching between PNG and JPG.
 const imageState = ref("loading");
 const imageUrl = computed(() => (props.object.masker && view.value === "png" ? `${base.value}/uitsnede.png` : `${base.value}/uitsnede.jpg?w=1200`));

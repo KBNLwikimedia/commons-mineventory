@@ -25,6 +25,7 @@
         <img src="{{ url_for('static', filename='img/commons.svg') }}" alt="Wikimedia Commons" width="24" height="24">
       </a>
       <a href="{{ url_for('web.objects_overview') }}">{{ t("objects.title") }}</a>
+      <a href="{{ url_for('web.objects_overview', tab='prullenbak') }}">{{ t("header.trash") }}</a>
       <span class="cc-talen" role="group" aria-label="{{ t('header.language') }}">
         {% for code in talen %}
           {% if code == taal %}<strong aria-current="true">{{ code|upper }}</strong>

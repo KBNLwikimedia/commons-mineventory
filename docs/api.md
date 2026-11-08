@@ -72,6 +72,7 @@ Regio's uit Commons (`modus: commons`) zijn de verklaringen *beeldt af* (P180) m
 | DELETE | `/bestand/{mid}/pagina/{n}/objecten/{object_id}` | Naar de prullenbak |
 | GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/uitsnede.jpg` | De rechthoek als JPG in volledige resolutie; met `?w=` een voorbeeld |
 | GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/uitsnede.png` | De vorm van het object als transparante PNG, in volledige resolutie |
+| POST | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/uitsnede/mapvenster` | De opgeslagen uitsnede tonen in de bestandsverkenner (sinds 0.33.9): opent een venster op de computer waar de app draait, met het bestand (de PNG, anders de JPG) geselecteerd. Alleen in debugmodus en vanaf dezelfde computer; anders 403 `not_local` (op Toolforge ziet niemand de schijf: gebruik daar `uitsnede.png`/`uitsnede.jpg`, met `?download=1` om op te slaan). 409 `not_saved` zonder opgeslagen uitsnede. Antwoord 204. Gratis |
 | GET | `/bestand/{mid}/pagina/{n}/objecten/{object_id}/masker.png` | Het masker (wit is het object), op de resolutie van het masker |
 
 Statussen: `kandidaat`, `geselecteerd`, `uitgesloten`. Bronnen: `sam`, `dummy`, `commons`, `handmatig`.
@@ -136,17 +137,7 @@ Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{o
 
 ## Verouderde paden
 
-Deze paden werken nog tot versie 0.33.0 (eerst waren 0.30.0, 0.31.0 en 0.32.0 genoemd). Het antwoord heeft dan `Deprecation: true` en een `Link` naar het nieuwe pad (`rel="successor-version"`); in `/api/v1/openapi.json` staan ze als `deprecated`.
-
-| Oud (tot 0.33.0) | Nieuw (sinds 0.29.0) |
-| --- | --- |
-| `/bestand/{mid}/pagina/{n}/object/{object_id}` en alles daaronder (`…/uitsnede.jpg`, `…/uitsnede.png`, `…/masker.png`, `…/beschrijving`, `…/beschrijving/geschiedenis`, `…/beschrijving/invoer.jpg`, `…/commons`, `…/commons/weergave`) | hetzelfde onder `/bestand/{mid}/pagina/{n}/objecten/{object_id}` |
-| POST `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/terugzetten` | PUT `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving` |
-| DELETE `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/geschiedenis?versie=…` | DELETE `/bestand/{mid}/pagina/{n}/objecten/{object_id}/beschrijving/geschiedenis/{versie}` |
-| PATCH `/bestand/{mid}/pagina/{n}/objecten` met `{"samenvoegen": true}` | POST `/bestand/{mid}/pagina/{n}/samenvoegingen` |
-| POST `/bestand/{mid}/commons/controle` met `{"objecten": …}` | GET `/bestand/{mid}/commons/controle?objecten=…` |
-
-Oude paden, zoals de test ze controleert: `/bestand/{mid}/pagina/{n}/object/{object_id}`, `/bestand/{mid}/pagina/{n}/object/{object_id}/uitsnede.jpg`, `/bestand/{mid}/pagina/{n}/object/{object_id}/uitsnede.png`, `/bestand/{mid}/pagina/{n}/object/{object_id}/masker.png`, `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving`, `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/geschiedenis`, `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/terugzetten`, `/bestand/{mid}/pagina/{n}/object/{object_id}/beschrijving/invoer.jpg`, `/bestand/{mid}/pagina/{n}/object/{object_id}/commons`, `/bestand/{mid}/pagina/{n}/object/{object_id}/commons/weergave`.
+De paden van vóór 0.29.0 (`…/object/{object_id}` en alles daaronder, POST `…/beschrijving/terugzetten`, DELETE `…/beschrijving/geschiedenis?versie=`, `{"samenvoegen": true}` bij PATCH `…/objecten` en POST `…/commons/controle`) zijn sinds 0.33.9 weg (backlog 12e); ze geven 404. Gebruik de paden hierboven.
 
 ## Foutcodes
 

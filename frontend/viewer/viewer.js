@@ -18,6 +18,8 @@
  * an empty spot is a point.
  */
 
+import { classColor, classKey } from "../class-colors.js";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
 const MAX_SCALE = 3;
@@ -128,8 +130,10 @@ export class PageViewer {
 
   /* Detected objects. Selected ones and regions show their mask: an
      accent-coloured rectangle masked by the object's mask PNG. */
-  setObjects(objects, newIds) {
-    this.lastObjects = [objects, newIds];
+  setObjects(objects, newIds, colors = {}) {
+    this.lastObjects = [objects, newIds, colors];
+    // A colour per kind of object (class-colors.js): the masks take it, the frames keep the status.
+    this.classColors = colors || {};
     // Marks that outlive a redraw (a new answer from the server): under the mouse, chosen in the list.
     const marked = {};
     this.objectElements.forEach((group, id) => {
@@ -144,6 +148,8 @@ export class PageViewer {
       group.setAttribute("class", this._classes(obj, fresh.has(obj.id)));
       group.dataset.id = obj.id;
       group.object = obj;
+      const kindColor = classColor(this.classColors, obj);
+      if (kindColor) group.style.setProperty("--klasse", kindColor);
       if (obj.status !== "uitgesloten" && obj.masker) this._addMask(group, obj);
       const outline = document.createElementNS(SVG_NS, "rect");
       this._setBox(outline, obj.box);
@@ -177,7 +183,20 @@ export class PageViewer {
       group.classList.add(name);
       if (group.object.masker) this._addMask(group, group.object);
     });
+    this._applyKindFilter();
     this._scaleLabels();
+  }
+
+  /* Show only the objects of one kind (class-colors.js), the others faded; null shows all. */
+  setKindFilter(kind) {
+    this.kindFilter = kind || null;
+    this._applyKindFilter();
+  }
+
+  _applyKindFilter() {
+    const kind = this.kindFilter;
+    this.el.classList.toggle("soort-filter", Boolean(kind));
+    this.objectElements.forEach((group) => group.classList.toggle("object-soort-aan", Boolean(kind) && classKey(group.object) === kind));
   }
 
   _classes(obj, fresh) {
@@ -187,6 +206,7 @@ export class PageViewer {
       `object-${obj.bron}`,
       fresh ? "object-nieuw" : "",
       obj.masker ? "object-gemaskerd" : "",
+      classColor(this.classColors, obj) ? "object-klasse" : "",
     ].filter(Boolean).join(" ");
   }
 
@@ -203,7 +223,7 @@ export class PageViewer {
       const obj = group.object;
       obj.status = selected.has(id) ? "geselecteerd" : obj.status === "geselecteerd" ? "kandidaat" : obj.status;
       // Keep the marks that are not about the status: under the mouse, chosen in the list.
-      const kept = ["hover", "uitgelicht"].filter((name) => group.classList.contains(name));
+      const kept = ["hover", "uitgelicht", "object-soort-aan"].filter((name) => group.classList.contains(name));
       group.setAttribute("class", [this._classes(obj, group.classList.contains("object-nieuw")), ...kept].join(" "));
     });
   }
@@ -225,7 +245,55 @@ export class PageViewer {
     this._setBox(fill, b);
     fill.setAttribute("class", "object-masker");
     fill.setAttribute("mask", `url(#${maskId})`);
-    group.prepend(fill);
+    // A 2px outline around the shape (wish Olaf): the same masked shape, grown by the filter
+    // and with the shape itself cut out, so only a ring is left.
+    const ring = document.createElementNS(SVG_NS, "g");
+    ring.setAttribute("class", "object-masker-rand");
+    ring.setAttribute("filter", `url(#${this._outlineFilter()})`);
+    const shape = document.createElementNS(SVG_NS, "rect");
+    this._setBox(shape, b);
+    shape.setAttribute("mask", `url(#${maskId})`);
+    ring.append(shape);
+    group.prepend(fill, ring);
+  }
+
+  /* The filter that turns a masked shape into its outline: 2 screen pixels of white with a thin
+     dark edge outside, readable on any image and without a meaning of its own (the colours are
+     for the status of the frames and the kind of the masks; wish Olaf). Its width follows the
+     zoom, like the frames. Made again after the definitions are cleared. */
+  _outlineFilter() {
+    const id = "masker-rand";
+    if (this.outlineFilterEl?.parentNode === this.defs) return id;
+    const filter = document.createElementNS(SVG_NS, "filter");
+    this.outlineFilterEl = filter;
+    filter.setAttribute("id", id);
+    filter.setAttribute("x", "-50%");
+    filter.setAttribute("y", "-50%");
+    filter.setAttribute("width", "200%");
+    filter.setAttribute("height", "200%");
+    const el = (name, attrs, parent = filter) => {
+      const node = document.createElementNS(SVG_NS, name);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+      parent.append(node);
+      return node;
+    };
+    const s = this.scale || 1;
+    // The shape grown by 2 and by 3 screen pixels.
+    this.outlineMorph = el("feMorphology", { in: "SourceAlpha", operator: "dilate", radius: String(2 / s), result: "wit-vorm" });
+    this.outlineMorphOuter = el("feMorphology", { in: "SourceAlpha", operator: "dilate", radius: String(3 / s), result: "rand-vorm" });
+    // White: grown by 2, without the shape itself.
+    el("feFlood", { "flood-color": "#fff", result: "wit" });
+    el("feComposite", { in: "wit", in2: "wit-vorm", operator: "in", result: "wit-groot" });
+    el("feComposite", { in: "wit-groot", in2: "SourceAlpha", operator: "out", result: "wit-ring" });
+    // Dark: the last pixel outside the white.
+    el("feFlood", { "flood-color": "#000", "flood-opacity": "0.65", result: "donker" });
+    el("feComposite", { in: "donker", in2: "rand-vorm", operator: "in", result: "donker-groot" });
+    el("feComposite", { in: "donker-groot", in2: "wit-vorm", operator: "out", result: "donker-ring" });
+    const merge = el("feMerge", {});
+    el("feMergeNode", { in: "donker-ring" }, merge);
+    el("feMergeNode", { in: "wit-ring" }, merge);
+    this.defs.append(filter);
+    return id;
   }
 
   _setBox(element, b) {
@@ -365,6 +433,8 @@ export class PageViewer {
   _scaleLabels() {
     this.svg.style.setProperty("--label-size", `${13 / this.scale}px`);
     this.svg.style.setProperty("--stroke", `${2 / this.scale}px`);
+    if (this.outlineMorph) this.outlineMorph.setAttribute("radius", String(2 / this.scale));
+    if (this.outlineMorphOuter) this.outlineMorphOuter.setAttribute("radius", String(3 / this.scale));
   }
 
   /* Swap in a sharper image once the page is shown larger than the loaded one. */

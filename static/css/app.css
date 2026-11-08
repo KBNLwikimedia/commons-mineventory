@@ -229,6 +229,21 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .object-masker { fill: var(--cc-kandidaat); opacity: 0.4; pointer-events: none; }
 .object-geselecteerd .object-rand { stroke: var(--cc-geselecteerd); }
 .object-geselecteerd .object-masker { fill: var(--cc-geselecteerd); opacity: 0.5; }
+/* The 2px outline of a mask: white with a thin dark edge, made by the filter (wish Olaf). */
+.object-masker-rand { pointer-events: none; }
+/* A colour per kind of object (wish Olaf): the mask and its outline; the frame keeps the status. */
+.object-klasse .object-masker { fill: var(--klasse); }
+.cc-klasse-stip { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: 0.05em; flex: none; }
+.cc-legenda-soorten { margin: 0; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--cc-rand); align-items: center; }
+.cc-soort-link { display: inline-flex; align-items: center; }
+.cc-soort-gekozen { font-weight: 700; text-decoration: underline; }
+.cc-maskers-kleur { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: 0.75rem; }
+.cc-maskers-kleur .cdx-toggle-button { min-height: 1.5rem; padding: 0 0.5rem; font-size: 0.75rem; }
+/* One kind chosen: the other objects fade, their masks and outlines disappear. */
+.viewer.soort-filter .object:not(.object-soort-aan) { opacity: 0.25; }
+.viewer.soort-filter .object:not(.object-soort-aan) .object-masker,
+.viewer.soort-filter .object:not(.object-soort-aan) .object-masker-rand { display: none; }
+.cc-legenda-soorten-kop { font-weight: 700; }
 .object-uitgesloten .object-rand { stroke: var(--cc-uitgesloten); stroke-dasharray: 4 4; }
 .object-commons .object-rand { stroke: var(--cc-commons-rand); fill: rgba(255, 204, 51, 0.12); }
 .object-commons.object-geselecteerd .object-rand { stroke: var(--cc-commons); stroke-width: calc(var(--stroke, 2px) * 1.6); }
@@ -382,16 +397,37 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-melding-compact.cdx-message { padding-top: 0.2rem; padding-bottom: 0.2rem; min-height: 0; font-size: 0.875rem; align-items: center; }
 .cc-meldingen:has(.cc-melding-compact) { gap: 0.25rem; }
 .cc-melding-beschrijving { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.cc-bulk { margin: 0 0 0.75rem; }
+.cc-objecten-bulk { margin: 0 0 0.75rem; align-items: center; gap: 0.5rem; }
 .cc-facet-bestand { display: inline-block; max-width: 11rem; vertical-align: bottom; }
 /* Objects page: facets in a column on the left, the grid on the right. */
-.cc-objecten-indeling { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 1.5rem; align-items: start; margin-top: 0.75rem; }
+.cc-objecten-indeling { display: grid; grid-template-columns: var(--cc-facet-breedte, 15rem) 0.75rem minmax(0, 1fr); column-gap: 0.5rem; align-items: start; margin-top: 0.75rem; }
+/* The draggable border between the facets and the objects (wish Olaf). */
+.cc-facet-rand { align-self: stretch; min-height: 100%; }
+/* The file facet: a small thumbnail of the image, a click shows it large. */
+.cc-facet-met-duim .cdx-label__label__text { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%; }
+.cc-facet-duim { flex: none; width: 2rem; height: 2rem; padding: 0; border: 1px solid var(--cc-rand); border-radius: 2px; background: #f8f9fa; cursor: zoom-in; overflow: hidden; }
+.cc-facet-duim img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cc-facet-duim:hover, .cc-facet-duim:focus-visible { border-color: var(--color-progressive, #36c); outline: none; }
+.cc-bestand-voorbeeld.cdx-dialog { max-width: min(92vw, 70rem); width: 92vw; }
+.cc-bestand-voorbeeld .cc-knoppen { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.cc-app-merkje { margin-right: 0.3rem; vertical-align: -0.15rem; }
+.cc-bestand-zoom .cc-zoombeeld-vlak.viewer { height: 68vh; background: #f8f9fa; }
+/* Where the objects are (wish Olaf): only the outline of each mask (white with a dark edge), no
+   fill; the frame of a masked object stays invisible but still shows the name on hover. */
+.cc-bestand-zoom .object-masker { display: none; }
+.cc-bestand-zoom .object-gemaskerd .object-rand { stroke: transparent; fill: transparent; }
 .cc-objecten-indeling .cc-facetten { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; margin: 0; position: sticky; top: 0.5rem; }
 .cc-objecten-indeling .cc-facetten .cdx-field { margin: 0; }
 .cc-objecten-inhoud .cc-raster { margin-top: 0; }
+.cc-kaart-bestand .cc-link { font-size: inherit; text-decoration: underline; }
+button.cc-kaart-oog { border: 0; background: none; cursor: pointer; }
+.cc-kaart-oog { margin-left: auto; display: inline-flex; align-items: center; padding: 0.25rem; color: var(--cc-link, #36c); border-radius: 2px; }
+.cc-kaart-oog:hover { background: #eaf3ff; }
+.cc-kaart-oog .cdx-icon { color: #36c; }
+.cc-kaart-oog + .cdx-button { margin-left: 0; }
 .cc-kaart-kop { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.25rem; }
 .cc-kaart-kop .cdx-button { flex-shrink: 0; min-height: 0; min-width: 0; padding: 2px; }
-@media (max-width: 48rem) { .cc-objecten-indeling { grid-template-columns: 1fr; } .cc-objecten-indeling .cc-facetten { position: static; } }
+@media (max-width: 48rem) { .cc-objecten-indeling { grid-template-columns: 1fr; } .cc-facet-rand { display: none; } .cc-objecten-indeling .cc-facetten { position: static; } }
 .cc-term-aantal { display: inline-block; min-width: 1.2em; margin-left: 0.3em; padding: 0 0.3em; border-radius: 0.6em; background: var(--background-color-progressive-subtle, #eaf3ff); font-size: 0.8em; text-align: center; }
 .cc-aanwijzing { flex-basis: 100%; margin: 0 0 0.25rem; }
 .cc-marge { display: flex; flex-direction: column; gap: 0.1rem; }
@@ -424,7 +460,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-weergave-keuze { display: inline-flex; gap: 0.25rem; margin-left: 0.75rem; font-size: 0.875rem; }
 .cc-weergave-keuze .cdx-checkbox { margin: 0; }
 /* As in the Delpher Uitsnijder: masks and/or boxes can be hidden; a hidden box stays clickable. */
-.maskers-verborgen .object-masker { display: none; }
+.maskers-verborgen .object-masker, .maskers-verborgen .object-masker-rand { display: none; }
 /* Boxes off hides every frame, also the (heavier) yellow one of a selected region from Commons,
    and the name a region always carries, unless Names is on (wish Olaf). */
 .viewer.boxen-verborgen .object .object-rand { stroke: transparent; fill: transparent; }

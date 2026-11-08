@@ -137,6 +137,9 @@ PLACEHOLDER_TERMS = {"rechthoek", "klik"}  # what the app calls a drawn box and 
 CLUE_NAME = """
 
 The user named this object: "{name}". Take this as what it shows, unless the image clearly shows something else."""
+CLUE_GROUP_NAME = """
+
+The user named this group as a whole: "{name}". Take this as what the objects together show, unless the image clearly shows something else."""
 CLUE_COMMONS = """
 
 On Wikimedia Commons this region of the image is marked as "{name}" (by a person; it may be incomplete). Take this as what it shows, unless the image clearly shows something else."""
@@ -150,13 +153,15 @@ An image detector (SAM) found this object when searching for "{term}", but it wa
 
 def detection_clue(obj):
     """The clue sentence for an object (with its leading blank line), and what it was based on;
-    ("", None) when there is none: a group (its members are named already) or a box drawn by
-    hand without a name."""
-    if obj.get("bron") == "groep" or obj.get("groep"):
-        return "", None
+    ("", None) when there is none. A name the user gave (the pencil) always goes along, for
+    every kind of object: found, drawn, clicked or a group (wish Olaf, 8-11-2026). Without a
+    name there is none for a group (its members are named already), a drawn box or a click."""
     name = " ".join(str(obj.get("naam") or "").split())[:120]
+    is_group = obj.get("bron") == "groep" or bool(obj.get("groep"))
     if name:
-        return CLUE_NAME.format(name=name), "naam"
+        return (CLUE_GROUP_NAME if is_group else CLUE_NAME).format(name=name), "naam"
+    if is_group:
+        return "", None
     if obj.get("bron") == "commons":
         label = " ".join(str(obj.get("label_item") or obj.get("label") or "").split())[:120]
         return (CLUE_COMMONS.format(name=label), "commons") if label else ("", None)

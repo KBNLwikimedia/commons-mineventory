@@ -161,6 +161,8 @@ def _client_config(page, **extra):
         "sam_usd": verbruik.KOSTEN_PER_AFBEELDING,  # one SAM call (per image), for the cost in buttons
         "aanvulling_usd": aanvulling.PRICE_USD,  # one AI-completed version (Muse Image, 7.7)
         "muse": _muse_info(),
+        # "Show in folder" only when the app runs on your own computer (debug, same machine).
+        "lokaal": bool(current_app.debug and request.remote_addr in ("127.0.0.1", "::1")),
         # Retention periods in days (12.1), so the interface can say that not everything is kept.
         "bewaren": {
             "originelen": config["BEWAAR_ORIGINELEN_DAGEN"],

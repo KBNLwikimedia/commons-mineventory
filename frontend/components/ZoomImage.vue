@@ -45,6 +45,10 @@ const props = defineProps({
   alt: { type: String, default: "" },
   // Optional: an image of the same size laid exactly over it (e.g. what the AI filled in).
   overlay: { type: String, default: "" },
+  // Optional: objects to outline on the image (their box in the image's own pixels), and how
+  // the tooltip names them ({title, details, hint}, as in the main viewer).
+  objects: { type: Array, default: () => [] },
+  describe: { type: Function, default: null },
 });
 const emit = defineEmits(["load", "error"]);
 const t = useT();
@@ -76,7 +80,7 @@ function setOverlay(src) {
 }
 
 onMounted(() => {
-  viewer.value = new PageViewer(host.value);
+  viewer.value = new PageViewer(host.value, props.describe ? { describe: props.describe } : {});
   viewer.value.on("zoom", (s) => (scale.value = s));
   viewer.value.on("imageload", () => {
     viewer.value.fit();
@@ -85,6 +89,7 @@ onMounted(() => {
   viewer.value.on("imageerror", () => emit("error"));
   load();
   setOverlay(props.overlay);
+  viewer.value.setObjects(props.objects, []);
 });
 
 onBeforeUnmount(() => {
@@ -94,4 +99,5 @@ onBeforeUnmount(() => {
 
 watch(() => [props.src, props.width, props.height], () => viewer.value && load());
 watch(() => props.overlay, (src) => viewer.value && setOverlay(src));
+watch(() => props.objects, (list) => viewer.value?.setObjects(list, []));
 </script>

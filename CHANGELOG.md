@@ -3,6 +3,25 @@
 Alle noemenswaardige wijzigingen in dit project staan in dit bestand.
 De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het project gebruikt [Semantic Versioning](https://semver.org/lang/nl/).
 
+## [Unreleased]
+
+## [0.33.9] - 2026-11-08
+
+### Verwijderd
+
+- De **verouderde API-paden** van vóór 0.29.0 (besluit Olaf, backlog 12e): `…/object/{object_id}` en alles daaronder, POST `…/beschrijving/terugzetten`, DELETE `…/beschrijving/geschiedenis?versie=`, `{"samenvoegen": true}` bij PATCH `…/objecten` en POST `…/commons/controle`. Ze geven nu 404 (of 400 voor `samenvoegen`); de app gebruikte ze al niet meer. Geen `Deprecation`-kop meer, en `deprecated` uit de OpenAPI.
+
+### Toegevoegd
+
+- Een **eigen naam** (potlood) gaat nu altijd mee in de prompt als aanwijzing, ook bij een **groep** (*The user named this group as a whole: …*), een **getekend kader** en een **klik** (wens Olaf). Zonder naam krijgen die nog steeds geen aanwijzing. FO 6.2.
+- **Een kleur per soort object** (wens Olaf): met twee of meer soorten (zoektermen, zoals *plate* en *wine glass*) krijgen de maskers per soort een eigen kleur, met een stip in die kleur in de lijst *Objecten*. Het kader houdt de kleur van de status. Onder de werkbalk van de viewer staat *Alleen tonen*: elke soort is een link die alleen de maskers van die soort toont; *Alle soorten* toont ze weer allemaal. Niet voor getekende kaders, kliks, groepen en regio's uit Commons. FO 10.
+- Pagina *Objecten*: de **rand tussen de filters en de objecten is versleepbaar** (ook met de pijltjes; dubbelklik zet hem terug; onthouden in de browser), en in het facet *Bestand* staat bij elk bestand een **miniatuur**; een klik toont de afbeelding groot, te zoomen (schuif, knoppen, muiswiel), te verslepen en te scrollen zoals in de vergroter, met de omtrek van het masker van elk object van dat bestand (wit met een donkere rand; zonder vorm het kader) uit het tabblad waar je het opende (*Objecten* of *Prullenbak*), zodat je ziet waar ze op de afbeelding staan, met *Openen in Mineventory* (met het icoon van de app) en *Op Commons* (met het Commons-logo) (wens Olaf). Het tabblad **Prullenbak** heeft dezelfde facetten en de versleepbare rand, met *Getoonde objecten terugzetten* en *Getoonde objecten definitief verwijderen* (met bevestiging en miniaturen) als er gefilterd is (wens Olaf). De kaarten in de prullenbak hebben ook het **oog** (de vergroter, met ‹ › door de getoonde prullenbak; alleen om te bekijken: alleen het tabblad *Uitsnede* (zonder *AI-aangevuld*, *Wat staat hierop?* en *Commons-concept*), zonder de keuze PNG/JPG, zonder bijschrift, downloads, *Aanvullen met AI* en *Naar de prullenbak*, met de zin dat je het terugzet om het te bewerken) en tonen nu ook de bron, *AI-aangevuld* en *opgeslagen* (een object in de prullenbak houdt zijn opgeslagen uitsneden tot je de prullenbak leegt).
+- Pagina *Objecten*: het facet **AI-aangevuld** (objecten met een AI-aangevulde versie) onder *Bron*, met *AI-aangevuld* op de kaart, en een **oog** naast de prullenbak dat het object in de vergroter opent (`?vergroten=1` naast `?object=`); met het facet *AI-aangevuld* aan opent het oog meteen het tabblad met de AI-aangevulde versie (`?vergroten=aangevuld`) (wens Olaf). Het oog opent de **vergroter op de pagina *Objecten* zelf**: sluiten laat je waar je was, met je filters, en ‹ › gaan door de objecten die de filters tonen (Ctrl-klik opent de afbeeldingspagina; *Vorm met SAM* gaat ook daarheen, want dat kost geld en vraagt de afbeelding). De prullenbak op een kaart vraagt nu eerst bevestiging, met de miniatuur (ook bij *alle getoonde objecten*, tot 40), zoals de knop voor alle getoonde objecten; bij een regio uit Commons met de zin dat er op Commons niets verandert. *Ongedaan maken · Naar de prullenbak* liep aan elkaar.
+- Schakelaar **Kleur maskers: per soort / per status** op de regel van de soorten, onthouden in de browser (wens Olaf). Elke kleur betekent zo één ding: het kader de status, de vulling van het masker de soort (of de status).
+- Bij een **opgeslagen uitsnede** op de pagina *Objecten* (en in de prullenbak): *Bestand openen* en *Downloaden* (de PNG van de vorm, anders de JPG, in volledige resolutie), en alleen als de app op je eigen computer draait (debugmodus, zelfde machine) ook *Tonen in map*: de verkenner opent met het bestand geselecteerd (wens Olaf). Op Toolforge ziet niemand de schijf; daar blijven openen en downloaden. API: `POST …/objecten/{id}/uitsnede/mapvenster` (anders 403 `not_local`).
+- Link **Prullenbak** in de kop, naast *Objecten* (wens Olaf): opent `/objecten?tab=prullenbak`.
+- Elk masker in de viewer krijgt een **rand van 2 pixels**, wit met een dunne donkere rand erbuiten (wens Olaf): zonder eigen betekenis, leesbaar op elk beeld, even dik bij elke zoom. Hij volgt de vorm (een SVG-filter) en verdwijnt met *Maskers* uit.
+
 ## [0.33.8] - 2026-11-08
 
 ### Toegevoegd

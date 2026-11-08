@@ -54,7 +54,16 @@
             @keydown.esc.prevent="editingId = null"
             @blur="saveName(obj)"
           />
-          <span v-else class="cc-object-naam" :title="t('objects.rename_help')" @click.prevent="emit('focus', obj.id)" @dblclick.prevent.stop="startRename(obj)">{{ listName(obj) }}</span>
+          <template v-else>
+            <!-- A dot in the colour of the masks of its kind (wish Olaf). -->
+            <span
+              v-if="classColor(classColors, obj)"
+              class="cc-klasse-stip"
+              :style="{ background: classColor(classColors, obj) }"
+              :title="t('objects.kind_dot', { kind: classKey(obj) })"
+            ></span>
+            <span class="cc-object-naam" :title="t('objects.rename_help')" @click.prevent="emit('focus', obj.id)" @dblclick.prevent.stop="startRename(obj)">{{ listName(obj) }}</span>
+          </template>
           <template #description>
             {{ t(`source.${obj.bron}`) }}<template v-if="obj.score != null"> · {{ Math.round(obj.score * 100) }}%</template>
             <!-- Described: "Describe selected objects" skips it, so show it in the row. -->
@@ -92,11 +101,14 @@ import { objectPath } from "../api.js";
 import { useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
 import { numberedNames, objectName } from "../state.js";
+import { classColor, classKey } from "../class-colors.js";
 
 const props = defineProps({
   // Shown instead of "No objects yet" when a search in the list finds nothing.
   emptyText: { type: String, default: "" },
   objects: { type: Array, required: true },
+  // {kind: colour}: a dot in the colour of the masks of that kind (class-colors.js).
+  classColors: { type: Object, default: () => ({}) },
   focused: { type: String, default: null },
   hovered: { type: String, default: null },
   // Objects from the latest search: their frame is orange, so is their outline here.

@@ -11,7 +11,10 @@ Sinds 0.33.8 krijgt de vraag *Wat staat hierop?* (in de vergroter en bij *Beschr
 - **anders de zoekterm van SAM, met de zekerheid**:
   - vanaf 50%: *An image detector (SAM) found this object when searching for "table" (certainty 75%). It is probably (part of) what "table" describes, or something related to it. Check what you see; if it is something else, describe what it really is.*
   - onder 50%: dezelfde zin, maar *it was unsure … It may be (part of) what "…" describes, or something else entirely; describe what you actually see.*
-- **geen zin** bij een groep (die noemt zijn leden al), een zelf getekend kader, een klik (*Aanwijzen*) en een eigen prompt.
+- **een eigen naam gaat altijd mee**, ook bij een groep (*The user named this group as a whole: …*), een zelf getekend kader en een klik (*Aanwijzen*);
+- **zonder eigen naam geen zin** bij een groep (die noemt zijn leden al), een getekend kader en een klik; nooit bij een eigen prompt.
+
+Tip: neem ook een **groep met een eigen naam** of een **getekend kader met een naam** mee in de vergelijking.
 
 Je ziet de zin in de prompt: in de vergroter onder *AI-prompt* → *Tonen*, en in het venster van *Beschrijven* onder *Prompt voor de AI*. Het antwoord bewaart welke aanwijzing meeging (`detectie_aanwijzing`: `naam`, `commons`, `zoekterm` of leeg).
 

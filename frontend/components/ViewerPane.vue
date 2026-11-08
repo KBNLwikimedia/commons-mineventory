@@ -41,6 +41,22 @@
         <li v-for="item in legend" :key="item"><span :class="['cc-legenda-staal', `cc-legenda-${item}`]"></span>{{ t(`legend.${item}`) }}</li>
       </ul>
     </cdx-accordion>
+    <!-- A colour per kind of object, each a link that shows only the masks of that kind
+         (wish Olaf); "All kinds" shows them all again. Only with the masks shown. -->
+    <ul v-if="show.maskers && kinds.length" class="cc-legenda cc-legenda-soorten">
+      <!-- What the colour of the masks shows: the kind (default) or, as the frames, the status. -->
+      <li class="cc-maskers-kleur">
+        <span class="cc-legenda-soorten-kop">{{ t("legend.masks_by") }}</span>
+        <cdx-toggle-button-group v-model="maskColoringModel" :buttons="maskColorings" :aria-label="t('legend.masks_by')" />
+      </li>
+      <li class="cc-legenda-soorten-kop">{{ t("legend.kinds") }}</li>
+      <li v-for="[kind, color] in kinds" :key="kind">
+        <button type="button" class="cc-link cc-soort-link" :class="{ 'cc-soort-gekozen': kindFilter === kind }" :aria-pressed="kindFilter === kind ? 'true' : 'false'" :title="t('legend.kind_only', { kind })" @click="setKind(kindFilter === kind ? null : kind)">
+          <span v-if="byKind" class="cc-klasse-stip" :style="{ background: color }"></span>{{ kind }}
+        </button>
+      </li>
+      <li><button type="button" class="cc-link" :disabled="!kindFilter" @click="setKind(null)">{{ t("legend.kinds_all") }}</button></li>
+    </ul>
     <div class="cc-viewer-vlak">
       <div ref="host" class="viewer" :class="{ 'maskers-verborgen': !show.maskers, 'boxen-verborgen': !show.boxen, 'namen-zichtbaar': show.namen, 'cc-skelet': imageState === 'loading' }" :aria-busy="imageState === 'loading' ? 'true' : 'false'"></div>
       <!-- Waiting feedback while the image comes in: the first time, the server fetches the original from Commons. -->
@@ -52,7 +68,7 @@
 
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon, CdxMessage } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon, CdxMessage, CdxToggleButtonGroup } from "@wikimedia/codex";
 import { cdxIconZoomIn, cdxIconZoomOut } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 import { numberedNames, objectName } from "../state.js";
@@ -63,11 +79,15 @@ const props = defineProps({
   mid: { type: String, required: true },
   page: { type: Object, required: true },
   objects: { type: Array, required: true },
+  // {kind: colour} when the page has more than one kind of object (class-colors.js).
+  classColors: { type: Object, default: () => ({}) },
+  // What the colour of the masks shows: "soort" (the kind) or "status" (as the frames).
+  maskColoring: { type: String, default: "soort" },
   newIds: { type: Array, default: () => [] },
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
 });
-const emit = defineEmits(["object-click", "object-open", "object-hover", "point", "rectangle"]);
+const emit = defineEmits(["object-click", "object-open", "object-hover", "point", "rectangle", "update:maskColoring"]);
 const t = useT();
 const language = inject("language", "nl");
 const host = ref(null);
@@ -77,6 +97,25 @@ const ZOOM_MIN_LOG = Math.log2(0.02);
 const ZOOM_MAX_LOG = Math.log2(3); // MAX_SCALE in viewer.js
 const LEGEND = ["geselecteerd", "kandidaat", "nieuw", "commons", "handmatig", "uitgesloten", "dik"];
 // Only the colours that occur on this page (plus "thicker", which always can).
+// The kinds with their colour, for the legend of the masks.
+const kinds = computed(() => Object.entries(props.classColors || {}));
+const maskColoringModel = computed({ get: () => props.maskColoring, set: (value) => emit("update:maskColoring", value) });
+const byKind = computed(() => props.maskColoring !== "status");
+const maskColorings = computed(() => [
+  { value: "soort", label: t("legend.by_kind") },
+  { value: "status", label: t("legend.by_status") },
+]);
+// The colours the viewer uses for the masks: per kind, or none (then the colour of the status).
+const shownColors = computed(() => (byKind.value ? props.classColors : {}));
+// The kind whose masks alone are shown (null: all). Forgotten when that kind is gone.
+const kindFilter = ref(null);
+const setKind = (kind) => {
+  kindFilter.value = kind;
+  viewer.value?.setKindFilter(kind);
+};
+watch(kinds, (list) => {
+  if (kindFilter.value && !list.some(([kind]) => kind === kindFilter.value)) setKind(null);
+});
 const legend = computed(() => {
   const objects = props.objects;
   const present = {
@@ -151,7 +190,7 @@ function load() {
     srcWidth: Math.min(SMALL, page.breedte),
     srcLarge: page.breedte > SMALL ? `${page.afbeelding_url}?w=${Math.min(LARGE, page.breedte)}` : null,
   });
-  viewer.value.setObjects(props.objects, props.newIds);
+  viewer.value.setObjects(props.objects, props.newIds, shownColors.value);
 }
 
 onMounted(() => {
@@ -178,7 +217,7 @@ onBeforeUnmount(() => {
 });
 
 watch(() => [props.page, props.mid], load);
-watch(() => [props.objects, props.newIds], () => viewer.value?.setObjects(props.objects, props.newIds));
+watch(() => [props.objects, props.newIds, shownColors.value], () => viewer.value?.setObjects(props.objects, props.newIds, shownColors.value));
 watch(() => props.pointMode, (on) => viewer.value?.setPointMode(on));
 watch(() => props.drawMode, (on) => viewer.value?.setDrawMode(on));
 

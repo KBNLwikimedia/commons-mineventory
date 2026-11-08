@@ -33,12 +33,14 @@ const props = defineProps({
   label: { type: String, required: true },
   min: { type: Number, default: 160 },
   max: { type: Number, default: 640 },
+  // The element that carries the CSS variable (the nearest ancestor matching this selector).
+  area: { type: String, default: ".cc-werkblad" },
 });
 
 const width = ref(0);
 
 function area(el) {
-  return el?.closest(".cc-werkblad");
+  return el?.closest(props.area);
 }
 
 function column(el) {

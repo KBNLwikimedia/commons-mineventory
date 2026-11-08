@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.33.8, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.33.9, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -23,7 +23,13 @@ Stand: versie 0.33.8, 8 november 2026. Voor wie (mens of Claude-sessie) het werk
   - **Eigen AI-prompt** per object in *Wat staat hierop?* (FO 6.2): potlood, bewaren, terug naar de prompt van de app, eerdere prompts. Bij een groep zit de groepszin erin.
   - **Aanwijzing uit de detectie** in de prompt (FO 6.2): eigen naam, Commons-label of SAM-zoekterm met zekerheid. **Nog te toetsen door Olaf** (backlog 12i).
   - **Lengte** bij *Wat staat hierop?* en de beschrijving van de hele afbeelding, met de schakelaar *Commons-caption* (hooguit 250 tekens) en het Commons-logo uit Codex (`CommonsLogo.vue`).
-- Tests: 285 in Python (`pytest`), 40 in de frontend (`npm test`). Alle groen bij 0.33.8.
+- **Nieuw in 0.33.9 (8-11-2026, middag)**; details in de CHANGELOG:
+  - **Viewer**: elke kleur betekent één ding: kader = status, vulling masker = soort (of status, schakelaar *Kleur maskers*), rand masker = wit met donkere rand. Per soort een kleur (`class-colors.js`) met stippen in de lijst en links *Alleen tonen* per soort.
+  - **Pagina *Objecten***: facetten in een eigen component (`ObjectFacets.vue`, `facets.js`), ook op het tabblad *Prullenbak*; versleepbare rand; miniatuur per bestand met een zoombare voorbeeldweergave (`ZoomImage`) en de maskeromtrekken van de objecten; facet *AI-aangevuld*; het oog opent de vergroter op de pagina zelf (in de prullenbak alleen-lezen: alleen *Uitsnede*); bevestigingen met miniaturen; bij een opgeslagen uitsnede *Bestand openen*, *Downloaden* en lokaal *Tonen in map* (`cutter/lokaal.py`, `POST …/uitsnede/mapvenster`, alleen debug + loopback).
+  - **Prompt**: een eigen naam gaat altijd mee als aanwijzing, ook bij een groep, getekend kader of klik.
+  - **API**: de verouderde paden van vóór 0.29.0 zijn weg (12e). Alles in het Engels staat als 12j in de backlog (niet urgent).
+  - Link **Prullenbak** in de kop.
+- Tests: 285 in Python (`pytest`), 44 in de frontend (`npm test`). Alle groen bij 0.33.9.
 
 ## De interface in het kort
 
@@ -45,7 +51,7 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 - **Uitleg en AI-resultaat zien er anders uit**: uitleg is klein en grijs (`cc-uitleg`), wat de AI zei staat in een kader (`cc-ai-resultaat`), een uitkomst (gevonden, niets gevonden) als Codex-melding onder de knop die erom vroeg.
 - **Knoppen met kosten** dragen het bedrag; elke betaalde actie vraagt eerst om bevestiging. Een knop zonder iets te doen is uitgeschakeld (niet verborgen).
 - **Tweetalig**: alle tekst in `frontend/i18n/nl.json` en `en.json`, dezelfde sleutels en invulplekken. Foutmeldingen: in het Nederlands de eigen melding van de server, in het Engels de vertaling van de code (`error.<code>`); een nieuwe foutcode krijgt dus altijd een vertaling. Tekst die de server meestuurt (rechtenredenen, controle vooraf, niet-ondersteunde bestanden) gaat als code met detail mee, niet als Nederlandse zin.
-- **REST**: zelfstandige naamwoorden, meervoud voor lijsten (`…/objecten/{id}`), geen werkwoorden in paden; een GET kost nooit geld en verandert niets. De oude paden van vóór 0.29.0 werken nog tot 0.33.0 (`Deprecation`-kop) en gaan dan weg (backlog 12e). OpenAPI (`cutter/openapi.py`) en `docs/api.md` lopen gelijk met de routes; een test controleert dat.
+- **REST**: zelfstandige naamwoorden, meervoud voor lijsten (`…/objecten/{id}`), geen werkwoorden in paden; een GET kost nooit geld en verandert niets. De oude paden van vóór 0.29.0 zijn sinds 0.33.9 weg (backlog 12e). OpenAPI (`cutter/openapi.py`) en `docs/api.md` lopen gelijk met de routes; een test controleert dat.
 - **Gegevens van Olaf**: test op zijn server nooit een betaalde knop (Zoeken, Aanwijzen, Beschrijf, Opnieuw, Transparante PNG maken). Wat je wél test, zet je terug (ongedaan maken, versie terugzetten, testversies verwijderen).
 
 ## Na het hernoemen van de map
@@ -84,7 +90,7 @@ Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie
 - **Starttegoed** (backlog 15c, FO 8.6): besloten (FO 8.6.6), te bouwen na OAuth en de database.
 - **Morgen eerst (Olaf, 9-11-2026)**: de vergelijking of de **detectie-aanwijzing** in de prompt helpt (backlog 12i). Betaald, dus Olaf doet het zelf op zijn server; de checklijst staat in [vergelijking-detectie-aanwijzing.md](vergelijking-detectie-aanwijzing.md). Daarna houden, bijstellen of weghalen.
 - **Wacht op Olaf**: het herontwerp van het tabblad *Wat staat hierop?* met vier subtabbladen (backlog 12h, [ontwerp-wat-is-dit.md](ontwerp-wat-is-dit.md)). De eigen prompt is er al (8-11-2026); hij staat nu nog als rij boven *AI-modifiers*. Olaf vindt het tabblad nog rommelig; pas herindelen na zijn akkoord.
-- **Wacht op Olaf**: het vragenformulier over ImageNote (FO 9.8, backlog 15d) en of de verouderde API-paden (gepland weg in 0.33.0) nu weg mogen (backlog 12e).
+- **Wacht op Olaf**: het vragenformulier over ImageNote (FO 9.8, backlog 15d).
 - **Later, nice-to-have**: het canvas om uitsneden te combineren tot nieuwe werken (FO 18, backlog 25); ontworpen, niet gepland.
 - **Later, nice-to-have**: een 3D-model van een uitsnede met SAM 3D Objects via Runware (FO 7.8, backlog 19c); ontworpen, niet gepland.
 - **Venster gestructureerde gegevens** (backlog 15b, FO 9.7): gebouwd als concept (0.33.5–0.33.7); open: het mini-beeld met kaders in de kop van het venster, en het schrijven naar Commons (fase 2, na OAuth).

@@ -84,6 +84,27 @@ def test_detect_select_save_and_export(http):
     assert http.get(f"{PAGE}/objecten/{ids[0]}/uitsnede.jpg?w=100").status_code == 200
     assert http.get(f"{PAGE}/objecten/{ids[0]}/masker.png").mimetype == "image/png"
 
+    # Show in folder: only on your own computer (debug, loopback), never on a server.
+    from cutter import lokaal
+    opened = []
+    original = lokaal.show_in_folder
+    lokaal.show_in_folder = opened.append
+    app = http.application
+    try:
+        debug = app.debug
+        app.debug = False
+        assert http.post(f"{PAGE}/objecten/{ids[0]}/uitsnede/mapvenster").get_json()["code"] == "not_local"
+        app.debug = True
+        assert http.post(f"{PAGE}/objecten/{ids[0]}/uitsnede/mapvenster", environ_base={"REMOTE_ADDR": "10.0.0.5"}).status_code == 403
+        assert http.post(f"{PAGE}/objecten/{ids[0]}/uitsnede/mapvenster").status_code == 204
+        assert opened and opened[0].name.startswith(ids[0]) and opened[0].is_file()
+        unsaved = [i for i in ids if i != ids[0]]
+        if unsaved:
+            assert http.post(f"{PAGE}/objecten/{unsaved[0]}/uitsnede/mapvenster").get_json()["code"] == "not_saved"
+    finally:
+        app.debug = debug
+        lokaal.show_in_folder = original
+
     archive = zipfile.ZipFile(io.BytesIO(http.get(f"/api/v1/bestand/{ALBUM_MID}/export").data))
     names = archive.namelist()
     assert "LEESMIJ.txt" in names and "bestand.json" in names
@@ -469,21 +490,13 @@ def test_usage_and_emptying_the_trash_need_the_access_list_on_a_server(app, http
         app.debug, app.testing = False, testing
 
 
-def test_old_paths_still_work_and_say_they_are_deprecated(http):
-    """Until 0.30.0 the paths from before 0.29.0 work, with Deprecation and a Link to the new path."""
+def test_old_paths_are_gone(http):
+    """The paths from before 0.29.0 are gone since 0.33.9 (backlog 12e)."""
     obj = http.post(PAGE + "/detecties", json={"prompt": "wapen"}).get_json()["objecten"][0]
-    old = http.get(f"{PAGE}/object/{obj['id']}")
-    assert old.status_code == 200 and old.headers["Deprecation"] == "true"
-    assert f"{PAGE}/objecten/{obj['id']}" in old.headers["Link"] and 'rel="successor-version"' in old.headers["Link"]
+    assert http.get(f"{PAGE}/object/{obj['id']}").status_code == 404
     new = http.get(f"{PAGE}/objecten/{obj['id']}")
     assert new.status_code == 200 and "Deprecation" not in new.headers
-    url = f"{PAGE}/object/{obj['id']}/beschrijving"
-    first = http.post(url, json={}).get_json()["object"]["beschrijving"]
-    http.post(url, json={"opnieuw": True, "aanwijzing": "x"})
-    back = http.post(url + "/terugzetten", json={"tijdstempel": first["tijdstempel"]})
-    assert back.status_code == 200 and back.headers["Deprecation"] == "true"
-    merged = http.patch(PAGE + "/objecten", json={"samenvoegen": True})
-    assert merged.status_code == 200 and "/samenvoegingen" in merged.headers["Link"]
+    assert http.patch(PAGE + "/objecten", json={"samenvoegen": True}).status_code == 400
 
 
 def test_group_and_ungroup(http):
