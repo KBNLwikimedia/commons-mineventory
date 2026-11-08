@@ -25,5 +25,15 @@ export function classColors(objects) {
   return Object.fromEntries(kinds.map((kind, i) => [kind, CLASS_PALETTE[i % CLASS_PALETTE.length]]));
 }
 
+/* What the frame of an object shows (its colour in the legend): excluded, a region from
+   Commons, a drawn rectangle, else selected or found. Used to show only some (wish Olaf). */
+export const FRAME_KEYS = ["geselecteerd", "kandidaat", "commons", "handmatig", "uitgesloten"];
+export function frameKey(obj) {
+  if (obj?.status === "uitgesloten") return "uitgesloten";
+  if (obj?.bron === "commons") return "commons";
+  if (obj?.bron === "handmatig") return "handmatig";
+  return obj?.status === "geselecteerd" ? "geselecteerd" : "kandidaat";
+}
+
 /* The colour of one object, or null. */
 export const classColor = (colors, obj) => (colors && colors[classKey(obj)]) || null;

@@ -34,38 +34,59 @@
       <span class="cc-viewer-hint">{{ drawMode ? t("viewer.hint_draw") : pointMode ? t("viewer.hint_point") : t("viewer.hint") }}</span>
       <slot name="balk" />
     </div>
-    <!-- What the colours of the frames mean: only with the boxes shown, folded away by default. -->
-    <cdx-accordion v-if="show.boxen && legend.length" class="cc-legenda-blok">
+    <!-- What the colours of the frames mean: only with the boxes shown, open to start with, like
+         the row of the masks (wish Olaf). The (i) first in the line, as in that row. -->
+    <cdx-accordion v-if="show.boxen && legend.length" v-model="legendOpen" class="cc-legenda-blok">
       <template #title>{{ t("legend.title") }}</template>
+      <!-- The (i) in its own column, so a second line starts under the first checkbox (wish Olaf). -->
+      <div class="cc-legenda-rij">
+      <info-dialog class="cc-legenda-info" :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" />
       <ul class="cc-legenda">
-        <li v-for="item in legend" :key="item"><span :class="['cc-legenda-staal', `cc-legenda-${item}`]"></span>{{ t(`legend.${item}`) }}</li>
-        <li><info-dialog :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" /></li>
+        <!-- A checkbox per status, in the colour of its frame (wish Olaf): unticked fades those objects. -->
+        <li v-for="item in statusItems" :key="item">
+          <cdx-checkbox v-model="shownStatuses" :input-value="item" :inline="true" class="cc-soort-vinkje" :class="`cc-status-${item}`" :style="{ '--soort': FRAME_COLOURS[item] }" :title="t('legend.status_only')">
+            {{ t(`legend.${item}`) }} <span class="cc-soort-aantal">({{ statusCounts[item] || 0 }})</span>
+          </cdx-checkbox>
+        </li>
+        <li v-if="statusItems.length > 1" class="cc-soorten-alles">
+          <button type="button" class="cc-link" :disabled="!hiddenStatuses.length" @click="hiddenStatuses = []">{{ t("objects.all") }}</button>
+          <span class="cc-punt" aria-hidden="true">·</span>
+          <button type="button" class="cc-link" :disabled="hiddenStatuses.length === statusItems.length" @click="hiddenStatuses = [...statusItems]">{{ t("objects.none") }}</button>
+          <span class="cc-punt" aria-hidden="true">·</span>
+          <button type="button" class="cc-link" @click="hiddenStatuses = shownStatuses">{{ t("objects.invert") }}</button>
+        </li>
+        <!-- New and thicker are no status of their own: only explained. -->
+        <li v-for="item in legend.filter((i) => !FRAME_KEYS.includes(i))" :key="item"><span :class="['cc-legenda-staal', `cc-legenda-${item}`]"></span>{{ t(`legend.${item}`) }}</li>
       </ul>
+      </div>
     </cdx-accordion>
     <!-- A colour per kind of object, each a checkbox: ticked kinds are shown (all to start
          with), with All · None · Invert as in the object list (wish Olaf). Only with the masks shown. -->
-    <ul v-if="show.maskers && kinds.length" class="cc-legenda cc-legenda-soorten">
-      <!-- What the colour of the masks shows: the kind (default) or, as the frames, the status. -->
-      <li class="cc-maskers-kleur">
-        <!-- What every colour means, the masks, by kind / by status and Show only (wish Olaf). -->
-        <info-dialog :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" />
-        <span class="cc-legenda-soorten-kop">{{ t("legend.masks_by") }}</span>
-        <cdx-toggle-button-group v-model="maskColoringModel" :buttons="maskColorings" :aria-label="t('legend.masks_by')" />
-      </li>
-      <li class="cc-legenda-soorten-kop">{{ t("legend.kinds") }}</li>
-      <li v-for="[kind, color] in kinds" :key="kind">
-        <cdx-checkbox v-model="shownKinds" :input-value="kind" :inline="true" class="cc-soort-vinkje" :title="t('legend.kind_only', { kind })">
-          <span v-if="byKind" class="cc-klasse-stip" :style="{ background: color }"></span>{{ kind }}
-        </cdx-checkbox>
-      </li>
-      <li class="cc-soorten-alles">
-        <button type="button" class="cc-link" :disabled="!hiddenKinds.length" @click="hiddenKinds = []">{{ t("objects.all") }}</button>
-        ·
-        <button type="button" class="cc-link" :disabled="hiddenKinds.length === kinds.length" @click="hiddenKinds = kinds.map(([kind]) => kind)">{{ t("objects.none") }}</button>
-        ·
-        <button type="button" class="cc-link" @click="hiddenKinds = shownKinds">{{ t("objects.invert") }}</button>
-      </li>
-    </ul>
+    <div v-if="show.maskers && kinds.length" class="cc-legenda-soorten">
+      <!-- A mask always shows the kind, a frame the status (wish Olaf, 8-11-2026: no switch any
+           more). What every colour means: one (i), in the first row you see; here only when
+           the colour legend above is closed or not shown. -->
+      <div class="cc-maskers-kleur">
+        <info-dialog v-if="!legendShown" :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" />
+        <span class="cc-legenda-soorten-kop cc-alleen-tonen">{{ t("legend.kinds") }}</span>
+      </div>
+      <!-- The kinds as one block that wraps within itself: a second line starts under the first kind (wish Olaf). -->
+      <ul class="cc-soorten-lijst">
+        <li v-for="[kind, color] in kinds" :key="kind">
+          <!-- The checkbox in the colour of the kind (wish Olaf): filled when ticked, its border when not. -->
+          <cdx-checkbox v-model="shownKinds" :input-value="kind" :inline="true" class="cc-soort-vinkje" :style="{ '--soort': color }" :title="t('legend.kind_only', { kind })">
+            {{ kind }} <span class="cc-soort-aantal">({{ kindCounts[kind] || 0 }})</span>
+          </cdx-checkbox>
+        </li>
+        <li class="cc-soorten-alles">
+          <button type="button" class="cc-link" :disabled="!hiddenKinds.length" @click="hiddenKinds = []">{{ t("objects.all") }}</button>
+          <span class="cc-punt" aria-hidden="true">·</span>
+          <button type="button" class="cc-link" :disabled="hiddenKinds.length === kinds.length" @click="hiddenKinds = kinds.map(([kind]) => kind)">{{ t("objects.none") }}</button>
+          <span class="cc-punt" aria-hidden="true">·</span>
+          <button type="button" class="cc-link" @click="hiddenKinds = shownKinds">{{ t("objects.invert") }}</button>
+        </li>
+      </ul>
+    </div>
     <div class="cc-viewer-vlak">
       <div ref="host" class="viewer" :class="{ 'maskers-verborgen': !show.maskers, 'boxen-verborgen': !show.boxen, 'namen-zichtbaar': show.namen, 'cc-skelet': imageState === 'loading' }" :aria-busy="imageState === 'loading' ? 'true' : 'false'"></div>
       <!-- Waiting feedback while the image comes in: the first time, the server fetches the original from Commons. -->
@@ -77,13 +98,14 @@
 
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon, CdxMessage, CdxToggleButtonGroup } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon, CdxMessage } from "@wikimedia/codex";
 import { cdxIconZoomIn, cdxIconZoomOut } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 import { numberedNames, objectName } from "../state.js";
 import { PageViewer } from "../viewer/viewer.js";
 import BusyNote from "./BusyNote.vue";
 import InfoDialog from "./InfoDialog.vue";
+import { FRAME_KEYS, classKey, frameKey } from "../class-colors.js";
 
 const props = defineProps({
   mid: { type: String, required: true },
@@ -91,13 +113,11 @@ const props = defineProps({
   objects: { type: Array, required: true },
   // {kind: colour} when the page has more than one kind of object (class-colors.js).
   classColors: { type: Object, default: () => ({}) },
-  // What the colour of the masks shows: "soort" (the kind) or "status" (as the frames).
-  maskColoring: { type: String, default: "soort" },
   newIds: { type: Array, default: () => [] },
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
 });
-const emit = defineEmits(["object-click", "object-open", "object-hover", "point", "rectangle", "update:maskColoring"]);
+const emit = defineEmits(["object-click", "object-open", "object-hover", "point", "rectangle"]);
 const t = useT();
 const language = inject("language", "nl");
 const host = ref(null);
@@ -109,15 +129,20 @@ const LEGEND = ["geselecteerd", "kandidaat", "nieuw", "commons", "handmatig", "u
 // Only the colours that occur on this page (plus "thicker", which always can).
 // The kinds with their colour, for the legend of the masks.
 const kinds = computed(() => Object.entries(props.classColors || {}));
+// How many objects of each kind are on the image now (wish Olaf), after the certainty slider and the search.
+const kindCounts = computed(() => {
+  const counts = {};
+  for (const obj of props.objects) {
+    const kind = classKey(obj);
+    if (kind) counts[kind] = (counts[kind] || 0) + 1;
+  }
+  return counts;
+});
+// The colour legend of the frames: open to start with (wish Olaf).
+const legendOpen = ref(true);
+// Is the legend (with its (i)) in view? Then the row of the masks has no (i) of its own.
+const legendShown = computed(() => show.boxen && legend.value.length > 0 && legendOpen.value);
 const colourInfo = computed(() => [1, 2, 3, 4, 5, 6].map((i) => t(`legend.info_${i}`)));
-const maskColoringModel = computed({ get: () => props.maskColoring, set: (value) => emit("update:maskColoring", value) });
-const byKind = computed(() => props.maskColoring !== "status");
-const maskColorings = computed(() => [
-  { value: "soort", label: t("legend.by_kind") },
-  { value: "status", label: t("legend.by_status") },
-]);
-// The colours the viewer uses for the masks: per kind, or none (then the colour of the status).
-const shownColors = computed(() => (byKind.value ? props.classColors : {}));
 // The kinds you unticked: their objects fade. Kept as the hidden ones, so a kind found later
 // shows (ticked) at once. A kind that is gone is dropped.
 const hiddenKinds = ref([]);
@@ -144,6 +169,27 @@ const legend = computed(() => {
   };
   return LEGEND.filter((item) => present[item]);
 });
+// The statuses in the legend as checkboxes (wish Olaf): as with the kinds, the unticked ones are
+// kept, so a status that appears later shows at once. Counts after the certainty slider and search.
+const FRAME_COLOURS = {
+  geselecteerd: "var(--cc-geselecteerd)",
+  kandidaat: "var(--cc-kandidaat)",
+  commons: "var(--cc-commons-rand)",
+  handmatig: "var(--cc-handmatig)",
+  uitgesloten: "var(--cc-uitgesloten)",
+};
+const statusItems = computed(() => legend.value.filter((item) => FRAME_KEYS.includes(item)));
+const statusCounts = computed(() => {
+  const counts = {};
+  for (const obj of props.objects) counts[frameKey(obj)] = (counts[frameKey(obj)] || 0) + 1;
+  return counts;
+});
+const hiddenStatuses = ref([]);
+const shownStatuses = computed({
+  get: () => statusItems.value.filter((item) => !hiddenStatuses.value.includes(item)),
+  set: (list) => (hiddenStatuses.value = statusItems.value.filter((item) => !list.includes(item))),
+});
+watch(shownStatuses, (list) => viewer.value?.setStatusFilter(hiddenStatuses.value.length ? list : null));
 // Masks, boxes and names on the image: on/off, remembered in this browser.
 const SHOW_KEY = "cc-weergave";
 function storedShow() {
@@ -205,7 +251,7 @@ function load() {
     srcWidth: Math.min(SMALL, page.breedte),
     srcLarge: page.breedte > SMALL ? `${page.afbeelding_url}?w=${Math.min(LARGE, page.breedte)}` : null,
   });
-  viewer.value.setObjects(props.objects, props.newIds, shownColors.value);
+  viewer.value.setObjects(props.objects, props.newIds, props.classColors);
 }
 
 onMounted(() => {
@@ -232,7 +278,7 @@ onBeforeUnmount(() => {
 });
 
 watch(() => [props.page, props.mid], load);
-watch(() => [props.objects, props.newIds, shownColors.value], () => viewer.value?.setObjects(props.objects, props.newIds, shownColors.value));
+watch(() => [props.objects, props.newIds, props.classColors], () => viewer.value?.setObjects(props.objects, props.newIds, props.classColors));
 watch(() => props.pointMode, (on) => viewer.value?.setPointMode(on));
 watch(() => props.drawMode, (on) => viewer.value?.setDrawMode(on));
 

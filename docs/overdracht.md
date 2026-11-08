@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.33.11, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.33.12, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -24,14 +24,15 @@ Stand: versie 0.33.11, 8 november 2026. Voor wie (mens of Claude-sessie) het wer
   - **Aanwijzing uit de detectie** in de prompt (FO 6.2): eigen naam, Commons-label of SAM-zoekterm met zekerheid. **Nog te toetsen door Olaf** (backlog 12i).
   - **Lengte** bij *Wat staat hierop?* en de beschrijving van de hele afbeelding, met de schakelaar *Commons-caption* (hooguit 250 tekens) en het Commons-logo uit Codex (`CommonsLogo.vue`).
 - **Nieuw in 0.33.9 (8-11-2026, middag)**; details in de CHANGELOG:
-  - **Viewer**: elke kleur betekent één ding: kader = status, vulling masker = soort (of status, schakelaar *Kleur maskers*), rand masker = wit met donkere rand. Per soort een kleur (`class-colors.js`) met stippen in de lijst en links *Alleen tonen* per soort.
+  - **Viewer**: elke kleur betekent één ding: kader = status, vulling masker = soort (de schakelaar per soort / per status is weer weg, besluit Olaf), rand masker = wit met donkere rand. Per soort een kleur (`class-colors.js`) met stippen in de lijst en links *Alleen tonen* per soort.
   - **Pagina *Objecten***: facetten in een eigen component (`ObjectFacets.vue`, `facets.js`), ook op het tabblad *Prullenbak*; versleepbare rand; miniatuur per bestand met een zoombare voorbeeldweergave (`ZoomImage`) en de maskeromtrekken van de objecten; facet *AI-aangevuld*; het oog opent de vergroter op de pagina zelf (in de prullenbak alleen-lezen: alleen *Uitsnede*); bevestigingen met miniaturen; bij een opgeslagen uitsnede *Bestand openen*, *Downloaden* en lokaal *Tonen in map* (`cutter/lokaal.py`, `POST …/uitsnede/mapvenster`, alleen debug + loopback).
   - **Prompt**: een eigen naam gaat altijd mee als aanwijzing, ook bij een groep, getekend kader of klik.
   - **API**: de verouderde paden van vóór 0.29.0 zijn weg (12e). Alles in het Engels staat als 12j in de backlog (niet urgent).
   - Link **Prullenbak** in de kop.
   - 0.33.10: een (i) bij *Kleur maskers* en de *Kleurenlegenda* die alle kleuren uitlegt.
   - 0.33.11: *Alleen tonen* met een vinkje per soort en *Alle · Geen · Omkeren* (aangevinkt = zichtbaar).
-- Tests: 285 in Python (`pytest`), 44 in de frontend (`npm test`). Alle groen bij 0.33.11.
+  - 0.33.12: geen schakelaar *Kleur maskers* meer (masker = soort, kader = status); vinkjes in de kleur van de soort met aantallen; de *Kleurenlegenda* standaard open met vinkjes per status (`frameKey`, `setStatusFilter`), één (i); fix: na uitvinken van een object in focus bleef alles vervaagd (`_syncPointedAt`).
+- Tests: 285 in Python (`pytest`), 45 in de frontend (`npm test`). Alle groen bij 0.33.12.
 
 ## De interface in het kort
 

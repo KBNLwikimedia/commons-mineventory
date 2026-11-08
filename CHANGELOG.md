@@ -5,6 +5,20 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.33.12] - 2026-11-08
+
+### Verwijderd
+
+- De schakelaar **Kleur maskers: per soort / per status** (besluit Olaf): een masker toont nu altijd de soort, een kader altijd de status, zodat elke kleur één betekenis heeft. Met één soort op de afbeelding volgen de maskers nog de kleur van hun kader. De stippen in de lijst staan er dus altijd; de keuze die de browser onthield, telt niet meer.
+
+### Opgelost
+
+- Een object in focus uitvinken in de lijst kon **alle kaders en namen in de afbeelding laten vervagen**, ook dat van het object zelf, tot je *Kaders* uit- en weer aanzette (gemeld door Olaf). De viewer bepaalt nu na elke wijziging opnieuw of er echt een object onder de muis is; alleen dan vervagen de andere.
+- *Alleen tonen*: de soorten vormen één blok dat binnen zichzelf afbreekt, zodat een tweede regel onder de eerste soort begint (wens Olaf); in een smalle kolom gaat het hele blok naar een eigen regel. De vinkjes staan op één hoogte met hun naam, dicht bij hun naam en met meer ruimte tussen de soorten; elk vinkje heeft de kleur van zijn soort (gevuld als het aan staat, de rand als het uit staat), dus zonder aparte stip, en met het aantal objecten van die soort erachter (wens Olaf).
+- De **Kleurenlegenda** van de kaders heeft nu ook een vinkje per status (geselecteerd, gevonden, Commons-regio, zelf getekend, uitgesloten), in de kleur van het kader, met aantallen en *Alle · Geen · Omkeren* (wens Olaf). Uitvinken laat die objecten vervagen; samen met *Alleen tonen*: goed zichtbaar is wat in beide aan staat. *Nieuw* en *dikker* blijven uitleg.
+- De *Kleurenlegenda* van de kaders staat nu standaard open, zoals de regel van de maskers, met de (i) vooraan in de regel; is de legenda dicht of staan de kaders uit, dan staat die ene (i) vooraan in de regel van de maskers (wens Olaf).
+- *Alleen tonen* heet nu **Alleen deze maskers tonen** (EN *Show only these masks*), zodat duidelijk is dat het over de maskers gaat (wens Olaf).
+
 ## [0.33.11] - 2026-11-08
 
 ### Gewijzigd

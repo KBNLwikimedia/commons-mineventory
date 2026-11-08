@@ -18,7 +18,7 @@
  * an empty spot is a point.
  */
 
-import { classColor, classKey } from "../class-colors.js";
+import { classColor, classKey, frameKey } from "../class-colors.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
@@ -184,6 +184,7 @@ export class PageViewer {
       if (group.object.masker) this._addMask(group, group.object);
     });
     this._applyKindFilter();
+    this._syncPointedAt();
     this._scaleLabels();
   }
 
@@ -194,11 +195,22 @@ export class PageViewer {
     this._applyKindFilter();
   }
 
+  /* The same for what the frames show (frameKey: selected, found, Commons, drawn, excluded). */
+  setStatusFilter(statuses) {
+    this.statusFilter = statuses == null ? null : new Set(Array.isArray(statuses) ? statuses : [statuses]);
+    this._applyKindFilter();
+  }
+
+  /* An object stays in full view when its kind and its status are both shown; the rest fades. */
   _applyKindFilter() {
-    const kinds = this.kindFilter || new Set();
-    const on = this.kindFilter != null;
+    const kinds = this.kindFilter;
+    const statuses = this.statusFilter;
+    const on = kinds != null || statuses != null;
     this.el.classList.toggle("soort-filter", on);
-    this.objectElements.forEach((group) => group.classList.toggle("object-soort-aan", on && kinds.has(classKey(group.object))));
+    this.objectElements.forEach((group) => {
+      const shown = on && (kinds == null || kinds.has(classKey(group.object))) && (statuses == null || statuses.has(frameKey(group.object)));
+      group.classList.toggle("object-soort-aan", shown);
+    });
   }
 
   _classes(obj, fresh) {
@@ -228,6 +240,7 @@ export class PageViewer {
       const kept = ["hover", "uitgelicht", "object-soort-aan"].filter((name) => group.classList.contains(name));
       group.setAttribute("class", [this._classes(obj, group.classList.contains("object-nieuw")), ...kept].join(" "));
     });
+    this._syncPointedAt();
   }
 
   _addMask(group, obj) {
@@ -308,10 +321,19 @@ export class PageViewer {
   /* Pointer over an object in a list: it stands out on the page. */
   setObjectHover(id, on) {
     const group = this.objectElements.get(id);
-    if (!group) return;
-    if (on && group.object.masker) this._addMask(group, group.object);
-    group.classList.toggle("hover", on);
-    this.el.classList.toggle("object-aangewezen", on);
+    if (group) {
+      if (on && group.object.masker) this._addMask(group, group.object);
+      group.classList.toggle("hover", on);
+    }
+    this._syncPointedAt();
+  }
+
+  /* The other objects fade only while one really is under the mouse in a list. Worked out
+     again after every change (hover, selection, redraw), so it can never get stuck: before,
+     unticking a focused object could leave everything faded, itself included. */
+  _syncPointedAt() {
+    const any = [...this.objectElements.values()].some((group) => group.classList.contains("hover"));
+    this.el.classList.toggle("object-aangewezen", any);
   }
 
   /* Zoom to a box (native pixels). */

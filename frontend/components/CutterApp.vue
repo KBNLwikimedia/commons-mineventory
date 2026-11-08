@@ -65,7 +65,6 @@
           :page="page"
           :objects="visibleObjects"
           :class-colors="kindColors"
-          v-model:mask-coloring="maskColoring"
           :new-ids="newIds"
           :point-mode="pointMode"
           :draw-mode="drawMode"
@@ -139,7 +138,7 @@
           :mid="file.mid"
           :n="pageN"
           :objects="visibleObjects"
-          :class-colors="listKindColors"
+          :class-colors="kindColors"
           :empty-text="objectQuery.trim() && certainObjects.length ? t('objects.search_none') : ''"
           :focused="focusedId"
           :hovered="hoveredId"
@@ -459,25 +458,6 @@ const certainObjects = computed(() => objects.value.filter(isVisible));
 // A colour per kind of object (wish Olaf), from all objects of the page, so it stays put while
 // the certainty slider or the search hides some.
 const kindColors = computed(() => classColors(objects.value));
-// What the colour of the masks shows: the kind (default) or the status, as the frames (wish
-// Olaf). Remembered in the browser. The dots in the list only go with the colours per kind.
-const MASK_COLORING_KEY = "cc-maskers-kleur";
-const maskColoring = ref(readMaskColoring());
-function readMaskColoring() {
-  try {
-    return window.localStorage.getItem(MASK_COLORING_KEY) === "status" ? "status" : "soort";
-  } catch {
-    return "soort";
-  }
-}
-watch(maskColoring, (value) => {
-  try {
-    window.localStorage.setItem(MASK_COLORING_KEY, value);
-  } catch {
-    // no storage: the choice lasts as long as the page
-  }
-});
-const listKindColors = computed(() => (maskColoring.value === "status" ? {} : kindColors.value));
 const hiddenCount = computed(() => objects.value.length - certainObjects.value.length);
 // The search box above the list (wish Olaf): every word must occur in the object's texts,
 // case-insensitive. It narrows what you see, in the list and in the image, and what "all"

@@ -234,17 +234,35 @@ h2, h3, h4 { margin: 0.5rem 0; }
 /* A colour per kind of object (wish Olaf): the mask and its outline; the frame keeps the status. */
 .object-klasse .object-masker { fill: var(--klasse); }
 .cc-klasse-stip { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: 0.05em; flex: none; }
-.cc-legenda-soorten { margin: 0; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--cc-rand); align-items: center; }
-.cc-soort-vinkje.cdx-checkbox { margin: 0; }
+/* The row under the viewer toolbar: mask colour, "Show only:", then the kinds as one block that
+   wraps within itself, so a second line starts under the first kind (wish Olaf). */
+.cc-legenda-soorten { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.25rem 0.6rem; margin: 0; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--cc-rand); font-size: 0.75rem; color: var(--cc-tekst-zacht); }
+.cc-legenda-soorten > .cc-maskers-kleur, .cc-legenda-soorten > .cc-alleen-tonen { flex: none; line-height: 1.25rem; }
+.cc-soorten-lijst { flex: 1 1 14rem; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 1.1rem; list-style: none; margin: 0; padding: 0; min-height: 1.25rem; }
+.cc-soorten-lijst > li { margin: 0; display: inline-flex; align-items: center; min-height: 1.25rem; flex: none; }
+/* A kind keeps its full width (no name running into the next box), with its count in grey. */
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje, .cc-legenda-soorten .cc-soort-vinkje .cdx-label__label__text { white-space: nowrap; flex: none; }
+.cc-soort-aantal { color: var(--cc-tekst-zacht, #54595d); margin-left: 0.2rem; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje.cdx-checkbox { margin: 0; }
+/* The box in line with its (smaller) label. */
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__wrapper { display: inline-flex; align-items: center; min-height: 0; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__icon { position: relative; top: auto; left: auto; flex: none; margin-top: 0; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__input { top: 50%; transform: translateY(-50%); }
+/* As specific as needed to win over Codex whatever the load order (Vite dev loads Codex later). */
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__label.cdx-label { padding-left: 0.25rem; padding-bottom: 0; }
+/* The box in the colour of its kind (wish Olaf): filled when ticked, the border when not. */
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__input:enabled:checked + .cdx-checkbox__icon,
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__input:enabled:checked:hover + .cdx-checkbox__icon,
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__input:enabled:checked:focus:not(:active):not(:hover) + .cdx-checkbox__icon { background-color: var(--soort, #36c); border-color: transparent; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__input:enabled:not(:checked) + .cdx-checkbox__icon { border-color: var(--soort, #72777d); }
 /* As small as the rest of the row (wish Olaf): the label and a smaller box. */
-.cc-soort-vinkje .cdx-label__label__text { font-size: 0.75rem; line-height: 1.4; }
-.cc-soort-vinkje .cdx-checkbox__icon { min-width: 14px; min-height: 14px; width: 14px; height: 14px; }
-.cc-soort-vinkje .cdx-checkbox__wrapper { gap: 0.25rem; }
-.cc-legenda-soorten { column-gap: 0.75rem; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-label__label__text { font-size: 0.75rem; line-height: 1.25; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__icon { min-width: 14px; min-height: 14px; width: 14px; height: 14px; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-checkbox__wrapper { gap: 0; }
 .cc-soorten-alles { white-space: nowrap; }
-.cc-soort-vinkje .cdx-label__label__text { display: inline-flex; align-items: center; }
-.cc-maskers-kleur { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: 0.75rem; }
-.cc-maskers-kleur .cdx-toggle-button { min-height: 1.5rem; padding: 0 0.5rem; font-size: 0.75rem; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soorten-alles .cc-punt { margin: 0 0.5rem; }
+:is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-label__label__text { display: inline-flex; align-items: center; }
+.cc-maskers-kleur { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: 0.4rem; }
 /* One kind chosen: the other objects fade, their masks and outlines disappear. */
 .viewer.soort-filter .object:not(.object-soort-aan) { opacity: 0.25; }
 .viewer.soort-filter .object:not(.object-soort-aan) .object-masker,
@@ -476,6 +494,15 @@ button.cc-kaart-oog { border: 0; background: none; cursor: pointer; }
 .cc-legenda-blok > summary { padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.875rem; }
 .cc-legenda { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.15rem 1rem; font-size: 0.75rem; color: var(--cc-tekst-zacht); }
 .cc-legenda li { display: inline-flex; align-items: center; gap: 0.3rem; }
+/* The (i) at the start of the line, in the same place as in the row of the masks. */
+.cc-legenda-rij { display: flex; align-items: flex-start; gap: 0.6rem; }
+.cc-legenda-rij > .cc-legenda { flex: 1; min-width: 0; }
+.cc-legenda-rij > .cc-legenda-info { flex: none; line-height: 1.25rem; }
+.cc-legenda > li { min-height: 1.25rem; }
+/* All · None · Invert spaced as in the row of the kinds (wish Olaf). */
+.cc-legenda > li.cc-soorten-alles { gap: 0; }
+/* Excluded: a dashed border on the box, as on its frame. */
+.cc-legenda .cc-status-uitgesloten .cdx-checkbox__input:enabled:not(:checked) + .cdx-checkbox__icon { border-style: dashed; }
 .cc-legenda-staal { display: inline-block; width: 1rem; height: 0.7rem; border: 2px solid; }
 .cc-legenda-geselecteerd { border-color: var(--cc-geselecteerd); }
 .cc-legenda-kandidaat { border-color: var(--cc-kandidaat); }

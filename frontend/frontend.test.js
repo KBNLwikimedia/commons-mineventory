@@ -136,6 +136,22 @@ describe("PageViewer", () => {
     expect(groups[1].querySelector("text").textContent).toBe("Catharina");
   });
 
+  it("fades the other objects only while one is really under the mouse", () => {
+    const { host, viewer } = viewerWithPage();
+    viewer.setObjects(objects);
+    viewer.setObjectHover("a", true);
+    expect(host.classList.contains("object-aangewezen")).toBe(true);
+    // The object under the mouse is gone after a redraw: nothing may stay faded.
+    viewer.setObjects(objects.filter((o) => o.id !== "a"));
+    expect(host.classList.contains("object-aangewezen")).toBe(false);
+    // Leaving an object that no longer exists clears it too.
+    viewer.setObjects(objects);
+    viewer.setObjectHover("a", true);
+    viewer.setObjects(objects.filter((o) => o.id !== "a"));
+    viewer.setObjectHover("a", false);
+    expect(host.classList.contains("object-aangewezen")).toBe(false);
+  });
+
   it("changes the selection without rebuilding", () => {
     const { host, viewer } = viewerWithPage();
     viewer.setObjects(objects);
@@ -570,6 +586,16 @@ describe("a colour per kind of object", () => {
     expect(host.querySelectorAll(".object-soort-aan")).toHaveLength(0);
     expect(viewer.el.classList.contains("soort-filter")).toBe(true);
     viewer.setKindFilter(null); // no filter
+    expect(viewer.el.classList.contains("soort-filter")).toBe(false);
+    // The statuses of the frames filter too, together with the kinds (wish Olaf).
+    viewer.setSelection(["a"]);
+    viewer.setStatusFilter(["geselecteerd"]);
+    expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
+    expect(host.querySelector('g.object[data-id="b"]').classList.contains("object-soort-aan")).toBe(false);
+    viewer.setKindFilter(["wine glass"]); // selected and a wine glass: none
+    expect(host.querySelectorAll(".object-soort-aan")).toHaveLength(0);
+    viewer.setKindFilter(null);
+    viewer.setStatusFilter(null);
     expect(viewer.el.classList.contains("soort-filter")).toBe(false);
   });
 
