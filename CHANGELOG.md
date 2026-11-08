@@ -5,6 +5,15 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.33.13] - 2026-11-08
+
+### Gewijzigd
+
+- In de *Kleurenlegenda* staat voor de vinkjes **Alleen deze kaders tonen** (EN *Show only these boxes*), zoals *Alleen deze maskers tonen* bij de maskers (wens Olaf).
+- De (i) van de kleuren staat nu in de kop *Kleurenlegenda*; *Alleen deze kaders tonen* en *Alleen deze maskers tonen* staan recht onder elkaar, even groot en even vet, zodat de vinkjes van beide regels op dezelfde plek beginnen (wens Olaf).
+- De regel van de maskers staat nu ook in de *Kleurenlegenda*, zodat de kop met de (i) er altijd is, ook met *Kaders* uit; dichtklappen verbergt beide regels (wens Olaf).
+- Een klik op de (i) van de *Kleurenlegenda* klapt de legenda ook open; in de Engelse uitleg heet het kader nu *Boxes*, zoals de schakelaar (wens Olaf).
+
 ## [0.33.12] - 2026-11-08
 
 ### Verwijderd

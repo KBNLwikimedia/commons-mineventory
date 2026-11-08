@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.33.12, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.33.13, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -32,7 +32,8 @@ Stand: versie 0.33.12, 8 november 2026. Voor wie (mens of Claude-sessie) het wer
   - 0.33.10: een (i) bij *Kleur maskers* en de *Kleurenlegenda* die alle kleuren uitlegt.
   - 0.33.11: *Alleen tonen* met een vinkje per soort en *Alle · Geen · Omkeren* (aangevinkt = zichtbaar).
   - 0.33.12: geen schakelaar *Kleur maskers* meer (masker = soort, kader = status); vinkjes in de kleur van de soort met aantallen; de *Kleurenlegenda* standaard open met vinkjes per status (`frameKey`, `setStatusFilter`), één (i); fix: na uitvinken van een object in focus bleef alles vervaagd (`_syncPointedAt`).
-- Tests: 285 in Python (`pytest`), 45 in de frontend (`npm test`). Alle groen bij 0.33.12.
+  - 0.33.13: de *Kleurenlegenda* bevat beide regels (*Alleen deze kaders tonen*, *Alleen deze maskers tonen*), met de (i) in de kop; een klik op de (i) klapt de legenda ook open.
+- Tests: 285 in Python (`pytest`), 45 in de frontend (`npm test`). Alle groen bij 0.33.13.
 
 ## De interface in het kort
 

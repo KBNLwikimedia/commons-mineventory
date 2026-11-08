@@ -262,7 +262,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-soorten-alles { white-space: nowrap; }
 :is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soorten-alles .cc-punt { margin: 0 0.5rem; }
 :is(.cc-legenda-soorten, .cc-legenda-blok) .cc-soort-vinkje .cdx-label__label__text { display: inline-flex; align-items: center; }
-.cc-maskers-kleur { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: 0.4rem; }
+.cc-maskers-kleur { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: 0; }
 /* One kind chosen: the other objects fade, their masks and outlines disappear. */
 .viewer.soort-filter .object:not(.object-soort-aan) { opacity: 0.25; }
 .viewer.soort-filter .object:not(.object-soort-aan) .object-masker,
@@ -497,7 +497,14 @@ button.cc-kaart-oog { border: 0; background: none; cursor: pointer; }
 /* The (i) at the start of the line, in the same place as in the row of the masks. */
 .cc-legenda-rij { display: flex; align-items: flex-start; gap: 0.6rem; }
 .cc-legenda-rij > .cc-legenda { flex: 1; min-width: 0; }
-.cc-legenda-rij > .cc-legenda-info { flex: none; line-height: 1.25rem; }
+/* Both rows alike (wish Olaf): the same label column, size and weight, so the checkboxes line up. */
+.cc-rij-kop { flex: none; width: 11.5rem; font-size: 0.75rem; font-weight: 700; line-height: 1.25rem; color: var(--color-base, #202122); }
+.cc-legenda-rij, .cc-legenda-soorten { font-size: 0.75rem; }
+.cc-legenda-blok .cdx-accordion__content { padding-left: 0.5rem; padding-right: 0.5rem; padding-top: 0; }
+.cc-legenda-blok summary .cc-legenda-info { margin-left: 0.25rem; vertical-align: middle; }
+/* The masks row inside the legend: no own padding or line, a little space above. */
+.cc-legenda-blok .cc-legenda-soorten { padding: 0; border-bottom: 0; margin-top: 0.35rem; }
+.cc-legenda-blok .cc-legenda-rij + .cc-legenda-soorten { padding-top: 0.35rem; border-top: 1px solid var(--cc-rand); }
 .cc-legenda > li { min-height: 1.25rem; }
 /* All · None · Invert spaced as in the row of the kinds (wish Olaf). */
 .cc-legenda > li.cc-soorten-alles { gap: 0; }

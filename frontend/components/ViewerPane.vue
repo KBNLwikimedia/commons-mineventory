@@ -34,13 +34,16 @@
       <span class="cc-viewer-hint">{{ drawMode ? t("viewer.hint_draw") : pointMode ? t("viewer.hint_point") : t("viewer.hint") }}</span>
       <slot name="balk" />
     </div>
-    <!-- What the colours of the frames mean: only with the boxes shown, open to start with, like
-         the row of the masks (wish Olaf). The (i) first in the line, as in that row. -->
-    <cdx-accordion v-if="show.boxen && legend.length" v-model="legendOpen" class="cc-legenda-blok">
-      <template #title>{{ t("legend.title") }}</template>
-      <!-- The (i) in its own column, so a second line starts under the first checkbox (wish Olaf). -->
-      <div class="cc-legenda-rij">
-      <info-dialog class="cc-legenda-info" :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" />
+    <!-- The colour legend (wish Olaf): what the frames and the masks show, open to start with, with
+         the (i) in its heading; whenever the boxes or the masks have something to explain. -->
+    <cdx-accordion v-if="(show.boxen && legend.length) || (show.maskers && kinds.length)" v-model="legendOpen" class="cc-legenda-blok">
+      <!-- The (i) in the heading (wish Olaf): a button in the heading does not fold it. -->
+      <!-- A click on the (i) also unfolds the legend, so its explanation and the rows go together (wish Olaf). -->
+      <template #title>{{ t("legend.title") }} <span class="cc-legenda-info" @click.capture="unfoldLegend"><info-dialog :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" /></span></template>
+      <!-- The label in a fixed column, so the checkboxes of both rows start at the same place,
+           and a second line starts under the first checkbox (wish Olaf). -->
+      <div v-if="show.boxen && legend.length" class="cc-legenda-rij">
+      <span class="cc-rij-kop">{{ t("legend.statuses") }}</span>
       <ul class="cc-legenda">
         <!-- A checkbox per status, in the colour of its frame (wish Olaf): unticked fades those objects. -->
         <li v-for="item in statusItems" :key="item">
@@ -59,34 +62,29 @@
         <li v-for="item in legend.filter((i) => !FRAME_KEYS.includes(i))" :key="item"><span :class="['cc-legenda-staal', `cc-legenda-${item}`]"></span>{{ t(`legend.${item}`) }}</li>
       </ul>
       </div>
-    </cdx-accordion>
-    <!-- A colour per kind of object, each a checkbox: ticked kinds are shown (all to start
-         with), with All · None · Invert as in the object list (wish Olaf). Only with the masks shown. -->
-    <div v-if="show.maskers && kinds.length" class="cc-legenda-soorten">
-      <!-- A mask always shows the kind, a frame the status (wish Olaf, 8-11-2026: no switch any
-           more). What every colour means: one (i), in the first row you see; here only when
-           the colour legend above is closed or not shown. -->
-      <div class="cc-maskers-kleur">
-        <info-dialog v-if="!legendShown" :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" />
-        <span class="cc-legenda-soorten-kop cc-alleen-tonen">{{ t("legend.kinds") }}</span>
+      <!-- A colour per kind of object, each a checkbox: ticked kinds are shown (all to start
+           with), with All · None · Invert as in the object list (wish Olaf). Only with the masks shown. -->
+      <div v-if="show.maskers && kinds.length" class="cc-legenda-soorten">
+        <!-- A mask always shows the kind, a frame the status (wish Olaf, 8-11-2026: no switch any more). -->
+        <span class="cc-rij-kop cc-alleen-tonen">{{ t("legend.kinds") }}</span>
+        <!-- The kinds as one block that wraps within itself: a second line starts under the first kind (wish Olaf). -->
+        <ul class="cc-soorten-lijst">
+          <li v-for="[kind, color] in kinds" :key="kind">
+            <!-- The checkbox in the colour of the kind (wish Olaf): filled when ticked, its border when not. -->
+            <cdx-checkbox v-model="shownKinds" :input-value="kind" :inline="true" class="cc-soort-vinkje" :style="{ '--soort': color }" :title="t('legend.kind_only', { kind })">
+              {{ kind }} <span class="cc-soort-aantal">({{ kindCounts[kind] || 0 }})</span>
+            </cdx-checkbox>
+          </li>
+          <li class="cc-soorten-alles">
+            <button type="button" class="cc-link" :disabled="!hiddenKinds.length" @click="hiddenKinds = []">{{ t("objects.all") }}</button>
+            <span class="cc-punt" aria-hidden="true">·</span>
+            <button type="button" class="cc-link" :disabled="hiddenKinds.length === kinds.length" @click="hiddenKinds = kinds.map(([kind]) => kind)">{{ t("objects.none") }}</button>
+            <span class="cc-punt" aria-hidden="true">·</span>
+            <button type="button" class="cc-link" @click="hiddenKinds = shownKinds">{{ t("objects.invert") }}</button>
+          </li>
+        </ul>
       </div>
-      <!-- The kinds as one block that wraps within itself: a second line starts under the first kind (wish Olaf). -->
-      <ul class="cc-soorten-lijst">
-        <li v-for="[kind, color] in kinds" :key="kind">
-          <!-- The checkbox in the colour of the kind (wish Olaf): filled when ticked, its border when not. -->
-          <cdx-checkbox v-model="shownKinds" :input-value="kind" :inline="true" class="cc-soort-vinkje" :style="{ '--soort': color }" :title="t('legend.kind_only', { kind })">
-            {{ kind }} <span class="cc-soort-aantal">({{ kindCounts[kind] || 0 }})</span>
-          </cdx-checkbox>
-        </li>
-        <li class="cc-soorten-alles">
-          <button type="button" class="cc-link" :disabled="!hiddenKinds.length" @click="hiddenKinds = []">{{ t("objects.all") }}</button>
-          <span class="cc-punt" aria-hidden="true">·</span>
-          <button type="button" class="cc-link" :disabled="hiddenKinds.length === kinds.length" @click="hiddenKinds = kinds.map(([kind]) => kind)">{{ t("objects.none") }}</button>
-          <span class="cc-punt" aria-hidden="true">·</span>
-          <button type="button" class="cc-link" @click="hiddenKinds = shownKinds">{{ t("objects.invert") }}</button>
-        </li>
-      </ul>
-    </div>
+    </cdx-accordion>
     <div class="cc-viewer-vlak">
       <div ref="host" class="viewer" :class="{ 'maskers-verborgen': !show.maskers, 'boxen-verborgen': !show.boxen, 'namen-zichtbaar': show.namen, 'cc-skelet': imageState === 'loading' }" :aria-busy="imageState === 'loading' ? 'true' : 'false'"></div>
       <!-- Waiting feedback while the image comes in: the first time, the server fetches the original from Commons. -->
@@ -140,8 +138,13 @@ const kindCounts = computed(() => {
 });
 // The colour legend of the frames: open to start with (wish Olaf).
 const legendOpen = ref(true);
-// Is the legend (with its (i)) in view? Then the row of the masks has no (i) of its own.
-const legendShown = computed(() => show.boxen && legend.value.length > 0 && legendOpen.value);
+// The (i) in the heading also unfolds the legend (wish Olaf). On the <details> itself: the fold
+// animation (accordion-motion.js) closes it directly, so the model may still say "open".
+function unfoldLegend(event) {
+  const details = event.currentTarget.closest("details");
+  if (details && !details.open) details.open = true;
+  legendOpen.value = true;
+}
 const colourInfo = computed(() => [1, 2, 3, 4, 5, 6].map((i) => t(`legend.info_${i}`)));
 // The kinds you unticked: their objects fade. Kept as the hidden ones, so a kind found later
 // shows (ticked) at once. A kind that is gone is dropped.
