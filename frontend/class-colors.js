@@ -1,7 +1,8 @@
 /* A colour per class of object (wish Olaf, 8-11-2026): when a page has objects of more than
    one kind (plates, wine glasses, ...), the masks in the viewer and a dot in the object list
    share a colour per kind. The kind is the search term the image detection found it with;
-   drawn boxes, clicks, groups and regions from Commons have none and keep their own colours.
+   a group has that of its members, a region from Commons its name; drawn boxes and clicks have
+   none and keep their own colours.
    Plain JS, used by the viewer (no Vue) and by the components. */
 
 // Distinct from the status colours of the frames (blue, red, green, orange, grey).
@@ -9,10 +10,13 @@ export const CLASS_PALETTE = ["#7a3db8", "#0f8f8f", "#c2185b", "#7c8a00", "#8d5a
 
 const PLACEHOLDER_TERMS = new Set(["klik", "rechthoek", "regio"]);
 
-/* The kind of an object: its search term in lower case, or null. */
+/* The kind of an object in lower case, or null: its search term; for a group that of its members
+   ("group: cloud (13)" is a cloud; mixed: none); for a region from Commons its English name, as the search terms are English (wish Olaf). */
 export function classKey(obj) {
-  if (!obj || (obj.bron !== "sam" && obj.bron !== "dummy")) return null;
-  const term = String(obj.zoekterm || "").trim().toLowerCase();
+  if (!obj) return null;
+  const source = { sam: obj.zoekterm, dummy: obj.zoekterm, groep: obj.groep?.soort, commons: obj.label_en || obj.label_item || obj.label };
+  if (!(obj.bron in source)) return null;
+  const term = String(source[obj.bron] || "").trim().toLowerCase();
   return term && !PLACEHOLDER_TERMS.has(term) ? term : null;
 }
 

@@ -12,7 +12,7 @@ Tot en met 0.31.0 heette de app Commons Cutter; daarom heet het Python-package `
 - Werk na elke afgeronde taak CHANGELOG.md bij (Keep a Changelog, semver).
 
 ## Fasering (strikt)
-- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.33.15); zie BACKLOG.md voor wat nog open staat.
+- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.33.16); zie BACKLOG.md voor wat nog open staat.
 - GEEN live aanroepen naar de Meta Model API zonder expliciete opdracht van Olaf. MetaSamDetector en de beschrijving alleen testen met fixtures. Olaf draait zelf lokaal in live-modus (`DETECTIE_MODUS=live` in zijn .env); test in de browser dus nooit een knop die betaalt (Zoeken, Aanwijzen, Beschrijf deze afbeelding, Opnieuw vragen) zonder zijn opdracht.
 - Commons alleen lezen (ook `action=parse` voor de proefweergave is een leesverzoek). Bewerkingen op Commons, ook SDC of regio's op het origineel, pas in fase 2 en alleen na een klik en bevestiging van de gebruiker.
 - Uploaden naar Commons alleen na een klik en een bevestiging van de gebruiker. Eerst op een testwiki; de eerste echte upload doet Olaf zelf.

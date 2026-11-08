@@ -5,6 +5,13 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.33.16] - 2026-11-08
+
+### Gewijzigd
+
+- Een **groep heeft nu de soort van zijn leden** (wens Olaf): *group: cloud (13)* staat onder *cloud* bij *Alleen deze maskers tonen*, met de kleur en de stip van die soort, en vervaagt niet meer zodra je een andere soort uitvinkt. Een groep van gemengde soorten heeft geen soort.
+- Een **regio uit Commons heeft nu zijn naam als soort** (wens Olaf): *dog* staat ook bij *Alleen deze maskers tonen*, met een stip in de lijst.
+
 ## [0.33.15] - 2026-11-08
 
 ### Documentatie

@@ -554,6 +554,13 @@ describe("a colour per kind of object", () => {
     expect(colors.plate).not.toBe(colors["wine glass"]);
     expect(classKey({ bron: "groep", zoekterm: "plate" })).toBeNull();
     expect(classKey({ bron: "commons", zoekterm: "plate" })).toBeNull();
+    // A group has the kind of its members; a group of mixed kinds has none.
+    expect(classKey({ bron: "groep", groep: { soort: "Cloud" } })).toBe("cloud");
+    expect(classKey({ bron: "groep", groep: { soort: null } })).toBeNull();
+    // A region from Commons has its name as its kind; a region without a name has none.
+    expect(classKey({ bron: "commons", label: "Dog" })).toBe("dog");
+    expect(classKey({ bron: "commons", label: "hond", label_en: "Dog" })).toBe("dog");
+    expect(classKey({ bron: "commons", label: "regio" })).toBeNull();
   });
 
   it("colours the masks in the viewer and a dot in the list", () => {

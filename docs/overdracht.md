@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.33.15, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.33.16, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -35,7 +35,8 @@ Stand: versie 0.33.15, 8 november 2026. Voor wie (mens of Claude-sessie) het wer
   - 0.33.13: de *Kleurenlegenda* bevat beide regels (*Alleen deze kaders tonen*, *Alleen deze maskers tonen*), met de (i) in de kop; een klik op de (i) klapt de legenda ook open.
   - 0.33.14: fix: *Maskers*, *Kaders* of *Namen* wisten de filters. Let op: geen `:class` op het element van de viewer (`ViewerPane.vue`); Vue herschrijft dan de hele class-lijst en wist wat de viewer zelf zet.
   - 0.33.15: *Vinkjes selecteren:* voor *Alle · Geen · Omkeren* in de objectenlijst, met tooltips.
-- Tests: 285 in Python (`pytest`), 45 in de frontend (`npm test`). Alle groen bij 0.33.15.
+  - 0.33.16: een groep heeft de soort van zijn leden, een regio uit Commons zijn Engelse naam als soort (`classKey` in `class-colors.js`).
+- Tests: 285 in Python (`pytest`), 45 in de frontend (`npm test`). Alle groen bij 0.33.16.
 
 ## De interface in het kort
 
