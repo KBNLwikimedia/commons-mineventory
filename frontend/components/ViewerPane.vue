@@ -39,6 +39,7 @@
       <template #title>{{ t("legend.title") }}</template>
       <ul class="cc-legenda">
         <li v-for="item in legend" :key="item"><span :class="['cc-legenda-staal', `cc-legenda-${item}`]"></span>{{ t(`legend.${item}`) }}</li>
+        <li><info-dialog :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" /></li>
       </ul>
     </cdx-accordion>
     <!-- A colour per kind of object, each a link that shows only the masks of that kind
@@ -46,6 +47,8 @@
     <ul v-if="show.maskers && kinds.length" class="cc-legenda cc-legenda-soorten">
       <!-- What the colour of the masks shows: the kind (default) or, as the frames, the status. -->
       <li class="cc-maskers-kleur">
+        <!-- What every colour means, the masks, by kind / by status and Show only (wish Olaf). -->
+        <info-dialog :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" />
         <span class="cc-legenda-soorten-kop">{{ t("legend.masks_by") }}</span>
         <cdx-toggle-button-group v-model="maskColoringModel" :buttons="maskColorings" :aria-label="t('legend.masks_by')" />
       </li>
@@ -74,6 +77,7 @@ import { useT } from "../i18n.js";
 import { numberedNames, objectName } from "../state.js";
 import { PageViewer } from "../viewer/viewer.js";
 import BusyNote from "./BusyNote.vue";
+import InfoDialog from "./InfoDialog.vue";
 
 const props = defineProps({
   mid: { type: String, required: true },
@@ -99,6 +103,7 @@ const LEGEND = ["geselecteerd", "kandidaat", "nieuw", "commons", "handmatig", "u
 // Only the colours that occur on this page (plus "thicker", which always can).
 // The kinds with their colour, for the legend of the masks.
 const kinds = computed(() => Object.entries(props.classColors || {}));
+const colourInfo = computed(() => [1, 2, 3, 4, 5, 6].map((i) => t(`legend.info_${i}`)));
 const maskColoringModel = computed({ get: () => props.maskColoring, set: (value) => emit("update:maskColoring", value) });
 const byKind = computed(() => props.maskColoring !== "status");
 const maskColorings = computed(() => [

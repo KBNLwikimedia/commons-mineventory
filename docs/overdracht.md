@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.33.9, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.33.10, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -29,7 +29,8 @@ Stand: versie 0.33.9, 8 november 2026. Voor wie (mens of Claude-sessie) het werk
   - **Prompt**: een eigen naam gaat altijd mee als aanwijzing, ook bij een groep, getekend kader of klik.
   - **API**: de verouderde paden van vóór 0.29.0 zijn weg (12e). Alles in het Engels staat als 12j in de backlog (niet urgent).
   - Link **Prullenbak** in de kop.
-- Tests: 285 in Python (`pytest`), 44 in de frontend (`npm test`). Alle groen bij 0.33.9.
+  - 0.33.10: een (i) bij *Kleur maskers* en de *Kleurenlegenda* die alle kleuren uitlegt.
+- Tests: 285 in Python (`pytest`), 44 in de frontend (`npm test`). Alle groen bij 0.33.10.
 
 ## De interface in het kort
 

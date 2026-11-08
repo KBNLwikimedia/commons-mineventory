@@ -5,6 +5,12 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.33.10] - 2026-11-08
+
+### Toegevoegd
+
+- Een **(i)** bij *Kleur maskers* en in de *Kleurenlegenda* van de viewer (wens Olaf): één venster dat alle kleuren uitlegt: het kader (status), het masker (*per soort* of *per status*, met de stippen in de lijst), de witte rand van een masker, *Alleen tonen* en de schakelaars *Maskers*, *Kaders* en *Namen*.
+
 ## [0.33.9] - 2026-11-08
 
 ### Verwijderd
