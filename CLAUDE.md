@@ -12,7 +12,7 @@ Tot en met 0.31.0 heette de app Commons Cutter; daarom heet het Python-package `
 - Werk na elke afgeronde taak CHANGELOG.md bij (Keep a Changelog, semver).
 
 ## Fasering (strikt)
-- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.33.14); zie BACKLOG.md voor wat nog open staat.
+- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.33.15); zie BACKLOG.md voor wat nog open staat.
 - GEEN live aanroepen naar de Meta Model API zonder expliciete opdracht van Olaf. MetaSamDetector en de beschrijving alleen testen met fixtures. Olaf draait zelf lokaal in live-modus (`DETECTIE_MODUS=live` in zijn .env); test in de browser dus nooit een knop die betaalt (Zoeken, Aanwijzen, Beschrijf deze afbeelding, Opnieuw vragen) zonder zijn opdracht.
 - Commons alleen lezen (ook `action=parse` voor de proefweergave is een leesverzoek). Bewerkingen op Commons, ook SDC of regio's op het origineel, pas in fase 2 en alleen na een klik en bevestiging van de gebruiker.
 - Uploaden naar Commons alleen na een klik en een bevestiging van de gebruiker. Eerst op een testwiki; de eerste echte upload doet Olaf zelf.
@@ -22,7 +22,8 @@ Tot en met 0.31.0 heette de app Commons Cutter; daarom heet het Python-package `
 - Python 3.11+, Flask, requests, Pillow, numpy, python-dotenv, truststore, meta-sam-parser, pyvips[binary] (libvips, voor originelen boven MAX_MEGAPIXELS; besluit Olaf 4-11-2026). Geen zware ML-libs.
 - Frontend: Flask rendert de pagina's (Jinja); daarin worden Vue 3-componenten gemount. Build-stap met Vite (Node.js alleen bij ontwikkelen en bouwen; op Toolforge draait alleen Python). Bronnen in frontend/, uitvoer in static/dist/ (niet in git).
 - Stijl en componenten: Codex 2.x (Wikimedia-designsysteem) via npm. Geen externe CDN's (privacy op Toolforge).
-- De viewer (canvas, zoom, pan, overlays, maskers) is een gewone JS-module zonder Vue, overgenomen uit de Delpher Uitsnijder. Niet herschrijven in Vue.
+- De viewer (canvas, zoom, pan, overlays, maskers) is een gewone JS-module zonder Vue, overgenomen uit de Delpher Uitsnijder. Niet herschrijven in Vue. Geen `:class` op zijn element in `ViewerPane.vue`: Vue wist dan de classes die de viewer zelf zet.
+- CSS die Codex moet overschrijven, moet specifieker zijn dan de regel van Codex: op de dev-server laadt Codex na `app.css`, in de build ervoor.
 - Inloggen: OAuth 2.0 van Wikimedia (patroon uit D:\KB-OPEN\github-repos\iiif-manifest-upload-workbench).
 - Configuratie: geheimen alleen via omgevingsvariabelen (.env.example bijhouden). Nooit sleutels lezen of committen (MODEL_API_KEY, OAUTH_CLIENT_SECRET, tokens). Instellingen die een beheerder mag wijzigen (toegangslijst, limieten, bewaartermijnen) komen in fase 2 in de database van het beheerpaneel; de omgevingsvariabelen zijn dan alleen de beginwaarden.
 - Alles RESTful onder /api/v1; houd docs/api.md en /api/v1/openapi.json synchroon met de code. Een GET kost nooit geld en verandert niets.
@@ -31,6 +32,7 @@ Tot en met 0.31.0 heette de app Commons Cutter; daarom heet het Python-package `
 - HTML die van Commons komt (proefweergave) gaat altijd door `cutter/weergave.py` (allowlist; geen afbeeldingen, stijlen of scripts), zodat de browser niets van Wikimedia laadt.
 
 ## Interface
+- Kleuren in de afbeelding hebben één betekenis: een kader toont de status, een masker de soort, de rand van een masker is wit.
 - Codex-knoppen zijn blauw (`action="progressive"`); verwijderen is `destructive`; per weergave hooguit één gevulde hoofdactie (`weight="primary"`).
 - Uitleg is klein en grijs (`cc-uitleg`); wat de AI zei staat in een kader (`cc-ai-resultaat`); de uitkomst van een actie als melding onder de knop die erom vroeg. Een knop zonder iets te doen is uitgeschakeld, niet verborgen; een knop met kosten draagt het bedrag.
 - Tekst die AI maakte (SAM, Muse Spark) krijgt een AI-merkje (`AiBadge.vue`) met uitleg; AI-teksten zijn met de hand aan te passen, met Ongedaan maken.

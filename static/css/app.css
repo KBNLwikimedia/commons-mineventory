@@ -955,3 +955,6 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bulk-beschrijven .cc-bulk-uitklap > .cdx-accordion__content > .cc-uitleg { font-size: 0.8125rem; line-height: 1.4; color: var(--cc-tekst-zacht, #54595d); }
 .cc-bulk-beschrijven .cc-bulk-velden > * + * { margin-top: 0.75rem; }
 .cc-bulk-beschrijven .cc-bulk-prompt { margin-top: 0.75rem; }
+/* "Select:" before All · None · Invert in the object list (wish Olaf). */
+.cc-objecten-alles { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; column-gap: 0.3rem; }
+.cc-objecten-alles-links { white-space: nowrap; }

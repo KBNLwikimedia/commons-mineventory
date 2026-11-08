@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.33.14, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.33.15, 8 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -34,7 +34,8 @@ Stand: versie 0.33.14, 8 november 2026. Voor wie (mens of Claude-sessie) het wer
   - 0.33.12: geen schakelaar *Kleur maskers* meer (masker = soort, kader = status); vinkjes in de kleur van de soort met aantallen; de *Kleurenlegenda* standaard open met vinkjes per status (`frameKey`, `setStatusFilter`), één (i); fix: na uitvinken van een object in focus bleef alles vervaagd (`_syncPointedAt`).
   - 0.33.13: de *Kleurenlegenda* bevat beide regels (*Alleen deze kaders tonen*, *Alleen deze maskers tonen*), met de (i) in de kop; een klik op de (i) klapt de legenda ook open.
   - 0.33.14: fix: *Maskers*, *Kaders* of *Namen* wisten de filters. Let op: geen `:class` op het element van de viewer (`ViewerPane.vue`); Vue herschrijft dan de hele class-lijst en wist wat de viewer zelf zet.
-- Tests: 285 in Python (`pytest`), 45 in de frontend (`npm test`). Alle groen bij 0.33.14.
+  - 0.33.15: *Vinkjes selecteren:* voor *Alle · Geen · Omkeren* in de objectenlijst, met tooltips.
+- Tests: 285 in Python (`pytest`), 45 in de frontend (`npm test`). Alle groen bij 0.33.15.
 
 ## De interface in het kort
 
@@ -43,12 +44,12 @@ Van links naar rechts, in de volgorde van het werk (sinds 0.29.0):
 | Kolom | Wat | Bestanden |
 | --- | --- | --- |
 | **Bekeken** | geopende afbeeldingen met miniatuur; daaronder **Opzij gezet** (inklapbaar, slepen of prullenbakje; pijl omhoog zet terug) | `ViewedPanel.vue`, `HistoryList.vue`, `state.js` |
-| **Beeld** | de viewer (gewone JS, niet herschrijven in Vue) met zoom, Maskers/Kaders/Namen | `ViewerPane.vue`, `viewer/viewer.js` |
+| **Beeld** | de viewer (gewone JS, niet herschrijven in Vue) met zoom, Maskers/Kaders/Namen; daaronder de *Kleurenlegenda* (standaard open, de (i) in de kop) met *Alleen deze kaders tonen* en *Alleen deze maskers tonen*: vinkjes met aantallen en *Alle · Geen · Omkeren*. Kader = status, masker = soort, rand van het masker = wit | `ViewerPane.vue`, `viewer/viewer.js`, `class-colors.js` |
 | **Beschrijven en vinden** | AI-suggesties (beschrijving en zoektermen, elk apart opnieuw of weg; beschrijving met de hand aan te passen, met versies), Uit Commons, Zoeken, Aanwijzen of tekenen, CropTool | `DetectionPanel.vue`, `PageDescription.vue` |
 | **Gevonden objecten (uitsneden)** | Minimale zekerheid; de objecten met een zoekveld en *Alle · Geen · Omkeren* (genummerd: *man 1*, *man 2*; *beschreven* of *nog niet beschreven*); daaronder de uitklappers *Bulkacties* (vier tabbladen) en *Bewaren en exporteren* (Selectie opslaan, zip, Naar Commons, *Bewaartermijnen*), standaard dicht | `ObjectList.vue`, `CutterApp.vue`, `BulkDescribeDialog.vue` |
 
 - Elke kolom schuift in tot een strook (`ColumnHeader.vue`, `ColumnStrip.vue`) en heeft een kop met uitleg en een (i).
-- De **vergroter** (`Magnifier.vue`) heeft Vorige/Volgende (ook ← →), slaat een niet-opgeslagen bijschrift vanzelf op, en blijft open na *Naar de prullenbak*. Tabbladen: *Uitsnede*, *AI-aangevuld* (als er een is), *Wat staat hierop?* en *Commons-concept*. Bevestigingen met een lijst objecten of een tekstveld gaan via `askConfirmValue()` in `confirm.js`.
+- De **vergroter** (`Magnifier.vue`) heeft Vorige/Volgende (ook ← →), slaat een niet-opgeslagen bijschrift vanzelf op, en blijft open na *Naar de prullenbak*. Tabbladen: *Uitsnede*, *AI-aangevuld* (als er een is), *Wat staat hierop?* en *Commons-concept*. Ook op de pagina *Objecten* (het oog); een object uit de prullenbak is daar alleen te bekijken (`inTrash`: alleen *Uitsnede*). Bevestigingen met een lijst objecten of een tekstveld gaan via `askConfirmValue()` in `confirm.js`.
 - **Object en uitsnede**: een object is gevonden gegevens, een uitsnede het opgeslagen beeldbestand. Zie *Begrippen* in het functioneel ontwerp.
 
 ## Afspraken die je niet uit de code haalt
@@ -81,6 +82,9 @@ Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie
 
   De dummy vindt altijd iets; "niets gevonden" is daar niet na te bootsen.
 - **Teksten verversen**: Olaf draait `npm run dev`; Vite werkt de code live bij, maar de vertalingen zitten in de pagina en komen pas mee na herladen. Een stijlbestand met hetzelfde versienummer kan in de browsercache blijven (Ctrl+F5).
+- **Geen `:class` op het element van de viewer** (`ViewerPane.vue`): Vue herschrijft dan bij elke wijziging de hele class-lijst en wist wat de viewer daar zelf zet (filters, vervagen, kruisdraad). De schakelaars zetten hun class met `classList.toggle`.
+- **Vite en Codex**: op Olafs dev-server laadt de CSS van Codex ná `app.css`, in de build ervoor. Een regel die Codex moet overschrijven, moet daarom specifieker zijn; gelijke specificiteit werkt alleen in de build. Test uiterlijk dus ook op zijn server.
+- **`watch` en `const`**: een `watch` of `immediate` leest zijn bron meteen; staat die bron verderop in `<script setup>`, dan start de component niet (de viewer bleef zo eens leeg, zonder melding in de console).
 - **Bestanden wijzigen**: grote of meervoudige wijzigingen gingen het betrouwbaarst met een klein Python-script (`.venv/Scripts/python -I script.py`); heredocs in de shell braken op aanhalingstekens.
 - **Git**: altijd `git -c safe.directory=D:/KB-OPEN/github-repos/commons-mineventory …`; niet pushen zonder opdracht.
 - **Commit-routine**: versie ophogen in `cutter/__init__.py` en `package.json` (dan `npm install --package-lock-only`), README "Fase 1 is klaar (versie …)" en CLAUDE.md "Klaar (stand …)", de Unreleased-sectie van CHANGELOG.md een versie en datum geven, `pytest`, `npm test` en `npm run build` draaien, en de commit afsluiten met de Co-Authored-By-regel.
@@ -100,5 +104,7 @@ Een Claude-sessie hoort bij het mappad; begin na het hernoemen een nieuwe sessie
 - **Later, nice-to-have**: een 3D-model van een uitsnede met SAM 3D Objects via Runware (FO 7.8, backlog 19c); ontworpen, niet gepland.
 - **Venster gestructureerde gegevens** (backlog 15b, FO 9.7): gebouwd als concept (0.33.5–0.33.7); open: het mini-beeld met kaders in de kop van het venster, en het schrijven naar Commons (fase 2, na OAuth).
 - **Valkuil**: in scripts die tekst in bestanden zetten, nooit `\u0000` of andere stuurtekens als scheidingsteken gebruiken (er kwamen eens echte nul-tekens in `Magnifier.vue`); gebruik iets als `@@naam@@`. En een losse `cat` zonder invoer in een Bash-aanroep blijft wachten.
+- **Niet urgent**: alles in het Engels, paden, parameters en JSON (backlog 12j, besluit Olaf).
+- **Bij de deploy** (backlog 17, FO 12.1): `uitvoer/` op de Build Service vraagt `--mount=all` en `$TOOL_DATA_DIR`. *Tonen in map* is daar uit; *Bestand openen* en *Downloaden* werken wel. *Tonen in map* is nog niet echt geprobeerd (alleen getest met een stand-in): Olaf probeert het op zijn eigen server.
 - **Klein**: backlog 12b (oude paginaoverzichten zonder Engels; nagaan welke SDC-velden Commons-bots zelf zetten).
 - **Fase 2**: OAuth (13) met werk per gebruiker (13a, FO 8.5: eigen uitvoermap per gebruiker, gedeelde cache), upload via de stash op een testwiki (14), beheerpaneel (15), categorie als invoer (15a). Pas daarna kan per gebruiker gescheiden worden (12c).

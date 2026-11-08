@@ -8,15 +8,18 @@
       <div class="cc-objecten-rechts">
       <slot name="search" />
       <span v-if="objects.length" class="cc-objecten-alles">
-        <button type="button" class="cc-link" @click="emit('select', objects.filter((o) => o.status !== 'uitgesloten').map((o) => o.id))">
+        <span class="cc-objecten-selecteer">{{ t("objects.select_label") }}</span>
+        <span class="cc-objecten-alles-links">
+        <button type="button" class="cc-link" :title="t('objects.tick_all_help')" @click="emit('select', objects.filter((o) => o.status !== 'uitgesloten').map((o) => o.id))">
           {{ t("objects.all") }}
         </button>
         ·
-        <button type="button" class="cc-link" @click="emit('select', [])">{{ t("objects.none") }}</button>
+        <button type="button" class="cc-link" :title="t('objects.tick_none_help')" @click="emit('select', [])">{{ t("objects.none") }}</button>
         ·
-        <button type="button" class="cc-link" @click="emit('select', objects.filter((o) => o.status !== 'uitgesloten' && o.status !== 'geselecteerd').map((o) => o.id))">
+        <button type="button" class="cc-link" :title="t('objects.tick_invert_help')" @click="emit('select', objects.filter((o) => o.status !== 'uitgesloten' && o.status !== 'geselecteerd').map((o) => o.id))">
           {{ t("objects.invert") }}
         </button>
+        </span>
       </span>
       </div>
     </header>

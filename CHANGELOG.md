@@ -5,6 +5,16 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.33.15] - 2026-11-08
+
+### Documentatie
+
+- FO (10, 12.1), overdracht, backlog, README en CLAUDE.md bijgewerkt: de Kleurenlegenda, de alleen-lezen vergroter voor de prullenbak, *Tonen in map*, de opslag op de Build Service, en drie valkuilen (geen `:class` op de viewer, de laadvolgorde van Codex in Vite, `watch` voor een `const`).
+
+### Gewijzigd
+
+- In de lijst met objecten staat nu **Vinkjes selecteren:** voor *Alle · Geen · Omkeren*, met per link een tooltip over wat er met de vinkjes gebeurt (wens Olaf).
+
 ## [0.33.14] - 2026-11-08
 
 ### Opgelost

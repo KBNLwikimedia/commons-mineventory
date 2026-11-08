@@ -67,7 +67,7 @@ Werk de items in volgorde af, tenzij Olaf anders zegt. Bron: `docs/functioneel-o
 ## Fase 3: live
 
 16. [ ] SAM en Muse Spark live, alleen na een opdracht van Olaf; kalibratie op albums, prenten en kaarten.
-17. [ ] Eerst nagaan of de betaalde Meta-API op Toolforge mag. Deploy naar Toolforge (Build Service; de frontend bouwen in de Build Service of in een GitHub Action), publieke OAuth-consumer, privacyverklaring, projectpagina en volgcategorie op Commons.
+17. [ ] Opslag van `uitvoer/` regelen: de Build Service ziet de schijf van de tool alleen met `--mount=all`, via `$TOOL_DATA_DIR` (uitgezocht 8-11-2026, FO 12.1). Eerst nagaan of de betaalde Meta-API op Toolforge mag. Deploy naar Toolforge (Build Service; de frontend bouwen in de Build Service of in een GitHub Action), publieke OAuth-consumer, privacyverklaring, projectpagina en volgcategorie op Commons.
 18. [ ] Eerste echte uploads, door Olaf. Daarvoor aanmaken (Olaf): Category:Uploaded with Commons Mineventory, Category:Cut-outs from media contributed by Koninklijke Bibliotheek, Category:Cut-outs from media from Delpher.
 
 ## Fase 4: verdieping
