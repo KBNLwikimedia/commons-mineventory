@@ -24,6 +24,7 @@ def test_changelog_page(http):
     page = http.get("/changelog").get_data(as_text=True)
     assert 'class="cl-versie"' in page
     assert 'id="cc-changelog-filter"' in page
+    assert 'id="cc-changelog-tabel"' in page
     assert 'class="cl-item" data-versie=' in page
     assert http.get("/changelog.md").mimetype == "text/plain"
 

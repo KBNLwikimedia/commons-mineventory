@@ -2,16 +2,27 @@
 import { API } from "./api.js";
 import { fileName } from "./state.js";
 
-export const emptyFilters = () => ({ sources: [], files: [], saved: false, augmented: false });
+export const emptyFilters = () => ({ sources: [], files: [], saved: false, augmented: false, query: "" });
+
+const searchWords = (query) => (query || "").toLowerCase().split(/\s+/).filter(Boolean);
+
+/* What the search box on the Objects page looks in; the same fields as the export (OBJECT_SEARCHED in api.py). */
+const objectText = (o) =>
+  [o.mid, o.bestand_titel, o.naam || o.groep?.naam, o.label_nl, o.label_en, o.zoekterm, o.licentie, o.bijschrift?.tekst, o.beschrijving?.onderwerp, o.beschrijving?.onderwerp_en, o.beschrijving?.beschrijving, o.beschrijving?.beschrijving_en]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 
 /* The objects the facets let through. */
 export function applyFacets(objects, filters) {
+  const words = searchWords(filters.query);
   return objects.filter(
     (o) =>
       (!filters.sources.length || filters.sources.includes(o.bron)) &&
       (!filters.files.length || filters.files.includes(o.mid)) &&
       (!filters.saved || o.opgeslagen) &&
-      (!filters.augmented || o.aangevuld)
+      (!filters.augmented || o.aangevuld) &&
+      (!words.length || words.every((word) => objectText(o).includes(word)))
   );
 }
 
@@ -33,7 +44,7 @@ export function filesOf(objects) {
    the text in lower case. Within a facet any chosen value will do, between facets all must hold;
    every word of the search must occur. */
 export function applyListFilters(rows, filters, query = "") {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const words = searchWords(query);
   return rows.filter(
     (row) => Object.entries(filters).every(([key, chosen]) => !chosen.length || chosen.includes(row.values[key])) && words.every((word) => row.text.includes(word))
   );
@@ -47,6 +58,17 @@ export function exportUrl(base, params, format) {
     if (text) query.set(name, text);
   }
   return `${base}?${query}`;
+}
+
+/* The rows ordered by a value (direction 1 or -1): numbers as numbers, text with 0.9 before 0.33;
+   rows without a value always last. */
+export function sortRows(rows, value, direction) {
+  const empty = (v) => v === null || v === undefined || v === "";
+  const compare = (a, b) => (typeof a === "number" && typeof b === "number" ? a - b : typeof a === "boolean" ? Number(a) - Number(b) : String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" }));
+  return rows
+    .map((row) => [row, value(row)])
+    .sort(([, a], [, b]) => (empty(a) ? (empty(b) ? 0 : 1) : empty(b) ? -1 : direction * compare(a, b)))
+    .map(([row]) => row);
 }
 
 /* Latest date or highest version first. */

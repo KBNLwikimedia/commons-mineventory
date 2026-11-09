@@ -35,28 +35,10 @@
       <div class="cc-objecten-inhoud">
       <p v-if="data.logboek.length >= 500" class="cc-uitleg">{{ t("usage.capped", { n: data.logboek.length }) }}</p>
       <p v-if="!shown.length" class="cc-leeg">{{ t("usage.none_found") }}</p>
-      <table v-else class="cc-tabel">
-        <thead>
-          <tr>
-            <th>{{ t("usage.time") }}</th>
-            <th>{{ t("usage.kind") }}</th>
-            <th>{{ t("usage.file") }}</th>
-            <th>{{ t("usage.term") }}</th>
-            <th>{{ t("usage.user") }}</th>
-            <th class="getal">{{ t("usage.cost") }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="({ entry }, i) in shown" :key="i">
-            <td>{{ entry.tijd.replace("T", " ") }}</td>
-            <td>{{ kindLabel(entry) }}</td>
-            <td><a v-if="entry.bestand" :href="`/?mid=${entry.bestand}&pagina=${entry.pagina || 1}`">{{ entry.titel || entry.bestand }}</a></td>
-            <td>{{ detail(entry) }}</td>
-            <td>{{ entry.gebruiker || "—" }}</td>
-            <td class="getal">{{ money(entry.kosten_usd, language) }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <sortable-table v-else :columns="columns" :rows="shown">
+        <template #bestand="{ row: { entry } }"><a v-if="entry.bestand" :href="`/?mid=${entry.bestand}&pagina=${entry.pagina || 1}`">{{ entry.titel || entry.bestand }}</a></template>
+        <template #kosten="{ row: { entry } }">{{ money(entry.kosten_usd, language) }}</template>
+      </sortable-table>
       </div>
       </div>
     </template>
@@ -73,6 +55,7 @@ import { applyListFilters, facetOptions, fileImage, newestFirst } from "../facet
 import { fileName } from "../state.js";
 import ExportLinks from "./ExportLinks.vue";
 import ListFacets from "./ListFacets.vue";
+import SortableTable from "./SortableTable.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
 
 const t = useT();
@@ -123,6 +106,15 @@ const groups = computed(() => [
     options: facetOptions(rows.value, "model").map((o) => ({ ...o, description: MODEL_TEXTS[o.value] ? t(`usage.model_${MODEL_TEXTS[o.value]}`) : "" })),
   },
   { key: "gebruiker", label: t("usage.user"), options: facetOptions(rows.value, "gebruiker") },
+]);
+
+const columns = computed(() => [
+  { key: "tijd", label: t("usage.time"), value: ({ entry }) => entry.tijd.replace("T", " ") },
+  { key: "soort", label: t("usage.kind"), value: ({ entry }) => kindLabel(entry) },
+  { key: "bestand", label: t("usage.file"), value: ({ entry }) => entry.titel || entry.bestand },
+  { key: "term", label: t("usage.term"), value: ({ entry }) => detail(entry) },
+  { key: "gebruiker", label: t("usage.user"), value: ({ entry }) => entry.gebruiker || "—" },
+  { key: "kosten", label: t("usage.cost"), numeric: true, value: ({ entry }) => entry.kosten_usd },
 ]);
 
 const shown = computed(() => applyListFilters(rows.value, filters, query.value));

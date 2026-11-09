@@ -5,6 +5,14 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-09
+
+### Toegevoegd
+
+- *Verbruik*: alle kolommen zijn sorteerbaar met een klik op de kop. *Changelog*: een tabelweergave met sorteerbare kolommen naast *Per versie* (wens Olaf).
+- *Objecten* en *Prullenbak*: een lijstweergave met sorteerbare kolommen naast de kaarten; ‹ › in de vergroter volgen de volgorde van de lijst (wens Olaf).
+- *Objecten* en *Prullenbak*: een zoekveld boven de facetten, zoals op *Changelog*. De knoppen voor alles wat zichtbaar is, de vergroter en de export volgen het (wens Olaf).
+
 ## [0.34.0] - 2026-11-09
 
 ### Toegevoegd

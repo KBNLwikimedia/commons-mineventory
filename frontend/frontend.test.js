@@ -10,7 +10,9 @@ import { nextZoomStep, normaliseRect, PageViewer, ZOOM_STEPS } from "./viewer/vi
 import ObjectList from "./components/ObjectList.vue";
 import ChangelogFacets from "./components/ChangelogFacets.vue";
 import ListFacets from "./components/ListFacets.vue";
-import { applyListFilters, exportUrl, facetOptions, newestFirst } from "./facets.js";
+import ObjectsTable from "./components/ObjectsTable.vue";
+import SortableTable from "./components/SortableTable.vue";
+import { applyFacets, applyListFilters, emptyFilters, exportUrl, facetOptions, newestFirst, sortRows } from "./facets.js";
 import { QUERY_COLOUR, classColors, classKey, classKeys, kindsWithQuery } from "./class-colors.js";
 
 describe("translation files", () => {
@@ -561,6 +563,48 @@ describe("facets and search on the list pages", () => {
     expect(applyListFilters(rows, none, " TICK  box".toLowerCase())).toEqual([rows[0]]);
     expect(applyListFilters(rows, { soort: ["Toegevoegd"], reeks: ["0.33", "0.9"] })).toEqual([rows[0], rows[2]]);
     expect(applyListFilters(rows, { soort: ["Opgelost"], reeks: [] }, "facets")).toEqual([]);
+  });
+
+  it("searches the objects on the Objects page together with the facets", () => {
+    const doll = { id: "a", bron: "sam", mid: "M1", bestand_titel: "File:Album.jpg", zoekterm: "person", beschrijving: { onderwerp: "Pop in groene jurk", onderwerp_en: "Doll in green dress" } };
+    const group = { id: "b", bron: "groep", mid: "M2", groep: { naam: "Family" }, bijschrift: { tekst: "Op het strand" } };
+    const search = (query, extra = {}) => applyFacets([doll, group], { ...emptyFilters(), query, ...extra }).map((o) => o.id);
+    expect(search("")).toEqual(["a", "b"]);
+    expect(search("DOLL green")).toEqual(["a"]);
+    expect(search("doll red")).toEqual([]);
+    expect(search("family")).toEqual(["b"]);
+    expect(search("strand")).toEqual(["b"]);
+    expect(search("album")).toEqual(["a"]);
+    expect(search("doll", { sources: ["groep"] })).toEqual([]);
+  });
+
+  it("sorts numbers, versions and yes/no, with empty values last", () => {
+    const by = (values, direction) => sortRows(values.map((v) => ({ v })), (r) => r.v, direction).map((r) => r.v);
+    expect(by([0.01, 0.0025, null, 0.5], 1)).toEqual([0.0025, 0.01, 0.5, null]);
+    expect(by([0.01, 0.0025, null, 0.5], -1)).toEqual([0.5, 0.01, 0.0025, null]);
+    expect(by(["0.33.1", "", "0.9.2"], 1)).toEqual(["0.9.2", "0.33.1", ""]);
+    expect(by([true, false, true], 1)).toEqual([false, true, true]);
+  });
+
+  it("sorts a table with a click on a heading, and only columns with a value", async () => {
+    const columns = [{ key: "a", label: "A", value: (r) => r.a }, { key: "b", label: "B" }];
+    const rows = [{ a: "2" }, { a: "10" }, { a: "1" }];
+    const wrapper = mount(SortableTable, { props: { columns, rows }, global: { provide: { t: (key) => key, language: "nl" } } });
+    const first = () => wrapper.findAll("tbody tr").map((tr) => tr.find("td").text());
+    expect(first()).toEqual(["2", "10", "1"]); // as they came, until you click
+    expect(wrapper.findAll("th button")).toHaveLength(1);
+    await wrapper.find("th button").trigger("click");
+    expect(first()).toEqual(["1", "2", "10"]);
+    expect(wrapper.find("th").attributes("aria-sort")).toBe("ascending");
+    await wrapper.find("th button").trigger("click");
+    expect(first()).toEqual(["10", "2", "1"]);
+    expect(wrapper.emitted("sorted").at(-1)[0][0]).toEqual({ a: "10" });
+  });
+
+  it("shows nothing in the Saved column of an object that is not saved", () => {
+    const obj = { mid: "M1", id: "a", bron: "sam", status: "kandidaat", score: 0.5, bestand_titel: "File:A.jpg", uitsnede_url: "/u.jpg", app_url: "/?mid=M1" };
+    const wrapper = mount(ObjectsTable, { props: { objects: [obj], name: () => "x", savedUrl: () => "/s" }, global: { provide: { t: (key) => key, language: "nl", config: {} } } });
+    expect(wrapper.text()).not.toContain("false");
   });
 
   it("builds the address of an export from the current choice", () => {

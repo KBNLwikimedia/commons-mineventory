@@ -27,6 +27,7 @@
           <cdx-button action="destructive" :disabled="busy" @click="trashShown">
             <cdx-icon :icon="cdxIconTrash" /> {{ t(filtered ? "objects.trash_shown" : "objects.trash_all", { n: shown.length }) }}
           </cdx-button>
+          <view-switch v-model="view" :buttons="viewButtons" storage-key="cc-weergave-objecten" />
         </div>
         <cdx-message v-if="undo" type="notice" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" @user-dismissed="undo = null">
           {{ t("objects.trashed_n", { n: undo.length }) }}
@@ -35,7 +36,17 @@
           <button type="button" class="cc-link" @click="tab = 'prullenbak'">{{ t("objects.to_trash") }}</button>
         </cdx-message>
         <p v-if="!shown.length" class="cc-leeg">{{ t("objects.none_found") }}</p>
-        <ul class="cc-raster">
+        <objects-table v-if="view === 'lijst' && shown.length" :objects="shown" :name="name" :saved-url="savedUrl" link-images @sorted="sortedObjects = $event" @show-in-folder="showInFolder">
+          <template #actions="{ object: obj }">
+            <a class="cc-kaart-oog" :href="magnifierUrl(obj)" @click="openHere($event, obj)" :aria-label="t(augmentedEye(obj) ? 'objects.open_augmented' : 'objects.open_magnifier')" :title="t(augmentedEye(obj) ? 'objects.open_augmented' : 'objects.open_magnifier')">
+              <cdx-icon :icon="cdxIconEye" size="small" />
+            </a>
+            <cdx-button action="destructive" weight="quiet" size="small" :disabled="busy" :aria-label="t('objects.trash')" :title="t('objects.trash')" @click="trashOne(obj)">
+              <cdx-icon :icon="cdxIconTrash" size="small" />
+            </cdx-button>
+          </template>
+        </objects-table>
+        <ul v-else-if="view === 'kaarten'" class="cc-raster">
           <li v-for="obj in shown" :key="obj.mid + obj.id">
             <a :href="obj.app_url">
               <img :src="`${obj.uitsnede_url}?w=200`" :alt="name(obj)" loading="lazy" />
@@ -87,9 +98,19 @@
             <cdx-button action="destructive" :disabled="busy" @click="trashFiltered ? purgeShown() : emptyTrash()">
               {{ trashFiltered ? t("objects.delete_shown", { n: shownTrash.length }) : t("objects.empty_trash") }}
             </cdx-button>
+            <view-switch v-model="view" :buttons="viewButtons" storage-key="cc-weergave-objecten" />
           </div>
           <p v-if="!shownTrash.length" class="cc-leeg">{{ t("objects.none_found") }}</p>
-          <ul class="cc-raster">
+          <objects-table v-if="view === 'lijst' && shownTrash.length" :objects="shownTrash" :name="name" :saved-url="savedUrl" @sorted="sortedTrash = $event" @show-in-folder="showInFolder">
+            <template #actions="{ object: obj }">
+              <button type="button" class="cc-kaart-oog" :aria-label="t('objects.open_magnifier')" :title="t('objects.open_magnifier')" @click="openTrashed(obj)">
+                <cdx-icon :icon="cdxIconEye" size="small" />
+              </button>
+              <cdx-button action="progressive" size="small" @click="restore(obj)"><cdx-icon :icon="cdxIconRestore" /> {{ t("objects.restore") }}</cdx-button>
+              <cdx-button size="small" action="destructive" @click="purge(obj)">{{ t("objects.delete_forever") }}</cdx-button>
+            </template>
+          </objects-table>
+          <ul v-else-if="view === 'kaarten'" class="cc-raster">
             <li v-for="obj in shownTrash" :key="obj.mid + obj.id">
               <img :src="`${obj.uitsnede_url}?w=200`" :alt="name(obj)" loading="lazy" />
               <!-- The eye: the magnifier, also for a trashed object (wish Olaf). -->
@@ -179,6 +200,8 @@ import CommonsLogo from "./CommonsLogo.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import Magnifier from "./Magnifier.vue";
 import ObjectFacets from "./ObjectFacets.vue";
+import ObjectsTable from "./ObjectsTable.vue";
+import ViewSwitch from "./ViewSwitch.vue";
 import ZoomImage from "./ZoomImage.vue";
 import { applyFacets, emptyFilters, fileImage } from "../facets.js";
 import RetentionInfo from "./RetentionInfo.vue";
@@ -204,11 +227,21 @@ const undo = ref(null);
 const augmentedEye = (obj) => objectFilters.augmented && Boolean(obj.aangevuld);
 const magnifierUrl = (obj) => `${obj.app_url}&vergroten=${augmentedEye(obj) ? "aangevuld" : "1"}`;
 const name = (obj) => objectName(obj, language, t);
-const exportParams = (filters) => ({ bron: filters.sources, mid: filters.files, opgeslagen: filters.saved, aangevuld: filters.augmented });
+const exportParams = (filters) => ({ bron: filters.sources, mid: filters.files, opgeslagen: filters.saved, aangevuld: filters.augmented, q: filters.query });
 const shown = computed(() => applyFacets(objects.value, objectFilters));
 const filtered = computed(() => shown.value.length !== objects.value.length);
 const shownTrash = computed(() => applyFacets(trash.value, trashFilters));
 const trashFiltered = computed(() => shownTrash.value.length !== trash.value.length);
+
+// Cards or a list with sortable columns (wish Olaf), the same on both tabs.
+const view = ref("kaarten");
+const viewButtons = [
+  { value: "kaarten", label: t("view.cards") },
+  { value: "lijst", label: t("view.list") },
+];
+// The order of the list on screen, for ‹ › in the magnifier.
+const sortedObjects = ref([]);
+const sortedTrash = ref([]);
 
 async function load() {
   try {
@@ -328,7 +361,10 @@ const magnifierTab = ref("");
 // From which tab the magnifier was opened: its objects (as the filters show them) are the ones
 // ‹ › go through.
 const magnifierFrom = ref("objecten");
-const magnifierList = computed(() => (magnifierFrom.value === "prullenbak" ? shownTrash.value : shown.value));
+const magnifierList = computed(() => {
+  if (magnifierFrom.value === "prullenbak") return view.value === "lijst" ? sortedTrash.value : shownTrash.value;
+  return view.value === "lijst" ? sortedObjects.value : shown.value;
+});
 const magnified = computed(() => (magnifierFrom.value === "prullenbak" ? trash.value : objects.value).find((o) => keyOf(o) === magnifiedKey.value) || null);
 const magnifiedIndex = computed(() => magnifierList.value.findIndex((o) => keyOf(o) === magnifiedKey.value));
 // What the magnifier needs of the file, from the fields every object here carries.

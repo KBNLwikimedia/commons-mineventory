@@ -90,3 +90,4 @@ def test_objects_export_flat_rows_and_facets(app, http):
     assert http.get("/api/v1/objecten/export?bron=sam,groep&mid=M2").get_json()["aantal"] == 1
     assert http.get("/api/v1/prullenbak/export").get_json()["aantal"] == 1
     assert json.loads(http.get("/api/v1/objecten/export?q=pop").data)["rijen"][0]["id"] == "b"
+    assert http.get("/api/v1/objecten/export?q=http").get_json()["aantal"] == 0  # the search does not look in links

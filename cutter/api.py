@@ -1013,11 +1013,13 @@ OBJECT_COLUMNS = (
     "x", "y", "breedte", "hoogte", "onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en", "bijschrift",
     "opgeslagen", "aangevuld", "licentie", "app_url", "uitsnede_url",
 )  # fmt: skip
+# What q looks in for objects: what the search box on the page looks in (facets.js), not the links.
+OBJECT_SEARCHED = ("mid", "bestand_titel", "naam", "label_nl", "label_en", "zoekterm", "licentie", "bijschrift", "onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en")
 USAGE_COLUMNS = ("datum", "tijd", "soort", "soort_naam", "bestand", "titel", "pagina", "term", "deel", "model", "afbeeldingen", "gebruiker", "kosten_usd")
 CHANGELOG_COLUMNS = ("versie", "datum", "reeks", "soort", "tekst")
 
 
-def _matching(rows, facets=(), flags=()):
+def _matching(rows, facets=(), flags=(), searched=None):
     """The rows the query string lets through, as the facets on the page do: within a facet
     (comma-separated) any value, between facets all, and every word of `q` must occur."""
     chosen = {name: {v for v in (request.args.get(name) or "").split(",") if v} for name in facets}
@@ -1027,7 +1029,8 @@ def _matching(rows, facets=(), flags=()):
     def keep(row):
         if any(values and row.get(name) not in values for name, values in chosen.items()) or not all(row.get(name) for name in wanted):
             return False
-        text = " ".join(str(value) for value in row.values() if value is not None).lower()
+        values = row.values() if searched is None else [row.get(name) for name in searched]
+        text = " ".join(str(value) for value in values if value is not None).lower()
         return all(word in text for word in words)
 
     return [row for row in rows if keep(row)]
@@ -1075,7 +1078,7 @@ def _object_row(obj):
 
 def _export_objects(trash):
     fmt = _export_format()
-    rows = _matching([_object_row(o) for o in _service().all_objects(trash=trash)], facets=("bron", "mid"), flags=("opgeslagen", "aangevuld"))
+    rows = _matching([_object_row(o) for o in _service().all_objects(trash=trash)], facets=("bron", "mid"), flags=("opgeslagen", "aangevuld"), searched=OBJECT_SEARCHED)
     return _table(rows, OBJECT_COLUMNS, "prullenbak" if trash else "objecten", fmt)
 
 

@@ -6,6 +6,7 @@
 <h1>{{ titel }}</h1>
 <p class="cc-klein"><a href="{{ bron_url }}">CHANGELOG.md</a></p>
 {{ changelog.intro|safe }}
+<div id="cc-changelog-tabel"></div>
 {% for versie in changelog.versies %}
 <section class="cl-versie" id="v{{ versie.versie }}">
   <h2>{{ versie.versie }}{% if versie.datum %} <small>{{ versie.datum }}</small>{% endif %}</h2>
