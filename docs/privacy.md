@@ -24,7 +24,7 @@ Dit staat in de opslag van je eigen browser (localStorage), niet op de server, e
 - de lijst *Bekeken* (de afbeeldingen die je opende) en wat je daarvan *Opzij gezet* hebt;
 - welke kolommen je hebt ingeschoven en hoe breed ze zijn;
 - de keuze voor Maskers, Kaders en Namen, en de plaats en grootte van de vergroter;
-- welke zoektermen je hebt uitgezet voor *Alle objecten detecteren*, en welke kopjes open of dicht staan.
+- welke zoektermen je hebt uitgezet voor *Alle objecten lokaliseren*, en welke kopjes open of dicht staan.
 
 ## Bewaren op de server
 

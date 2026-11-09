@@ -15,7 +15,11 @@
       <cdx-tab name="objecten" :label="t('objects.tab_objects', { n: objects.length })">
         <!-- Facets on the left, stacked; the objects on the right. -->
         <div class="cc-objecten-indeling">
-        <object-facets :objects="objects" :filters="objectFilters" @preview="openPreview" />
+        <object-facets :objects="objects" :filters="objectFilters" @preview="openPreview">
+          <template #export>
+            <export-links v-if="objects.length" :url="`${API}/objecten/export`" :params="exportParams(objectFilters)" :filtered="filtered" :n="shown.length" />
+          </template>
+        </object-facets>
         <column-splitter variable="--cc-facet-breedte" side="left" storage-key="cc-breedte-facetten" area=".cc-objecten-indeling" :label="t('objects.resize_facets')" :min="160" :max="520" class="cc-facet-rand" />
         <div class="cc-objecten-inhoud">
         <!-- Bulk: everything the facets show now. -->
@@ -68,7 +72,11 @@
         <p v-if="!trash.length" class="cc-leeg">{{ t("objects.trash_empty") }}</p>
         <!-- The same facets as the objects, with their own choice (wish Olaf). -->
         <div v-else class="cc-objecten-indeling">
-        <object-facets :objects="trash" :filters="trashFilters" @preview="openPreview" />
+        <object-facets :objects="trash" :filters="trashFilters" @preview="openPreview">
+          <template #export>
+            <export-links v-if="trash.length" :url="`${API}/prullenbak/export`" :params="exportParams(trashFilters)" :filtered="trashFiltered" :n="shownTrash.length" />
+          </template>
+        </object-facets>
         <column-splitter variable="--cc-facet-breedte" side="left" storage-key="cc-breedte-facetten" area=".cc-objecten-indeling" :label="t('objects.resize_facets')" :min="160" :max="520" class="cc-facet-rand" />
         <div class="cc-objecten-inhoud">
           <!-- Bulk: what the facets show; without a filter, the whole trash. -->
@@ -166,6 +174,7 @@ import { askConfirm } from "../confirm.js";
 import { useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
+import ExportLinks from "./ExportLinks.vue";
 import CommonsLogo from "./CommonsLogo.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import Magnifier from "./Magnifier.vue";
@@ -195,6 +204,7 @@ const undo = ref(null);
 const augmentedEye = (obj) => objectFilters.augmented && Boolean(obj.aangevuld);
 const magnifierUrl = (obj) => `${obj.app_url}&vergroten=${augmentedEye(obj) ? "aangevuld" : "1"}`;
 const name = (obj) => objectName(obj, language, t);
+const exportParams = (filters) => ({ bron: filters.sources, mid: filters.files, opgeslagen: filters.saved, aangevuld: filters.augmented });
 const shown = computed(() => applyFacets(objects.value, objectFilters));
 const filtered = computed(() => shown.value.length !== objects.value.length);
 const shownTrash = computed(() => applyFacets(trash.value, trashFilters));

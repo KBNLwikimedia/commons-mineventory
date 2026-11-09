@@ -21,6 +21,7 @@ export default defineConfig(({ command }) => ({
         objecten: "frontend/main-objecten.js",
         commons: "frontend/main-commons.js",
         verbruik: "frontend/main-verbruik.js",
+        changelog: "frontend/main-changelog.js",
       },
     },
   },

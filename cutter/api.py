@@ -7,15 +7,18 @@ never costs money and never changes anything.
 """
 
 import hashlib
+import json
 import math
 import re
+from datetime import date
 from urllib.parse import quote
 
 from flask import Blueprint, Response, current_app, g, jsonify, request, session
 
-from . import __version__, concept, export, lokaal, origineel, weergave
+from . import __version__, changelog as changelog_parser, concept, export, i18n, lokaal, origineel, weergave
 from .cache import FetchError
 from .commons import CommonsError, public as public_file
+from .config import ROOT_DIR
 from .detectie.basis import DetectionError
 from .openapi import openapi_spec
 
@@ -1000,6 +1003,139 @@ def _date_param(value, name):
     if value and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         raise DetectionError(f"Parameter {name} moet een datum zijn (JJJJ-MM-DD).", status=400)
     return value or None
+
+
+# -- Exports of the list pages (wish Olaf) -----------------------------------------------------
+
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+OBJECT_COLUMNS = (
+    "mid", "pagina", "id", "bestand_titel", "bestand_url", "bron", "status", "naam", "label_nl", "label_en", "zoekterm", "score",
+    "x", "y", "breedte", "hoogte", "onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en", "bijschrift",
+    "opgeslagen", "aangevuld", "licentie", "app_url", "uitsnede_url",
+)  # fmt: skip
+USAGE_COLUMNS = ("datum", "tijd", "soort", "soort_naam", "bestand", "titel", "pagina", "term", "deel", "model", "afbeeldingen", "gebruiker", "kosten_usd")
+CHANGELOG_COLUMNS = ("versie", "datum", "reeks", "soort", "tekst")
+
+
+def _matching(rows, facets=(), flags=()):
+    """The rows the query string lets through, as the facets on the page do: within a facet
+    (comma-separated) any value, between facets all, and every word of `q` must occur."""
+    chosen = {name: {v for v in (request.args.get(name) or "").split(",") if v} for name in facets}
+    wanted = [name for name in flags if request.args.get(name) == "1"]
+    words = (request.args.get("q") or "").lower().split()
+
+    def keep(row):
+        if any(values and row.get(name) not in values for name, values in chosen.items()) or not all(row.get(name) for name in wanted):
+            return False
+        text = " ".join(str(value) for value in row.values() if value is not None).lower()
+        return all(word in text for word in words)
+
+    return [row for row in rows if keep(row)]
+
+
+def _export_format():
+    fmt = request.args.get("formaat", "json")
+    if fmt not in ("json", "csv", "xlsx"):
+        raise DetectionError("Formaat moet 'json', 'csv' of 'xlsx' zijn.", status=400)
+    return fmt
+
+
+def _table(rows, columns, name, fmt):
+    if fmt == "csv":
+        data, mimetype = export.table_csv(rows, columns), "text/csv"
+    elif fmt == "xlsx":
+        data, mimetype = export.table_xlsx(rows, columns), _XLSX
+    else:
+        body = {"aantal": len(rows), "rijen": [{column: row.get(column) for column in columns} for row in rows]}
+        data, mimetype = json.dumps(body, ensure_ascii=False, indent=1).encode("utf-8"), "application/json"
+    response = Response(data, mimetype=mimetype)
+    response.headers["Content-Disposition"] = f'attachment; filename="commons-mineventory-{name}-{date.today().isoformat()}.{fmt}"'
+    return response
+
+
+def _object_row(obj):
+    """One object as a flat row; the nested details stay in GET /objecten."""
+    box, about, root = obj.get("box") or {}, obj.get("beschrijving") or {}, request.host_url.rstrip("/")
+    return {
+        **{key: obj.get(key) for key in ("mid", "pagina", "id", "bestand_titel", "bestand_url", "bron", "status", "label_nl", "label_en", "zoekterm", "licentie")},
+        "naam": obj.get("naam") or (obj.get("groep") or {}).get("naam"),
+        "score": round(obj["score"], 3) if obj.get("score") is not None else None,
+        "x": box.get("x"),
+        "y": box.get("y"),
+        "breedte": box.get("w"),
+        "hoogte": box.get("h"),
+        **{key: about.get(key) for key in ("onderwerp", "onderwerp_en", "beschrijving", "beschrijving_en")},
+        "bijschrift": (obj.get("bijschrift") or {}).get("tekst"),
+        "opgeslagen": bool(obj.get("opgeslagen")),
+        "aangevuld": bool(obj.get("aangevuld")),
+        "app_url": root + obj["app_url"] if obj.get("app_url") else None,
+        "uitsnede_url": root + obj["uitsnede_url"] if obj.get("uitsnede_url") else None,
+    }
+
+
+def _export_objects(trash):
+    fmt = _export_format()
+    rows = _matching([_object_row(o) for o in _service().all_objects(trash=trash)], facets=("bron", "mid"), flags=("opgeslagen", "aangevuld"))
+    return _table(rows, OBJECT_COLUMNS, "prullenbak" if trash else "objecten", fmt)
+
+
+@api.get("/objecten/export")
+def export_objects():
+    """All objects as a file: formaat=json|csv|xlsx; bron, mid (comma-separated), opgeslagen=1, aangevuld=1, q."""
+    return _export_objects(False)
+
+
+@api.get("/prullenbak/export")
+def export_trash():
+    return _export_objects(True)
+
+
+@api.get("/verbruik/export")
+def export_usage():
+    """The whole usage log as a file, newest first: formaat=json|csv|xlsx; soort, datum, bestand, model, gebruiker (comma-separated), q."""
+    _require_trusted_user()
+    fmt = _export_format()
+    texts = i18n.messages(g.get("taal", i18n.DEFAULT))
+    rows = []
+    for entry in reversed(_service().verbruik.entries()):
+        kind = entry.get("soort") or "sam"
+        rows.append({**entry, "soort": kind, "soort_naam": texts.get(f"usage.kind_{kind}", kind), "datum": entry["tijd"][:10], "tijd": entry["tijd"].replace("T", " ")})
+    return _table(_matching(rows, facets=("soort", "datum", "bestand", "model", "gebruiker")), USAGE_COLUMNS, "verbruik", fmt)
+
+
+def _changelog():
+    return changelog_parser.parse((ROOT_DIR / "CHANGELOG.md").read_text(encoding="utf-8"))
+
+
+@api.get("/changelog")
+def changelog():
+    """The versions of CHANGELOG.md, newest first, each with its sections and changes (Markdown and plain text)."""
+    versions = [
+        {
+            "versie": version["versie"],
+            "datum": version["datum"] or None,
+            "reeks": version["reeks"],
+            "secties": [
+                {"soort": section["soort"], "items": [{"markdown": item["markdown"].removeprefix("- "), "tekst": item["tekst"]} for item in section["items"]]}
+                for section in version["secties"]
+            ],
+        }
+        for version in _changelog()["versies"]
+    ]
+    return jsonify({"aantal": len(versions), "versies": versions})
+
+
+@api.get("/changelog/export")
+def export_changelog():
+    """Every change as a row: formaat=json|csv|xlsx; soort, reeks, datum (comma-separated), q."""
+    fmt = _export_format()
+    rows = [
+        {"versie": version["versie"], "datum": version["datum"], "reeks": version["reeks"], "soort": section["soort"], "tekst": item["markdown"].removeprefix("- ")}
+        for version in _changelog()["versies"]
+        for section in version["secties"]
+        for item in section["items"]
+    ]
+    return _table(_matching(rows, facets=("soort", "reeks", "datum")), CHANGELOG_COLUMNS, "changelog", fmt)
 
 
 @api.get("/verbruik")

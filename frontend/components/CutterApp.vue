@@ -65,6 +65,7 @@
           :page="page"
           :objects="visibleObjects"
           :class-colors="kindColors"
+          :search-text="objectQuery"
           :new-ids="newIds"
           :point-mode="pointMode"
           :draw-mode="drawMode"

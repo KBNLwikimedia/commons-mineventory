@@ -32,14 +32,14 @@ def _plain(markdown):
 
 def parse(text):
     """{"intro": html, "versies": [{"versie", "datum", "reeks", "secties":
-    [{"soort", "items": [{"html", "tekst"}]}]}]} in document order."""
+    [{"soort", "items": [{"html", "tekst", "markdown"}]}]}]} in document order."""
     intro, versions = [], []
     version = section = None
     lines = []
 
     def close_section():
         if version is not None and section is not None:
-            items = [{"html": markdown_lite.render(item), "tekst": _plain(item)} for item in _items(lines)]
+            items = [{"html": markdown_lite.render(item), "tekst": _plain(item), "markdown": item} for item in _items(lines)]
             if items:
                 version["secties"].append({"soort": section, "items": items})
         lines.clear()

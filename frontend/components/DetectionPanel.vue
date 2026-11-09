@@ -60,14 +60,7 @@
           </p>
           <ul class="cc-uitleg-lijst">
             <li><strong>{{ t("panel.commons_depicts_single") }}</strong> {{ t("panel.commons_depicts_click") }}</li>
-            <li>
-              <strong>{{ t("panel.commons_depicts_bulk") }}</strong> {{ t("panel.commons_depicts_untick") }}
-              <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems([])">{{ t("panel.terms_all") }}</button>
-              ·
-              <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems(commonsDepicts.map((item) => item.q))">{{ t("panel.terms_none") }}</button>
-              ·
-              <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems(commonsDepicts.map((item) => item.q).filter((q) => !excludedItems.includes(q)))">{{ t("panel.terms_invert") }}</button>
-            </li>
+            <li><strong>{{ t("panel.commons_depicts_bulk") }}</strong> {{ t("panel.commons_depicts_untick") }}</li>
             <li><strong>{{ t("panel.commons_depicts_search_word") }}</strong> {{ t("panel.commons_depicts_pencil") }}</li>
             <li><strong>{{ t("panel.commons_depicts_results") }}</strong> {{ t("panel.terms_colours") }}</li>
             <li>
@@ -123,6 +116,8 @@
               <cdx-icon :icon="cdxIconEdit" size="small" />
             </cdx-button>
           </span>
+          <!-- The tick-box links next to the button they steer, under the items (wish Olaf). -->
+          <div class="cc-termen-bulk">
           <cdx-button
             action="progressive"
             weight="primary"
@@ -130,9 +125,18 @@
             :disabled="busy || !includedItems.length"
             @click="act('commons-depicts', 'detect', { modus: 'prompt', prompt: includedItems.map(itemWord).join(', '), items: Object.fromEntries(includedItems.map((item) => [itemWord(item), item.q])) })"
           >
-            {{ t(includedItems.length === commonsDepicts.length ? "panel.commons_depicts_all" : "panel.detect_chosen", { n: includedItems.length }) }}
+            {{ t(includedItems.length === commonsDepicts.length ? "panel.commons_depicts_all" : "panel.commons_depicts_chosen", { n: includedItems.length }) }}
             <span class="cc-kosten">{{ cost(includedItems.length) }}</span>
           </cdx-button>
+          <span class="cc-termen-alles">
+            {{ t("objects.select_label") }}
+                <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems([])">{{ t("panel.terms_all") }}</button>
+                ·
+                <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems(commonsDepicts.map((item) => item.q))">{{ t("panel.terms_none") }}</button>
+                ·
+                <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems(commonsDepicts.map((item) => item.q).filter((q) => !excludedItems.includes(q)))">{{ t("panel.terms_invert") }}</button>
+          </span>
+          </div>
         </div>
         <busy-note v-if="busy && where === 'commons-depicts'" :message="t('busy.sam')" />
         <cdx-message v-if="lastResult && resultAt === 'commons-depicts' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}</cdx-message>
@@ -194,11 +198,6 @@
           <!-- What the terms are for: finding where on the image each thing is. -->
           <p class="cc-uitleg cc-termen-uitleg">
             {{ t("panel.terms_help") }} {{ cost(1) }} {{ t("panel.terms_pencil") }} {{ t("panel.terms_colours") }} {{ t("panel.terms_choose") }}
-            <button type="button" class="cc-link" :disabled="busy" @click="setExcluded([])">{{ t("panel.terms_all") }}</button>
-            ·
-            <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en))">{{ t("panel.terms_none") }}</button>
-            ·
-            <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en).filter((term) => !excluded.includes(term)))">{{ t("panel.terms_invert") }}</button>
           </p>
           <div class="cc-knoppen">
             <!-- Each term: a tick (does it go along with "Detect all"?) and the term itself (detect only this one). -->
@@ -249,7 +248,9 @@
                 <cdx-icon :icon="cdxIconEdit" size="small" />
               </cdx-button>
             </span>
-            <!-- The ticked terms in one go, right behind the terms themselves: the main action here. -->
+            <!-- The ticked terms in one go, right behind the terms themselves: the main action here;
+                 the tick-box links next to it (wish Olaf). -->
+            <div class="cc-termen-bulk">
             <cdx-button
               action="progressive"
               weight="primary"
@@ -260,6 +261,15 @@
               {{ t(includedTerms.length === inventory.zoektermen.length ? "panel.detect_suggestions" : "panel.detect_chosen", { n: includedTerms.length }) }}
               <span class="cc-kosten">{{ cost(includedTerms.length) }}</span>
             </cdx-button>
+            <span class="cc-termen-alles">
+              {{ t("objects.select_label") }}
+              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded([])">{{ t("panel.terms_all") }}</button>
+              ·
+              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en))">{{ t("panel.terms_none") }}</button>
+              ·
+              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en).filter((term) => !excluded.includes(term)))">{{ t("panel.terms_invert") }}</button>
+            </span>
+            </div>
           </div>
           <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
           <cdx-message v-if="lastResult && resultAt === 'suggestions' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">

@@ -5,6 +5,7 @@
 -->
 <template>
   <aside class="cc-facetten">
+    <slot name="export" />
     <cdx-field :is-fieldset="true">
       <template #label>{{ t("objects.facet_source") }}</template>
       <cdx-checkbox v-for="source in sources" :key="source" v-model="filters.sources" :input-value="source">

@@ -23,6 +23,8 @@ def test_escapes_html_and_unsafe_links():
 def test_changelog_page(http):
     page = http.get("/changelog").get_data(as_text=True)
     assert 'class="cl-versie"' in page
+    assert 'id="cc-changelog-filter"' in page
+    assert 'class="cl-item" data-versie=' in page
     assert http.get("/changelog.md").mimetype == "text/plain"
 
 

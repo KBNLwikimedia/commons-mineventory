@@ -5,15 +5,20 @@
 - `crop_jpeg`: the rectangle as JPG (quality 95, the default for Commons).
 - `file_zip`: everything saved for a file as one zip, with the wikitext of the
   Commons concept per cut-out.
+- `table_csv`, `table_xlsx`: a list of rows (Changelog, Usage, Objects) as a file
+  (wish Olaf). The Excel file is written with the standard library alone.
 
 IIIF annotations follow later (backlog).
 """
 
+import csv
 import io
 import json
+import re
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from PIL import Image
 
@@ -127,3 +132,109 @@ def file_zip(folder, wikitexts=None):
             archive.write(meta_path, "bestand.json")
         archive.writestr("LEESMIJ.txt", readme(file))
     return buffer.getvalue(), count
+
+
+# -- Tables -------------------------------------------------------------------------------
+
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+_ILLEGAL_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+_EXCEL_CELL_MAX = 32767
+_XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+
+def _csv_cell(value):
+    """Text as text: a title or AI text that starts like a formula must not run in a spreadsheet."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str) and value.startswith(_FORMULA_START):
+        return "'" + value
+    return value
+
+
+def table_csv(rows, columns):
+    """UTF-8 with a byte order mark, so Excel reads the accents correctly."""
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\r\n")
+    writer.writerow(columns)
+    writer.writerows([_csv_cell(row.get(column)) for column in columns] for row in rows)
+    return ("\ufeff" + out.getvalue()).encode("utf-8")
+
+
+def _column_name(index):
+    name = ""
+    index += 1
+    while index:
+        index, rest = divmod(index - 1, 26)
+        name = chr(65 + rest) + name
+    return name
+
+
+def _xlsx_cell(reference, value, style=0):
+    """Text as an inline string, so nothing in a cell can become a formula."""
+    if value is None or value == "":
+        return ""
+    style_attribute = f' s="{style}"' if style else ""
+    if isinstance(value, bool):
+        return f'<c r="{reference}"{style_attribute} t="b"><v>{int(value)}</v></c>'
+    if isinstance(value, (int, float)):
+        return f'<c r="{reference}"{style_attribute}><v>{value}</v></c>'
+    text = escape(_ILLEGAL_XML.sub("", str(value))[:_EXCEL_CELL_MAX])
+    return f'<c r="{reference}"{style_attribute} t="inlineStr"><is><t xml:space="preserve">{text}</t></is></c>'
+
+
+def table_xlsx(rows, columns):
+    """One sheet: a bold header that stays in view, and the rows."""
+    lines = [
+        '<row r="1">' + "".join(_xlsx_cell(f"{_column_name(c)}1", name, style=1) for c, name in enumerate(columns)) + "</row>"
+    ]
+    for r, row in enumerate(rows, start=2):
+        lines.append(f'<row r="{r}">' + "".join(_xlsx_cell(f"{_column_name(c)}{r}", row.get(name)) for c, name in enumerate(columns)) + "</row>")
+    sheet = (
+        f'{_XML}<worksheet xmlns="{_MAIN_NS}"><sheetViews><sheetView tabSelected="1" workbookViewId="0">'
+        '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+        f'<sheetData>{"".join(lines)}</sheetData></worksheet>'
+    )
+    parts = {
+        "[Content_Types].xml": (
+            f'{_XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            "</Types>"
+        ),
+        "_rels/.rels": (
+            f'{_XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            f'<Relationship Id="rId1" Type="{_REL_NS}/officeDocument" Target="xl/workbook.xml"/></Relationships>'
+        ),
+        "xl/workbook.xml": (
+            f'{_XML}<workbook xmlns="{_MAIN_NS}" xmlns:r="{_REL_NS}"><bookViews><workbookView/></bookViews>'
+            '<sheets><sheet name="Export" sheetId="1" r:id="rId1"/></sheets></workbook>'
+        ),
+        "xl/_rels/workbook.xml.rels": (
+            f'{_XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            f'<Relationship Id="rId1" Type="{_REL_NS}/worksheet" Target="worksheets/sheet1.xml"/>'
+            f'<Relationship Id="rId2" Type="{_REL_NS}/styles" Target="styles.xml"/></Relationships>'
+        ),
+        "xl/styles.xml": (
+            f'{_XML}<styleSheet xmlns="{_MAIN_NS}">'
+            '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+            '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+            '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+            '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+            "</styleSheet>"
+        ),
+        "xl/worksheets/sheet1.xml": sheet,
+    }
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, content in parts.items():
+            archive.writestr(name, content.encode("utf-8"))
+    return buffer.getvalue()

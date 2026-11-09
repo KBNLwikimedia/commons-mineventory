@@ -18,7 +18,7 @@
  * an empty spot is a point.
  */
 
-import { classColor, classKey, frameKey } from "../class-colors.js";
+import { classColor, classKeys, frameKey } from "../class-colors.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DRAG_THRESHOLD = 4;
@@ -208,7 +208,7 @@ export class PageViewer {
     const on = kinds != null || statuses != null;
     this.el.classList.toggle("soort-filter", on);
     this.objectElements.forEach((group) => {
-      const shown = on && (kinds == null || kinds.has(classKey(group.object))) && (statuses == null || statuses.has(frameKey(group.object)));
+      const shown = on && (kinds == null || classKeys(group.object).some((kind) => kinds.has(kind))) && (statuses == null || statuses.has(frameKey(group.object)));
       group.classList.toggle("object-soort-aan", shown);
     });
   }

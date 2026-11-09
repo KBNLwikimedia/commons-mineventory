@@ -132,6 +132,10 @@ Opslag op schijf: `uitvoer/<M-id>/bestand.json` en `uitvoer/<M-id>/pagina_<n>/{o
 | DELETE | `/prullenbak/{mid}/{n}/{object_id}` | Eén object definitief verwijderen, met de bestanden |
 | GET | `/verbruik?van=&tot=` | Het verbruikslog: aanroepen en kosten per dag, en de laatste regels van het log. Op een server (niet in debug-modus) alleen voor ingelogde gebruikers op de toegangslijst (sinds 0.26.0); dat geldt ook voor `/verbruik/{datum}` en voor het legen van de hele prullenbak |
 | GET | `/verbruik/{datum}` | Het verbruik van één dag |
+| GET | `/changelog` | De changelog als gegevens: `{"aantal", "versies": [{"versie", "datum", "reeks", "secties": [{"soort", "items": [{"markdown", "tekst"}]}]}]}`, nieuwste eerst |
+| GET | `/objecten/export`, `/prullenbak/export` | Objecten als bestand, één rij per object: `formaat=json\|csv\|xlsx` (standaard json). Filters: `bron` en `mid` (komma-gescheiden), `opgeslagen=1`, `aangevuld=1`, `q` (elk woord moet voorkomen) |
+| GET | `/verbruik/export` | Het hele verbruikslog als bestand, nieuwste eerst, zonder de grens van 500 regels; zelfde `formaat` en `q`, plus `soort`, `datum`, `bestand`, `model`, `gebruiker`. Op een server alleen voor de toegangslijst, zoals `/verbruik` |
+| GET | `/changelog/export` | Elke wijziging als rij; zelfde `formaat` en `q`, plus `soort`, `reeks`, `datum` |
 | GET | `/status` | Versie, modus, ingelogde gebruiker, budgetten |
 | GET | `/openapi.json` | De OpenAPI-beschrijving |
 

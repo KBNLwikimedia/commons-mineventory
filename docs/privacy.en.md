@@ -24,7 +24,7 @@ This is kept in your own browser's storage (localStorage), not on the server, an
 - the *Viewed* list (the images you opened) and what you have *Set aside*;
 - which columns you slid away and how wide they are;
 - your choice of Masks, Boxes and Names, and the position and size of the magnifier;
-- which search terms you switched off for *Detect all objects*, and which headers are open or folded.
+- which search terms you switched off for *Locate all objects*, and which headers are open or folded.
 
 ## Kept on the server
 

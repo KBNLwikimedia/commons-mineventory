@@ -71,7 +71,7 @@
         <ul class="cc-soorten-lijst">
           <li v-for="[kind, color] in kinds" :key="kind">
             <!-- The checkbox in the colour of the kind (wish Olaf): filled when ticked, its border when not. -->
-            <cdx-checkbox v-model="shownKinds" :input-value="kind" :inline="true" class="cc-soort-vinkje" :style="{ '--soort': color }" :title="t('legend.kind_only', { kind })">
+            <cdx-checkbox v-model="shownKinds" :input-value="kind" :inline="true" class="cc-soort-vinkje" :style="{ '--soort': color }" :title="t(kind === query ? 'legend.query_only' : 'legend.kind_only', { kind })">
               {{ kind }} <span class="cc-soort-aantal">({{ kindCounts[kind] || 0 }})</span>
             </cdx-checkbox>
           </li>
@@ -103,7 +103,7 @@ import { numberedNames, objectName } from "../state.js";
 import { PageViewer } from "../viewer/viewer.js";
 import BusyNote from "./BusyNote.vue";
 import InfoDialog from "./InfoDialog.vue";
-import { FRAME_KEYS, classKey, frameKey } from "../class-colors.js";
+import { FRAME_KEYS, classKeys, frameKey, kindsWithQuery } from "../class-colors.js";
 
 const props = defineProps({
   mid: { type: String, required: true },
@@ -111,6 +111,8 @@ const props = defineProps({
   objects: { type: Array, required: true },
   // {kind: colour} when the page has more than one kind of object (class-colors.js).
   classColors: { type: Object, default: () => ({}) },
+  // What is typed in the search box above the object list; objects holds only what matches it.
+  searchText: { type: String, default: "" },
   newIds: { type: Array, default: () => [] },
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
@@ -126,14 +128,15 @@ const ZOOM_MAX_LOG = Math.log2(3); // MAX_SCALE in viewer.js
 const LEGEND = ["geselecteerd", "kandidaat", "nieuw", "commons", "handmatig", "uitgesloten", "dik"];
 // Only the colours that occur on this page (plus "thicker", which always can).
 // The kinds with their colour, for the legend of the masks.
-const kinds = computed(() => Object.entries(props.classColors || {}));
+const query = computed(() => (props.objects.length ? props.searchText.trim().toLowerCase() : ""));
+const kinds = computed(() => kindsWithQuery(props.classColors, query.value));
 // How many objects of each kind are on the image now (wish Olaf), after the certainty slider and the search.
 const kindCounts = computed(() => {
   const counts = {};
   for (const obj of props.objects) {
-    const kind = classKey(obj);
-    if (kind) counts[kind] = (counts[kind] || 0) + 1;
+    for (const kind of classKeys(obj)) counts[kind] = (counts[kind] || 0) + 1;
   }
+  if (query.value) counts[query.value] = props.objects.length;
   return counts;
 });
 // The colour legend of the frames: open to start with (wish Olaf).
@@ -153,8 +156,10 @@ const shownKinds = computed({
   get: () => kinds.value.map(([kind]) => kind).filter((kind) => !hiddenKinds.value.includes(kind)),
   set: (list) => (hiddenKinds.value = kinds.value.map(([kind]) => kind).filter((kind) => !list.includes(kind))),
 });
-// To the viewer: null when nothing is hidden (no filter), else the kinds to show.
-watch(shownKinds, (list) => viewer.value?.setKindFilter(hiddenKinds.value.length ? list : null));
+// To the viewer: null when nothing is hidden (no filter), else the kinds to show. The viewer holds
+// only what matches the search, so with the search text ticked everything in it may show.
+const kindFilter = computed(() => (!hiddenKinds.value.length || shownKinds.value.includes(query.value) ? null : shownKinds.value));
+watch(kindFilter, (list) => viewer.value?.setKindFilter(list));
 watch(kinds, (list) => {
   const present = new Set(list.map(([kind]) => kind));
   if (hiddenKinds.value.some((kind) => !present.has(kind))) hiddenKinds.value = hiddenKinds.value.filter((kind) => present.has(kind));

@@ -5,6 +5,29 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-09
+
+### Toegevoegd
+
+- *Alleen deze maskers tonen*: wat je in het zoekveld boven de objectenlijst typt, staat er als vinkje bij met het aantal treffers, bijvoorbeeld *doll (2)*, ook als het woord alleen in de AI-beschrijving voorkomt (wens Olaf).
+- *Changelog*, *Verbruik* en *Objecten* (ook de prullenbak): exporteren als JSON, CSV en Excel, van wat de facetten en het zoekveld tonen, met `GET …/export` in de API (wens Olaf).
+- API: `GET /api/v1/changelog` geeft de changelog als gegevens (wens Olaf).
+- *Changelog* en *Verbruik*: facetten en een zoekveld, in de stijl van de pagina *Objecten*, met een versleepbare rand (wens Olaf). *Changelog*: soort wijziging, versiereeks en datum. *Verbruik*: soort, datum, bestand (met miniatuur), model en gebruiker; de uitkomst toont ook de kosten van wat past.
+- *Changelog* en *Verbruik*: een facet met meer dan zes waarden zet de zevende en verder in een uitklapblok, dat zegt hoeveel erin aangevinkt is. De waarden staan op aantal, hoogste eerst; datums en versiereeksen op nieuwste eerst (wens Olaf).
+- *Verbruik*: bij het facet *Model* een (i) met uitleg over de vier modellen en een korte omschrijving achter elke modelnaam (wens Olaf).
+
+### Opgelost
+
+- *Verbruik*: bij een AI-aangevulde versie stond de vertaalsleutel in de kolom Soort.
+
+### Gewijzigd
+
+- *Alleen deze maskers tonen*: een eigen naam (potlood) bepaalt nu de soort, ook bij een getekend kader of een klik; een pop die bij *person* gevonden is, wordt met de naam *doll* een eigen soort met een eigen kleur en telt mee onder *doll* én *person* (wens Olaf).
+- *Alleen deze maskers tonen*: een groep van gemengde soorten telt mee onder elk van de soorten van zijn leden en blijft zichtbaar als er één aan staat; zijn masker houdt de kleur van het kader (wens Olaf).
+- *Beeldt af, zonder regio* en de zoektermen bij *AI-suggesties*: *alle aan · alle uit · omkeren* staat nu onder de items of termen, naast de knop die alles tegelijk zoekt, met ervoor *Vinkjes selecteren:*, in plaats van in de uitleg (wens Olaf).
+- *Beeldt af, zonder regio*: met een deel van de vinkjes heet de knop nu *Gekozen items lokaliseren* in plaats van *Gekozen termen detecteren* (wens Olaf).
+- *Zoeken en objecten detecteren*: de knoppen heten nu *Alle objecten lokaliseren* en *Gekozen termen lokaliseren*, net als bij *Beeldt af, zonder regio* (wens Olaf).
+
 ## [0.33.16] - 2026-11-08
 
 ### Gewijzigd

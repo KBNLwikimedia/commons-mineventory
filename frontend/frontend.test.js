@@ -8,7 +8,10 @@ import { createI18n, money, translate } from "./i18n.js";
 import { appUrl, objectName, readStart } from "./state.js";
 import { nextZoomStep, normaliseRect, PageViewer, ZOOM_STEPS } from "./viewer/viewer.js";
 import ObjectList from "./components/ObjectList.vue";
-import { classColors, classKey } from "./class-colors.js";
+import ChangelogFacets from "./components/ChangelogFacets.vue";
+import ListFacets from "./components/ListFacets.vue";
+import { applyListFilters, exportUrl, facetOptions, newestFirst } from "./facets.js";
+import { QUERY_COLOUR, classColors, classKey, classKeys, kindsWithQuery } from "./class-colors.js";
 
 describe("translation files", () => {
   it("have the same keys in Dutch and English", () => {
@@ -544,6 +547,76 @@ describe("confirmation that may be switched off", async () => {
   });
 });
 
+describe("facets and search on the list pages", () => {
+  const rows = [
+    { values: { soort: "Toegevoegd", reeks: "0.9" }, text: "0.9.1 new tick box" },
+    { values: { soort: "Opgelost", reeks: "0.33" }, text: "0.33.2 tick fixed" },
+    { values: { soort: "Toegevoegd", reeks: "0.33" }, text: "0.33.1 facets" },
+    { values: { soort: "Toegevoegd", reeks: "" }, text: "unreleased work" },
+  ];
+
+  it("combines facets and every word of the search", () => {
+    const none = { soort: [], reeks: [] };
+    expect(applyListFilters(rows, none, "")).toHaveLength(4);
+    expect(applyListFilters(rows, none, " TICK  box".toLowerCase())).toEqual([rows[0]]);
+    expect(applyListFilters(rows, { soort: ["Toegevoegd"], reeks: ["0.33", "0.9"] })).toEqual([rows[0], rows[2]]);
+    expect(applyListFilters(rows, { soort: ["Opgelost"], reeks: [] }, "facets")).toEqual([]);
+  });
+
+  it("builds the address of an export from the current choice", () => {
+    expect(exportUrl("/x", {}, "csv")).toBe("/x?formaat=csv");
+    expect(exportUrl("/x", { bron: ["sam", "groep"], mid: [], opgeslagen: true, aangevuld: false, q: " a b " }, "xlsx")).toBe("/x?formaat=xlsx&bron=sam%2Cgroep&opgeslagen=1&q=a+b");
+  });
+
+  it("sorts the values of a facet by number, a date by date", () => {
+    expect(facetOptions(rows, "soort")).toEqual([{ value: "Toegevoegd", n: 3 }, { value: "Opgelost", n: 1 }]);
+    const dates = [{ values: { d: "2026-11-01" } }, { values: { d: "2026-11-01" } }, { values: { d: "2026-11-08" } }];
+    expect(facetOptions(dates, "d")[0].value).toBe("2026-11-01");
+    expect(facetOptions(dates, "d", newestFirst)[0].value).toBe("2026-11-08");
+  });
+
+  it("shows a description after an option and an (i) with a facet", () => {
+    const groups = [{ key: "model", label: "Model", info: { title: "T", label: "About", paragraphs: ["p"] }, options: [{ value: "sam-3.1", n: 2, description: "finds objects" }] }, { key: "user", label: "User", options: [{ value: "x", n: 1 }] }];
+    const wrapper = mount(ListFacets, { props: { groups, filters: { model: [], user: [] }, searchLabel: "s" }, global: { provide: { t: (key) => key, language: "nl" } } });
+    expect(wrapper.findAll(".cc-facet-uitleg").map((d) => d.text())).toEqual(["finds objects"]);
+    expect(wrapper.findAll(".cc-info-knop")).toHaveLength(1);
+  });
+
+  it("puts the 7th value of a facet and further in a fold-out, which says what is ticked in it", async () => {
+    const options = Array.from({ length: 8 }, (_, i) => ({ value: `v${i}`, n: 1 }));
+    const six = [{ key: "a", label: "A", options: options.slice(0, 6) }];
+    const props = { filters: { a: ["v7"] }, searchLabel: "s" };
+    const provide = { t: (key, values) => (values ? `${key}:${values.n}` : key), language: "nl" };
+    expect(mount(ListFacets, { props: { ...props, groups: six }, global: { provide } }).find("details").exists()).toBe(false);
+    const wrapper = mount(ListFacets, { props: { ...props, groups: [{ key: "a", label: "A", options }] }, global: { provide } });
+    expect(wrapper.findAll("input[type=checkbox]")).toHaveLength(8);
+    expect(wrapper.findAll("details input[type=checkbox]")).toHaveLength(2);
+    expect(wrapper.find("details summary").text()).toContain("facets.more:2");
+    expect(wrapper.find("details summary").text()).toContain("facets.more_chosen:1");
+  });
+
+  it("hides changes, sections and versions that do not match on the changelog page", async () => {
+    document.body.innerHTML = `
+      <section class="cl-versie" id="a">
+        <div class="cl-sectie" id="a1"><div class="cl-item" data-versie="0.2.0" data-reeks="0.2" data-datum="2026-11-02" data-soort="Toegevoegd">Facets added</div></div>
+        <div class="cl-sectie" id="a2"><div class="cl-item" data-versie="0.2.0" data-reeks="0.2" data-datum="2026-11-02" data-soort="Opgelost">Crash fixed</div></div>
+      </section>
+      <section class="cl-versie" id="b">
+        <div class="cl-sectie" id="b1"><div class="cl-item" data-versie="0.1.0" data-reeks="0.1" data-datum="2026-11-01" data-soort="Toegevoegd">First version</div></div>
+      </section>`;
+    const wrapper = mount(ChangelogFacets, { global: { provide: { t: (key) => key, language: "nl" } } });
+    await wrapper.find("input[type=search]").setValue("crash");
+    expect(document.getElementById("a").hidden).toBe(false);
+    expect(document.getElementById("a1").hidden).toBe(true);
+    expect(document.getElementById("a2").hidden).toBe(false);
+    expect(document.getElementById("b").hidden).toBe(true);
+    await wrapper.find("input[type=search]").setValue("");
+    expect(document.querySelectorAll("[hidden]")).toHaveLength(0);
+    wrapper.unmount();
+    document.body.innerHTML = "";
+  });
+});
+
 describe("a colour per kind of object", () => {
   const sam = (id, zoekterm, extra = {}) => ({ id, bron: "sam", zoekterm, label: zoekterm, status: "kandidaat", box: { x: 0, y: 0, w: 10, h: 10 }, masker: "m.png", masker_url: "/m.png", ...extra });
 
@@ -561,6 +634,57 @@ describe("a colour per kind of object", () => {
     expect(classKey({ bron: "commons", label: "Dog" })).toBe("dog");
     expect(classKey({ bron: "commons", label: "hond", label_en: "Dog" })).toBe("dog");
     expect(classKey({ bron: "commons", label: "regio" })).toBeNull();
+  });
+
+  it("lets your own name decide the kind", () => {
+    expect(classKey(sam("a", "person", { naam: " Doll " }))).toBe("doll");
+    expect(classKey({ bron: "handmatig", zoekterm: "rechthoek", naam: "Door" })).toBe("door");
+    expect(classKey({ bron: "sam", zoekterm: "klik", naam: "handle" })).toBe("handle");
+    expect(classKey({ bron: "groep", groep: { soort: null, naam: "Family" } })).toBe("family");
+    expect(Object.keys(classColors([sam("a", "person"), sam("b", "person", { naam: "doll" })]))).toEqual(["doll", "person"]);
+  });
+
+  it("adds the text of the object search as a tick box", () => {
+    const colors = { girl: "#111111", person: "#222222" };
+    expect(kindsWithQuery(colors, "")).toEqual([["girl", "#111111"], ["person", "#222222"]]);
+    expect(kindsWithQuery(colors, "doll")).toEqual([["doll", QUERY_COLOUR], ["girl", "#111111"], ["person", "#222222"]]);
+    expect(kindsWithQuery(colors, "person")).toEqual([["person", "#222222"], ["girl", "#111111"]]);
+    expect(kindsWithQuery({}, "doll")).toEqual([["doll", QUERY_COLOUR]]);
+  });
+
+  it("keeps a renamed object under its search term as well", () => {
+    const doll = sam("a", "person", { naam: "Doll" });
+    expect(classKeys(doll)).toEqual(["doll", "person"]);
+    expect(classKey(doll)).toBe("doll"); // the colour is that of your name
+    expect(classKeys(sam("b", "Person", { naam: "person" }))).toEqual(["person"]);
+    expect(classKeys(sam("c", "klik", { naam: "handle" }))).toEqual(["handle"]);
+    expect(classKeys({ bron: "groep", groep: { soort: null, naam: "Family", leden: [sam("d", "boy"), sam("e", "person", { naam: "doll" })] } })).toEqual(["family", "boy", "doll", "person"]);
+    const host = document.createElement("div");
+    const viewer = new PageViewer(host, () => {});
+    viewer.setObjects([doll, sam("f", "fence")], [], classColors([doll, sam("f", "fence")]));
+    for (const kinds of [["doll"], ["person"]]) {
+      viewer.setKindFilter(kinds);
+      expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
+    }
+    viewer.setKindFilter(["fence"]);
+    expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(false);
+  });
+
+  it("counts a group of mixed kinds under each of them, without a colour of a kind", () => {
+    const mixed = { id: "g", bron: "groep", status: "kandidaat", box: { x: 0, y: 0, w: 10, h: 10 }, groep: { soort: null, leden: [sam("a", "boy"), sam("b", "box"), sam("c", "boy"), sam("d", "klik")] } };
+    expect(classKeys(mixed)).toEqual(["boy", "box"]);
+    expect(classKey(mixed)).toBeNull();
+    expect(Object.keys(classColors([mixed]))).toEqual(["box", "boy"]);
+    expect(classKeys({ bron: "groep", groep: { soort: "Cloud", leden: [sam("a", "cloud")] } })).toEqual(["cloud"]);
+    expect(classKeys({ bron: "handmatig" })).toEqual([]);
+    expect(classKeys(null)).toEqual([]);
+    const host = document.createElement("div");
+    const viewer = new PageViewer(host, () => {});
+    viewer.setObjects([mixed, sam("e", "fence")], [], classColors([mixed, sam("e", "fence")]));
+    viewer.setKindFilter(["boy"]);
+    expect(host.querySelector('g.object[data-id="g"]').classList.contains("object-soort-aan")).toBe(true);
+    viewer.setKindFilter(["fence"]);
+    expect(host.querySelector('g.object[data-id="g"]').classList.contains("object-soort-aan")).toBe(false);
   });
 
   it("colours the masks in the viewer and a dot in the list", () => {
