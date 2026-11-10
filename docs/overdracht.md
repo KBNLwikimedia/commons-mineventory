@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.36.0, 10 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.37.0, 10 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -39,7 +39,8 @@ Stand: versie 0.36.0, 10 november 2026. Voor wie (mens of Claude-sessie) het wer
   - 0.34.0: *Changelog* en *Verbruik* met facetten en zoeken (`ListFacets.vue`); exporteren als JSON, CSV en Excel op die pagina's en op *Objecten* (`ExportLinks.vue`, `GET …/export`, `export.table_csv` en `table_xlsx`); `GET /api/v1/changelog`.
   - 0.35.0: zoeken op *Objecten*; sorteerbare kolommen (`SortableTable.vue`) op *Verbruik*, een tabelweergave op *Changelog* en een lijstweergave op *Objecten* (`ObjectsTable.vue`, `ViewSwitch.vue`). Valkuil: een lege slot in `SortableTable` toont de waarde van de kolom, dus een cel met `v-if` heeft altijd een element nodig.
   - 0.36.0: lijstpagina's en de afbeeldingspagina houden hun keuze in het adres (`readAddress`/`writeAddress` in `facets.js`); afbeelding opnieuw beginnen (↻ bij *Bekeken*, `GET`/`DELETE …/bestand/{mid}/werk`, met *De AI opnieuw vragen*); ontdubbelen ook in groepen; *Ook gevonden als* met × en Ongedaan maken; soorten tellen eigen naam, zoekterm en samengevoegde woorden; meldingen bij hun knop (`where` bij `notify`); kop voor elke kolom; logo's (P154) via `GET /api/v1/wikidata/{q}/logo`; CSS van sjablonen weg uit tekst van Commons. Valkuil (weer): een `watch` vóór de `const` die hij leest, stopte de viewer; en in Python-scripts die code schrijven worden `\1`, `\b` en `\n` in gewone strings stuurtekens of regeleinden: gebruik raw strings en zoek na afloop naar stuurtekens.
-- Tests: 304 in Python (`pytest`), 70 in de frontend (`npm test`). Alle groen bij 0.36.0.
+  - 0.37.0: *Bewaarde antwoorden of SAM opnieuw* bij lokaliseren (`"vers": true`), *Naar Commons* als eigen uitklapblok, CropTool, *Waar gebruikt* en *Geschiedenis* in de bestandskop; Vite volgt `uitvoer/` niet meer (op Windows bleven verwijderde mappen anders vastzitten) en een map in gebruik geeft 409 `files_in_use`.
+- Tests: 307 in Python (`pytest`), 70 in de frontend (`npm test`). Alle groen bij 0.37.0.
 
 ## De interface in het kort
 

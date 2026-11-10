@@ -134,6 +134,14 @@ def _detection_error(exc):
     return jsonify({"fout": exc.message, "code": exc.code, "opnieuw": exc.retry, "budget": _service().verbruik.status(_user())}), exc.status
 
 
+@api.errorhandler(PermissionError)
+def _permission_error(exc):
+    """A file or folder of the output that something else keeps open (Windows: an Explorer
+    window, a file watcher): say so, instead of a bare 500 ("Something went wrong", Olaf)."""
+    current_app.logger.warning("Output in use: %s", exc)
+    return jsonify({"fout": "Een bestand of map van de app is in gebruik (een Verkenner-venster of een ander programma?). Sluit dat en probeer het opnieuw.", "code": "files_in_use", "detail": str(exc)}), 409
+
+
 @api.errorhandler(FetchError)
 def _fetch_error(exc):
     current_app.logger.warning("Commons fetch failed: %s", exc)
@@ -290,10 +298,11 @@ def create_detection(mid, n):
     else:
         modus = body.get("modus", "prompt")
         if modus != "commons":
-            _require_paid_access(paid and service.plan(file, n, service.terms(body.get("prompt", ""), modus))["betaald"])
+            _require_paid_access(paid and service.plan(file, n, service.terms(body.get("prompt", ""), modus), body.get("vers") is True)["betaald"])
         result = service.detect(
             file, n, prompt=body.get("prompt", ""), modus=modus,
             minscore=_minscore(body.get("minscore")), user=_user(), items=body.get("items"),
+            fresh=body.get("vers") is True,  # "vers": true: ask SAM again, not its saved answer (wish Olaf)
         )
     return jsonify(result), 201
 
@@ -305,6 +314,7 @@ def estimate_detection(mid, n):
     result = _service().detect(
         file, n, prompt=request.args.get("prompt", ""), modus=request.args.get("modus", "prompt"),
         minscore=_minscore(request.args.get("minscore")), dry_run=True, user=_user(),
+        fresh=request.args.get("vers") == "1",
     )
     return jsonify(result)
 

@@ -573,6 +573,23 @@ async function confirmCost(calls, usd, action = "", objects = []) {
   return askConfirm(action ? `${action}\n\n${cost}` : cost, { title: t("confirm.cost_title"), objects });
 }
 
+// Some of the words were searched on this image before: use SAM's saved answers (free for those
+// words) or ask SAM anew for all of them (paid). null: cancelled; true: anew.
+async function chooseFreshDetection(action, calls) {
+  const usd = (n) => money(props.config.betaald ? n * props.config.sam_usd : 0, props.config.taal);
+  const saved = usd(calls.betaald);
+  const anew = usd(props.config.betaald ? calls.termen : 0);
+  const savedText = calls.in_cache >= calls.termen ? t("confirm.detect_saved_all") : t("confirm.detect_saved", { n: calls.in_cache, total: calls.termen });
+  const text = [action, savedText].join("\n\n");
+  const choices = [
+    { value: "cache", label: t("confirm.detect_choice_saved", { amount: saved }), help: t(calls.betaald ? "confirm.detect_choice_saved_help_new" : "confirm.detect_choice_saved_help", { n: calls.termen - calls.in_cache }), go: t("confirm.detect_go_saved") },
+    { value: "vers", label: t("confirm.detect_choice_fresh", { amount: anew }), help: t("confirm.detect_choice_fresh_help", { n: calls.termen }), go: t("confirm.detect_go_fresh", { amount: anew }) },
+  ];
+  const answer = await askConfirmValue(text, { title: t("confirm.detect_title"), choices });
+  if (!answer.ok) return null;
+  return answer.choice === "vers";
+}
+
 // -- Loading --------------------------------------------------------------------------
 
 async function openFile(text) {
@@ -741,7 +758,13 @@ async function detect(request) {
       // The terms as a list (scrolls when long, wish Olaf): one per line.
       const termList = String(request.prompt || "").split(",").map((term) => term.trim()).filter(Boolean).map((term) => `- ${term}`).join("\n");
       const action = request.modus === "prompt" ? t("confirm.action_detect", { terms: termList }) : t("confirm.action_detect_all");
-      if (!(await confirmCost(estimate.aanroepen.betaald, estimate.aanroepen.betaald * props.config.sam_usd, action))) return;
+      const calls = estimate.aanroepen;
+      if (calls.in_cache) {
+        // Words searched before: the saved answer (free) or SAM anew (paid), your choice (wish Olaf).
+        const fresh = await chooseFreshDetection(action, calls);
+        if (fresh === null) return;
+        if (fresh) request = { ...request, vers: true };
+      } else if (!(await confirmCost(calls.betaald, calls.betaald * props.config.sam_usd, action))) return;
     }
     const result = await post(`${base}/detecties`, request);
     replaceObjects(result.objecten, result.nieuw);
@@ -768,7 +791,8 @@ async function detect(request) {
       at: Date.now(),
     };
   } catch (error) {
-    fail(error);
+    // Under the button that asked for it, like a result (wish Olaf), not at the top of the page.
+    lastResult.value = { fout: errorText(t, error), prompt: request.prompt || "", modus: request.modus, at: Date.now() };
   } finally {
     busy.value = false;
   }

@@ -1,6 +1,6 @@
 <!--
   The detection panel (functional design 7 and 10.4): suggestions for this
-  page, regions from Commons, search, point or draw, bulk and CropTool
+  page, regions from Commons, search, point or draw and bulk
   operations. Costs are shown per button; in dummy mode everything is free.
 -->
 <template>
@@ -304,26 +304,6 @@
         <p v-else class="cc-uitleg">{{ t("panel.part_none_zoektermen") }}</p>
         </cdx-accordion>
       </template>
-      <!-- Depicts and captions for the whole image (FO 9.7): a window of its own, so this
-           block does not get too full. Blue but not filled: detecting stays the main action.
-           Disabled for files with more pages, where the data belongs to the whole file. -->
-      <div class="cc-origineel-knop">
-        <cdx-button action="progressive" :disabled="busy || file.paginas > 1" :title="file.paginas > 1 ? t('original.button_pages') : t('original.button_help')" @click="originalOpen = true">
-          {{ t("original.button") }}
-        </cdx-button>
-        <p class="cc-uitleg">{{ file.paginas > 1 ? t("original.button_pages") : t("original.button_help") }}</p>
-      </div>
-      <original-data
-        v-if="originalOpen"
-        :open="originalOpen"
-        :file="file"
-        :page="page"
-        :inventory="inventory"
-        :busy="busy"
-        :cost="museCost(config.muse.pagina_usd)"
-        @ask-caption="emit('inventory', { deel: 'beschrijving', beschrijvingsniveau: 'caption' })"
-        @close="originalOpen = false"
-      />
     </cdx-accordion>
 
     <cdx-accordion v-model="open.search">
@@ -376,17 +356,30 @@
       </cdx-accordion>
     </cdx-accordion>
 
-    <!-- CropTool: the usual tool for cropping on Commons, for the whole file (single images only). -->
-    <cdx-accordion v-if="cropTool" v-model="open.croptool">
-      <!-- The CropTool2 logo is the Codex "cut" icon, so it is the same here. -->
-      <template #title><cdx-icon :icon="cdxIconCut" size="small" class="cc-croptool-logo" /> {{ t("panel.croptool") }} <info-dialog v-bind="info('croptool', 'panel.croptool')" /></template>
-      <p class="cc-uitleg">{{ t("panel.croptool_help") }}</p>
-      <a
-        class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--action-progressive"
-        :href="cropTool"
-        target="_blank"
-        rel="noopener"
-      ><cdx-icon :icon="cdxIconCut" /> {{ t("panel.croptool_button") }} <cdx-icon :icon="cdxIconLinkExternal" size="small" /></a>
+    <!-- To Commons: the last step, for all work on the image, not only the AI suggestions (wish
+         Olaf): depicts from Commons items, found objects and search terms, and the caption. -->
+    <cdx-accordion v-model="open.tocommons" class="cc-naar-commons">
+      <template #title>{{ t("panel.to_commons") }} <info-dialog v-bind="info('tocommons', 'panel.to_commons')" /></template>
+      <!-- Depicts and captions for the whole image (FO 9.7), in a window of its own. Blue but
+           not filled: detecting stays the main action. Disabled for files with more pages, where
+           the data belongs to the whole file. -->
+      <div class="cc-origineel-knop">
+        <cdx-button action="progressive" :disabled="busy || file.paginas > 1" :title="file.paginas > 1 ? t('original.button_pages') : t('original.button_help')" @click="originalOpen = true">
+          {{ t("original.button") }}
+        </cdx-button>
+        <p class="cc-uitleg">{{ file.paginas > 1 ? t("original.button_pages") : t("original.button_help") }}</p>
+      </div>
+      <original-data
+        v-if="originalOpen"
+        :open="originalOpen"
+        :file="file"
+        :page="page"
+        :inventory="inventory"
+        :busy="busy"
+        :cost="museCost(config.muse.pagina_usd)"
+        @ask-caption="emit('inventory', { deel: 'beschrijving', beschrijvingsniveau: 'caption' })"
+        @close="originalOpen = false"
+      />
     </cdx-accordion>
   </div>
 </template>
@@ -394,10 +387,10 @@
 <script setup>
 import { computed, inject, nextTick, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
-import { cdxIconCut, cdxIconEdit, cdxIconLinkExternal, cdxIconTrash } from "@wikimedia/codex-icons";
+import { cdxIconEdit, cdxIconTrash } from "@wikimedia/codex-icons";
 import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
-import { START_SUGGESTIONS, cropToolLink } from "../state.js";
+import { START_SUGGESTIONS } from "../state.js";
 import { get, pagePath } from "../api.js";
 import { objectsWithTerm } from "../facets.js";
 import AiBadge from "./AiBadge.vue";
@@ -467,8 +460,7 @@ function info(section, titleKey) {
     paragraphs: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
   };
 }
-const open = reactive({ captions: true, regios: true, beeldtaf: true, commons: true, search: false, suggestions: true, beschrijving: true, zoektermen: true, aanwijzen: true, tekenen: true, point: false, croptool: false });
-const cropTool = computed(() => cropToolLink(props.file));
+const open = reactive({ captions: true, regios: true, beeldtaf: true, commons: true, search: false, suggestions: true, beschrijving: true, zoektermen: true, aanwijzen: true, tekenen: true, point: false, tocommons: true });
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 // The window "Gegevens van deze afbeelding" (9.7).
 const originalOpen = ref(false);
@@ -506,14 +498,14 @@ watch(
   () => [props.file.mid, props.page.n],
   () => {
     const known = hasCommonsData.value;
-    Object.assign(open, { commons: known, suggestions: !known, search: false, point: false, croptool: false });
+    Object.assign(open, { commons: known, suggestions: !known, search: false, point: false });
     // #ai-suggesties (the link in "Start this image over", wish Olaf): open the AI suggestions and
     // bring them into view, once.
     // #ai-suggesties (the link in "Start this image over", wish Olaf): for that image only, the AI
     // suggestions open and in view, all other sections closed; also when the sections are set again
     // while the image loads.
     if (SUGGESTIONS_FOR && props.file.mid === SUGGESTIONS_FOR) {
-      Object.assign(open, { commons: false, suggestions: true, search: false, point: false, croptool: false });
+      Object.assign(open, { commons: false, suggestions: true, search: false, point: false });
       nextTick(() => setTimeout(() => document.getElementById("cc-ai-suggesties")?.scrollIntoView({ block: "start", behavior: "smooth" }), 300));
     }
   },
@@ -815,11 +807,13 @@ watch(() => [props.file.mid, props.page.n], () => (resultAt.value = null));
 // Green when something was found, blue when the hits went elsewhere (merged, a group,
 // the trash, hidden), yellow when nothing was found at all.
 function resultType(result) {
+  if (result.fout) return "error";
   if (result.found || result.excluded) return "success";
   return result.merged || result.inGroup || result.inTrash || result.hidden ? "notice" : "warning";
 }
 
 function resultText(result) {
+  if (result.fout) return result.fout; // the request failed: its reason, here under the button
   // Pointing and drawing: about one object.
   if (result.modus === "punt") {
     if (result.outcome === "niets") return t("panel.result_point_none");
@@ -839,7 +833,7 @@ function resultText(result) {
 
 // Hits that are not shown as an object of their own, each with the reason.
 function elsewhereParts(result) {
-  if (!result || result.modus === "punt" || result.modus === "rechthoek") return [];
+  if (!result || result.fout || result.modus === "punt" || result.modus === "rechthoek") return [];
   return [
     result.merged && t(result.merged === 1 ? "panel.result_merged_one" : "panel.result_merged", { n: result.merged, names: (result.holders || []).join(", ") }),
     result.inGroup && t(result.inGroup === 1 ? "panel.result_in_group_one" : "panel.result_in_group", { n: result.inGroup }),
@@ -858,7 +852,7 @@ const mergedInto = (result) => (result && result.merged && result.holders) || []
 
 // A search with terms that found nothing (not "from Commons", pointing or drawing).
 function isNone(result) {
-  return Boolean(result) && result.modus === "prompt" && !result.found && !result.excluded && !result.merged && !result.inGroup && !result.inTrash && !result.hidden;
+  return Boolean(result) && !result.fout && result.modus === "prompt" && !result.found && !result.excluded && !result.merged && !result.inGroup && !result.inTrash && !result.hidden;
 }
 // After nothing was found: open Search with the term filled in, ready to change it.
 async function trySearch(result) {

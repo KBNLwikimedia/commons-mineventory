@@ -849,6 +849,53 @@ def test_start_over_gets_past_a_locked_empty_folder(app, http, monkeypatch):
     assert http.get(PAGE).get_json()["objecten"] == []
 
 
+def test_fresh_detection_skips_the_saved_answer(app, http, monkeypatch):
+    """"vers": true asks the detector again for a term that has a saved answer (wish Olaf)."""
+    service = app.extensions["detectiedienst"]
+    http.post(PAGE + "/detecties", json={"prompt": "flower"})
+    estimate = http.get(PAGE + "/detecties/raming?prompt=flower").get_json()["aanroepen"]
+    assert estimate["in_cache"] == 1 and estimate["uit_cache"] == 1 and not estimate["vers"]
+    fresh = http.get(PAGE + "/detecties/raming?prompt=flower&vers=1").get_json()["aanroepen"]
+    assert fresh["in_cache"] == 1 and fresh["uit_cache"] == 0 and fresh["vers"]
+    calls = []
+    original = service.detector.detect
+
+    def counting(*args, **kwargs):
+        calls.append(args[1])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(service.detector, "detect", counting)
+    http.post(PAGE + "/detecties", json={"prompt": "flower"})
+    assert calls == []  # from the saved answer
+    assert http.post(PAGE + "/detecties", json={"prompt": "flower", "vers": True}).status_code == 201
+    assert calls == ["flower"]
+
+
+def test_start_over_moves_the_page_folder_aside_first(app, http):
+    """The page folder goes under another name first, so a locked leftover never blocks the page."""
+    from cutter.api import _page_file, _service
+
+    http.post(PAGE + "/detecties", json={"prompt": "flower"})
+    with app.test_request_context():
+        folder = _service()._file_dir(_page_file(ALBUM_MID, 1))
+        (folder / "_weg_pagina_1_old").mkdir()  # left over from an earlier start-over
+    http.delete(f"/api/v1/bestand/{ALBUM_MID}/werk")
+    assert not list(folder.glob("pagina_*")) and not list(folder.glob("_weg_*"))
+    assert http.post(PAGE + "/detecties", json={"prompt": "flower"}).status_code == 201
+
+
+def test_a_locked_file_gives_a_clear_message(app, http, monkeypatch):
+    """Permission denied (a folder Windows keeps open) is a 409 with its own code, not a bare 500."""
+    service = app.extensions["detectiedienst"]
+
+    def locked(*args, **kwargs):
+        raise PermissionError(13, "Permission denied", "uitvoer/M1/pagina_1/sam")
+
+    monkeypatch.setattr(service, "detect", locked)
+    answer = http.post(PAGE + "/detecties", json={"prompt": "flower"})
+    assert answer.status_code == 409 and answer.get_json()["code"] == "files_in_use"
+
+
 def test_start_over_only_for_trusted_users_on_a_server(app, http):
     app.testing = False
     assert http.delete(f"/api/v1/bestand/{ALBUM_MID}/werk").status_code == 403

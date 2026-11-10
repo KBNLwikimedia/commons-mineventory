@@ -32,6 +32,11 @@
           <span class="cc-bestand-ids">
             <a :href="`https://commons.wikimedia.org/wiki/Special:EntityPage/${file.mid}`" target="_blank" rel="noopener" :title="t('file.mid_link')">{{ file.mid }}</a>
             <template v-if="file.werk?.wikidata"> · <a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener" :title="t('file.qid_link', { name: workName })"><wikidata-logo />{{ file.werk.wikidata }}</a></template>
+            <!-- Tools for the whole file, outside this app (wish Olaf): CropTool (single images
+                 only), where the file is used, and the history of its page on Commons. -->
+            <template v-if="cropTool"> · <a :href="cropTool" target="_blank" rel="noopener" :title="t('file.croptool_help')"><cdx-icon :icon="cdxIconCut" size="small" class="cc-croptool-logo" />{{ t("file.croptool") }}</a> <info-dialog :title="t('file.croptool')" :label="t('panel.info_label', { section: t('file.croptool') })" :paragraphs="[1, 2, 3].map((n) => t(`file.info_croptool_${n}`))" /></template>
+            · <a :href="usageLink" target="_blank" rel="noopener" :title="t('file.usage_help')">{{ t("file.usage") }}</a>
+            · <a :href="historyLink" target="_blank" rel="noopener" :title="t('file.history_help')">{{ t("file.history") }}</a>
           </span>
         </h2>
         <!-- Licence, rights and facts on one line, to keep the top of the page low. -->
@@ -112,9 +117,11 @@
 
 <script setup>
 import { computed, inject, ref, watch } from "vue";
+import InfoDialog from "./InfoDialog.vue";
 import WikidataLogo from "./WikidataLogo.vue";
 import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxTextInput } from "@wikimedia/codex";
-import { cdxIconLinkExternal, cdxIconSearch } from "@wikimedia/codex-icons";
+import { cdxIconCut, cdxIconLinkExternal, cdxIconSearch } from "@wikimedia/codex-icons";
+import { cropToolLink } from "../state.js";
 import { useT } from "../i18n.js";
 import RightsLabel from "./RightsLabel.vue";
 
@@ -129,6 +136,11 @@ const language = inject("language", "nl");
 const text = ref(props.initial);
 
 // The work's fields in the order of {{Artwork}} on Commons; empty ones are left out.
+const cropTool = computed(() => cropToolLink(props.file));
+// The file page on Commons as a title (spaces as underscores), for Global usage and the history.
+const pageTitle = computed(() => `File:${props.file.naam || String(props.file.titel || "").replace(/^File:/, "")}`.replace(/ /g, "_"));
+const usageLink = computed(() => `https://commons.wikimedia.org/wiki/Special:GlobalUsage/${encodeURIComponent(pageTitle.value.replace(/^File:/, ""))}`);
+const historyLink = computed(() => `https://commons.wikimedia.org/w/index.php?${new URLSearchParams({ title: pageTitle.value, action: "history" })}`);
 const workName = computed(() => {
   const work = props.file?.werk || {};
   return (language === "en" ? work.label_en || work.label : work.label || work.label_en) || work.wikidata;

@@ -5,6 +5,23 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-10
+
+### Toegevoegd
+
+- Lokaliseren met woorden waar SAM op deze afbeelding al naar zocht, vraagt eerst: *Bewaarde antwoorden gebruiken* (gratis) of *SAM opnieuw vragen* (betaald, met het bedrag; meestal hetzelfde resultaat). API: `"vers": true` bij `POST …/detecties`, `?vers=1` en `in_cache` bij de raming (wens Olaf).
+
+### Opgelost
+
+- Na *Deze afbeelding opnieuw beginnen* kon lokaliseren mislukken met *Er ging iets mis* (twee keer, bovenaan): Windows hield de verwijderde mappen vast, omdat de Vite-dev-server ook `uitvoer/` volgde. Vite volgt de datamappen niet meer, opnieuw beginnen zet de map eerst opzij, een map in gebruik geeft een duidelijke melding, en een fout bij lokaliseren staat onder de knop (wens Olaf).
+
+### Gewijzigd
+
+- De knop *Toevoegen aan de gestructureerde gegevens van deze afbeelding (op Commons)* staat niet meer onder *AI-suggesties voor deze afbeelding*, maar in een eigen uitklapblok *Naar Commons*, als laatste onder *Beschrijven en vinden*: ook wie geen AI gebruikte (alleen items uit Commons lokaliseerde of het bijschrift aanpaste), vindt hem nu. Met een (i) en een algemenere uitleg (wens Olaf).
+- *Bijsnijden in CropTool* is geen uitklapblok meer onder *Beschrijven en vinden* (het neemt niets over uit de app), maar een kleine link in de bestandskop, naast het M-id en Q-id. Daarbij twee nieuwe links naar Commons: *Waar gebruikt* (Global usage) en *Geschiedenis* van de bestandspagina (wens Olaf).
+- De groene (gevonden) en grijze (gezocht, niets gevonden) knoppen bij *Beeldt af* en de AI-zoektermen hebben een sterkere kleur (wens Olaf).
+- De koppen van de vier kolommen hebben een iets donkerdere achtergrond (wens Olaf).
+
 ## [0.36.0] - 2026-11-10
 
 ### Toegevoegd

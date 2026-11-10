@@ -21,6 +21,7 @@ import io
 import json
 import re
 import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -188,24 +189,31 @@ class DetectionService:
         digest = hashlib.sha1(key.encode()).hexdigest()
         return self.cache_dir / digest[:2] / f"{digest}.json"
 
-    def plan(self, file, n, terms):
-        """How many paid calls a request needs (cached terms are free)."""
+    def plan(self, file, n, terms, fresh=False):
+        """How many paid calls a request needs (cached terms are free). `fresh`: every term goes
+        to the detector again, the cache is not read (wish Olaf); `in_cache` still says how many
+        terms have a saved answer, so the choice can be offered."""
         page_id = self.client.page_ref(file, n)["id"]
         all_terms = [t["en"] for t in terms["plus"] + terms["min"]]
         uncached = [t for t in dict.fromkeys(all_terms) if not self._cache_path(page_id, t).exists()]
-        paid = len(uncached) if self.detector.betaald else 0
-        return {"termen": len(set(all_terms)), "betaald": paid, "uit_cache": len(set(all_terms)) - len(uncached)}
+        in_cache = len(set(all_terms)) - len(uncached)
+        asked = len(set(all_terms)) if fresh else len(uncached)
+        paid = asked if self.detector.betaald else 0
+        return {"termen": len(set(all_terms)), "betaald": paid, "uit_cache": 0 if fresh else in_cache, "in_cache": in_cache, "vers": bool(fresh)}
 
     # -- Detection ---------------------------------------------------------------
 
     @_locked
-    def detect(self, file, n, prompt="", modus="prompt", minscore=0.0, dry_run=False, user=None, items=None):
+    def detect(self, file, n, prompt="", modus="prompt", minscore=0.0, dry_run=False, user=None, items=None, fresh=False):
         """`items` ({English term: Q-id}, backlog 26): a search for a depicts item that is
-        already on Commons; what is found gets that item, so its depicts is known."""
+        already on Commons; what is found gets that item, so its depicts is known. `fresh`: ask
+        the detector again for every term instead of using its saved answer (paid; the new
+        answer replaces the saved one)."""
         terms = self.terms(prompt, modus)
         items = self._check_items(items)
         page = self.client.load_page(file, n)
-        plan = self.plan(file, n, terms)
+        fresh = bool(fresh) and modus != "commons"
+        plan = self.plan(file, n, terms, fresh)
         result = {"modus": modus, "termen": terms, "aanroepen": plan, "detector": self.detector.model, "dry_run": dry_run}
         if dry_run:
             result["budget"] = self.verbruik.status(user)
@@ -224,13 +232,13 @@ class DetectionService:
             context = {"image": None}
             found = []
             for term in terms["plus"]:
-                hits = self._run_term(file, page, term, context, user)
+                hits = self._run_term(file, page, term, context, user, fresh)
                 q = items.get(term["en"].strip().lower()) or items.get(term["term"].strip().lower())
                 if q:
                     self._link_item(file, hits, q)
                 found += hits
             for term in terms["min"]:
-                excluded += self._run_term(file, page, term, context, user)
+                excluded += self._run_term(file, page, term, context, user, fresh)
             found = [o for o in found if o["score"] is None or o["score"] >= minscore]
             if modus == "alles":
                 found = self._merge_duplicates(found)
@@ -282,10 +290,11 @@ class DetectionService:
                 obj["label_item"] = name  # stored; label_nl is for display only
             obj.setdefault("herkomst", {})["item"] = q
 
-    def _run_term(self, file, page, term, context, user):
-        """Objects for one English term: from the cache or from the detector."""
+    def _run_term(self, file, page, term, context, user, fresh=False):
+        """Objects for one English term: from the cache or from the detector (always the
+        detector with `fresh`)."""
         path = self._cache_path(page["id"], term["en"])
-        if path.exists():
+        if path.exists() and not fresh:
             mark_used(path)
             stored = json.loads(path.read_text(encoding="utf-8"))
         else:
@@ -515,9 +524,17 @@ class DetectionService:
         summary = self.work_summary(file)
         folder = self._file_dir(file)
         for page in folder.glob("pagina_*"):
-            # Windows can keep an empty folder locked (an Explorer window, the indexer): that is no
-            # failure (Olaf: three empty folders stopped it halfway). Files left over are.
-            shutil.rmtree(page, ignore_errors=True)
+            # First out of the way under another name, then away: a folder Windows keeps locked (an
+            # Explorer window, a file watcher) then no longer blocks the page (Olaf: locating failed
+            # in a deleted folder that was still there). Empty folders left over are no failure.
+            target = folder / f"_weg_{page.name}_{time.time_ns()}"
+            try:
+                page.rename(target)
+            except OSError:
+                target = page
+            shutil.rmtree(target, ignore_errors=True)
+        for leftover in folder.glob("_weg_*"):  # what an earlier start-over could not remove
+            shutil.rmtree(leftover, ignore_errors=True)
         left = [f for page in folder.glob("pagina_*") for f in page.rglob("*") if f.is_file()]
         if left:
             raise DetectionError(f"{len(left)} bestanden konden niet weg (in gebruik?). Sluit wat ze open heeft en probeer het opnieuw.", status=409, code="files_in_use")

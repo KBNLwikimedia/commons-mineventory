@@ -26,6 +26,9 @@ export default defineConfig(({ command }) => ({
     },
   },
   server: {
+    // Not the data folders (wish Olaf): on Windows a watched folder stays locked, so a deleted
+    // page folder of "Start this image over" could not be made again.
+    watch: { ignored: ["**/uitvoer/**", "**/cache/**", "**/.venv/**", "**/static/dist/**"] },
     port: 5173,
     strictPort: true,
     origin: "http://localhost:5173",
