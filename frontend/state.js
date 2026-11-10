@@ -100,6 +100,27 @@ export function numberedNames(objects, language = "nl", t = null) {
   );
 }
 
+/* The image whose AI suggestions should open on arrival: the link "the AI suggestions" in "Start this image
+   over" ends in #ai-suggesties (wish Olaf). Read once when the app loads; the mark then leaves the address. */
+export const START_SUGGESTIONS = (() => {
+  if (typeof window === "undefined" || window.location.hash !== "#ai-suggesties") return null;
+  const mid = new URLSearchParams(window.location.search).get("mid");
+  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  return mid;
+})();
+
+/* Forget what this browser keeps for one file (wish Olaf, starting an image over): searched words,
+   your own search words, unticked terms and items. Keys look like "cc-…:<mid>" or "cc-…:<mid>:<page>". */
+export function forgetFileInBrowser(mid, storage = window.localStorage) {
+  const keys = [];
+  try {
+    for (let i = 0; i < storage.length; i++) keys.push(storage.key(i));
+    for (const key of keys) if (key?.startsWith("cc-") && key.split(":")[1] === mid) storage.removeItem(key);
+  } catch {
+    // Storage can be off in a private window: nothing to forget then.
+  }
+}
+
 export function objectName(obj, language = "nl", t = null) {
   // A name you gave it yourself (in the list, like a layer in Photoshop) comes first.
   if (obj.naam) return obj.naam;

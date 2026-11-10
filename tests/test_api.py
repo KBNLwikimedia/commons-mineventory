@@ -2,9 +2,11 @@
 
 import io
 import json
+import time
 import re
 from urllib.parse import quote
 import zipfile
+from pathlib import Path
 
 import pytest
 from conftest import ALBUM, ALBUM_MID, BOOK_OF_HOURS_MID
@@ -716,6 +718,177 @@ def test_deduplicate_only_among_some_objects(app, http):
     both = http.post(PAGE + "/samenvoegingen", json={"objecten": [base["id"], "obj-tweeling"]}).get_json()
     assert both["samengevoegd"] == 1
     assert http.post(PAGE + "/samenvoegingen", json={"objecten": "a"}).status_code == 400
+
+
+def test_duplicates_of_a_group_member_merge_into_that_member(app, http):
+    """A find that shows the same as a member of a group goes into that member, which stays itself
+    and keeps the depicts item; Ontdubbelen does the same and says which went into which (wish Olaf)."""
+    from cutter.api import _page_file, _service
+
+    http.post(PAGE + "/detecties", json={"prompt": "flower"})
+    http.post(PAGE + "/detecties", json={"prompt": "bird"})
+    page = http.get(PAGE).get_json()["objecten"]
+    members = [o["id"] for o in page[:2]]
+    group = http.post(PAGE + "/groepen", json={"objecten": members}).get_json()["object"]
+    with app.test_request_context():
+        service = _service()
+        file = _page_file(ALBUM_MID, 1)
+        store = service._load_store(file, 1)
+        stored = next(o for o in store["objecten"] if o["id"] == group["id"])
+        first = stored["groep"]["leden"][0]
+        twin = {**first, "id": "obj-koffer", "zoekterm": "suitcase", "label": "suitcase", "score": 0.99, "wikidata": "Q200814", "masker": None}
+        twin.pop("ook", None)
+        # A new find: through the same path as a detection.
+        service._merge_into_page(file, 1, [dict(twin)])
+        after = service._load_store(file, 1)
+        top = [o["id"] for o in after["objecten"]]
+        assert "obj-koffer" not in top
+        member = next(o for o in after["objecten"] if o["id"] == group["id"])["groep"]["leden"][0]
+        assert member["id"] == first["id"] and member["wikidata"] == "Q200814"
+        assert "obj-koffer" in [e["id"] for e in member["ook"]]
+        # A duplicate already on the page: Ontdubbelen puts it into the member.
+        after["objecten"].append({**twin, "id": "obj-koffer-2"})
+        service._write_store(file, 1, after)
+    result = http.post(PAGE + "/samenvoegingen", json={}).get_json()
+    assert result["samengevoegd"] == 1
+    assert result["paren"][0]["weg"]["id"] == "obj-koffer-2" and result["paren"][0]["in"]["id"] == first["id"]
+    assert "obj-koffer-2" not in [o["id"] for o in result["objecten"]]
+    shown = next(o for o in result["objecten"] if o["id"] == group["id"])
+    assert shown["groep"]["leden"][0]["wikidata"] == "Q200814"
+
+
+def test_remove_a_wrong_also_found_word_and_undo(app, http):
+    """The doll was also found as "boy": remove that word, it stays away on a new search, and Undo brings it back."""
+    from cutter.api import _page_file, _service
+
+    http.post(PAGE + "/detecties", json={"prompt": "flower"})
+    with app.test_request_context():
+        service = _service()
+        file = _page_file(ALBUM_MID, 1)
+        store = service._load_store(file, 1)
+        doll = store["objecten"][0]
+        doll["ook"] = [{"id": "obj-boy", "bron": "sam", "label": "boy", "zoekterm": "boy", "score": 0.5, "box": doll["box"]}, {"id": "obj-child", "bron": "sam", "label": "child", "zoekterm": "child", "score": 0.5, "box": doll["box"]}]
+        service._write_store(file, 1, store)
+    base = f"{PAGE}/objecten/{doll['id']}"
+    gone = http.delete(base + "/ook/Boy")
+    assert gone.status_code == 200
+    assert [e["zoekterm"] for e in gone.get_json()["object"]["ook"]] == ["child"]
+    assert http.delete(base + "/ook/boy").status_code == 404
+    with app.test_request_context():
+        # Found again by a new search: it does not come back on its own, nor merge in again.
+        service._merge_into_page(file, 1, [{"id": "obj-boy", "bron": "sam", "zoekterm": "boy", "label": "boy", "score": 0.9, "box": doll["box"], "status": "kandidaat"}])
+        after = service._load_store(file, 1)
+        assert "obj-boy" not in [o["id"] for o in after["objecten"]]
+        assert [e["zoekterm"] for e in next(o for o in after["objecten"] if o["id"] == doll["id"])["ook"]] == ["child"]
+    back = http.post(base + "/ook", json={"woord": "boy"})
+    assert back.status_code == 201 and {e["zoekterm"] for e in back.get_json()["object"]["ook"]} == {"child", "boy"}
+    assert http.post(base + "/ook", json={}).status_code == 400
+
+
+def test_start_an_image_over(app, http):
+    """GET …/werk says what is kept; DELETE removes it all (objects, trash, saved cut-outs), keeps the cache."""
+    from cutter.api import _page_file, _service
+
+    found = http.post(PAGE + "/detecties", json={"prompt": "flower"}).get_json()["objecten"]
+    http.delete(f"{PAGE}/objecten/{found[0]['id']}")
+    http.post(PAGE + "/uitsneden", json={"ids": [found[1]["id"]]})
+    kept = http.get(f"/api/v1/bestand/{ALBUM_MID}/werk").get_json()
+    assert kept["paginas"] == 1 and kept["prullenbak"] == 1 and kept["objecten"] == len(found) - 1 and kept["opgeslagen"] == 1
+    gone = http.delete(f"/api/v1/bestand/{ALBUM_MID}/werk").get_json()["verwijderd"]
+    assert gone == {**kept, "ai_opnieuw": False}
+    assert http.get(f"/api/v1/bestand/{ALBUM_MID}/werk").get_json()["objecten"] == 0
+    assert http.get(PAGE).get_json()["objecten"] == []
+    with app.test_request_context():
+        assert not list(_service()._file_dir(_page_file(ALBUM_MID, 1)).glob("pagina_*"))
+    # The same search again comes from the cache: the objects are back.
+    assert http.post(PAGE + "/detecties", json={"prompt": "flower"}).get_json()["objecten"]
+    assert http.delete("/api/v1/bestand/X1/werk").status_code == 400
+
+
+def test_start_over_with_asking_the_ai_anew(app, http, monkeypatch):
+    """With ?ai=opnieuw the earlier AI answers in the cache no longer count for the image; new ones do."""
+    from cutter.api import _page_file, _service
+
+    first = http.post(PAGE + "/inventaris", json={}).get_json()
+    assert http.post(PAGE + "/inventaris", json={}).get_json()["uit_cache"] is True
+    assert first["uit_cache"] is False
+    http.delete(f"/api/v1/bestand/{ALBUM_MID}/werk")  # keep earlier answers
+    assert http.post(PAGE + "/inventaris", json={}).get_json()["uit_cache"] is True
+    time.sleep(0.05)
+    gone = http.delete(f"/api/v1/bestand/{ALBUM_MID}/werk?ai=opnieuw").get_json()["verwijderd"]
+    assert gone["ai_opnieuw"] is True
+    time.sleep(0.05)
+    assert http.post(PAGE + "/inventaris", json={}).get_json()["uit_cache"] is False  # a new answer
+    assert http.post(PAGE + "/inventaris", json={}).get_json()["uit_cache"] is True  # which counts again
+    with app.test_request_context():
+        folder = _service()._file_dir(_page_file(ALBUM_MID, 1))
+    http.delete(f"/api/v1/bestand/{ALBUM_MID}/werk")
+    assert not (folder / "ai_opnieuw_vanaf.json").exists()
+
+
+def test_start_over_gets_past_a_locked_empty_folder(app, http, monkeypatch):
+    """An empty folder Windows keeps locked does not stop starting over; the mark for asking anew is written."""
+    import shutil as real_shutil
+
+    from cutter.api import _page_file, _service
+
+    http.post(PAGE + "/detecties", json={"prompt": "flower"})
+    original = real_shutil.rmtree
+
+    def stubborn(path, ignore_errors=False, **kw):
+        original(path, ignore_errors=True)
+        (Path(path) / "jpg").mkdir(parents=True, exist_ok=True)  # an empty folder that stays behind
+        if not ignore_errors:
+            raise PermissionError("locked")
+
+    monkeypatch.setattr("cutter.detectie.dienst.shutil.rmtree", stubborn)
+    gone = http.delete(f"/api/v1/bestand/{ALBUM_MID}/werk?ai=opnieuw")
+    assert gone.status_code == 200 and gone.get_json()["verwijderd"]["ai_opnieuw"] is True
+    with app.test_request_context():
+        assert (_service()._file_dir(_page_file(ALBUM_MID, 1)) / "ai_opnieuw_vanaf.json").exists()
+    assert http.get(PAGE).get_json()["objecten"] == []
+
+
+def test_start_over_only_for_trusted_users_on_a_server(app, http):
+    app.testing = False
+    assert http.delete(f"/api/v1/bestand/{ALBUM_MID}/werk").status_code == 403
+
+
+def test_merging_keeps_the_depicts_item(app):
+    """Car (located for Q1420) merged into vintage car keeps the link to the item."""
+    from cutter.api import _page_file, _service
+
+    with app.test_request_context():
+        service = _service()
+        file = _page_file(ALBUM_MID, 1)
+        box = {"x": 10, "y": 10, "w": 100, "h": 100}
+        a = {"id": "obj-a", "bron": "sam", "score": 0.9, "box": box, "zoekterm": "vintage car", "status": "kandidaat"}
+        b = {"id": "obj-b", "bron": "sam", "score": 0.5, "box": box, "zoekterm": "car", "wikidata": "Q1420", "status": "kandidaat"}
+        merged = service._absorb(file, 1, a, b)
+        assert merged["id"] == "obj-a" and merged["wikidata"] == "Q1420"
+
+
+def test_logo_of_an_item_through_the_server(app, http, monkeypatch):
+    """GET /wikidata/{q}/logo: the logo (P154) as an image through the server; 404 without one."""
+    client = app.extensions["commons"]
+    asked = []
+
+    def thumbnail(qid, width=120, prop="P18"):
+        asked.append((qid, width, prop))
+        return b"\x89PNG fake" if qid == "Q1526131" else None
+
+    monkeypatch.setattr(client, "item_thumbnail", thumbnail)
+    found = http.get("/api/v1/wikidata/Q1526131/logo?w=32")
+    assert found.status_code == 200 and found.mimetype == "image/png"
+    assert asked[-1] == ("Q1526131", 32, "P154")
+    assert http.get("/api/v1/wikidata/Q42/logo").status_code == 404
+    assert http.get("/api/v1/wikidata/X1/logo").status_code == 400
+
+
+def test_item_files_skip_deprecated_statements(client, monkeypatch):
+    entities = [("Q1", {"claims": {"P154": [{"rank": "deprecated", "mainsnak": {"datavalue": {"value": "Old.svg"}}}, {"rank": "normal", "mainsnak": {"datavalue": {"value": "KB logo.svg"}}}]}}), ("Q2", {"claims": {}})]
+    monkeypatch.setattr(client, "_wikidata_entities", lambda ids, props, **kw: entities)
+    assert client.item_files(["Q1", "Q2"], "P154") == {"Q1": "KB logo.svg"}
 
 
 def test_original_data_and_draft(http):

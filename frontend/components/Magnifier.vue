@@ -71,6 +71,11 @@
         <dl class="cc-gegevens">
           <dt>{{ t("magnifier.source") }}</dt>
           <dd>{{ t(`source.${object.bron}`) }}<template v-if="groupNames">: {{ groupNames }}</template> <ai-badge v-if="object.bron === 'sam'" kind="detectie" :model="object.herkomst?.model || config.sam_model" :score="object.score" /><template v-if="object.wikidata"> · <a :href="`https://www.wikidata.org/wiki/${object.wikidata}`" target="_blank" rel="noopener">{{ object.wikidata }}</a></template></dd>
+          <!-- Also while Undo waits after the last word went (Olaf: the row and its Undo disappeared). -->
+          <template v-if="(object.ook || []).length || alsoPending">
+            <dt>{{ t("objects.also_found_as_title") }}</dt>
+            <dd><also-found-as :object="object" :mid="file.mid" :n="n" undo :label="false" @changed="emit('changed', $event)" @pending="alsoPending = $event" /></dd>
+          </template>
           <dt>{{ t("magnifier.box") }}</dt>
           <dd>{{ object.box.x }}, {{ object.box.y }} · {{ object.box.w }} × {{ object.box.h }} px</dd>
           <template v-if="savedInfo">
@@ -132,6 +137,8 @@
           <cdx-button action="progressive" v-if="!object.masker" :title="t('magnifier.refine_mask_help')" @click="emit('refine', object)">
             {{ t("magnifier.refine_mask", { cost: config.betaald ? money(config.sam_usd, config.taal) : t("panel.free").replace(/[()]/g, "") }) }}
           </cdx-button>
+          <!-- The outcome of asking for the shape, here and not at the top of the page behind this window (wish Olaf). -->
+          <notice-list v-if="notices.length" class="cc-vergroter-melding" :notices="notices" @dismiss="emit('dismiss-notice', $event)" />
           <!-- Fill in what is missing (Muse Image): invented by AI, kept apart from the cut-out (7.7). -->
           <!-- Only the first time; asking again is on the AI-completed tab (wish Olaf). -->
           <cdx-button v-if="!object.aangevuld && !completionHistory.length" action="progressive" :disabled="completing" :title="t('completion.help')" @click="complete">
@@ -555,6 +562,8 @@ import DetailSlider from "./DetailSlider.vue";
 import BusyNote from "./BusyNote.vue";
 import ZoomImage from "./ZoomImage.vue";
 import SavedLabel from "./SavedLabel.vue";
+import AlsoFoundAs from "./AlsoFoundAs.vue";
+import NoticeList from "./NoticeList.vue";
 import { forgetPlacement, makeMovable } from "../movable.js";
 import { fileName, objectName, savedLabel } from "../state.js";
 import { searchItems, wikidataSearcher } from "../wikidata.js";
@@ -565,6 +574,8 @@ import CutoutPreview from "./CutoutPreview.vue";
 import RetentionInfo from "./RetentionInfo.vue";
 
 const props = defineProps({
+  // Notices about actions asked here (the shape from SAM), shown in the magnifier.
+  notices: { type: Array, default: () => [] },
   open: { type: Boolean, default: false },
   file: { type: Object, required: true },
   n: { type: Number, required: true },
@@ -578,7 +589,7 @@ const props = defineProps({
   // The object is in the trash (opened from the trash on the Objects page): no trash button.
   inTrash: { type: Boolean, default: false },
 });
-const emit = defineEmits(["update:open", "changed", "trashed", "refine", "step"]);
+const emit = defineEmits(["update:open", "changed", "trashed", "refine", "step", "dismiss-notice"]);
 
 // ← and → go to the previous and next object, except while typing or on a slider.
 function onStepKey(event) {
@@ -743,6 +754,9 @@ onBeforeUnmount(() => {
 });
 
 const base = computed(() => objectPath(props.file.mid, props.n, props.object.id));
+// Undo waits after removing an "also found as" word: its row stays until then.
+const alsoPending = ref(false);
+watch(() => props.object.id, () => (alsoPending.value = false));
 const name = computed(() => objectName(props.object, language, t));
 const subtitle = computed(() => `${t(`source.${props.object.bron}`)} · ${t(`status.${props.object.status}`)}`);
 const description = computed(() => props.object.beschrijving || null);

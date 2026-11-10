@@ -35,12 +35,14 @@ const props = defineProps({
   columns: { type: Array, required: true },
   rows: { type: Array, required: true },
   rowKey: { type: Function, default: null },
+  // The sorted column as in the address: "kosten" ascending, "-kosten" descending, "" none (v-model:sort).
+  sort: { type: String, default: "" },
 });
-const emit = defineEmits(["sorted"]);
+const emit = defineEmits(["sorted", "update:sort"]);
 const t = useT();
 
-const sortKey = ref(null);
-const direction = ref(1);
+const sortKey = ref(props.sort.replace(/^-/, "") || null);
+const direction = ref(props.sort.startsWith("-") ? -1 : 1);
 
 function sortBy(column) {
   if (sortKey.value === column.key) direction.value = -direction.value;
@@ -48,6 +50,7 @@ function sortBy(column) {
     sortKey.value = column.key;
     direction.value = 1;
   }
+  emit("update:sort", `${direction.value < 0 ? "-" : ""}${sortKey.value}`);
 }
 
 const sorted = computed(() => {

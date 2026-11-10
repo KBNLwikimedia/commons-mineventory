@@ -1,6 +1,6 @@
 <!-- The list view of the Objects page, for both tabs (wish Olaf); the buttons per object come from the page. -->
 <template>
-  <sortable-table :columns="columns" :rows="objects" :row-key="(obj) => obj.mid + obj.id" @sorted="emit('sorted', $event)">
+  <sortable-table :columns="columns" :rows="objects" :row-key="(obj) => obj.mid + obj.id" :sort="sort" @sorted="emit('sorted', $event)" @update:sort="emit('update:sort', $event)">
     <template #beeld="{ row: obj }">
       <a v-if="linkImages" :href="obj.app_url"><img class="cc-lijst-duim" :src="`${obj.uitsnede_url}?w=96`" :alt="name(obj)" loading="lazy" /></a>
       <img v-else class="cc-lijst-duim" :src="`${obj.uitsnede_url}?w=96`" :alt="name(obj)" loading="lazy" />
@@ -43,8 +43,10 @@ const props = defineProps({
   name: { type: Function, required: true },
   savedUrl: { type: Function, required: true },
   linkImages: { type: Boolean, default: false },
+  // The sorted column, as in the address (v-model:sort).
+  sort: { type: String, default: "" },
 });
-const emit = defineEmits(["sorted", "show-in-folder"]);
+const emit = defineEmits(["sorted", "show-in-folder", "update:sort"]);
 const t = useT();
 const config = inject("config", {});
 

@@ -1046,7 +1046,7 @@ class DescriptionService:
         if question["own"]:  # another prompt is another question
             key_hint += f"|eigen prompt: {hashlib.sha1(question['own'].encode()).hexdigest()[:12]}"
         path = self._cache_path(file, n, obj, choice["model"], key_hint, margin, page_text)
-        if path.exists() and not again:
+        if self.objects.counts_for_file(file, path) and not again:
             mark_used(path)
             description = json.loads(path.read_text(encoding="utf-8"))
             description["uit_cache"] = True
@@ -1163,7 +1163,7 @@ class DescriptionService:
         for model in models:
             for (hint, margin), page_text in ((c, p) for c in combos for p in page_texts):
                 path = self._cache_path(file, n, obj, model, hint, margin, page_text)
-                if path.exists():
+                if self.objects.counts_for_file(file, path):
                     try:
                         found.append(json.loads(path.read_text(encoding="utf-8")))
                     except (OSError, ValueError):
@@ -1332,7 +1332,7 @@ class DescriptionService:
             raise DetectionError(f"Onbekend beschrijvingsniveau '{description_level}'; kies uit {', '.join(DESCRIPTION_LEVELS)}.", status=400, code="invalid_body")
         choice = self._model(file, model)
         path = self._inventory_cache_path(file, n, choice["model"], part, detail, description_level)
-        if path.exists() and not again and part is None:
+        if self.objects.counts_for_file(file, path) and not again and part is None:
             mark_used(path)
             overview = json.loads(path.read_text(encoding="utf-8"))
             return self._store_inventory(file, n, overview, cached=True, user=user)

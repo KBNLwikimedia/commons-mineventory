@@ -340,19 +340,26 @@ class CommonsClient:
         data = json.loads(self.fetcher.get(self.api_url({"action": "wbgetentities", "ids": mid}), max_age=self._age()))
         return sdc.parse_entity((data.get("entities") or {}).get(mid))
 
-    def item_image(self, qid):
-        """The file name of the image (P18) of a Wikidata item, or None. Cached."""
-        for _, entity in self._wikidata_entities([qid], "claims"):
-            for claim in (entity.get("claims") or {}).get("P18") or []:
-                value = ((claim.get("mainsnak") or {}).get("datavalue") or {}).get("value")
-                if isinstance(value, str) and value:
-                    return value
-        return None
+    def item_image(self, qid, prop="P18"):
+        """The file name of the image (P18) or logo (P154) of a Wikidata item, or None. Cached."""
+        return self.item_files([qid], prop).get(qid)
 
-    def item_thumbnail(self, qid, width=120):
-        """Bytes of a small thumbnail of an item's image (P18), fetched through the server
-        so the browser loads nothing from Wikimedia; None without an image. Cached."""
-        name = self.item_image(qid)
+    def item_files(self, ids, prop="P18"):
+        """{Q-id: file name} of a Commons-file property (P18 image, P154 logo) of Wikidata
+        items; items without one are left out. Deprecated statements do not count. Cached."""
+        found = {}
+        for qid, entity in self._wikidata_entities(ids, "claims"):
+            for claim in (entity.get("claims") or {}).get(prop) or []:
+                value = ((claim.get("mainsnak") or {}).get("datavalue") or {}).get("value")
+                if claim.get("rank") != "deprecated" and isinstance(value, str) and value:
+                    found[qid] = value
+                    break
+        return found
+
+    def item_thumbnail(self, qid, width=120, prop="P18"):
+        """Bytes of a small thumbnail of an item's image (P18) or logo (P154), fetched through
+        the server so the browser loads nothing from Wikimedia; None without one. Cached."""
+        name = self.item_image(qid, prop)
         if not name:
             return None
         data = self._json({"prop": "imageinfo", "titles": f"File:{name}", "iiprop": "url", "iiurlwidth": str(width)})
@@ -497,7 +504,15 @@ class CommonsClient:
         def inventory(qualifiers):
             return [((s.get("datavalue") or {}).get("value")) for s in qualifiers.get("P217", []) if s.get("snaktype") == "value"]
 
-        collections = [{**item(i), "inventarisnummers": inventory(q)} for i, q in found.pop("collectie")]
+        # The logo (P154) of a collection or location, e.g. the KB's, shown with its name (wish Olaf).
+        institutions = [i for key in ("collectie", "locatie") for i, _ in found[key]]
+        logos = self.item_files(institutions, "P154") if institutions else {}
+
+        def with_logo(entry):
+            return {**entry, "logo": bool(logos.get(entry["id"]))}
+
+        collections = [with_logo({**item(i), "inventarisnummers": inventory(q)}) for i, q in found.pop("collectie")]
+        locations = [with_logo(item(i)) for i, _ in found.pop("locatie")]
         # P217 as a statement of its own (with P195 as qualifier): add it to that collection, or on its own.
         loose = []
         for value, qualifiers in values("P217"):
@@ -523,10 +538,13 @@ class CommonsClient:
             "datum": date,
             "datum_eigenschap": date_prop,
             "makers": [(labels.get(i) or {}).get("nl") or (labels.get(i) or {}).get("en") or i for i in maker_ids],
+            # The makers as items too, so Metadata can link them to Wikidata (wish Olaf).
+            "maker_items": [item(i) for i in maker_ids],
             "maker_eigenschap": maker_prop,
             "maker_onbekend": not maker_ids and unknown,
             **{key: [item(i) for i, _ in pairs] for key, pairs in found.items()},
             "collectie": collections,
+            "locatie": locations,
             "inventarisnummers": loose,
             "afmetingen": [
                 {"maat": key, "waarde": amount, "eenheid": self.UNITS.get(unit) or ("" if unit == "1" else (labels.get(unit) or {}).get("en") or unit)}

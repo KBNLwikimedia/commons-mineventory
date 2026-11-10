@@ -17,7 +17,7 @@
 
     <section v-if="!file && !loadingFile && visited.length" class="cc-start-geschiedenis">
       <h2>{{ t("history.title") }}</h2>
-      <viewed-panel :entries="visited" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" @open="openFromHistory" />
+      <viewed-panel :entries="visited" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" @open="openFromHistory" @start-over="startOver" :work="workKept" />
     </section>
 
     <!-- On a phone (functional design 10.5) the three columns are tabs; on larger screens this bar is hidden. -->
@@ -49,7 +49,7 @@
       <aside class="cc-historie cc-kolom" :class="{ dicht: closed.historie }" :aria-label="t('layout.history_title')">
         <div class="cc-kolom-inhoud">
           <column-header column="history" closable side="left" @close="setClosed('historie', true)" />
-          <viewed-panel :entries="visited" :current="file.mid" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" @open="openFromHistory" />
+          <viewed-panel :entries="visited" :current="file.mid" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" @open="openFromHistory" @start-over="startOver" :work="workKept" />
         </div>
         <column-strip v-if="closed.historie" :name="t('layout.history_title')" :count="visited.length" side="left" @open="setClosed('historie', false)" />
       </aside>
@@ -59,6 +59,8 @@
            (The class names cc-links/cc-rechts are historical: the objects column is cc-links.) -->
       <section id="cc-kolom-midden" class="cc-midden cc-kolom" :class="{ dicht: closed.beeld }" role="tabpanel" aria-labelledby="cc-tab-midden">
         <div class="cc-kolom-inhoud">
+        <!-- A header like the other columns (wish Olaf); its arrow folds the column away. -->
+        <column-header column="image" closable side="left" @close="setClosed('beeld', true)" />
         <viewer-pane
           ref="viewer"
           :mid="file.mid"
@@ -75,11 +77,6 @@
           @point="onPoint"
           @rectangle="onRectangle"
         >
-          <template #balk>
-            <cdx-button weight="quiet" size="small" class="cc-kolom-dicht-knop" :aria-label="t('layout.column_close', { name: t('layout.tab_midden') })" :title="t('layout.column_close', { name: t('layout.tab_midden') })" @click="setClosed('beeld', true)">
-              <cdx-icon :icon="cdxIconPrevious" size="small" />
-            </cdx-button>
-          </template>
         </viewer-pane>
         </div>
         <column-strip v-if="closed.beeld" :name="t('layout.tab_midden')" side="left" @open="setClosed('beeld', false)" />
@@ -102,6 +99,8 @@
           @detect="detect"
           @inventory="askInventory(Boolean(inventory), $event?.deel || null, $event?.detailniveau, $event?.beschrijvingsniveau)"
           @forget-inventory="forgetInventory($event?.deel || null)"
+          :notices="notices.filter((n) => n.where === 'commons' || String(n.where || '').startsWith('ai-'))"
+          @dismiss-notice="dismiss"
           @inventory-changed="inventory = $event"
           :draw-mode="drawMode"
           @point-mode="setMode('point', $event)"
@@ -153,6 +152,8 @@
           @trash="trashObject"
           @ungroup="ungroupObject"
           @rename="renameObject"
+          @changed="replaceObject"
+          @error="failInTab"
         >
           <!-- Search the list (wish Olaf), next to All · None · Invert: only objects whose name, search
                term, item, caption or description contain every word. A view only: nothing is unticked. -->
@@ -267,7 +268,7 @@
             </cdx-tabs>
             <!-- The outcome of the last action, directly under the tabs that asked for it;
                  red when nothing could be done. -->
-            <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}</cdx-message>
+            <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}<ul v-if="actionResult.list?.length" class="cc-melding-lijst"><li v-for="line in actionResult.list" :key="line">{{ line }}</li></ul></cdx-message>
           </div>
           <busy-note v-if="busy && busyAt === 'objecten'" :message="t('busy.describe')" />
           </cdx-accordion>
@@ -286,6 +287,7 @@
           <!-- Retention is about saved cut-outs, so it goes with saving, not with the selection count. -->
           <p class="cc-bewaar-regel"><retention-info labelled /></p>
           </div>
+          <notice-list :notices="noticesAt('opslaan')" @dismiss="dismiss" />
           </cdx-accordion>
         </div>
         </div>
@@ -306,6 +308,8 @@
       @changed="replaceObject"
       @trashed="trashObject($event)"
       @refine="refineMask"
+      :notices="noticesAt('vergroter')"
+      @dismiss-notice="dismiss"
     />
 
     <confirm-dialog />
@@ -327,6 +331,7 @@ import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTab, CdxTabs, CdxTextI
 import { cdxIconDownload, cdxIconPrevious, cdxIconSearch, cdxIconTrash, cdxIconUpload } from "@wikimedia/codex-icons";
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { classColors } from "../class-colors.js";
+import { writeAddress } from "../facets.js";
 import { askConfirm, askConfirmValue } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import BulkDescribeDialog from "./BulkDescribeDialog.vue";
@@ -335,7 +340,7 @@ import ColumnHeader from "./ColumnHeader.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
 import ColumnStrip from "./ColumnStrip.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { addToHistory, appUrl, clearHistory, numberedNames, objectName, readHistory, readStart, removeFromHistory, setAside } from "../state.js";
+import { addToHistory, appUrl, clearHistory, forgetFileInBrowser, numberedNames, objectName, readHistory, readStart, removeFromHistory, setAside } from "../state.js";
 import ViewedPanel from "./ViewedPanel.vue";
 import DetectionPanel from "./DetectionPanel.vue";
 import FileBar from "./FileBar.vue";
@@ -389,6 +394,30 @@ const magnifierOpen = ref(false);
 const magnifiedId = ref(null);
 const start = readStart(window.location.search);
 const visited = ref(readHistory());
+// Per viewed image whether anything is kept for it (objects, trash, AI suggestions, a draft): ↻ is
+// only active then (wish Olaf). Asked from the server (free); the open image again after each change.
+const workKept = ref({});
+async function checkWork(mid) {
+  try {
+    const kept = await get(`${filePath(mid)}/werk`);
+    workKept.value = { ...workKept.value, [mid]: Boolean(kept.objecten || kept.prullenbak || kept.ai_suggesties || kept.concepten) };
+  } catch {
+    workKept.value = { ...workKept.value, [mid]: true }; // unknown: leave the button usable
+  }
+}
+watch(
+  () => visited.value.map((entry) => entry.mid).join(","),
+  () => visited.value.filter((entry) => !(entry.mid in workKept.value)).forEach((entry) => checkWork(entry.mid)),
+  { immediate: true }
+);
+let workTimer = null;
+watch(
+  () => [file.value?.mid, objects.value.length, Boolean(inventory.value)],
+  ([mid]) => {
+    clearTimeout(workTimer);
+    if (mid) workTimer = setTimeout(() => checkWork(mid), 800);
+  }
+);
 // The four columns, left to right; each can be folded away to a narrow strip,
 // remembered in this browser. The image column takes the room that is left; when
 // it is folded away, the first open column of the others does.
@@ -435,7 +464,10 @@ function readCertainty() {
     return 0;
   }
 }
-const minScore = ref(readCertainty());
+// The address wins (wish Olaf: zekerheid=57 in a shared link), else this browser's last choice.
+const askedCertainty = Number(new URLSearchParams(window.location.search).get("zekerheid"));
+const minScore = ref(askedCertainty > 0 && askedCertainty <= 95 ? askedCertainty / 100 : readCertainty());
+watch(minScore, (value) => writeAddress({ zekerheid: value > 0 ? String(Math.round(value * 100)) : "" }));
 watch(minScore, (value) => {
   try {
     window.localStorage.setItem(CERTAINTY_KEY, String(value));
@@ -464,6 +496,10 @@ const hiddenCount = computed(() => objects.value.length - certainObjects.value.l
 // case-insensitive. It narrows what you see, in the list and in the image, and what "all"
 // means in the bulk actions; unlike the certainty it unticks nothing.
 const objectQuery = ref("");
+// The search of the object list in the address (wish Olaf): q=…, for the image the address opened.
+let askedQuery = new URLSearchParams(window.location.search).get("q");
+const askedQueryMid = new URLSearchParams(window.location.search).get("mid");
+watch(objectQuery, (q) => writeAddress({ q }));
 function objectText(o) {
   const description = o.beschrijving && typeof o.beschrijving === "object" ? Object.values(o.beschrijving).filter((v) => typeof v === "string") : [];
   return [listNames.value[o.id], o.naam, o.label, o.label_nl, o.label_item, o.zoekterm, o.wikidata, o.bijschrift?.tekst, ...description]
@@ -509,13 +545,17 @@ let noticeId = 0;
 function notify(type, text, extra = {}) {
   notices.value = [...notices.value.slice(-3), { id: ++noticeId, type, text, ...extra }];
 }
-const topNotices = computed(() => notices.value.filter((n) => n.where !== "objecten"));
+// Only what is about the whole file goes on top; the outcome of an action shows near the button that
+// asked for it (wish Olaf), with `where`: commons, ai-beschrijving, ai-zoektermen, ai-alles,
+// vergroter, opslaan, objecten.
+const topNotices = computed(() => notices.value.filter((n) => !n.where));
 const objectNotices = computed(() => notices.value.filter((n) => n.where === "objecten"));
+const noticesAt = (where) => notices.value.filter((n) => n.where === where);
 function dismiss(id) {
   notices.value = notices.value.filter((n) => n.id !== id);
 }
-function fail(error) {
-  notify("error", errorText(t, error));
+function fail(error, where = undefined) {
+  notify("error", errorText(t, error), where ? { where } : {});
 }
 // An error of a bulk action: in the tab, under the button that asked for it (wish Olaf),
 // not at the top of the page.
@@ -560,9 +600,9 @@ async function readAgain() {
   try {
     file.value = await post(`${API}/bestand/${file.value.mid}/opnieuw-lezen`, {});
     await goToPage(pageN.value);
-    notify("success", t("panel.commons_read_again_done"));
+    notify("success", t("panel.commons_read_again_done"), { where: "commons" });
   } catch (error) {
-    fail(error);
+    fail(error, "commons");
   } finally {
     busy.value = false;
   }
@@ -585,7 +625,8 @@ async function goToPage(n) {
     trashTerms.value = data.prullenbak_termen || {};
     newIds.value = [];
     inventory.value = null;
-    window.history.replaceState(null, "", appUrl(file.value.mid, n));
+    // Only the parameters of the file and page change; the choices on the page (q, zekerheid, maskers, kaders, uselang) stay.
+    writeAddress({ mid: file.value.mid, pagina: n > 1 ? String(n) : "", object: "", vergroten: "", url: "", titel: "" });
     visited.value = addToHistory({ mid: file.value.mid, naam: file.value.naam, pagina: n, paginas: file.value.paginas });
     const asked = `${file.value.mid}/${n}`;
     get(`${pagePath(file.value.mid, n)}/inventaris`)
@@ -611,6 +652,63 @@ async function goToPage(n) {
 function replaceObjects(list, fresh = []) {
   objects.value = list;
   newIds.value = fresh;
+}
+
+// Start an image over (wish Olaf): first say what goes, then remove it on the server and forget what
+// this browser keeps for it. The open image is loaded anew, so every panel starts empty.
+async function startOver(entry) {
+  const base = `${filePath(entry.mid)}/werk`;
+  let kept;
+  try {
+    kept = await get(base);
+  } catch (error) {
+    failInTab(error);
+    return;
+  }
+  // What goes, as a list under a heading (wish Olaf); what stays below it.
+  // Each with a link to where you see it (wish Olaf), in a new tab so the question stays open.
+  const mid = encodeURIComponent(entry.mid);
+  const links = {
+    objects: { href: `/objecten?mid=${mid}`, label: t("history.start_over_objects", { n: kept.objecten }) },
+    trash: { href: `/objecten?tab=prullenbak&mid=${mid}`, label: t("history.start_over_trash", { n: kept.prullenbak }) },
+    saved: { href: `/objecten?mid=${mid}&opgeslagen=1`, label: t("history.start_over_saved", { n: kept.opgeslagen }) },
+    ai: { href: `${appUrl(entry.mid, entry.pagina || 1)}#ai-suggesties`, label: t("history.start_over_ai") },
+  };
+  const linked = (name, n) => (n ? `{${name}}` : links[name].label); // nothing to see: no link
+  // Two groups (wish Olaf): what goes from the image itself, and from its objects and cut-outs.
+  const fromImage = [kept.ai_suggesties && "{ai}", kept.concepten && t("history.start_over_draft"), t("history.start_over_buttons")].filter(Boolean);
+  const fromObjects = [
+    // With what was changed on them, so it is clear everything about the objects goes.
+    kept.objecten ? `${linked("objects", kept.objecten)} ${t("history.start_over_objects_with")}` : linked("objects", kept.objecten),
+    linked("trash", kept.prullenbak),
+    linked("saved", kept.opgeslagen),
+  ];
+  const group = (heading, lines) => [`**${heading}**`, ...lines.map((line) => `- ${line}`)].join("\n");
+  const text = [
+    t("history.start_over_confirm", { name: entry.naam || entry.mid }),
+    group(t("history.start_over_from_image"), fromImage),
+    group(t("history.start_over_from_objects"), fromObjects),
+    t("history.start_over_keeps"),
+  ].join("\n\n");
+  // Keep the earlier AI answers (free when asked again) or ask the AI anew (wish Olaf).
+  const choices = [
+    { value: "houden", label: t("history.start_over_keep_ai"), help: t("history.start_over_keep_ai_help") },
+    { value: "opnieuw", label: t("history.start_over_fresh_ai"), help: t("history.start_over_fresh_ai_help") },
+  ];
+  // With a thumbnail of the image, so you see which one goes (wish Olaf).
+  // Only the picture: the sentence below names the file (wish Olaf).
+  const image = [{ image: `${filePath(entry.mid)}/pagina/${entry.pagina || 1}/afbeelding?w=480`, name: "" }];
+  const answer = await askConfirmValue(text, { title: t("history.start_over"), go: t("history.start_over"), destructive: true, links, choices, objects: image, objectsFirst: true });
+  if (!answer.ok) return;
+  try {
+    await del(answer.choice === "opnieuw" ? `${base}?ai=opnieuw` : base);
+  } catch (error) {
+    failInTab(error);
+    return;
+  }
+  forgetFileInBrowser(entry.mid);
+  workKept.value = { ...workKept.value, [entry.mid]: false };
+  if (file.value?.mid === entry.mid) window.location.reload();
 }
 
 // Your own name for an object (from the list); "" goes back to the automatic name.
@@ -683,9 +781,9 @@ async function forgetInventory(part = null) {
   try {
     const result = await del(`${pagePath(file.value.mid, pageN.value)}/inventaris${part ? `/${part}` : ""}`);
     inventory.value = result.inventaris;
-    notify("success", t(`panel.part_forgotten_${key}`));
+    notify("success", t(`panel.part_forgotten_${key}`), { where: `ai-${key}` });
   } catch (error) {
-    fail(error);
+    fail(error, `ai-${key}`);
   }
 }
 
@@ -768,6 +866,8 @@ const actionsOpen = reactive({ bulk: false, save: false });
 watch(() => [file.value?.mid, pageN.value], () => {
   bulkTab.value = "beschrijven";
   objectQuery.value = "";
+  if (askedQuery && file.value?.mid === askedQueryMid) objectQuery.value = askedQuery;
+  askedQuery = null;
 });
 
 // "All hats" to the trash in one go: always a confirmation listing them; one notice with
@@ -891,8 +991,10 @@ async function mergeDuplicates(scope = "alle") {
     const among = scope === "selectie" ? objects.value.filter((o) => o.status === "geselecteerd") : visibleObjects.value;
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/samenvoegingen`, { objecten: among.map((o) => o.id) });
     replaceObjects(result.objecten);
+    // Which object went into which (wish Olaf): "suitcase → cardboard box".
+    const pairs = (result.paren || []).map((pair) => t("detect.merged_pair", { gone: objectName(pair.weg, props.config.taal, t), kept: objectName(pair.in, props.config.taal, t) }));
     actionResult.value = result.samengevoegd
-      ? { type: "success", text: t("detect.merged", { n: result.samengevoegd }) }
+      ? { type: "success", text: t("detect.merged_list", { n: result.samengevoegd }), list: pairs }
       : { type: "error", text: t("objects.merged_none") };
   } catch (error) {
     failInTab(error);
@@ -1038,9 +1140,9 @@ async function refineMask(obj) {
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { masker_voor: obj.id });
     replaceObject(result.object);
-    notify("success", t("detect.mask_done"));
+    notify("success", t("detect.mask_done"), { where: "vergroter" });
   } catch (error) {
-    fail(error);
+    fail(error, "vergroter");
   }
 }
 
@@ -1082,9 +1184,9 @@ async function removeShape(id) {
   try {
     const result = await del(`${objectPath(file.value.mid, pageN.value, id)}/vorm`);
     objects.value = objects.value.map((o) => (o.id === id ? result.object : o));
-    notify("success", t("objects.shape_removed", { name: objectName(result.object, props.config.taal, t) }));
+    notify("success", t("objects.shape_removed", { name: objectName(result.object, props.config.taal, t) }), { where: "objecten" });
   } catch (error) {
-    fail(error);
+    fail(error, "objecten");
   }
 }
 
@@ -1234,9 +1336,9 @@ async function saveSelection() {
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/uitsneden`, {});
     objects.value = result.objecten;
-    notify("success", t("save.done", { n: result.opgeslagen.length }));
+    notify("success", t("save.done", { n: result.opgeslagen.length }), { where: "opslaan" });
   } catch (error) {
-    fail(error);
+    fail(error, "opslaan");
   } finally {
     busy.value = false;
   }

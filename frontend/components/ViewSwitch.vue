@@ -12,6 +12,8 @@ const props = defineProps({
   // [{value, label}]
   buttons: { type: Array, required: true },
   storageKey: { type: String, required: true },
+  // False when the address already chose the view: it then wins over this browser's preference.
+  useStored: { type: Boolean, default: true },
 });
 const emit = defineEmits(["update:modelValue"]);
 
@@ -25,6 +27,7 @@ function choose(value) {
 }
 
 onMounted(() => {
+  if (!props.useStored) return;
   let stored = null;
   try {
     stored = localStorage.getItem(props.storageKey);

@@ -11,8 +11,9 @@ import ObjectList from "./components/ObjectList.vue";
 import ChangelogFacets from "./components/ChangelogFacets.vue";
 import ListFacets from "./components/ListFacets.vue";
 import ObjectsTable from "./components/ObjectsTable.vue";
+import AlsoFoundAs from "./components/AlsoFoundAs.vue";
 import SortableTable from "./components/SortableTable.vue";
-import { applyFacets, applyListFilters, emptyFilters, exportUrl, facetOptions, newestFirst, sortRows } from "./facets.js";
+import { applyFacets, applyListFilters, emptyFilters, exportUrl, facetOptions, newestFirst, objectsWithTerm, readAddress, sortRows, writeAddress } from "./facets.js";
 import { QUERY_COLOUR, classColors, classKey, classKeys, kindsWithQuery } from "./class-colors.js";
 
 describe("translation files", () => {
@@ -586,6 +587,15 @@ describe("facets and search on the list pages", () => {
     expect(by([true, false, true], 1)).toEqual([false, true, true]);
   });
 
+  it("starts sorted as the address says and reports a new sorting for the address", async () => {
+    const columns = [{ key: "a", label: "A", value: (r) => r.a }];
+    const rows = [{ a: "2" }, { a: "10" }, { a: "1" }];
+    const wrapper = mount(SortableTable, { props: { columns, rows, sort: "-a" }, global: { provide: { t: (key) => key } } });
+    expect(wrapper.findAll("tbody tr").map((tr) => tr.text())).toEqual(["10", "2", "1"]);
+    await wrapper.find("th button").trigger("click");
+    expect(wrapper.emitted("update:sort").at(-1)).toEqual(["a"]);
+  });
+
   it("sorts a table with a click on a heading, and only columns with a value", async () => {
     const columns = [{ key: "a", label: "A", value: (r) => r.a }, { key: "b", label: "B" }];
     const rows = [{ a: "2" }, { a: "10" }, { a: "1" }];
@@ -601,10 +611,120 @@ describe("facets and search on the list pages", () => {
     expect(wrapper.emitted("sorted").at(-1)[0][0]).toEqual({ a: "10" });
   });
 
+  it("shows each word an object was also found with once, with a ×, without clicks and rectangles", () => {
+    const object = { id: "a", ook: [{ id: "x", zoekterm: "boy" }, { id: "y", zoekterm: "child" }, { id: "z", zoekterm: "boy" }, { id: "k", zoekterm: "klik" }] };
+    const wrapper = mount(AlsoFoundAs, { props: { object, mid: "M1", n: 1 }, global: { provide: { t: (key) => key, language: "nl" } } });
+    expect(wrapper.findAll(".cc-ook-woord").map((w) => w.text().replace("×", "").trim())).toEqual(["boy", "child"]);
+    expect(wrapper.findAll(".cc-ook-weg")).toHaveLength(2);
+    expect(wrapper.text()).toContain("objects.also_found_as");
+    expect(mount(AlsoFoundAs, { props: { object, mid: "M1", n: 1, label: false }, global: { provide: { t: (key) => key } } }).text()).not.toContain("objects.also_found_as");
+    expect(mount(AlsoFoundAs, { props: { object: { id: "b" }, mid: "M1", n: 1 }, global: { provide: { t: (key) => key } } }).text()).toBe("");
+  });
+
+  it("keeps Undo after the last word went, and says so to the row around it", async () => {
+    const api = await import("./api.js");
+    const spy = vi.spyOn(api, "del").mockResolvedValue({ object: { id: "a", ook: [], ook_weg: [{ id: "x", zoekterm: "girl" }] } });
+    const object = { id: "a", ook: [{ id: "x", zoekterm: "girl" }] };
+    const wrapper = mount(AlsoFoundAs, { props: { object, mid: "M1", n: 1, undo: true }, global: { provide: { t: (key) => key } } });
+    await wrapper.find(".cc-ook-weg").trigger("click");
+    await new Promise((r) => setTimeout(r, 0));
+    await wrapper.setProps({ object: { id: "a", ook: [] } });
+    expect(wrapper.find(".cc-ook-ongedaan").exists()).toBe(true);
+    expect(wrapper.emitted("pending").at(-1)).toEqual([true]);
+    // Announced before the change, so the magnifier keeps the row when the last word went.
+    const order = Object.keys(wrapper.emitted());
+    expect(order.indexOf("pending")).toBeLessThan(order.indexOf("changed"));
+    spy.mockRestore();
+  });
+
+  it("offers no × for a word the name or description also uses", () => {
+    const object = {
+      id: "a",
+      beschrijving: { onderwerp: "Jongen in wit matrozenpak", onderwerp_en: "Boy in white sailor suit with box" },
+      ook: ["boy", "box", "boyish", "doll", "cars"].map((w, i) => ({ id: `e${i}`, zoekterm: w })),
+    };
+    const wrapper = mount(AlsoFoundAs, { props: { object, mid: "M1", n: 1 }, global: { provide: { t: (key) => key } } });
+    const removable = wrapper.findAll(".cc-ook-woord").filter((w) => w.find(".cc-ook-weg").exists()).map((w) => w.text().replace("×", "").trim());
+    expect(removable).toEqual(["boyish", "doll", "cars"]);
+    const named = mount(AlsoFoundAs, { props: { object: { id: "b", naam: "Two cars", ook: [{ id: "x", zoekterm: "car" }] }, mid: "M1", n: 1 }, global: { provide: { t: (key) => key } } });
+    expect(named.find(".cc-ook-weg").exists()).toBe(false);
+    const vintage = mount(AlsoFoundAs, { props: { object: { id: "c", zoekterm: "vintage car", ook: [{ id: "y", zoekterm: "car" }] }, mid: "M1", n: 1 }, global: { provide: { t: (key) => key } } });
+    expect(vintage.find(".cc-ook-weg").exists()).toBe(false);
+  });
+
+  it("forgets what the browser keeps for one file when it starts over", async () => {
+    const { forgetFileInBrowser } = await import("./state.js");
+    const data = { "cc-gezocht:M1:1": "[]", "cc-items-uit:M1": "[]", "cc-gezocht:M12:1": "[]", "cc-geschiedenis": "[]", "other:M1": "x" };
+    const storage = {
+      get length() { return Object.keys(data).length; },
+      key: (i) => Object.keys(data)[i],
+      removeItem: (key) => delete data[key],
+    };
+    forgetFileInBrowser("M1", storage);
+    expect(Object.keys(data).sort()).toEqual(["cc-geschiedenis", "cc-gezocht:M12:1", "other:M1"]);
+  });
+
+  it("shows links inside the bullets of a confirmation", async () => {
+    const { askConfirm, confirmState } = await import("./confirm.js");
+    const ConfirmDialog = (await import("./components/ConfirmDialog.vue")).default;
+    const wrapper = mount(ConfirmDialog, { attachTo: document.body, global: { provide: { t: (key) => key } } });
+    askConfirm("**Start over? This removes:**\n- {objects}\n- 0 saved\n\nNothing on Commons.", { links: { objects: { href: "/objecten?mid=M1", label: "3 objects" } } });
+    await new Promise((r) => setTimeout(r, 0));
+    const link = [...document.querySelectorAll("a")].find((a) => a.textContent === "3 objects");
+    expect(link?.getAttribute("href")).toBe("/objecten?mid=M1");
+    expect(document.querySelectorAll(".cc-bevestig-blok li")).toHaveLength(2);
+    confirmState.resolve?.(false);
+    wrapper.unmount();
+  });
+
+  it("only lets you start over an image that has work kept", async () => {
+    const HistoryList = (await import("./components/HistoryList.vue")).default;
+    const entries = [{ mid: "M1", naam: "One" }, { mid: "M2", naam: "Two" }, { mid: "M3", naam: "Three" }];
+    const wrapper = mount(HistoryList, { props: { entries, work: { M1: true, M2: false } }, global: { provide: { t: (key) => key } } });
+    const button = (mid) => wrapper.findAll("li").find((li) => li.text().includes(mid)).findAll("button").find((b) => (b.attributes("aria-label") || "").startsWith("history.start_over"));
+    expect(button("M1").attributes("disabled")).toBeUndefined();
+    expect(button("M2").attributes("disabled")).toBeDefined();
+    expect(button("M3").attributes("disabled")).toBeDefined(); // not known yet
+  });
+
+  it("folds the words after the second away in the list", async () => {
+    const object = { id: "a", ook: ["boy", "child", "girl", "man"].map((w, i) => ({ id: `e${i}`, zoekterm: w })) };
+    const wrapper = mount(AlsoFoundAs, { props: { object, mid: "M1", n: 1, fold: 2 }, global: { provide: { t: (key, v) => (v ? `${key}:${v.n}` : key) } } });
+    expect(wrapper.findAll(".cc-ook-woord")).toHaveLength(2);
+    expect(wrapper.find(".cc-ook-meer").text()).toBe("objects.also_more:2");
+    await wrapper.find(".cc-ook-meer").trigger("click");
+    expect(wrapper.findAll(".cc-ook-woord")).toHaveLength(4);
+    expect(mount(AlsoFoundAs, { props: { object: { id: "c", ook: object.ook.slice(0, 2) }, mid: "M1", n: 1, fold: 2 }, global: { provide: { t: (key) => key } } }).find(".cc-ook-meer").exists()).toBe(false);
+  });
+
   it("shows nothing in the Saved column of an object that is not saved", () => {
     const obj = { mid: "M1", id: "a", bron: "sam", status: "kandidaat", score: 0.5, bestand_titel: "File:A.jpg", uitsnede_url: "/u.jpg", app_url: "/?mid=M1" };
     const wrapper = mount(ObjectsTable, { props: { objects: [obj], name: () => "x", savedUrl: () => "/s" }, global: { provide: { t: (key) => key, language: "nl", config: {} } } });
     expect(wrapper.text()).not.toContain("false");
+  });
+
+  it("counts an object for a search word it was also found with, also inside a group", () => {
+    const objects = [
+      { id: "a", zoekterm: "child", ook: [{ id: "x", zoekterm: "Girl" }] },
+      { id: "b", zoekterm: "person", ook: [{ id: "y", zoekterm: "boy" }, { id: "z", zoekterm: "child" }] },
+      { id: "g", bron: "groep", zoekterm: null, groep: { leden: [{ id: "m1", zoekterm: "cardboard box", ook: [{ id: "s", zoekterm: "suitcase" }] }, { id: "m2", zoekterm: "boy" }] } },
+    ];
+    expect(objectsWithTerm(objects, "girl")).toEqual(["a"]);
+    expect(objectsWithTerm(objects, "child")).toEqual(["a", "b"]);
+    expect(objectsWithTerm(objects, "boy")).toEqual(["b", "m2"]);
+    expect(objectsWithTerm(objects, "suitcase")).toEqual(["m1"]);
+    expect(objectsWithTerm(objects, "lawn")).toEqual([]);
+  });
+
+  it("keeps the choice of a list page in its address and reads it back", () => {
+    expect(readAddress(["soort", "reeks"], "?soort=Toegevoegd,Opgelost&q=tick&uselang=en")).toEqual({ soort: ["Toegevoegd", "Opgelost"], reeks: [], q: "tick" });
+    const calls = [];
+    const location = { pathname: "/changelog", search: "?uselang=en&soort=Opgelost", hash: "" };
+    const history = { state: null, replaceState: (state, title, url) => calls.push(url) };
+    writeAddress({ soort: ["Toegevoegd"], reeks: [], q: " masker " }, location, history);
+    expect(calls).toEqual(["/changelog?uselang=en&soort=Toegevoegd&q=masker"]);
+    writeAddress({ soort: [], q: "" }, { ...location, search: "?uselang=en" }, history);
+    expect(calls).toHaveLength(1); // nothing changed: no new address
   });
 
   it("builds the address of an export from the current choice", () => {
@@ -643,12 +763,13 @@ describe("facets and search on the list pages", () => {
     document.body.innerHTML = `
       <section class="cl-versie" id="a">
         <div class="cl-sectie" id="a1"><div class="cl-item" data-versie="0.2.0" data-reeks="0.2" data-datum="2026-11-02" data-soort="Toegevoegd">Facets added</div></div>
-        <div class="cl-sectie" id="a2"><div class="cl-item" data-versie="0.2.0" data-reeks="0.2" data-datum="2026-11-02" data-soort="Opgelost">Crash fixed</div></div>
+        <div class="cl-sectie" id="a2"><div class="cl-item" data-versie="0.2.0" data-reeks="0.2" data-datum="2026-11-02" data-soort="Opgelost" data-soort-naam="Fixed">Crash fixed</div></div>
       </section>
       <section class="cl-versie" id="b">
         <div class="cl-sectie" id="b1"><div class="cl-item" data-versie="0.1.0" data-reeks="0.1" data-datum="2026-11-01" data-soort="Toegevoegd">First version</div></div>
       </section>`;
     const wrapper = mount(ChangelogFacets, { global: { provide: { t: (key) => key, language: "nl" } } });
+    expect(wrapper.text()).toContain("Fixed");
     await wrapper.find("input[type=search]").setValue("crash");
     expect(document.getElementById("a").hidden).toBe(false);
     expect(document.getElementById("a1").hidden).toBe(true);
@@ -694,6 +815,19 @@ describe("a colour per kind of object", () => {
     expect(kindsWithQuery(colors, "doll")).toEqual([["doll", QUERY_COLOUR], ["girl", "#111111"], ["person", "#222222"]]);
     expect(kindsWithQuery(colors, "person")).toEqual([["person", "#222222"], ["girl", "#111111"]]);
     expect(kindsWithQuery({}, "doll")).toEqual([["doll", QUERY_COLOUR]]);
+  });
+
+  it("counts a merged object also under the words it was found with, keeping its own colour", () => {
+    const child = sam("a", "child", { ook: [{ id: "x", zoekterm: "Girl" }, { id: "y", zoekterm: "klik" }] });
+    expect(classKeys(child)).toEqual(["child", "girl"]);
+    expect(classKey(child)).toBe("child");
+    const group = { id: "g", bron: "groep", groep: { soort: null, leden: [sam("m", "cardboard box", { ook: [{ id: "s", zoekterm: "suitcase" }] })] } };
+    expect(classKeys(group)).toEqual(["cardboard box", "suitcase"]);
+    const host = document.createElement("div");
+    const viewer = new PageViewer(host, () => {});
+    viewer.setObjects([child, sam("f", "fence")], [], classColors([child, sam("f", "fence")]));
+    viewer.setKindFilter(["girl"]);
+    expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
   });
 
   it("keeps a renamed object under its search term as well", () => {

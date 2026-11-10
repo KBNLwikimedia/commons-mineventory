@@ -13,7 +13,7 @@
       @dragleave="dragLeave($event, 'actief')"
       @drop="drop($event, false)"
     >
-      <history-list v-if="active.length" :entries="active" :current="current" @aside="emit('aside', $event, true)" @open="emit('open', $event)" />
+      <history-list v-if="active.length" :entries="active" :current="current" @aside="emit('aside', $event, true)" @open="emit('open', $event)" @start-over="emit('start-over', $event)" :work="work" />
       <p v-else class="cc-uitleg">{{ t(asideEntries.length ? "history.all_aside" : "layout.history_empty") }}</p>
     </div>
     <div
@@ -49,11 +49,13 @@ import { DRAG_TYPE } from "../state.js";
 import HistoryList from "./HistoryList.vue";
 
 const props = defineProps({
+  // {mid: whether anything is kept for that image}, for ↻.
+  work: { type: Object, default: () => ({}) },
   entries: { type: Array, required: true },
   current: { type: String, default: null },
 });
 // aside(mid, true|false), remove(mid), clear()
-const emit = defineEmits(["aside", "remove", "clear", "open"]);
+const emit = defineEmits(["aside", "remove", "clear", "open", "start-over"]);
 const t = useT();
 
 const active = computed(() => props.entries.filter((e) => !e.opzij));

@@ -35,7 +35,7 @@
       <div class="cc-objecten-inhoud">
       <p v-if="data.logboek.length >= 500" class="cc-uitleg">{{ t("usage.capped", { n: data.logboek.length }) }}</p>
       <p v-if="!shown.length" class="cc-leeg">{{ t("usage.none_found") }}</p>
-      <sortable-table v-else :columns="columns" :rows="shown">
+      <sortable-table v-else v-model:sort="sortParam" :columns="columns" :rows="shown">
         <template #bestand="{ row: { entry } }"><a v-if="entry.bestand" :href="`/?mid=${entry.bestand}&pagina=${entry.pagina || 1}`">{{ entry.titel || entry.bestand }}</a></template>
         <template #kosten="{ row: { entry } }">{{ money(entry.kosten_usd, language) }}</template>
       </sortable-table>
@@ -47,11 +47,11 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, reactive, ref } from "vue";
+import { computed, inject, onMounted, reactive, ref, watch } from "vue";
 import { CdxMessage } from "@wikimedia/codex";
 import { API, errorText, get } from "../api.js";
 import { money, useT } from "../i18n.js";
-import { applyListFilters, facetOptions, fileImage, newestFirst } from "../facets.js";
+import { applyListFilters, facetOptions, fileImage, newestFirst, readAddress, writeAddress } from "../facets.js";
 import { fileName } from "../state.js";
 import ExportLinks from "./ExportLinks.vue";
 import ListFacets from "./ListFacets.vue";
@@ -62,8 +62,14 @@ const t = useT();
 const language = inject("language", "nl");
 const data = ref(null);
 const error = ref("");
-const query = ref("");
-const filters = reactive({ soort: [], datum: [], bestand: [], model: [], gebruiker: [] });
+// The choice in the address and back (wish Olaf: RESTful), with the names of the export.
+const fromAddress = readAddress(["soort", "datum", "bestand", "model", "gebruiker"]);
+const query = ref(fromAddress.q);
+const filters = reactive({ soort: fromAddress.soort, datum: fromAddress.datum, bestand: fromAddress.bestand, model: fromAddress.model, gebruiker: fromAddress.gebruiker });
+watch([query, () => ({ ...filters })], ([q, chosen]) => writeAddress({ ...chosen, q }), { deep: true });
+// The sorted column too (wish Olaf): "sorteer=kosten", or "-kosten" descending.
+const sortParam = ref(new URLSearchParams(window.location.search).get("sorteer") || "");
+watch(sortParam, (sorteer) => writeAddress({ sorteer }));
 
 const kindLabel = (entry) => t(`usage.kind_${entry.soort || "sam"}`);
 // SAM: the search term; an AI description: its model (and the part asked anew).

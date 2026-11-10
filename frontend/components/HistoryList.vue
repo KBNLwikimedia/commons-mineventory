@@ -33,9 +33,23 @@
           <cdx-icon :icon="cdxIconTrash" />
         </cdx-button>
       </span>
-      <cdx-button v-else action="progressive" weight="quiet" size="small" :aria-label="`${t('history.set_aside')}: ${entry.naam || entry.mid}`" :title="t('history.set_aside')" @click="emit('aside', entry.mid)">
-        <cdx-icon :icon="cdxIconTrash" />
-      </cdx-button>
+      <span v-else class="cc-geschiedenis-acties">
+        <cdx-button action="progressive" weight="quiet" size="small" :aria-label="`${t('history.set_aside')}: ${entry.naam || entry.mid}`" :title="t('history.set_aside')" @click="emit('aside', entry.mid)">
+          <cdx-icon :icon="cdxIconTrash" />
+        </cdx-button>
+        <!-- Start the image over (wish Olaf): everything kept for it goes, after a confirmation. -->
+        <cdx-button
+          action="destructive"
+          weight="quiet"
+          size="small"
+          :disabled="!work[entry.mid]"
+          :aria-label="`${t('history.start_over')}: ${entry.naam || entry.mid}`"
+          :title="t(work[entry.mid] ? 'history.start_over_help' : 'history.start_over_nothing')"
+          @click="emit('start-over', entry)"
+        >
+          <cdx-icon :icon="cdxIconReload" />
+        </cdx-button>
+      </span>
     </li>
   </ul>
 </template>
@@ -43,7 +57,7 @@
 <script setup>
 import { inject } from "vue";
 import { CdxButton, CdxIcon } from "@wikimedia/codex";
-import { cdxIconArrowUp, cdxIconTrash } from "@wikimedia/codex-icons";
+import { cdxIconArrowUp, cdxIconReload, cdxIconTrash } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 import { DRAG_TYPE, appUrl } from "../state.js";
 
@@ -52,8 +66,10 @@ defineProps({
   current: { type: String, default: null },
   // The list of entries set aside (other buttons).
   aside: { type: Boolean, default: false },
+  // {mid: whether anything is kept for that image}: ↻ only then (wish Olaf).
+  work: { type: Object, default: () => ({}) },
 });
-const emit = defineEmits(["aside", "restore", "remove", "open"]);
+const emit = defineEmits(["aside", "restore", "remove", "open", "start-over"]);
 
 // A plain click opens the file within the app, so the waiting feedback shows at once;
 // Ctrl-, Shift- or middle-click keeps the link (a new tab or window).

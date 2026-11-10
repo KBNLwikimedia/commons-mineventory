@@ -78,6 +78,8 @@
             <span v-if="obj.bijschrift?.tekst && name(obj) !== obj.bijschrift.tekst" class="cc-object-bijschrift" :title="obj.bijschrift.tekst">“{{ obj.bijschrift.tekst }}”</span>
             <template v-if="obj.status === 'uitgesloten'"> · {{ t("status.uitgesloten") }}</template>
             <template v-if="obj.bron === 'groep'"> · <button type="button" class="cc-link" @click.prevent.stop="emit('ungroup', obj.id)">{{ t("objects.ungroup") }}</button></template>
+            <!-- The words it was also found with, each with a × and Undo (wish Olaf). -->
+            <also-found-as :object="obj" :mid="mid" :n="n" :fold="2" undo @changed="emit('changed', $event)" @error="emit('error', $event)" />
           </template>
         </cdx-checkbox>
         <span class="cc-object-knoppen">
@@ -103,6 +105,7 @@ import { cdxIconEdit, cdxIconEye, cdxIconTrash } from "@wikimedia/codex-icons";
 import { objectPath } from "../api.js";
 import { useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
+import AlsoFoundAs from "./AlsoFoundAs.vue";
 import { numberedNames, objectName } from "../state.js";
 import { classColor, classKey } from "../class-colors.js";
 
@@ -121,7 +124,7 @@ const props = defineProps({
   mid: { type: String, required: true },
   n: { type: Number, required: true },
 });
-const emit = defineEmits(["toggle", "select", "focus", "open", "hover", "trash", "ungroup", "rename"]);
+const emit = defineEmits(["toggle", "select", "focus", "open", "hover", "trash", "ungroup", "rename", "changed", "error"]);
 
 // Renaming in the list: Enter or leaving the field saves, Esc cancels; empty goes back
 // to the automatic name (which shows in grey while typing).

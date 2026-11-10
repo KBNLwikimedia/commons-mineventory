@@ -199,6 +199,9 @@ def plain_text(wikitext, limit=None):
     their text, other templates, tags and comments go."""
     text = wikitext or ""
     text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    # Stylesheets and scripts go with their content (Olaf: a template's TemplateStyles left
+    # ".mw-parser-output .plainlist ul{…}" in a description).
+    text = re.sub(r"<(style|script)\b[^>]*>.*?</\1\s*>", " ", text, flags=re.S | re.I)
     # {{en|1=text}} / {{nl|text}} keep their text.
     text = re.sub(r"\{\{\s*[a-z]{2,3}(?:-[a-z]+)?\s*\|\s*(?:1\s*=\s*)?([^{}]*)\}\}", r" \1 ", text, flags=re.I)
     for _ in range(5):  # nested templates, inside out
@@ -210,6 +213,9 @@ def plain_text(wikitext, limit=None):
     # Hidden machine data in Commons' HTML (e.g. "date QS:P,+1450…" in a display:none span).
     text = re.sub(r"<(span|div)[^>]*display:\s*none[^>]*>.*?</\1>", " ", text, flags=re.S | re.I)
     text = re.sub(r"<[^>]+>", " ", text)
+    # CSS rules that came without their <style> tag: a selector starting with . or # and a block
+    # with a declaration in it.
+    text = re.sub(r"(?:^|(?<=[\s}]))[.#][\w-][^{}<>\n]*\{[^{}]*:[^{}]*\}", " ", text)
     text = re.sub(r"'{2,}", "", text)
     text = " ".join(html.unescape(text).split())
     if limit and len(text) > limit:

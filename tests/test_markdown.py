@@ -26,6 +26,15 @@ def test_changelog_page(http):
     assert 'id="cc-changelog-filter"' in page
     assert 'id="cc-changelog-tabel"' in page
     assert 'class="cl-item" data-versie=' in page
+
+
+def test_changelog_page_follows_the_interface_language(http):
+    english = http.get("/changelog?uselang=en").get_data(as_text=True)
+    assert "<h3>Added</h3>" in english and '<p class="cc-uitleg">The changes themselves are written in Dutch' in english
+    assert 'data-soort="Toegevoegd" data-soort-naam="Added"' in english  # the facets keep the value from the file
+    assert '<a href="https://keepachangelog.com/">Keep a Changelog</a>' in english
+    dutch = http.get("/changelog?uselang=nl").get_data(as_text=True)
+    assert "<h3>Toegevoegd</h3>" in dutch and '<p class="cc-uitleg">De wijzigingen zelf' not in dutch
     assert http.get("/changelog.md").mimetype == "text/plain"
 
 

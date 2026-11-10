@@ -13,7 +13,8 @@
         <cdx-icon :icon="side === 'left' ? cdxIconPrevious : cdxIconNext" size="small" />
       </cdx-button>
     </h2>
-    <p>{{ t(`layout.${column}_intro`) }}</p>
+    <!-- Always two lines high, so the headers of all columns end on one line (wish Olaf). -->
+    <p :title="t(`layout.${column}_intro`)">{{ t(`layout.${column}_intro`) }}</p>
   </header>
 </template>
 

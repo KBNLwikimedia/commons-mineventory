@@ -28,6 +28,11 @@
         <h2 class="cc-bestand-titel">
           <a :href="file.url" target="_blank" rel="noopener">{{ file.naam }}</a>
           <cdx-icon :icon="cdxIconLinkExternal" size="small" />
+          <!-- The M-id to the file's structured data on Commons and the work on Wikidata, next to the name (wish Olaf). -->
+          <span class="cc-bestand-ids">
+            <a :href="`https://commons.wikimedia.org/wiki/Special:EntityPage/${file.mid}`" target="_blank" rel="noopener" :title="t('file.mid_link')">{{ file.mid }}</a>
+            <template v-if="file.werk?.wikidata"> · <a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener" :title="t('file.qid_link', { name: workName })"><wikidata-logo />{{ file.werk.wikidata }}</a></template>
+          </span>
         </h2>
         <!-- Licence, rights and facts on one line, to keep the top of the page low. -->
         <p class="cc-bestand-regel cc-klein">
@@ -35,7 +40,7 @@
           <rights-label v-for="label in file.rechten.labels" :key="label" :label="label" />
           <span v-if="file.maker">{{ t("file.maker") }}: {{ file.maker }}</span>
           <span v-if="file.datum"> · {{ t("file.date") }}: {{ file.datum }}</span>
-          <span> · {{ file.mid }} · {{ file.breedte }} × {{ file.hoogte }} px</span>
+          <span> · {{ file.breedte }} × {{ file.hoogte }} px</span>
           <span v-if="file.paginas > 1"> · {{ t("file.pages", { n: file.paginas }) }}</span>
         </p>
         <p v-if="file.tegels" class="cc-klein">{{ t("file.tiles", { mp: file.megapixels }) }}</p>
@@ -55,12 +60,17 @@
               <dd v-for="(value, lang) in file.sdc.captions" :key="lang">{{ lang }}: {{ value }}</dd>
             </template>
             <dt>{{ t("file.categories") }}</dt>
-            <dd>{{ file.categorieen.join(" · ") || "—" }}</dd>
+            <!-- Each category linked to its page on Commons (wish Olaf). -->
+            <dd>
+              <template v-if="!file.categorieen.length">—</template>
+              <template v-for="(name, i) in file.categorieen" :key="name"><template v-if="i"> · </template><a :href="`https://commons.wikimedia.org/wiki/Category:${encodeURIComponent(name.replace(/ /g, '_'))}`" target="_blank" rel="noopener">{{ name }}</a></template>
+            </dd>
             <dt>{{ t("file.depicts") }}</dt>
             <dd>
               <span v-if="!file.sdc.beeldt_af.length">—</span>
               <span v-for="(item, i) in file.sdc.beeldt_af" :key="i" class="cc-depicts">
-                {{ item.label }}<small v-if="item.positie"> ▭</small>
+                <!-- Linked to the Wikidata item (wish Olaf). -->
+                <a v-if="/^Q\d+$/.test(item.waarde || '')" :href="`https://www.wikidata.org/wiki/${item.waarde}`" target="_blank" rel="noopener">{{ item.label }}</a><template v-else>{{ item.label }}</template><small v-if="item.positie"> ▭</small>
               </span>
             </dd>
             <dt>{{ t("file.rights_reasons") }}</dt>
@@ -71,10 +81,10 @@
             <dd v-if="!file.rechten.redenen.length">{{ t("rights.in_orde") }}</dd>
             <!-- The work on Wikidata, as {{Artwork}} shows it on Commons (|wikidata= or the file's P6243). -->
             <template v-if="file.werk">
-              <dt>{{ t("file.work") }}</dt>
+              <dt>{{ t("file.work") }}<wikidata-logo class="cc-wikidata-na" /></dt>
               <dd>
                 <a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener">{{ workName }}</a>
-                <small class="cc-qid">{{ file.werk.wikidata }}</small>
+                <small class="cc-qid"><a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener">{{ file.werk.wikidata }}</a></small>
                 <small class="cc-werk-via">{{ t(file.werk.via === "sdc" ? "file.work_via_sdc" : "file.work_via_template") }}</small>
               </dd>
               <template v-for="row in workRows" :key="row.key">
@@ -84,12 +94,15 @@
                     <template v-if="i"> · </template>
                     <a v-if="part.href" :href="part.href" target="_blank" rel="noopener">{{ part.text }}</a>
                     <template v-else>{{ part.text }}</template>
+                    <!-- The logo of a collection or location after its name (wish Olaf). -->
+                    <img v-if="part.logo" :src="part.logo" alt="" class="cc-werk-logo" loading="lazy" />
                   </template>
                 </dd>
               </template>
             </template>
             <dt>{{ t("file.licence_templates") }}</dt>
-            <dd><code v-for="(tpl, i) in file.licentie.sjablonen" :key="i">{{ tpl }}</code></dd>
+            <!-- Each template once, linked to its page on Commons (wish Olaf). -->
+            <dd><a v-for="tpl in licenceTemplates" :key="tpl.text" :href="tpl.href" target="_blank" rel="noopener" class="cc-sjabloon-link"><code>{{ tpl.text }}</code></a></dd>
           </dl>
         </cdx-accordion>
       </div>
@@ -99,6 +112,7 @@
 
 <script setup>
 import { computed, inject, ref, watch } from "vue";
+import WikidataLogo from "./WikidataLogo.vue";
 import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconLinkExternal, cdxIconSearch } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
@@ -124,8 +138,17 @@ function itemParts(items) {
   return (items || []).map((item) => ({
     text: (language === "en" ? item.en || item.nl : item.nl || item.en) || item.id,
     href: WIKIDATA + item.id,
+    // The logo (P154) of a collection or location, through the server (wish Olaf).
+    logo: item.logo ? `/api/v1/wikidata/${item.id}/logo?w=64` : null,
   }));
 }
+// {{PD-art|PD-old-70-1923}} → Template:PD-art on Commons; the same template only once.
+const licenceTemplates = computed(() =>
+  [...new Set(props.file?.licentie?.sjablonen || [])].map((text) => {
+    const name = text.replace(/^\{\{|\}\}$/g, "").split("|")[0].trim();
+    return { text, href: `https://commons.wikimedia.org/wiki/Template:${encodeURIComponent(name.replace(/ /g, "_"))}` };
+  })
+);
 const workRows = computed(() => {
   const work = props.file?.werk;
   if (!work) return [];
@@ -141,7 +164,8 @@ const workRows = computed(() => {
   };
   const rows = [
     ["titel", work.titel && work.titel !== workName.value ? [{ text: work.titel }] : []],
-    ["makers", (work.makers || []).map((text) => ({ text }))],
+    // Linked to their Wikidata items (wish Olaf); a file read before that has only the names.
+    ["makers", work.maker_items?.length ? itemParts(work.maker_items) : (work.makers || []).map((text) => ({ text }))],
     ["datum", work.datum ? [{ text: work.datum }] : []],
     ["beschrijving", description ? [{ text: description }] : []],
     ["soort", itemParts(work.soort)],

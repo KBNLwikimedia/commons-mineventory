@@ -27,7 +27,7 @@
           <cdx-button action="destructive" :disabled="busy" @click="trashShown">
             <cdx-icon :icon="cdxIconTrash" /> {{ t(filtered ? "objects.trash_shown" : "objects.trash_all", { n: shown.length }) }}
           </cdx-button>
-          <view-switch v-model="view" :buttons="viewButtons" storage-key="cc-weergave-objecten" />
+          <view-switch v-model="view" :buttons="viewButtons" storage-key="cc-weergave-objecten" :use-stored="!viewInAddress" />
         </div>
         <cdx-message v-if="undo" type="notice" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" @user-dismissed="undo = null">
           {{ t("objects.trashed_n", { n: undo.length }) }}
@@ -36,7 +36,7 @@
           <button type="button" class="cc-link" @click="tab = 'prullenbak'">{{ t("objects.to_trash") }}</button>
         </cdx-message>
         <p v-if="!shown.length" class="cc-leeg">{{ t("objects.none_found") }}</p>
-        <objects-table v-if="view === 'lijst' && shown.length" :objects="shown" :name="name" :saved-url="savedUrl" link-images @sorted="sortedObjects = $event" @show-in-folder="showInFolder">
+        <objects-table v-if="view === 'lijst' && shown.length" :objects="shown" :name="name" :saved-url="savedUrl" link-images v-model:sort="sortParam" @sorted="sortedObjects = $event" @show-in-folder="showInFolder">
           <template #actions="{ object: obj }">
             <a class="cc-kaart-oog" :href="magnifierUrl(obj)" @click="openHere($event, obj)" :aria-label="t(augmentedEye(obj) ? 'objects.open_augmented' : 'objects.open_magnifier')" :title="t(augmentedEye(obj) ? 'objects.open_augmented' : 'objects.open_magnifier')">
               <cdx-icon :icon="cdxIconEye" size="small" />
@@ -98,10 +98,10 @@
             <cdx-button action="destructive" :disabled="busy" @click="trashFiltered ? purgeShown() : emptyTrash()">
               {{ trashFiltered ? t("objects.delete_shown", { n: shownTrash.length }) : t("objects.empty_trash") }}
             </cdx-button>
-            <view-switch v-model="view" :buttons="viewButtons" storage-key="cc-weergave-objecten" />
+            <view-switch v-model="view" :buttons="viewButtons" storage-key="cc-weergave-objecten" :use-stored="!viewInAddress" />
           </div>
           <p v-if="!shownTrash.length" class="cc-leeg">{{ t("objects.none_found") }}</p>
-          <objects-table v-if="view === 'lijst' && shownTrash.length" :objects="shownTrash" :name="name" :saved-url="savedUrl" @sorted="sortedTrash = $event" @show-in-folder="showInFolder">
+          <objects-table v-if="view === 'lijst' && shownTrash.length" :objects="shownTrash" :name="name" :saved-url="savedUrl" v-model:sort="sortParam" @sorted="sortedTrash = $event" @show-in-folder="showInFolder">
             <template #actions="{ object: obj }">
               <button type="button" class="cc-kaart-oog" :aria-label="t('objects.open_magnifier')" :title="t('objects.open_magnifier')" @click="openTrashed(obj)">
                 <cdx-icon :icon="cdxIconEye" size="small" />
@@ -187,7 +187,7 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, reactive, ref } from "vue";
+import { computed, inject, onMounted, reactive, ref, watch } from "vue";
 import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxTab, CdxTabs } from "@wikimedia/codex";
 import { cdxIconEye, cdxIconRestore, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post } from "../api.js";
@@ -203,7 +203,7 @@ import ObjectFacets from "./ObjectFacets.vue";
 import ObjectsTable from "./ObjectsTable.vue";
 import ViewSwitch from "./ViewSwitch.vue";
 import ZoomImage from "./ZoomImage.vue";
-import { applyFacets, emptyFilters, fileImage } from "../facets.js";
+import { applyFacets, emptyFilters, fileImage, readAddress, writeAddress } from "../facets.js";
 import RetentionInfo from "./RetentionInfo.vue";
 import { fileName, objectName } from "../state.js";
 
@@ -215,8 +215,17 @@ const tab = ref(new URLSearchParams(window.location.search).get("tab") === "prul
 const objects = ref([]);
 const trash = ref([]);
 // The choice in the facets, per tab.
-const objectFilters = reactive(emptyFilters());
-const trashFilters = reactive(emptyFilters());
+// ?mid=M… shows one file and ?opgeslagen=1 only saved cut-outs, on the tab that opens (wish Olaf:
+// the links in "Start this image over").
+// The whole choice of the open tab is in the address and comes back from it (wish Olaf: RESTful),
+// with the names of the export: bron, mid, opgeslagen, aangevuld, q.
+const asked = new URLSearchParams(window.location.search);
+const fromAddress = () => {
+  const { bron, mid, q } = readAddress(["bron", "mid"]);
+  return { ...emptyFilters(), sources: bron, files: mid.filter((m) => /^M\d+$/.test(m)), saved: asked.get("opgeslagen") === "1", augmented: asked.get("aangevuld") === "1", query: q };
+};
+const objectFilters = reactive(tab.value === "objecten" ? fromAddress() : emptyFilters());
+const trashFilters = reactive(tab.value === "prullenbak" ? fromAddress() : emptyFilters());
 const error = ref("");
 const busy = ref(false);
 // The objects of the last move to the trash, for Undo.
@@ -228,13 +237,24 @@ const augmentedEye = (obj) => objectFilters.augmented && Boolean(obj.aangevuld);
 const magnifierUrl = (obj) => `${obj.app_url}&vergroten=${augmentedEye(obj) ? "aangevuld" : "1"}`;
 const name = (obj) => objectName(obj, language, t);
 const exportParams = (filters) => ({ bron: filters.sources, mid: filters.files, opgeslagen: filters.saved, aangevuld: filters.augmented, q: filters.query });
+watch(
+  () => [tab.value, exportParams(tab.value === "prullenbak" ? trashFilters : objectFilters)],
+  ([open, params]) => writeAddress({ tab: open === "prullenbak" ? "prullenbak" : "", ...params }),
+  { deep: true }
+);
 const shown = computed(() => applyFacets(objects.value, objectFilters));
 const filtered = computed(() => shown.value.length !== objects.value.length);
 const shownTrash = computed(() => applyFacets(trash.value, trashFilters));
 const trashFiltered = computed(() => shownTrash.value.length !== trash.value.length);
 
 // Cards or a list with sortable columns (wish Olaf), the same on both tabs.
-const view = ref("kaarten");
+// The view, the sorted column and an open magnifier in the address too (wish Olaf): weergave=lijst,
+// sorteer=zekerheid or -zekerheid, object=M…/1/obj-…&vergroten=1|aangevuld.
+const viewInAddress = asked.has("weergave");
+const view = ref(asked.get("weergave") === "lijst" ? "lijst" : "kaarten");
+const sortParam = ref(asked.get("sorteer") || "");
+watch(view, (shown) => writeAddress({ weergave: shown === "lijst" ? "lijst" : "" }));
+watch(sortParam, (sorteer) => writeAddress({ sorteer }));
 const viewButtons = [
   { value: "kaarten", label: t("view.cards") },
   { value: "lijst", label: t("view.list") },
@@ -247,9 +267,24 @@ async function load() {
   try {
     objects.value = (await get(`${API}/objecten`)).objecten;
     trash.value = (await get(`${API}/prullenbak`)).objecten;
+    openFromAddress();
   } catch (e) {
     error.value = errorText(t, e);
   }
+}
+
+// ?object=M…/1/obj-… opens that object in the magnifier, once, on the tab of the address.
+let magnifierAsked = asked.get("object");
+function openFromAddress() {
+  if (!magnifierAsked) return;
+  const from = tab.value === "prullenbak" ? "prullenbak" : "objecten";
+  const found = (from === "prullenbak" ? trash.value : objects.value).find((o) => keyOf(o) === magnifierAsked);
+  magnifierAsked = null;
+  if (!found) return;
+  magnifierFrom.value = from;
+  magnifiedKey.value = keyOf(found);
+  magnifierTab.value = asked.get("vergroten") === "aangevuld" ? "aangevuld" : "";
+  magnifierOpen.value = true;
 }
 
 // To the trash, one by one on the server (each is a small, locked change).
@@ -384,6 +419,10 @@ function openTrashed(obj) {
   magnifierTab.value = "";
   magnifierOpen.value = true;
 }
+watch(
+  () => [magnifierOpen.value, magnifiedKey.value, magnifierTab.value],
+  ([open, key, startTab]) => writeAddress({ object: open && key ? key : "", vergroten: open && key ? startTab || "1" : "" })
+);
 function stepMagnifier(step) {
   const next = magnifierList.value[magnifiedIndex.value + step];
   if (next) magnifiedKey.value = keyOf(next);

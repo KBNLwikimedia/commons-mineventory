@@ -14,6 +14,12 @@
   >
     <!-- The text in blocks (a blank line between them): a block may start with a
          **heading** line, and lines starting with "- " become a list. -->
+    <ul v-if="state.objects?.length && state.objectsFirst" class="cc-bevestig-objecten cc-bevestig-objecten-boven">
+      <li v-for="(obj, i) in state.objects" :key="i">
+        <img v-if="obj.image" :src="obj.image" alt="" loading="lazy" />
+        <span v-if="obj.name">{{ obj.name }}</span>
+      </li>
+    </ul>
     <div v-for="(block, b) in blocks" :key="b" class="cc-bevestig-blok">
       <strong v-if="block.heading" class="cc-bevestig-kop">{{ block.heading }}</strong>
       <ul v-if="block.items">
@@ -33,11 +39,11 @@
         </template>
       </p>
     </div>
-    <!-- The objects the question is about, each with a small cut-out. -->
-    <ul v-if="state.objects?.length" class="cc-bevestig-objecten">
+    <!-- The objects the question is about, each with a small cut-out (below the text, or on top). -->
+    <ul v-if="state.objects?.length && !state.objectsFirst" class="cc-bevestig-objecten">
       <li v-for="(obj, i) in state.objects" :key="i">
         <img v-if="obj.image" :src="obj.image" alt="" loading="lazy" />
-        <span>{{ obj.name }}</span>
+        <span v-if="obj.name">{{ obj.name }}</span>
       </li>
     </ul>
     <!-- An optional choice: what the button does follows the chosen option. -->

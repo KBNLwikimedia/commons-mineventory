@@ -61,7 +61,7 @@ def test_regions_from_commons_are_never_merged(service, book):
     # A SAM-like object exactly on a region does not swallow it.
     service._merge_into_page(book, 1, [{**catherine, "id": "obj-other", "bron": "dummy", "status": "geselecteerd"}])
     assert len(service.page_objects(book, 1)) == 14
-    assert service.merge_duplicates(book, 1) == 0
+    assert service.merge_duplicates(book, 1) == []
     # Loading the regions again keeps what the user changed.
     service.set_statuses(book, 1, [{"id": catherine["id"], "status": "kandidaat"}])
     service.detect(book, 1, modus="commons")

@@ -104,6 +104,7 @@ import { PageViewer } from "../viewer/viewer.js";
 import BusyNote from "./BusyNote.vue";
 import InfoDialog from "./InfoDialog.vue";
 import { FRAME_KEYS, classKeys, frameKey, kindsWithQuery } from "../class-colors.js";
+import { readAddress, writeAddress } from "../facets.js";
 
 const props = defineProps({
   mid: { type: String, required: true },
@@ -152,6 +153,9 @@ const colourInfo = computed(() => [1, 2, 3, 4, 5, 6].map((i) => t(`legend.info_$
 // The kinds you unticked: their objects fade. Kept as the hidden ones, so a kind found later
 // shows (ticked) at once. A kind that is gone is dropped.
 const hiddenKinds = ref([]);
+// In the address (wish Olaf): maskers=boy,child are the ticked kinds while some are unticked ("-": none).
+// Applied once, when the kinds of the image are known.
+let askedKinds = new URLSearchParams(window.location.search).has("maskers") ? readAddress(["maskers"]).maskers : null;
 const shownKinds = computed({
   get: () => kinds.value.map(([kind]) => kind).filter((kind) => !hiddenKinds.value.includes(kind)),
   set: (list) => (hiddenKinds.value = kinds.value.map(([kind]) => kind).filter((kind) => !list.includes(kind))),
@@ -193,11 +197,40 @@ const statusCounts = computed(() => {
   return counts;
 });
 const hiddenStatuses = ref([]);
+// kaders=geselecteerd,kandidaat the same way, for the statuses of the boxes.
+let askedStatuses = new URLSearchParams(window.location.search).has("kaders") ? readAddress(["kaders"]).kaders : null;
 const shownStatuses = computed({
   get: () => statusItems.value.filter((item) => !hiddenStatuses.value.includes(item)),
   set: (list) => (hiddenStatuses.value = statusItems.value.filter((item) => !list.includes(item))),
 });
 watch(shownStatuses, (list) => viewer.value?.setStatusFilter(hiddenStatuses.value.length ? list : null));
+// Below the filters it reads (a watch before a const it reads stops the component).
+watch(
+  statusItems,
+  (items) => {
+    if (!askedStatuses || !items.length) return;
+    hiddenStatuses.value = items.filter((item) => !askedStatuses.includes(item));
+    askedStatuses = null;
+  },
+  { immediate: true }
+);
+watch([hiddenStatuses, shownStatuses], () => {
+  if (askedStatuses) return;
+  writeAddress({ kaders: hiddenStatuses.value.length ? (shownStatuses.value.length ? shownStatuses.value : ["-"]) : "" });
+});
+watch(
+  kinds,
+  (list) => {
+    if (!askedKinds || !list.length) return;
+    hiddenKinds.value = list.map(([kind]) => kind).filter((kind) => !askedKinds.includes(kind));
+    askedKinds = null;
+  },
+  { immediate: true }
+);
+watch([hiddenKinds, shownKinds], () => {
+  if (askedKinds) return;
+  writeAddress({ maskers: hiddenKinds.value.length ? (shownKinds.value.length ? shownKinds.value : ["-"]) : "" });
+});
 // Masks, boxes and names on the image: on/off, remembered in this browser.
 const SHOW_KEY = "cc-weergave";
 function storedShow() {

@@ -225,11 +225,28 @@ def privacy():
     return _markdown_page(translated if (ROOT_DIR / translated).exists() else "docs/privacy.md", _t("footer.privacy"))
 
 
+def _kind_name(kind):
+    """A kind of change (Toegevoegd, Gewijzigd, …) in the interface language; an unknown one as it is."""
+    key = f"changelog.kind_{kind.lower()}"
+    name = _t(key)
+    return kind if name == key else name
+
+
 @web.get("/changelog")
 def changelog():
-    text = (ROOT_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
+    """The entries stay as written (in Dutch, like all documentation); the headings, the kinds of
+    change and the introduction follow the interface language (wish Olaf)."""
+    data = changelog_parser.parse((ROOT_DIR / "CHANGELOG.md").read_text(encoding="utf-8"))
+    for version in data["versies"]:
+        for section in version["secties"]:
+            section["soort_naam"] = _kind_name(section["soort"])
+    intro = Markup.escape(_t("changelog.intro")).format(
+        kac=Markup('<a href="https://keepachangelog.com/">Keep a Changelog</a>'),
+        semver=Markup('<a href="https://semver.org/">Semantic Versioning</a>'),
+    )
+    note = _t("changelog.note_dutch") if g.get("taal") != "nl" else ""
     return render_template(
-        "changelog.html", titel=_t("footer.changelog"), changelog=changelog_parser.parse(text), bron_url=url_for("web.changelog_text")
+        "changelog.html", titel=_t("footer.changelog"), changelog=data, intro=intro, note=note, bron_url=url_for("web.changelog_text")
     )
 
 

@@ -60,6 +60,17 @@ def test_plain_text():
     assert wikitekst.plain_text("a" * 20, limit=5) == "aaaaa…"
 
 
+def test_plain_text_drops_stylesheets_and_loose_css():
+    """TemplateStyles in a description (Olaf's case), with and without their <style> tag."""
+    styled = 'from 1856 <style data-mw-deduplicate="TemplateStyles:r1">.mw-parser-output .plainlist ul{line-height:inherit;list-style:none none;margin:0}</style><div class="plainlist">Zoo lomp</div>'
+    assert wikitekst.plain_text(styled) == "from 1856 Zoo lomp"
+    loose = "from 1856 .mw-parser-output .plainlist ul{line-height:inherit;list-style:none none;margin:0}.mw-parser-output .plainlist ul li{margin-bottom:0} Zoo lomp"
+    assert wikitekst.plain_text(loose) == "from 1856 Zoo lomp"
+    assert wikitekst.plain_text("<script>alert(1)</script>Text") == "Text"
+    # Ordinary text with a full stop and braces stays.
+    assert wikitekst.plain_text("Version 2.0 {draft} of the map. Done.") == "Version 2.0 {draft} of the map. Done."
+
+
 def test_note_regions_scale_to_the_page():
     file = {"mid": "M1"}
     page = {"breedte": 1000, "hoogte": 1000}

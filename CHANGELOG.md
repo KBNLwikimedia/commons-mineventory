@@ -5,6 +5,39 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-10
+
+### Toegevoegd
+
+- *Metadata*: *Categorieën* heet nu *Commons-categorieën*, en elke categorie linkt naar haar pagina op Commons (wens Olaf).
+- *Metadata*: elk licentiesjabloon linkt naar zijn sjabloonpagina op Commons, en staat er maar één keer (wens Olaf).
+- *Metadata*: *Beeldt af* en *Maker* linken naar hun Wikidata-items (wens Olaf).
+- *Metadata* → *Werk op Wikidata*: bij *Collectie* en *Locatie* het logo van die instelling achter de naam (P154 op Wikidata, bijvoorbeeld de KB), via de server; API: `GET /api/v1/wikidata/{q}/logo` (wens Olaf).
+- Bestandskop: naast de bestandsnaam staan het M-id (naar de gestructureerde gegevens op Commons) en het Q-id van het werk op Wikidata, allebei te klikken, het Q-id met een klein Wikidata-logo; het Q-id onder *Metadata* ook, en *Werk op Wikidata* heeft het logo ervoor (wens Olaf).
+- *Objecten*, *Prullenbak*, *Changelog* en *Verbruik*: de gekozen facetten en de zoektekst staan in het adres en komen daar weer uit, met dezelfde namen als de export (`?bron=sam&mid=M1&q=lemon`); zo is elke weergave een bladwijzer (wens Olaf). Ook de gesorteerde kolom (`sorteer`), de weergave (`weergave=lijst|tabel`) en een open vergroter op *Objecten* (`object`, `vergroten`); op de afbeeldingspagina het zoekveld (`q`), *Minimale zekerheid* (`zekerheid`) en *Alleen deze maskers/kaders tonen* (`maskers`, `kaders`).
+- *Bekeken*: ↻ naast het prullenbakje (alleen actief als er voor die afbeelding iets bewaard is) begint een afbeelding opnieuw: na een bevestiging gaan alle objecten, de prullenbak, opgeslagen uitsneden, de AI-suggesties en het concept voor Commons weg, en vergeet de browser de gezochte woorden. De cache blijft. De (i) bij *Bekeken* legt uit wat ↻ precies doet. De bevestiging noemt wat er weggaat als lijst, met links naar de objecten, de prullenbak, de opgeslagen uitsneden en de AI-suggesties van die afbeelding; *Objecten* opent met `?mid=` en `?opgeslagen=1` op dat bestand. Een keuze *Eerdere AI-antwoorden houden* of *De AI opnieuw vragen*; met de tweede tellen eerdere antwoorden in de cache niet meer voor die afbeelding (`?ai=opnieuw`). API: `GET` en `DELETE …/bestand/{mid}/werk` (wens Olaf).
+- *AI-suggesties voor deze afbeelding* en de (i) zeggen nu dat de suggesties bij de afbeelding horen, niet bij de objecten (wens Olaf).
+- *Ook gevonden als: boy × child ×* in de objectenlijst en de vergroter: met × haal je een woord weg waar de beelddetectie ernaast zat; het object telt dan niet meer onder dat woord, met *Ongedaan maken*. Een woord dat ook in de naam of de beschrijving staat, heeft geen ×. In de lijst in kleine letters, vanaf het derde woord achter *+n meer*. API: `DELETE …/objecten/{id}/ook/{woord}` en `POST …/objecten/{id}/ook` (wens Olaf).
+
+### Gewijzigd
+
+- *Ontdubbelen*: de melding zegt welke objecten in welke zijn opgegaan, bijvoorbeeld *suitcase → cardboard box*, als lijst met opsommingstekens (wens Olaf).
+- *Alleen deze maskers tonen*: een samengevoegd object telt ook mee onder de woorden waarmee het gevonden is (*girl* in *child*, *suitcase* in *cardboard box*); het masker houdt de kleur van zijn eigen soort (wens Olaf).
+- Na een zoekopdracht staan de objecten waarin vondsten zijn opgegaan als lijst met opsommingstekens onder de melding (wens Olaf).
+- *Beeldt af, zonder regio*: na de eerste ronde heet de knop *Alle items opnieuw lokaliseren*, en het bedrag telt alleen woorden die nog niet in de cache staan (wens Olaf).
+- *Changelog* in het Engels: de soorten wijziging (*Added*, *Changed*, *Fixed*, …), de inleiding en de facetten in de taal van de interface, met een regel dat de wijzigingen zelf in het Nederlands staan (wens Olaf).
+- Engels: *Depicts, without a region* heet nu *Depicts, without a location* (wens Olaf).
+
+### Opgelost
+
+- Beschrijvingen en andere tekst van Commons toonden soms CSS van een sjabloon (`.mw-parser-output .plainlist ul{…}`); stijlblokken, scripts en losse CSS-regels gaan nu weg, voor alle bestanden (wens Olaf).
+- De kolom met de afbeelding had geen kop; nu wel (*Afbeelding*, met een (i) en de pijl om haar weg te schuiven), en de koppen van alle vier de kolommen zijn even hoog, zodat hun onderrand één lijn is, met een lichte achtergrond (wens Olaf).
+- Meldingen stonden bovenaan de pagina in plaats van bij de knop die erom vroeg: *Opnieuw lezen van Commons*, het weghalen van (een deel van) de AI-suggesties, *Selectie opslaan*, het masker van SAM in de vergroter en het weghalen van een vorm. Nu staan ze, met hun fouten, bij die knop (wens Olaf).
+- Na het openen van een afbeelding herschreef de pagina het hele adres; nu veranderen alleen bestand en pagina, en blijven andere keuzes (`uselang`, `q`, …) staan.
+- *AI-suggesties*: een zoekterm telde objecten niet die met dat woord gevonden en daarna in een ander object opgegaan waren (*girl* in *child*, *lawn* in *fence*), of die in een groep zitten; nu wel, en de regel *Op de afbeelding* telt elk object één keer (wens Olaf).
+- Ontdubbelen werkte niet met objecten in een groep: een nieuwe vondst of een object dat hetzelfde toont als een lid van een groep, gaat nu in dat lid op (wens Olaf).
+- Bij samenvoegen ging de koppeling aan een *Beeldt af*-item verloren (*car* in *vintage car*); die blijft nu bewaard.
+
 ## [0.35.0] - 2026-11-09
 
 ### Toegevoegd

@@ -20,6 +20,7 @@ import hashlib
 import io
 import json
 import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -36,6 +37,9 @@ from .maskers import MaskCache, decode_raster, union_mask
 MIN_IOU = 0.5
 DUPLICATE_IOU = 0.8
 SOURCE_PREFERENCE = {"sam": 0, "dummy": 1, "handmatig": 2}  # on merging: SAM has a real mask
+# Started over with "ask the AI anew" (wish Olaf): AI answers in the cache from before the time of
+# this file (its modification time) do not count for the image any more.
+FRESH_AI_MARKER = "ai_opnieuw_vanaf.json"
 NEVER_MERGED = {"commons", "groep"}  # regions from Commons stay objects of their own (7.5), and so do groups (7.4)
 # Page image width sent to the detector: the Commons thumbnail step closest to
 # the 2000 px of the Delpher Uitsnijder (functional design 5.2 and 6.1).
@@ -52,7 +56,7 @@ def _write_atomic(path, text):
 MAX_TERMS_PER_REQUEST = 20  # search terms in one request (each uncached term is one paid SAM call)
 SAVED_META = ("tijdstempel", "breedte", "hoogte")  # in "opgeslagen", next to the file paths
 # Fields made by the user or paid for, kept when a search returns an object again.
-KEPT_ON_UPDATE = ("bijschrift", "ook", "beschrijving", "commons", "masker", "masker_herkomst", "status", "wikidata", "label_item", "prompt_eigen", "prompt_geschiedenis")
+KEPT_ON_UPDATE = ("bijschrift", "ook", "ook_weg", "beschrijving", "commons", "masker", "masker_herkomst", "status", "wikidata", "label_item", "prompt_eigen", "prompt_geschiedenis")
 
 
 def iou(a, b):
@@ -80,6 +84,18 @@ def _mergeable(a, b):
     return a.get("bron") not in NEVER_MERGED and b.get("bron") not in NEVER_MERGED and same_picture(a["box"], b["box"])
 
 
+def _member_twin(objects, obj):
+    """(group, index) of a group member that shows the same picture as `obj`, or None. A group
+    as a whole never merges (its box holds all members), but a member does (wish Olaf)."""
+    if obj.get("bron") in NEVER_MERGED:
+        return None
+    for group in objects:
+        for index, member in enumerate((group.get("groep") or {}).get("leden", [])):
+            if _mergeable(member, obj):
+                return group, index
+    return None
+
+
 def _fill_dutch_names(store):
     """Dutch names for labels that came from "Wat staat op deze pagina?": the
     page overview has a Dutch name per suggested term. Only in memory."""
@@ -100,10 +116,11 @@ def _preference(obj):
 
 
 def _ids(obj):
-    """The ids an object stands for: its own, merged duplicates ("ook") and, for a
-    group, its members; a new detection of one of them does not come back on its own."""
+    """The ids an object stands for: its own, merged duplicates ("ook", also the ones you
+    removed as wrong, "ook_weg") and, for a group, its members; a new detection of one of
+    them does not come back on its own, nor merges in again."""
     members = [i for m in (obj.get("groep") or {}).get("leden", []) for i in _ids(m)]
-    return [obj["id"]] + [e["id"] for e in obj.get("ook", [])] + members
+    return [obj["id"]] + [e["id"] for e in obj.get("ook", []) + obj.get("ook_weg", [])] + members
 
 
 def _sources(obj):
@@ -466,6 +483,63 @@ class DetectionService:
     def _file_dir(self, file):
         return self.output_dir / file["mid"]
 
+    # -- Start an image over (wish Olaf) ------------------------------------------------
+
+    def work_summary(self, file):
+        """What is kept for a file, over all its pages: objects, trash, saved cut-outs, AI
+        suggestions and a draft for Commons. Reads only."""
+        summary = {"paginas": 0, "objecten": 0, "prullenbak": 0, "opgeslagen": 0, "ai_suggesties": 0, "concepten": 0}
+        for folder in sorted(self._file_dir(file).glob("pagina_*")):
+            summary["paginas"] += 1
+            store_path = folder / "objecten.json"
+            if store_path.exists():
+                try:
+                    store = json.loads(store_path.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    store = {}
+                objects, trash = store.get("objecten", []), store.get("prullenbak", [])
+                summary["objecten"] += len(objects)
+                summary["prullenbak"] += len(trash)
+                summary["opgeslagen"] += sum(1 for o in objects + trash if o.get("opgeslagen"))
+                summary["ai_suggesties"] += 1 if store.get("inventaris") else 0
+            summary["concepten"] += 1 if (folder / "origineel.json").exists() else 0
+        return summary
+
+    @_locked
+    def start_over(self, file, fresh_ai=False):
+        """Remove everything kept for a file, on all its pages: objects, trash, saved cut-outs,
+        AI suggestions, the draft for Commons. The cache stays (originals and paid AI answers),
+        and nothing changes on Commons. With `fresh_ai` the earlier AI answers in the cache no
+        longer count for this file (FRESH_AI_MARKER): the next ones are new, paid answers.
+        Returns what was removed."""
+        summary = self.work_summary(file)
+        folder = self._file_dir(file)
+        for page in folder.glob("pagina_*"):
+            # Windows can keep an empty folder locked (an Explorer window, the indexer): that is no
+            # failure (Olaf: three empty folders stopped it halfway). Files left over are.
+            shutil.rmtree(page, ignore_errors=True)
+        left = [f for page in folder.glob("pagina_*") for f in page.rglob("*") if f.is_file()]
+        if left:
+            raise DetectionError(f"{len(left)} bestanden konden niet weg (in gebruik?). Sluit wat ze open heeft en probeer het opnieuw.", status=409, code="files_in_use")
+        marker = folder / FRESH_AI_MARKER
+        if fresh_ai:
+            folder.mkdir(parents=True, exist_ok=True)
+            marker.write_text(json.dumps({"tijd": _now()}), encoding="utf-8")
+        else:
+            marker.unlink(missing_ok=True)
+        return {**summary, "ai_opnieuw": bool(fresh_ai)}
+
+    def counts_for_file(self, file, cache_path):
+        """Whether a cached AI answer may be used for this file: it exists, and it was not made
+        before the file was started over with "ask the AI anew"."""
+        if not cache_path.exists():
+            return False
+        marker = self._file_dir(file) / FRESH_AI_MARKER
+        try:
+            return not marker.exists() or cache_path.stat().st_mtime > marker.stat().st_mtime
+        except OSError:
+            return True
+
     def _store_path(self, file, n):
         return self._file_dir(file) / f"pagina_{n}" / "objecten.json"
 
@@ -546,18 +620,25 @@ class DetectionService:
                 objects[objects.index(same_id)] = obj
                 continue
             twin = next((o for o in objects if _mergeable(o, obj)), None)
-            if twin is None:
+            if twin is not None:
+                objects[objects.index(twin)] = self._absorb(file, n, twin, obj)
+                continue
+            in_group = _member_twin(objects, obj)
+            if in_group is None:
                 objects.append(obj)
             else:
-                objects[objects.index(twin)] = self._absorb(file, n, twin, obj)
+                group, index = in_group
+                members = group["groep"]["leden"]
+                members[index] = self._absorb(file, n, members[index], obj, keep_first=True)
         self._write_store(file, n, store)
         return objects
 
-    def _absorb(self, file, n, a, b):
+    def _absorb(self, file, n, a, b, keep_first=False):
         """Merge two objects showing the same picture into one (see _preference);
         the other is listed under "ook". Status, caption, description and the
-        Commons concept of `a` (already on the page) are kept."""
-        primary, other = (a, b) if _preference(a) <= _preference(b) else (b, a)
+        Commons concept of `a` (already on the page) are kept, and so is the depicts
+        item either was located for. With `keep_first`, `a` stays itself (a group member)."""
+        primary, other = (a, b) if keep_first or _preference(a) <= _preference(b) else (b, a)
         merged = dict(primary)
         merged["status"] = a["status"]
         for key in ("bijschrift", "commons"):
@@ -566,7 +647,16 @@ class DetectionService:
         description = a.get("beschrijving") or b.get("beschrijving")
         if description:
             merged["beschrijving"] = description
+        # Found again by locating a depicts item (Olaf: car, merged into vintage car, lost Q1420).
+        if not merged.get("wikidata"):
+            linked = a if a.get("wikidata") else b
+            for key in ("wikidata", "label_item"):
+                if linked.get(key):
+                    merged[key] = linked[key]
         merged["ook"] = [e for e in primary.get("ook", []) + other.get("ook", [])] + [_summary(other)]
+        removed = primary.get("ook_weg", []) + other.get("ook_weg", [])
+        if removed:
+            merged["ook_weg"] = removed
         if other.get("opgeslagen"):
             self._remove_files(file, other)
         if (other.get("masker") or {}).get("bestand"):
@@ -577,7 +667,7 @@ class DetectionService:
     def merge_duplicates(self, file, n, ids=None):
         """Merge objects on a page that show the same picture ("Ontdubbelen", 7.4).
         With `ids` only among those objects (the selection, or what is visible); the
-        others stay as they are. Returns how many objects were merged away."""
+        others stay as they are. Returns the pairs [(merged away, kept)], also into a member of a group."""
         store = self._load_store(file, n)
         wanted = set(ids) if ids is not None else None
         pool = [o for o in store["objecten"] if wanted is None or o["id"] in wanted]
@@ -587,15 +677,27 @@ class DetectionService:
         kept, duplicates = self._one_per_picture(pool)
         by_id = {o["id"]: o for o in pool}
         heads = {o["id"]: o for o in kept}
+        pairs = []
         for duplicate, head in duplicates.items():
+            pairs.append((by_id[duplicate], heads[head]))
             heads[head] = self._absorb(file, n, heads[head], by_id[duplicate])
-        merged = list(heads.values())
-        count = len(pool) - len(merged)
-        if count:
+        # Then what is the same as a member of a group (in the selection or not) goes into that member.
+        groups = [o for o in list(heads.values()) + rest if o.get("groep")]
+        merged = []
+        for obj in heads.values():
+            in_group = _member_twin(groups, obj)
+            if in_group is None:
+                merged.append(obj)
+                continue
+            group, index = in_group
+            members = group["groep"]["leden"]
+            pairs.append((obj, members[index]))
+            members[index] = self._absorb(file, n, members[index], obj, keep_first=True)
+        if pairs:
             order = {o["id"]: i for i, o in enumerate(store["objecten"])}
             store["objecten"] = sorted(merged + rest, key=lambda o: order.get(o["id"], 0))
             self._write_store(file, n, store)
-        return count
+        return pairs
 
     def _where_found(self, file, n, ids):
         """Where each found id is now: on the page as itself, merged into another
@@ -688,6 +790,9 @@ class DetectionService:
             "label_nl": self.public(file, n, member)["label_nl"],
             "bijschrift": member.get("bijschrift"),
             "naam": member.get("naam"),
+            "wikidata": member.get("wikidata"),
+            # The words it was also found with (merged finds), so a search term counts it.
+            "ook": [_summary(e) for e in member.get("ook", [])],
             # What names it, and what goes along as context when the group is described.
             "beschrijving": {k: description[k] for k in ("onderwerp", "onderwerp_en", "beschrijving_en", "tekst_in_beeld", "tekst_rond_beeld") if description.get(k)} or None,
         }
@@ -1049,6 +1154,28 @@ class DetectionService:
         key = (lambda o: o.get("verwijderd_op") or "") if trash else (lambda o: (o.get("herkomst") or {}).get("tijdstempel") or "")
         result.sort(key=key, reverse=True)
         return result
+
+    @_locked
+    def drop_also(self, file, n, object_id, word, restore=False):
+        """Remove a word an object was also found with ("ook"), where the image detection was
+        wrong (the doll found as "boy", wish Olaf); with `restore` put it back. The entries are
+        kept under "ook_weg", so a new search for the word does not merge it in again."""
+        store = self._load_store(file, n)
+        obj = next((o for o in store["objecten"] if o["id"] == object_id), None)
+        if obj is None:
+            raise DetectionError(f"Object '{object_id}' staat niet op deze pagina.", status=404, code="not_found")
+        source, target = ("ook_weg", "ook") if restore else ("ook", "ook_weg")
+        wanted = str(word or "").strip().lower()
+        moving = [e for e in obj.get(source, []) if str(e.get("zoekterm") or "").strip().lower() == wanted]
+        if not wanted or not moving:
+            raise DetectionError(f"'{word}' staat niet bij dit object.", status=404, code="not_found")
+        obj[source] = [e for e in obj.get(source, []) if e not in moving]
+        obj[target] = obj.get(target, []) + moving
+        for key in ("ook", "ook_weg"):
+            if key in obj and not obj[key]:
+                obj.pop(key)
+        self._write_store(file, n, store)
+        return self.public(file, n, obj)
 
     def get_object(self, file, n, object_id):
         """One object (on the page or in the trash), as the API shows it."""

@@ -6,7 +6,7 @@ export const confirmState = reactive({
   open: false, text: "", title: "", go: "", destructive: false, links: {}, dontAsk: "", dontAskChecked: false, resolve: null,
   // Optional: objects the question is about ({image, name}), shown as a list with thumbnails;
   // and a text field ({label, placeholder, help}) whose value askConfirmValue() returns.
-  objects: [], input: null, inputValue: "",
+  objects: [], objectsFirst: false, input: null, inputValue: "",
   // Optional: a choice ({value, label, help, go, destructive}); the chosen one sets the
   // button, and askConfirmValue() returns it as `choice`.
   choices: [], choice: "",
@@ -45,7 +45,7 @@ export function askConfirm(text, options = {}) {
 }
 
 // Resolves to {ok, value}: with `input`, value is what was typed in the field ("" if nothing).
-export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], input = null, choices = [], store = session() } = {}) {
+export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], objectsFirst = false, input = null, choices = [], store = session() } = {}) {
   if (skipped(dontAsk, store)) return Promise.resolve({ ok: true, value: "", choice: choices[0]?.value || "" });
   if (confirmState.resolve) confirmState.resolve(false); // a newer question replaces an open one
   return new Promise((resolve) => {
@@ -59,6 +59,7 @@ export function askConfirmValue(text, { title = "", go = "", destructive = false
       dontAsk,
       dontAskChecked: false,
       objects,
+      objectsFirst,
       input,
       inputValue: "",
       choices,

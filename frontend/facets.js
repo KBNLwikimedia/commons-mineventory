@@ -50,14 +50,51 @@ export function applyListFilters(rows, filters, query = "") {
   );
 }
 
+// A choice as text in an address: a list comma-separated, on as "1", empty or off as "".
+const paramText = (value) => (Array.isArray(value) ? value.join(",") : value === true ? "1" : typeof value === "string" ? value.trim() : "");
+
 /* The download address of an export: lists comma-separated, what is empty or off left out. */
 export function exportUrl(base, params, format) {
   const query = new URLSearchParams({ formaat: format });
   for (const [name, value] of Object.entries(params || {})) {
-    const text = Array.isArray(value) ? value.join(",") : value === true ? "1" : typeof value === "string" ? value.trim() : "";
+    const text = paramText(value);
     if (text) query.set(name, text);
   }
   return `${base}?${query}`;
+}
+
+/* The choice on a list page in its address (wish Olaf: RESTful, so a view can be bookmarked and
+   shared), with the same names as its export. readAddress gives {name: [values]} and the search q;
+   writeAddress sets or removes them, leaving other parameters (uselang) alone, without a new step
+   in the browser history. */
+export function readAddress(names, search = window.location.search) {
+  const query = new URLSearchParams(search);
+  const lists = Object.fromEntries(names.map((name) => [name, (query.get(name) || "").split(",").map((v) => v.trim()).filter(Boolean)]));
+  return { ...lists, q: query.get("q") || "" };
+}
+export function writeAddress(params, location = window.location, history = window.history) {
+  const query = new URLSearchParams(location.search);
+  for (const [name, value] of Object.entries(params)) {
+    const text = paramText(value);
+    if (text) query.set(name, text);
+    else query.delete(name);
+  }
+  const text = query.toString();
+  const url = location.pathname + (text ? `?${text}` : "") + location.hash;
+  if (url !== location.pathname + location.search + location.hash) history.replaceState(history.state, "", url);
+}
+
+/* The ids of the objects found with a search word (wish Olaf): as their own search term, as a
+   word they were also found with before two finds were merged ("ook"), also inside a group. */
+export function objectsWithTerm(objects, term) {
+  const word = String(term || "").toLowerCase();
+  const has = (o) => String(o.zoekterm || "").toLowerCase() === word || (o.ook || []).some((e) => String(e.zoekterm || "").toLowerCase() === word);
+  const ids = [];
+  for (const o of objects || []) {
+    if (has(o)) ids.push(o.id);
+    for (const member of o.groep?.leden || []) if (has(member)) ids.push(member.id);
+  }
+  return ids;
 }
 
 /* The rows ordered by a value (direction 1 or -1): numbers as numbers, text with 0.9 before 0.33;

@@ -404,8 +404,10 @@ def merge_duplicates(mid, n):
     ids = _body().get("objecten")
     if ids is not None and not (isinstance(ids, list) and all(isinstance(i, str) for i in ids)):
         raise DetectionError("'objecten' is een lijst van object-id's.", status=400, code="invalid_body")
-    merged = service.merge_duplicates(file, n, ids)
-    return jsonify({"objecten": [service.public(file, n, o) for o in service.page_objects(file, n)], "samengevoegd": merged})
+    pairs = service.merge_duplicates(file, n, ids)
+    # Which object went into which (wish Olaf): names as the list shows them.
+    merged = [{"weg": service.public(file, n, gone), "in": service.public(file, n, kept)} for gone, kept in pairs]
+    return jsonify({"objecten": [service.public(file, n, o) for o in service.page_objects(file, n)], "samengevoegd": len(pairs), "paren": merged})
 
 
 @api.patch("/bestand/<mid>/pagina/<int:n>/objecten")
@@ -587,6 +589,22 @@ def shape_remove(mid, n, object_id):
     return jsonify(_service().remove_shape(_page_file(mid, n), n, object_id))
 
 
+@api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/ook/<woord>")
+def also_drop(mid, n, object_id, woord):
+    """Remove a word the object was also found with, where the detection was wrong (wish Olaf).
+    Free; a new search for the word does not merge it in again."""
+    return jsonify({"object": _service().drop_also(_page_file(mid, n), n, object_id, woord)})
+
+
+@api.post("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/ook")
+def also_restore(mid, n, object_id):
+    """Put a removed word back: {"woord": "…"} (Undo). Free."""
+    word = _body().get("woord")
+    if not isinstance(word, str) or not word.strip():
+        raise DetectionError("Geef het woord: {\"woord\": \"…\"}.", status=400, code="invalid_body")
+    return jsonify({"object": _service().drop_also(_page_file(mid, n), n, object_id, word, restore=True)}), 201
+
+
 @api.delete("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
 def completion_forget(mid, n, object_id):
     """Remove the AI-completed version from the object. Free."""
@@ -736,6 +754,23 @@ def item_thumbnail(q):
     if not data:
         raise CommonsError("Dit item heeft geen afbeelding (P18).", status=404, code="not_found")
     kind = "image/png" if data[:4] == b"\x89PNG" else "image/jpeg"
+    response = _image(data, kind)
+    response.headers["Cache-Control"] = "private, max-age=86400"
+    return response
+
+
+@api.get("/wikidata/<q>/logo")
+def item_logo(q):
+    """The logo (P154) of a Wikidata item, e.g. of the collection or location of a work (wish
+    Olaf), as a small PNG through the server (the browser loads nothing from Wikimedia). ?w= 32,
+    64 or 120. 404 without a logo. Free."""
+    if not re.fullmatch(r"Q\d+", q or ""):
+        raise CommonsError("Geef een Q-id, bijv. Q144.", status=400, code="bad_qid")
+    width = {"32": 32, "120": 120}.get(request.args.get("w", ""), 64)
+    data = _client().item_thumbnail(q, width, prop="P154")
+    if not data:
+        raise CommonsError("Dit item heeft geen logo (P154).", status=404, code="not_found")
+    kind = "image/png" if data[:4] == b"\x89PNG" else "image/svg+xml" if data.lstrip()[:1] == b"<" else "image/jpeg"
     response = _image(data, kind)
     response.headers["Cache-Control"] = "private, max-age=86400"
     return response
@@ -953,6 +988,26 @@ def export_file(mid):
     response = Response(data, mimetype="application/zip")
     response.headers["Content-Disposition"] = f'attachment; filename="{file["mid"]}.zip"'
     return response
+
+
+@api.get("/bestand/<mid>/werk")
+def work(mid):
+    """What is kept for a file (all pages): objects, trash, saved cut-outs, AI suggestions,
+    drafts for Commons. Free; reads only (for the confirmation of starting over)."""
+    if not MID.fullmatch(mid):
+        raise DetectionError(f"'{mid}' is geen M-id.", status=400, code="invalid_mid")
+    return jsonify(_service().work_summary({"mid": mid}))
+
+
+@api.delete("/bestand/<mid>/werk")
+def start_over(mid):
+    """Start an image over (wish Olaf): remove all objects, the trash, saved cut-outs, AI
+    suggestions and drafts of the file. The cache stays; nothing changes on Commons. Free."""
+    _require_trusted_user()
+    if not MID.fullmatch(mid):
+        raise DetectionError(f"'{mid}' is geen M-id.", status=400, code="invalid_mid")
+    fresh = request.args.get("ai") == "opnieuw"  # ?ai=opnieuw: earlier AI answers no longer count
+    return jsonify({"verwijderd": _service().start_over({"mid": mid}, fresh_ai=fresh)})
 
 
 # -- Trash and overviews ------------------------------------------------------------------------
