@@ -329,7 +329,7 @@ DESCRIPTION_LEVELS = {
     # A caption for the structured data on Commons (wish Olaf, 6-11-2026): at most 250 characters
     # (Commons:File captions). Asked a little shorter; cut to the limit afterwards if needed.
     "caption": (
-        f"a caption in Dutch for Wikimedia Commons: one or two plain sentences about what is shown, at most {CAPTION_ASK} characters, no markup, no links.",
+        f"a caption in Dutch for Wikimedia Commons: one or two plain sentences about what is shown, as rich as fits (who or what, where, what happens, notable details), at most {CAPTION_ASK} characters, no markup, no links.",
         f"the same caption in English, also at most {CAPTION_ASK} characters.",
     ),
     "uitgebreid": (
@@ -338,6 +338,9 @@ DESCRIPTION_LEVELS = {
     ),
 }
 DEFAULT_DESCRIPTION_LEVEL = "normaal"
+# A new description of the whole image is a Commons caption unless asked otherwise (wish Olaf,
+# 11-11-2026): rich, but never longer than 250 characters, so it can go to Commons as it is.
+PAGE_DEFAULT_DESCRIPTION_LEVEL = "caption"
 
 INVENTORY_SCHEMA = {
     "type": "object",
@@ -1327,7 +1330,7 @@ class DescriptionService:
         if detail not in DETAIL_LEVELS:
             raise DetectionError(f"Onbekend detailniveau '{detail}'; kies uit {', '.join(DETAIL_LEVELS)}.", status=400, code="invalid_body")
         if description_level is None:
-            description_level = (self.objects._load_store(file, n).get("inventaris") or {}).get("beschrijvingsniveau") or DEFAULT_DESCRIPTION_LEVEL
+            description_level = (self.objects._load_store(file, n).get("inventaris") or {}).get("beschrijvingsniveau") or PAGE_DEFAULT_DESCRIPTION_LEVEL
         if description_level not in DESCRIPTION_LEVELS:
             raise DetectionError(f"Onbekend beschrijvingsniveau '{description_level}'; kies uit {', '.join(DESCRIPTION_LEVELS)}.", status=400, code="invalid_body")
         choice = self._model(file, model)

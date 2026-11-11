@@ -5,6 +5,15 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.38.1] - 2026-11-11
+
+### Gewijzigd
+
+- *Wat staat op deze pagina?* maakt de beschrijving van de hele afbeelding voortaan als Commons-bijschrift: zo rijk mogelijk, nooit langer dan 250 tekens, zodat hij zo naar de gestructureerde gegevens op Commons kan (wens Olaf). Een andere lengte kies je daarna met de schuif bij de beschrijving. De kostenbevestiging en de uitleg zeggen dit; een eerder gemaakt overzicht houdt zijn eigen lengte.
+- De zoektermen onder *AI-suggesties voor deze afbeelding* staan in twee blokken (wens Olaf): *Staat al op Commons* (wat de AI zag en het bestand al als *beeldt af* heeft; knoppen die niets doen, groen met het aantal gekoppelde objecten; lokaliseren gaat onder *Van Commons*) en *Nieuw, nog niet op Commons* (met vinkje en potlood; alleen deze gaan mee met *Alle objecten lokaliseren*). Het merkje *op Commons* is daarmee weg.
+- *Van Commons > Beeldt af* is alleen lezen (wens Olaf): het potloodje om het zoekwoord van een item te veranderen is weg; de AI zoekt op het Engelse label. Eerder ingestelde zoekwoorden (in de browser) tellen niet meer, ook niet bij het koppelen door hernoemen. De uitleg eindigt met *Nieuw item toevoegen?* en drie wegen als links: de *AI-suggesties*, *Zoeken* en *Aanwijzen of tekenen* (wens Olaf).
+- *Zoeken* heeft een tip als het bestand *Beeldt af*-items heeft: vond de AI een item niet onder zijn eigen naam, zoek dan met een ander woord en hernoem het gevonden object naar dat item; dan wordt het eraan gekoppeld (wens Olaf).
+
 ## [0.38.0] - 2026-11-11
 
 ### Toegevoegd

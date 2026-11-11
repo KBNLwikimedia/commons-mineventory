@@ -133,14 +133,15 @@ const props = defineProps({
 });
 // changed(overview): a new overview after an edit or a version put back; again; forget.
 const emit = defineEmits(["changed", "again", "forget"]);
-// The length of the description: that of the overview, else the last one chosen in this browser.
+// The length of the description: that of the overview, else the last one chosen in this browser,
+// else a Commons caption (the default of a new description, wish Olaf 11-11-2026).
 const DESCRIPTION_LEVELS = ["kort", "normaal", "caption", "uitgebreid"];
 const DESC_KEY = "cc-beschrijvingsniveau";
 function storedDescLevel() {
   try {
-    return window.localStorage.getItem(DESC_KEY) || "normaal";
+    return window.localStorage.getItem(DESC_KEY) || "caption";
   } catch {
-    return "normaal";
+    return "caption";
   }
 }
 const descLevel = ref(props.inventory?.beschrijvingsniveau || storedDescLevel());

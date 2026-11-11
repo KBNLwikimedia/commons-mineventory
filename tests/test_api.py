@@ -255,6 +255,9 @@ def test_description_with_dummy(http):
     assert http.patch(url, json={"beschrijving": "x"}).status_code == 409
     overview = http.post(PAGE + "/inventaris", json={}).get_json()
     assert overview["inventaris"]["zoektermen"]
+    # A new description of the image is a Commons caption by default (wish Olaf), at most 250 characters.
+    assert overview["inventaris"]["beschrijvingsniveau"] == "caption"
+    assert len(overview["inventaris"]["samenvatting"]) <= 250
     # One part of the overview: its own path.
     assert http.delete(PAGE + "/inventaris/zoektermen").get_json()["inventaris"]["zoektermen"] == []
     assert http.post(PAGE + "/inventaris/zoektermen", json={}).get_json()["inventaris"]["zoektermen"]

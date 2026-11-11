@@ -732,7 +732,7 @@ async function startOver(entry) {
 }
 
 // Your own name for an object (from the list); "" goes back to the automatic name.
-// A name that is the word of a depicts item of this file (its label or search word, capitals
+// A name that is the word of a depicts item of this file (its label in either language, capitals
 // ignored) also links the object to that item, so it counts there and goes to Commons as its
 // depicts with this box; a link to another depicts item is dropped (wish Olaf: child 3 renamed
 // to doll). With a notice and Undo.
@@ -772,20 +772,13 @@ async function undoRename(id, n, mid, before) {
   }
 }
 
-// The depicts items of this file on Commons ({q, label, words}): their labels in both
-// languages and the search word you gave an item (pencil, kept in this browser).
+// The depicts items of this file on Commons ({q, label, words}): their labels in both languages.
 function depictsItems() {
-  let words = {};
-  try {
-    words = JSON.parse(window.localStorage.getItem(`cc-item-zoekwoord:${file.value.mid}`) || "{}");
-  } catch {
-    words = {};
-  }
   const seen = new Map();
   for (const statement of file.value?.sdc?.beeldt_af || []) {
     if (statement.soort !== "item" || seen.has(statement.waarde)) continue;
     const label = (props.config.taal === "en" ? statement.label_en : statement.label) || statement.label || statement.label_en || statement.waarde;
-    const all = [statement.label, statement.label_en, words[statement.waarde]].filter(Boolean).map((w) => String(w).trim().toLowerCase());
+    const all = [statement.label, statement.label_en].filter(Boolean).map((w) => String(w).trim().toLowerCase());
     seen.set(statement.waarde, { q: statement.waarde, label, words: all });
   }
   return [...seen.values()];

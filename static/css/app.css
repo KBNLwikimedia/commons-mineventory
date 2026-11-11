@@ -834,7 +834,12 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-taal-code { display: inline-block; min-width: 1.6rem; margin-right: 0.3rem; padding: 0 0.25rem; border: 1px solid var(--cc-rand, #c8ccd1); border-radius: 2px; font-size: 0.75rem; text-align: center; color: var(--color-subtle, #54595d); }
 .cc-term-veld { width: 9rem; border: 0; padding: 0 0.3rem; font: inherit; font-size: 0.875rem; }
 .cc-term .cc-term-potlood { padding: 0 0.25rem; min-width: 0; }
-.cc-term-op-commons { margin-left: 0.3em; padding: 0 0.3em; border-radius: 2px; background: #fef6e7; color: #705000; font-size: 0.75em; }
+.cc-termen-kop { margin: 0.75rem 0 0.25rem; font-size: 0.875rem; font-weight: 700; }
+/* AI terms that Commons already depicts (wish Olaf): read only, a dashed chip with dark text,
+   green when objects are linked to that item. Specific enough to beat Codex's disabled style. */
+.cc-knoppen .cc-term.cc-term-vast { border-style: dashed; background: #f8f9fa; }
+.cc-knoppen .cc-term.cc-term-vast .cdx-button:disabled { background: transparent; color: #202122; border-color: transparent; cursor: default; }
+.cc-knoppen .cc-term.cc-term-vast.cc-term-gevonden { background: #8fdcb8; }
 
 /* A choice in a confirmation (e.g. remove only SAM's shape, or the whole object). */
 .cc-bevestig-keuze { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.75rem 0; }
@@ -845,6 +850,7 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-termen-uitleg p { margin: 0 0 0.2rem; }
 .cc-uitleg-lijst { margin: 0 0 0.4rem; padding-left: 1.2rem; }
 .cc-uitleg-lijst li { margin: 0.1rem 0; }
+.cc-uitleg-lijst ul { margin: 0.1rem 0 0; padding-left: 1.2rem; list-style: circle; }
 .cc-termen-bulk { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; column-gap: 0.75rem; row-gap: 0.25rem; }
 .cc-termen-alles { font-size: 0.8125rem; white-space: nowrap; }
 

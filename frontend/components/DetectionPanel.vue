@@ -50,7 +50,7 @@
       </cdx-accordion>
 
       <!-- (3) Depicts without a position: a chip per item; a click lets SAM find it (paid),
-           and what is found gets that item as its depicts. The search word can be changed. -->
+           and what is found gets that item as its depicts. Read only: the search word is the English label. -->
       <cdx-accordion v-if="commonsDepicts.length" v-model="open.beeldtaf" class="cc-deel-uitklap">
         <template #title>{{ t("panel.commons_depicts", { n: commonsDepicts.length }) }}</template>
         <!-- The explanation as a short list (wish Olaf). -->
@@ -63,11 +63,15 @@
           <ul class="cc-uitleg-lijst">
             <li><strong>{{ t("panel.commons_depicts_single") }}</strong> {{ t("panel.commons_depicts_click") }}</li>
             <li><strong>{{ t("panel.commons_depicts_bulk") }}</strong> {{ t("panel.commons_depicts_untick") }}</li>
-            <li><strong>{{ t("panel.commons_depicts_search_word") }}</strong> {{ t("panel.commons_depicts_pencil") }}</li>
             <li><strong>{{ t("panel.commons_depicts_results") }}</strong> {{ t("panel.terms_colours") }}</li>
+            <!-- Something new for depicts: the three ways, as links to their sections (wish Olaf). -->
             <li>
-              <strong>{{ t("panel.commons_depicts_new_region") }}</strong> {{ t("panel.commons_depicts_new_region_go") }}
-              <button type="button" class="cc-link" @click="showPointOrDraw">{{ t("panel.point_or_draw") }}</button>.
+              <strong>{{ t("panel.commons_depicts_add_new") }}</strong>
+              <ul>
+                <li>{{ t("panel.commons_depicts_try") }} <button type="button" class="cc-link" @click="showSuggestions">{{ t("panel.suggestions") }}</button></li>
+                <li>{{ t("panel.commons_depicts_use") }} <button type="button" class="cc-link" @click="showSearch">{{ t("panel.search") }}</button> {{ t("panel.commons_depicts_below") }}</li>
+                <li>{{ t("panel.commons_depicts_go") }} <button type="button" class="cc-link" @click="showPointOrDraw">{{ t("panel.point_or_draw") }}</button></li>
+              </ul>
             </li>
           </ul>
         </div>
@@ -82,40 +86,16 @@
               :title="t('panel.term_include', { term: item.label })"
               @change="toggleItem(item.q)"
             />
-            <input
-              v-if="editingItem === item.q"
-              ref="itemInput"
-              v-model="itemDraft"
-              class="cc-term-veld"
-              :aria-label="t('panel.commons_depicts_word', { item: item.label })"
-              @keydown.enter.prevent="saveItemWord(item)"
-              @keydown.esc.prevent="editingItem = null"
-              @blur="saveItemWord(item)"
-            />
+            <!-- Read only (wish Olaf, 11-11-2026): no pencil; another word goes under Search. -->
             <cdx-button
-              v-else
               action="progressive"
               size="small"
               :disabled="busy"
               :title="itemTitle(item)"
               @click="act('commons-depicts', 'detect', { modus: 'prompt', prompt: itemWord(item), items: { [itemWord(item)]: item.q } })"
             >
-              <!-- Your own search word when you changed it (wish Olaf); the item stays in the tooltip. -->
-              {{ itemWords[item.q] ? itemWord(item) : item.label }}
+              {{ item.label }}
               <span v-if="itemCount(item) || wasSearched(itemWord(item))" class="cc-term-aantal">{{ itemCount(item) }}</span>
-            </cdx-button>
-            <cdx-button
-              v-if="editingItem !== item.q"
-              action="progressive"
-              weight="quiet"
-              size="small"
-              class="cc-term-potlood"
-              :disabled="busy"
-              :aria-label="t('panel.commons_depicts_word', { item: item.label })"
-              :title="t('panel.commons_depicts_word', { item: item.label })"
-              @click="startItemWord(item)"
-            >
-              <cdx-icon :icon="cdxIconEdit" size="small" />
             </cdx-button>
           </span>
           <!-- The tick-box links next to the button they steer, under the items (wish Olaf). -->
@@ -207,13 +187,29 @@
         <busy-note v-if="busy && where === 'zoektermen'" :message="t('busy.muse_page')" />
         <notice-list :notices="noticesAt('ai-zoektermen')" @dismiss="emit('dismiss-notice', $event)" />
         <template v-if="inventory.zoektermen?.length">
+          <!-- Two blocks (wish Olaf): first what the AI saw that Commons already depicts, as
+               buttons that do nothing (locate those under From Commons); then what the AI adds. -->
+          <template v-if="commonsTerms.length">
+            <p class="cc-termen-kop">{{ t("panel.terms_on_commons_title", { n: commonsTerms.length }) }}</p>
+            <p class="cc-uitleg cc-termen-uitleg">{{ t("panel.terms_on_commons_help") }}</p>
+            <div class="cc-knoppen">
+              <span v-for="term in commonsTerms" :key="term.en" class="cc-term cc-term-vast" :class="{ 'cc-term-gevonden': commonsTermCount(term) > 0 }">
+                <cdx-button size="small" disabled :title="t('panel.term_on_commons_help')">
+                  {{ termLabel(term) }}
+                  <span v-if="commonsTermCount(term)" class="cc-term-aantal">{{ commonsTermCount(term) }}</span>
+                </cdx-button>
+              </span>
+            </div>
+            <p class="cc-termen-kop">{{ t("panel.terms_new_title", { n: newTerms.length }) }}</p>
+          </template>
+          <p v-if="!newTerms.length" class="cc-uitleg">{{ t("panel.terms_new_none") }}</p>
           <!-- What the terms are for: finding where on the image each thing is. -->
-          <p class="cc-uitleg cc-termen-uitleg">
+          <p v-if="newTerms.length" class="cc-uitleg cc-termen-uitleg">
             {{ t("panel.terms_help") }} {{ cost(1) }} {{ t("panel.terms_pencil") }} {{ t("panel.terms_colours") }} {{ t("panel.terms_choose") }}
           </p>
-          <div class="cc-knoppen">
+          <div v-if="newTerms.length" class="cc-knoppen">
             <!-- Each term: a tick (does it go along with "Detect all"?) and the term itself (detect only this one). -->
-            <span v-for="term in inventory.zoektermen" :key="term.en" class="cc-term" :class="{ 'cc-term-uit': excluded.includes(term.en), ...resultClass(termHits(term), termWord(term)) }">
+            <span v-for="term in newTerms" :key="term.en" class="cc-term" :class="{ 'cc-term-uit': excluded.includes(term.en), ...resultClass(termHits(term), termWord(term)) }">
               <input
                 type="checkbox"
                 class="cc-term-mee"
@@ -244,7 +240,6 @@
               >
                 {{ termWords[term.en] || termLabel(term) }}
                 <span v-if="termHits(term) || wasSearched(termWord(term))" class="cc-term-aantal">{{ termHits(term) }}</span>
-                <span v-if="onCommons(term)" class="cc-term-op-commons" :title="t('panel.term_on_commons_help')">{{ t("panel.term_on_commons") }}</span>
               </cdx-button>
               <cdx-button
                 v-if="editingTerm !== term.en"
@@ -270,16 +265,16 @@
               :disabled="busy || !includedTerms.length"
               @click="act('suggestions', 'detect', { modus: 'prompt', prompt: includedTerms.map(termWord).join(', ') })"
             >
-              {{ t(includedTerms.length === inventory.zoektermen.length ? "panel.detect_suggestions" : "panel.detect_chosen", { n: includedTerms.length }) }}
+              {{ t(includedTerms.length === newTerms.length ? "panel.detect_suggestions" : "panel.detect_chosen", { n: includedTerms.length }) }}
               <span class="cc-kosten">{{ cost(includedTerms.length) }}</span>
             </cdx-button>
             <span class="cc-termen-alles">
               {{ t("objects.select_label") }}
               <button type="button" class="cc-link" :disabled="busy" @click="setExcluded([])">{{ t("panel.terms_all") }}</button>
               ·
-              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en))">{{ t("panel.terms_none") }}</button>
+              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(newTerms.map((term) => term.en))">{{ t("panel.terms_none") }}</button>
               ·
-              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(inventory.zoektermen.map((term) => term.en).filter((term) => !excluded.includes(term)))">{{ t("panel.terms_invert") }}</button>
+              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(newTerms.map((term) => term.en).filter((term) => !excluded.includes(term)))">{{ t("panel.terms_invert") }}</button>
             </span>
             </div>
           </div>
@@ -299,7 +294,7 @@
           </cdx-message>
           <!-- What of these suggestions is on the image now, and what went to the trash. -->
           <p class="cc-status">
-            {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: inventory.zoektermen.length }) }}
+            {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: newTerms.length }) }}
             <template v-if="suggestionTotals.trashed">{{ suggestionTotals.trashed === 1 ? t("panel.suggestions_trashed_one") : t("panel.suggestions_trashed", { n: suggestionTotals.trashed }) }}</template>
           </p>
         </template>
@@ -330,6 +325,8 @@
             </template>
           </cdx-message>
       <p class="cc-uitleg">{{ t("panel.search_help") }} {{ cost(1) }}</p>
+      <!-- Rename to link (wish Olaf): only when the file has depicts items without a region. -->
+      <p v-if="commonsDepicts.length" class="cc-uitleg">{{ t("panel.search_rename_tip") }}</p>
     </cdx-accordion>
 
     <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
@@ -553,51 +550,14 @@ const cleanWord = (text) =>
     .replace(/(^|\s)-\s*/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-const itemWords = ref({});
-const itemWordsKey = computed(() => `cc-item-zoekwoord:${props.file.mid}`);
-watch(
-  itemWordsKey,
-  (key) => {
-    try {
-      itemWords.value = JSON.parse(window.localStorage.getItem(key) || "{}");
-    } catch {
-      itemWords.value = {};
-    }
-  },
-  { immediate: true }
-);
-const itemWord = (item) => cleanWord(itemWords.value[item.q] || item.en);
-const editingItem = ref(null);
-const itemDraft = ref("");
-const itemInput = ref(null);
-async function startItemWord(item) {
-  editingItem.value = item.q;
-  itemDraft.value = itemWord(item);
-  await nextTick();
-  const input = Array.isArray(itemInput.value) ? itemInput.value[0] : itemInput.value;
-  input?.focus();
-  input?.select();
-}
-function saveItemWord(item) {
-  if (editingItem.value !== item.q) return;
-  const word = cleanWord(itemDraft.value);
-  const words = { ...itemWords.value };
-  if (word && word !== cleanWord(item.en)) words[item.q] = word;
-  else delete words[item.q]; // empty or the label again: back to the label
-  itemWords.value = words;
-  editingItem.value = null;
-  try {
-    window.localStorage.setItem(itemWordsKey.value, JSON.stringify(words));
-  } catch {
-    // Blocked storage: the word holds until the page is reloaded.
-  }
-}
+// The search word of a depicts item is its English label (read only, wish Olaf 11-11-2026).
+const itemWord = (item) => cleanWord(item.en);
 // The objects on the image linked to an item: found by locating that item. Not every object found with
 // the same word (Olaf: all these items are on Commons already, so that would make every button green).
 const itemCount = (item) =>
   props.objects.reduce((n, o) => n + (o.wikidata === item.q) + (o.groep?.leden || []).filter((m) => m.wikidata === item.q).length, 0);
 function itemTitle(item) {
-  return [t("panel.commons_depicts_item", { label: item.label, q: item.q, word: itemWord(item) }), t("panel.term_found", { n: itemCount(item) })].join(" · ");
+  return [t("panel.commons_depicts_item", { label: item.label, q: item.q }), t("panel.term_found", { n: itemCount(item) })].join(" · ");
 }
 // Items left out of "Detect all", like the terms (per file, this browser only).
 const excludedItems = ref([]);
@@ -658,15 +618,25 @@ watch(
   },
   { immediate: true }
 );
-// An AI search term for something the file already depicts on Commons gets a mark.
+// The names (both languages) of what the file already depicts on Commons, to its item.
 const commonsNames = computed(() => {
-  const names = new Set();
+  const names = new Map();
   for (const statement of props.file.sdc?.beeldt_af || []) {
-    for (const name of [statement.label, statement.label_en]) if (name) names.add(String(name).toLowerCase());
+    if (statement.soort !== "item") continue;
+    for (const name of [statement.label, statement.label_en]) if (name) names.set(String(name).toLowerCase(), statement.waarde);
   }
   return names;
 });
-const onCommons = (term) => commonsNames.value.has(String(term.en || "").toLowerCase()) || commonsNames.value.has(String(term.nl || "").toLowerCase());
+const commonsItemFor = (term) => commonsNames.value.get(String(term.en || "").toLowerCase()) || commonsNames.value.get(String(term.nl || "").toLowerCase()) || null;
+// The AI terms in two blocks (wish Olaf): what Commons already depicts (read only; locate those
+// under From Commons) and what the AI adds, which you can search for, change and add.
+const commonsTerms = computed(() => (props.inventory?.zoektermen || []).filter((term) => commonsItemFor(term)));
+const newTerms = computed(() => (props.inventory?.zoektermen || []).filter((term) => !commonsItemFor(term)));
+// How many objects on the image are linked to the depicts item of such a term.
+const commonsTermCount = (term) => {
+  const q = commonsItemFor(term);
+  return props.objects.reduce((n, o) => n + (o.wikidata === q) + (o.groep?.leden || []).filter((m) => m.wikidata === q).length, 0);
+};
 
 const cost = (calls) => (config.betaald ? `(${money(calls * config.sam_usd, config.taal)})` : t("panel.free"));
 const museCost = (usd) => (config.betaald ? `(${money(usd, config.taal)})` : t("panel.free"));
@@ -794,7 +764,7 @@ function setExcluded(terms) {
 function toggleTerm(term) {
   setExcluded(excluded.value.includes(term) ? excluded.value.filter((t2) => t2 !== term) : [...excluded.value, term]);
 }
-const includedTerms = computed(() => (props.inventory?.zoektermen || []).filter((term) => !excluded.value.includes(term.en)));
+const includedTerms = computed(() => newTerms.value.filter((term) => !excluded.value.includes(term.en)));
 
 function termTitle(term) {
   const parts = [t("panel.term_expected", { n: term.aantal, where: term.waar }), t("panel.term_found", { n: termHits(term) })];
@@ -804,7 +774,7 @@ function termTitle(term) {
 }
 
 const suggestionTotals = computed(() => {
-  const terms = props.inventory?.zoektermen || [];
+  const terms = newTerms.value;
   const found = terms.map((term) => termObjectIds(term));
   return {
     // Each object once, also when several terms found it (merged finds).
@@ -898,6 +868,20 @@ async function trySearch(result) {
 }
 // Or open Point or draw with that way switched on at once: click the object, or draw around it.
 // Only unfold Point or draw and scroll to it, no way switched on (link under 'Depicts, without a region').
+// Open the AI suggestions and bring them into view.
+async function showSuggestions() {
+  open.suggestions = true;
+  await nextTick();
+  document.getElementById("cc-ai-suggesties")?.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+// Open Search and put the cursor in its field, keeping what is typed there.
+async function showSearch() {
+  open.search = true;
+  await nextTick();
+  const input = document.querySelector(".cc-zoek input");
+  input?.scrollIntoView({ block: "center", behavior: "smooth" });
+  input?.focus();
+}
 async function showPointOrDraw() {
   open.point = true;
   await nextTick();
