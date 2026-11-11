@@ -190,6 +190,8 @@
           <!-- Two fold-outs, closed by default (wish Olaf): Bulk actions, and Save and export. -->
           <cdx-accordion v-model="actionsOpen.bulk" class="cc-acties-uitklap">
           <template #title>{{ t("bulk.title") }}</template>
+          <!-- What this section is for, in one or two sentences (wish Olaf). -->
+          <p class="cc-uitleg cc-sectie-intro">{{ t("bulk.intro") }}</p>
           <div class="cc-acties-rij cc-bulk">
             <cdx-tabs v-model:active="bulkTab" :framed="true">
               <cdx-tab name="beschrijven" :label="t('bulk.tab_describe', { n: toDescribe })">
@@ -274,6 +276,7 @@
           </cdx-accordion>
           <cdx-accordion v-model="actionsOpen.save" class="cc-acties-uitklap">
           <template #title>{{ t("bulk.save_title") }}</template>
+          <p class="cc-uitleg cc-sectie-intro">{{ t("bulk.save_intro") }}</p>
           <div class="cc-acties-opslaan">
           <cdx-button action="progressive" weight="primary" :disabled="!selectedCount || busy" @click="saveSelection">
             {{ t("actions.save", { n: selectedCount }) }}
@@ -729,12 +732,67 @@ async function startOver(entry) {
 }
 
 // Your own name for an object (from the list); "" goes back to the automatic name.
+// A name that is the word of a depicts item of this file (its label or search word, capitals
+// ignored) also links the object to that item, so it counts there and goes to Commons as its
+// depicts with this box; a link to another depicts item is dropped (wish Olaf: child 3 renamed
+// to doll). With a notice and Undo.
 async function renameObject(id, name) {
+  const obj = objects.value.find((o) => o.id === id);
+  const mid = file.value.mid;
+  const n = pageN.value;
+  const body = { naam: name || null };
+  const before = { naam: obj?.naam || null, item: obj?.wikidata ? { q: obj.wikidata, label: obj.label_item || "" } : null };
+  const match = name ? depictsItemFor(name) : null;
+  const linkedToDepicts = obj?.wikidata && depictsItems().some((item) => item.q === obj.wikidata);
+  if (match && match.q !== obj?.wikidata) body.item = { q: match.q, label: match.label };
+  else if (name && !match && linkedToDepicts) body.item = null;
   try {
-    replaceObject(await patch(objectPath(file.value.mid, pageN.value, id), { naam: name || null }));
+    const changed = await patch(objectPath(mid, n, id), body);
+    replaceObject(changed);
+    if ("item" in body) {
+      const oldLabel = before.item ? depictsItems().find((item) => item.q === before.item.q)?.label || before.item.label || before.item.q : "";
+      const text = body.item ? t("objects.renamed_linked", { item: match.label, q: match.q }) : t("objects.renamed_unlinked", { item: oldLabel });
+      notify("notice", text, {
+        where: "objecten",
+        object: shownObject(changed, n),
+        actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => undoRename(id, n, mid, before) }],
+      });
+    }
   } catch (error) {
-    fail(error);
+    fail(error, "objecten");
   }
+}
+
+async function undoRename(id, n, mid, before) {
+  try {
+    const changed = await patch(objectPath(mid, n, id), before);
+    if (file.value?.mid === mid && pageN.value === n) replaceObject(changed);
+  } catch (error) {
+    fail(error, "objecten");
+  }
+}
+
+// The depicts items of this file on Commons ({q, label, words}): their labels in both
+// languages and the search word you gave an item (pencil, kept in this browser).
+function depictsItems() {
+  let words = {};
+  try {
+    words = JSON.parse(window.localStorage.getItem(`cc-item-zoekwoord:${file.value.mid}`) || "{}");
+  } catch {
+    words = {};
+  }
+  const seen = new Map();
+  for (const statement of file.value?.sdc?.beeldt_af || []) {
+    if (statement.soort !== "item" || seen.has(statement.waarde)) continue;
+    const label = (props.config.taal === "en" ? statement.label_en : statement.label) || statement.label || statement.label_en || statement.waarde;
+    const all = [statement.label, statement.label_en, words[statement.waarde]].filter(Boolean).map((w) => String(w).trim().toLowerCase());
+    seen.set(statement.waarde, { q: statement.waarde, label, words: all });
+  }
+  return [...seen.values()];
+}
+function depictsItemFor(name) {
+  const word = String(name).trim().toLowerCase();
+  return word ? depictsItems().find((item) => item.words.includes(word)) || null : null;
 }
 
 function replaceObject(changed) {

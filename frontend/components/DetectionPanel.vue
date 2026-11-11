@@ -150,12 +150,14 @@
     <!-- Then the AI suggestions: they fit this image, unlike a fixed list. -->
     <cdx-accordion id="cc-ai-suggesties" v-model="open.suggestions">
       <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /></template>
+      <!-- What this section is for, in one or two sentences (wish Olaf), as in From Commons. -->
+      <p class="cc-uitleg cc-sectie-intro">{{ t("panel.suggestions_intro") }}</p>
       <!-- In the order of the work: (1) ask the AI what is on the image (one call), (2) its
            description, (3) the search terms: find where those things are, and what was found.
            Each part can be asked again (a call for that part only) or removed on its own.
            Explanations (cc-uitleg) look different from what the AI said (cc-ai-resultaat). -->
-      <!-- They belong to the image, not to its objects (wish Olaf): say so where they are. -->
-      <p class="cc-uitleg cc-suggesties-eigen">{{ t("panel.suggestions_belong") }}</p>
+      <!-- They belong to the image, not to its objects (wish Olaf): say so where they are, once there are any. -->
+      <p v-if="inventory" class="cc-uitleg cc-suggesties-eigen">{{ t("panel.suggestions_belong") }}</p>
       <!-- Removing everything, or a part whose place is gone with it: the outcome on top of this section. -->
       <notice-list :notices="inventory ? noticesAt('ai-alles') : notices.filter((n) => String(n.where || '').startsWith('ai-'))" @dismiss="emit('dismiss-notice', $event)" />
       <template v-if="!inventory">
@@ -308,6 +310,7 @@
 
     <cdx-accordion v-model="open.search">
       <template #title>{{ t("panel.search") }} <info-dialog v-bind="info('search', 'panel.search')" /></template>
+      <p class="cc-uitleg cc-sectie-intro">{{ t("panel.search_intro") }}</p>
       <form class="cc-zoek" @submit.prevent="search">
         <cdx-text-input v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
         <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
@@ -332,6 +335,7 @@
     <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
     <cdx-accordion v-model="open.point" class="cc-sectie-aanwijzen">
       <template #title>{{ t("panel.point_or_draw") }} <info-dialog v-bind="info('point', 'panel.point_or_draw')" /></template>
+      <p class="cc-uitleg cc-sectie-intro">{{ t("panel.point_or_draw_intro") }}</p>
       <!-- Two ways, each folding away on its own, as in the AI suggestions (wish Olaf). -->
       <cdx-accordion v-model="open.aanwijzen" class="cc-deel-uitklap">
         <template #title>{{ t("panel.part_title_point") }}</template>
@@ -360,14 +364,29 @@
          Olaf): depicts from Commons items, found objects and search terms, and the caption. -->
     <cdx-accordion v-model="open.tocommons" class="cc-naar-commons">
       <template #title>{{ t("panel.to_commons") }} <info-dialog v-bind="info('tocommons', 'panel.to_commons')" /></template>
+      <p class="cc-uitleg cc-sectie-intro">{{ t("panel.to_commons_intro") }}</p>
       <!-- Depicts and captions for the whole image (FO 9.7), in a window of its own. Blue but
            not filled: detecting stays the main action. Disabled for files with more pages, where
            the data belongs to the whole file. -->
       <div class="cc-origineel-knop">
-        <cdx-button action="progressive" :disabled="busy || file.paginas > 1" :title="file.paginas > 1 ? t('original.button_pages') : t('original.button_help')" @click="originalOpen = true">
+        <!-- Only once there is something to add (wish Olaf): objects or AI suggestions. -->
+        <cdx-button action="progressive" :disabled="busy || file.paginas > 1 || !somethingToAdd" :title="file.paginas > 1 ? t('original.button_pages') : somethingToAdd ? t('original.button_help') : t('original.button_nothing')" @click="originalOpen = true">
           {{ t("original.button") }}
         </cdx-button>
-        <p class="cc-uitleg">{{ file.paginas > 1 ? t("original.button_pages") : t("original.button_help") }}</p>
+        <p v-if="file.paginas > 1" class="cc-uitleg">{{ t("original.button_pages") }}</p>
+        <p v-else-if="!somethingToAdd" class="cc-uitleg cc-niets-toe-te-voegen">{{ t("original.button_nothing") }}</p>
+        <!-- What can go back, as bullets (wish Olaf). -->
+        <div v-else class="cc-uitleg cc-naar-commons-uitleg">
+          <p>{{ t("original.help_intro") }}</p>
+          <!-- The same list as in the (i), with its sub-bullets (wish Olaf): one text for both. -->
+          <ul>
+            <li v-for="(item, k) in toCommonsList" :key="k">
+              {{ item.text }}
+              <ul v-if="item.sub.length"><li v-for="(sub, m) in item.sub" :key="m">{{ sub }}</li></ul>
+            </li>
+          </ul>
+          <p>{{ t("original.help_end") }}</p>
+        </div>
       </div>
       <original-data
         v-if="originalOpen"
@@ -464,6 +483,19 @@ const open = reactive({ captions: true, regios: true, beeldtaf: true, commons: t
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 // The window "Gegevens van deze afbeelding" (9.7).
 const originalOpen = ref(false);
+// Something that can go to Commons: objects on the image, AI suggestions (description, search
+// terms), or a caption on Commons that you may want to rewrite by hand (wish Olaf). Computed
+// lazily, so commonsCaptions (defined below) is ready when it is read.
+const somethingToAdd = computed(() => props.objects.length > 0 || Boolean(props.inventory?.zoektermen?.length || props.inventory?.samenvatting || props.inventory?.paginasoort) || commonsCaptions.value.length > 0);
+// The "- " and "  - " lines of the (i) of To Commons, as a list with sub-items.
+const toCommonsList = computed(() => {
+  const items = [];
+  for (const line of t("panel.info_tocommons_2").split("\n")) {
+    if (line.startsWith("- ")) items.push({ text: line.slice(2), sub: [] });
+    else if (line.startsWith("  - ") && items.length) items[items.length - 1].sub.push(line.slice(4));
+  }
+  return items;
+});
 
 // What the file already has on Commons (backlog 26): captions and depicts without a
 // position. Read with the file, free. Like the regions, only on page 1.

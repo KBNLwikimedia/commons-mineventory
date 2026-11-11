@@ -16,7 +16,7 @@
 [![SAM 3.1 en Muse Spark](https://img.shields.io/badge/AI-SAM%203.1%20%C2%B7%20Muse%20Spark-0467DF?logo=meta&logoColor=white)](docs/functioneel-ontwerp.md#6-detectie-en-beschrijving)
 
 <p align="center">
-  <img src="docs/screenshots/carrousel.gif" width="960" alt="Rondleiding langs de schermen van de Commons Mineventory: het werkblad met AI-objecten, maskers op een albumblad, zoektermen, regio's uit Commons, de beschrijving van een object, de vergroter, het Commons-concept, de gestructureerde gegevens en het objectenoverzicht">
+  <img src="docs/screenshots/carrousel.gif" width="960" alt="Rondleiding langs de schermen van de Commons Mineventory: het werkblad met AI-objecten, maskers op een albumblad, AI-zoektermen, beeldt af lokaliseren, de vergroter, Wat staat hierop?, het Commons-concept, Naar Commons, het objectenoverzicht en de changelog">
 </p>
 
 Een experimentele webapp om objecten te vinden in afbeeldingen op [Wikimedia Commons](https://commons.wikimedia.org/), ze uit te snijden als transparante PNG of als JPG, ze te laten beschrijven, en de uitsneden na controle weer op Commons te publiceren, met een koppeling naar het origineel. Een verdieping op [CropTool](https://commons.wikimedia.org/wiki/Commons:CropTool): niet één rechthoek met de hand, maar veel objecten tegelijk, gevonden met AI.
@@ -29,7 +29,7 @@ De app is afgeleid van de [Delpher Uitsnijder](https://github.com/ookgezellig/de
 
 ## Status
 
-Fase 1 is klaar (versie 0.37.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
+Fase 1 is klaar (versie 0.38.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
 
 ## Lokaal draaien
 
@@ -65,29 +65,38 @@ Opruimen volgens de bewaartermijnen (originelen 7 dagen, uitsneden 30 dagen, det
 - Uitsneden opslaan in volledige resolutie, als JPG (rechthoek) of transparante PNG (vorm), los of als zip; een overzicht van alle uitsneden en een prullenbak (met *Ongedaan maken*). Bij elke opgeslagen uitsnede staat hoe lang die nog bewaard wordt. De vergroter bladert met *Vorige* en *Volgende* door de objecten, en uitsnede en aangevulde versie zijn er te zoomen zoals in de hoofdviewer.
 - Een Commons-concept per uitsnede, te bewerken op een weergave zoals de bestandspagina op Commons: tabbladen *Bestandsinformatie* en *Gestructureerde gegevens*, met *Bewerken* en potloodjes. Bestandsnaam, caption en beschrijving (nl/en), datum, maker, inscripties (`{{Inscription}}`), licentie, categorieën, *beeldt af* (zoeken op Wikidata), de waarden van de overgenomen uitspraken, en een voorbeeld van de regio die het origineel zou krijgen. De velden van `{{Artwork}}`, `{{Book}}`, `{{Photograph}}` en `{{Map}}` volgen docs/artwork-velden.md.
 - De pagina **Objecten** met facetten (bron, AI-aangevuld, bestand, opgeslagen), ook voor de prullenbak: per bestand een miniatuur met een zoombare weergave die de maskers van de objecten toont, de vergroter op de pagina zelf (voor de prullenbak alleen om te bekijken), en bij een opgeslagen uitsnede *Bestand openen*, *Downloaden* en, lokaal, *Tonen in map*.
-- *Bijsnijden in CropTool* voor het hele bestand.
+- **Beeldt af, zonder regio**: items die op Commons al als *beeldt af* staan, maar zonder plek, laat je door de AI op de afbeelding zoeken, los of allemaal tegelijk. Groen is gevonden. Een woord dat al gezocht is, komt gratis uit de cache; wil je toch een nieuw antwoord, dan kies je *SAM opnieuw vragen*. Hernoem je een object naar het woord van zo'n item, dan wordt het ook aan dat item gekoppeld (met *Ongedaan maken*).
+- **Naar Commons**: de gestructureerde gegevens van de hele afbeelding als concept: *beeldt af* met het kader dat je vond, nieuwe objecten als reconciliatievoorstellen (je kiest zelf het Wikidata-item) en bijschriften (houden, vervangen, een taal toevoegen of je eigen tekst). Opslaan op Commons volgt in fase 2.
+- **Opnieuw beginnen** met een afbeelding (↻ bij *Bekeken*): alles van die afbeelding weg, met de keuze om de eerdere AI-antwoorden te houden (gratis) of de AI opnieuw te vragen.
+- In de bestandskop naast de bestandsnaam het M-id, het Q-id van het werk en kleine links naar *Bijsnijden in CropTool*, *Waar gebruikt* en de *Geschiedenis* op Commons; bij de collectie en locatie het logo van de instelling.
+- De pagina's *Objecten*, *Prullenbak*, *Changelog* en *Verbruik* met facetten, zoeken, sorteerbare kolommen, kaarten of een lijst, en exporteren naar JSON, CSV en Excel. Elke keuze (facet, zoekterm, sortering, weergave) staat in het adres, zodat je een link kunt delen.
 - Een volledig tweetalige interface (Nederlands en Engels, ook de foutmeldingen en de privacyverklaring) in de stijl van Wikimedia, met [Codex](https://doc.wikimedia.org/codex/latest/) en Vue 3, gebouwd met Vite. De server is Python (Flask); Node.js is alleen nodig om de frontend te bouwen.
 - Een RESTful API onder `/api/v1`, met OpenAPI-beschrijving.
 
 ## Schermafbeeldingen
 
-Klik op een afbeelding voor de volledige grootte. Afbeelding 4 tot en met 9 komen uit de proefmodus (`DETECTIE_MODUS=dummy`, nagebootste AI en gratis); de rest uit de live-modus. Alle afbeeldingen zijn van Commons en in het publieke domein.
+Klik op een afbeelding voor de volledige grootte. Alle schermafbeeldingen zijn van 11 november 2026 (versie 0.38.0), uit de live-modus. Alle afbeeldingen zijn van Commons en in het publieke domein. Dezelfde schermen staan als rondleiding op de [projectsite](https://kbnlwikimedia.github.io/commons-mineventory/#rondleiding).
 
 <table>
   <tr>
-    <td width="33%"><a href="docs/screenshots/01-werkblad-ai.png"><img src="docs/screenshots/01-werkblad-ai.png" alt="Het werkblad met objecten en maskers van de AI"></a><br><sub><b>1. Het werkblad.</b> Bekeken, Beeld, Beschrijven en vinden en Gevonden objecten (uitsneden); de AI-beschrijving van de hele afbeelding en de gevonden objecten met hun maskers.</sub></td>
-    <td width="33%"><a href="docs/screenshots/02-album-maskers.png"><img src="docs/screenshots/02-album-maskers.png" alt="Een albumblad met 23 gevonden objecten"></a><br><sub><b>2. Veel objecten tegelijk.</b> 23 objecten op een blad uit een album amicorum, met kaders en maskers.</sub></td>
-    <td width="33%"><a href="docs/screenshots/03-zoektermen-engels.png"><img src="docs/screenshots/03-zoektermen-engels.png" alt="AI-zoektermen met aantallen, in de Engelse interface"></a><br><sub><b>3. AI-zoektermen.</b> Per zoekterm hoeveel objecten er gevonden zijn, en alles in één keer detecteren. Hier in de Engelse interface.</sub></td>
+    <td width="50%"><a href="docs/screenshots/01-werkblad-ai.png"><img src="docs/screenshots/01-werkblad-ai.png" alt="Het werkblad"></a><br><sub><b>1. Het werkblad.</b> Bekeken, Beeld, Beschrijven en vinden en Gevonden objecten (uitsneden): 23 objecten met hun maskers op een stilleven, en de AI-beschrijving van de hele afbeelding.</sub></td>
+    <td width="50%"><a href="docs/screenshots/02-album-maskers.png"><img src="docs/screenshots/02-album-maskers.png" alt="Veel objecten tegelijk"></a><br><sub><b>2. Veel objecten tegelijk.</b> Een blad uit een album amicorum met kaders en maskers; in de kleurenlegenda kies je welke soorten in beeld blijven. Rechts het nieuwe uitklapblok Naar Commons.</sub></td>
   </tr>
   <tr>
-    <td><a href="docs/screenshots/04-regios-uit-commons.png"><img src="docs/screenshots/04-regios-uit-commons.png" alt="Dertien regio's uit de gestructureerde gegevens van Commons"></a><br><sub><b>4. Regio's uit Commons.</b> De dertien heiligen die op Commons al als <i>beeldt af</i> met positie staan, gratis als objecten.</sub></td>
-    <td><a href="docs/screenshots/05-wat-staat-hierop.png"><img src="docs/screenshots/05-wat-staat-hierop.png" alt="De AI-beschrijving van één object"></a><br><sub><b>5. Wat staat hierop?</b> Soort, onderwerp en beschrijving in het Nederlands en Engels, met AI-merkjes en voorstellen voor <i>beeldt af</i>.</sub></td>
-    <td><a href="docs/screenshots/06-vergroter.png"><img src="docs/screenshots/06-vergroter.png" alt="De vergroter met de uitsnede"></a><br><sub><b>6. De vergroter.</b> De uitsnede in volledige resolutie, bron en positie, bijschrift, downloaden als JPG of PNG.</sub></td>
+    <td width="50%"><a href="docs/screenshots/03-ai-zoektermen.png"><img src="docs/screenshots/03-ai-zoektermen.png" alt="AI-zoektermen"></a><br><sub><b>3. AI-zoektermen.</b> De AI stelt zoektermen voor bij de hele afbeelding; per term hoeveel objecten er gevonden zijn (groen), en alles in één keer lokaliseren. Hier in de Engelse interface.</sub></td>
+    <td width="50%"><a href="docs/screenshots/04-beeldt-af-lokaliseren.png"><img src="docs/screenshots/04-beeldt-af-lokaliseren.png" alt="Beeldt af, zonder regio"></a><br><sub><b>4. Beeldt af, zonder regio.</b> Items die op Commons al als ‘beeldt af’ staan, maar zonder plek: de AI zoekt waar ze op de afbeelding staan. Groen is gevonden; een woord dat al gezocht is, komt gratis uit de cache, of je vraagt SAM opnieuw.</sub></td>
   </tr>
   <tr>
-    <td><a href="docs/screenshots/07-commons-concept.png"><img src="docs/screenshots/07-commons-concept.png" alt="Het Commons-concept van een uitsnede"></a><br><sub><b>7. Het Commons-concept.</b> Bestandsnaam, formaat en bijschriften, zoals de uitsnede op Commons komt.</sub></td>
-    <td><a href="docs/screenshots/08-gestructureerde-gegevens.png"><img src="docs/screenshots/08-gestructureerde-gegevens.png" alt="De gestructureerde gegevens van een uitsnede"></a><br><sub><b>8. Gestructureerde gegevens.</b> <i>Beeldt af</i>, auteursrechtstatus, collectie en meer, te bewerken zoals op Commons.</sub></td>
-    <td><a href="docs/screenshots/09-objecten.png"><img src="docs/screenshots/09-objecten.png" alt="Het overzicht van alle opgeslagen objecten"></a><br><sub><b>9. Objecten.</b> Alle opgeslagen uitsneden, met hoe lang ze nog bewaard worden, en de prullenbak.</sub></td>
+    <td width="50%"><a href="docs/screenshots/05-vergroter.png"><img src="docs/screenshots/05-vergroter.png" alt="De vergroter"></a><br><sub><b>5. De vergroter.</b> De uitsnede in volledige resolutie, als transparante PNG of JPG, met bron, positie, bijschrift en downloaden; bladeren met Vorige en Volgende.</sub></td>
+    <td width="50%"><a href="docs/screenshots/06-wat-staat-hierop.png"><img src="docs/screenshots/06-wat-staat-hierop.png" alt="Wat staat hierop?"></a><br><sub><b>6. Wat staat hierop?.</b> Soort, onderwerp en beschrijving in het Nederlands en Engels, met AI-merkjes, eerdere beschrijvingen en voorstellen voor ‘beeldt af’.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/screenshots/07-commons-concept.png"><img src="docs/screenshots/07-commons-concept.png" alt="Het Commons-concept"></a><br><sub><b>7. Het Commons-concept.</b> Bestandsnaam, formaat, bijschriften en de bestandspagina zoals de uitsnede op Commons komt, met {{Extracted from}} en gestructureerde gegevens.</sub></td>
+    <td width="50%"><a href="docs/screenshots/08-naar-commons.png"><img src="docs/screenshots/08-naar-commons.png" alt="Naar Commons"></a><br><sub><b>8. Naar Commons.</b> De gestructureerde gegevens van de hele afbeelding: items die al op Commons staan krijgen het kader dat je vond, nieuwe objecten worden voorstellen, en bijschriften. Eerst een concept; niets gaat vanzelf naar Commons.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/screenshots/09-objecten.png"><img src="docs/screenshots/09-objecten.png" alt="Objecten"></a><br><sub><b>9. Objecten.</b> Alle objecten van alle afbeeldingen, met facetten, zoeken, sorteerbare kolommen, kaarten of een lijst, exporteren naar JSON, CSV en Excel, en de prullenbak.</sub></td>
+    <td width="50%"><a href="docs/screenshots/10-changelog.png"><img src="docs/screenshots/10-changelog.png" alt="Changelog en verbruik"></a><br><sub><b>10. Changelog en verbruik.</b> De changelog in de app, met facetten op soort wijziging, versie en datum, zoeken en exporteren; de pagina Verbruik werkt net zo.</sub></td>
   </tr>
 </table>
 

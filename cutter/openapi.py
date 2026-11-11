@@ -64,7 +64,7 @@ ENDPOINTS = [
     ("get", OBJECT + "/beschrijving/invoer.jpg", "Wat de AI-beeldbeschrijving zou zien, met ?marge= (0-1), het kader in rood; ?max= (tot 4000 px) voor een grotere versie", [MID, N, OID, _q("marge", "Ruimte rond het kader, 0-1"), _q("max", "Langste zijde in pixels, 1024-4000")], None, 200, False),
     ("patch", PAGE + "/objecten", "Selectie of status wijzigen", [MID, N], '{"geselecteerd": [ids]} | {"objecten": [{id, status}]}', 200, False),
     ("get", OBJECT, "Eén object (ook in de prullenbak)", [MID, N, OID], None, 200, False),
-    ("patch", OBJECT, "Object wijzigen: bijschrift, status, prullenbak", [MID, N, OID], '{"bijschrift": {"tekst"} | null, "status", "prullenbak": bool}', 200, False),
+    ("patch", OBJECT, "Object wijzigen: bijschrift, naam, status, prullenbak, item", [MID, N, OID], '{"bijschrift": {"tekst"} | null, "naam", "status", "prullenbak": bool, "item": {"q", "label"} | null}', 200, False),
     ("delete", OBJECT, "Object naar de prullenbak", [MID, N, OID], None, 200, False),
     ("get", OBJECT + "/uitsnede.jpg", "De rechthoek als JPG, in volledige resolutie (of een voorbeeld met w)", [MID, N, OID, _q("w", "Breedte van een voorbeeld", "integer")], None, 200, False),
     ("get", OBJECT + "/uitsnede.png", "De vorm van het object als transparante PNG, in volledige resolutie", [MID, N, OID], None, 200, False),

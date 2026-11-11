@@ -127,18 +127,38 @@ def render(source, out_dir):
     target.write_text(page, encoding="utf-8")
 
 
+# One line per document on the documentation index: what you find in it.
+DOC_INFO = {
+    "docs/functioneel-ontwerp.md": "Wat de app doet en waarom: de schermen, de AI, Commons, kosten, bewaartermijnen. Begin hier.",
+    "docs/api.md": "De REST-API onder /api/v1, met alle paden, parameters en antwoorden (ook als OpenAPI in de app).",
+    "docs/artwork-velden.md": "Welke velden van {{Artwork}}, {{Book}}, {{Photograph}} en {{Map}} de uitsnede overneemt.",
+    "docs/privacy.md": "Wat de app bewaart en naar wie iets gaat (concept).",
+    "docs/privacy.en.md": "The privacy statement in English (draft).",
+    "docs/overdracht.md": "De stand van zaken, afspraken en valkuilen, voor wie het werk overneemt.",
+    "docs/ontwerp-wat-is-dit.md": "Voorstel om Wat staat hierop? opnieuw in te delen.",
+    "docs/vergelijking-detectie-aanwijzing.md": "Een kleine vergelijking: helpt de aanwijzing uit de detectie de beschrijving?",
+    "BACKLOG.md": "Wat nog komt, in volgorde, met de fasen.",
+    "CHANGELOG.md": "Alle wijzigingen per versie.",
+}
+
+
 def docs_index(out_dir):
+    version = re.search(r'"version":\s*"([^"]+)"', (ROOT / "package.json").read_text(encoding="utf-8")).group(1)
     items = "".join(
-        '<li><a href="../{href}">{name}</a> <span class="file">{src}</span></li>'.format(
-            href=dst, name=html.escape(name), src=html.escape(src)
+        '<li><a href="../{href}">{name}</a> <span class="file">{src}</span><br><span class="what">{what}</span></li>'.format(
+            href=dst, name=html.escape(name), src=html.escape(src), what=html.escape(DOC_INFO.get(src, ""))
         )
         for src, (dst, name) in DOCS.items()
     )
     body = (
         "<h1>Documentatie</h1>"
-        "<p>De documentatie van de Commons Mineventory, in het Nederlands. Begin bij het "
+        "<p>De documentatie van de Commons Mineventory, in het Nederlands (de privacyverklaring ook in het Engels), "
+        "bij versie " + html.escape(version) + ". Begin bij het "
         '<a href="functioneel-ontwerp.html">functioneel ontwerp</a>; wie het werk overneemt, leest ook de '
-        '<a href="overdracht.html">overdracht</a>. De werkende app komt op Wikimedia Toolforge.</p>'
+        '<a href="overdracht.html">overdracht</a>. Wat er per versie veranderde, staat in de '
+        '<a href="../changelog.html">changelog</a>; een '
+        '<a href="../index.html#rondleiding">rondleiding langs de schermen</a> staat op de beginpagina. '
+        "De werkende app draait nu lokaal en komt op Wikimedia Toolforge.</p>"
         '<ul class="doclist">' + items + "</ul>"
     )
     page = TEMPLATE.format(

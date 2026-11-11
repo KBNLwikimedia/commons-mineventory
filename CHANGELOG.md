@@ -5,6 +5,24 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-11
+
+### Toegevoegd
+
+- Nieuwe schermafbeeldingen (11 november 2026, versie 0.38.0) in de README en de rondleiding op de projectsite: tien schermen, waaronder *Beeldt af* lokaliseren, *Naar Commons*, het objectenoverzicht als lijst en de changelog met facetten; een nieuwe `carrousel.gif`. README en beginpagina van de site noemen de nieuwe functies; de documentatie-index op de site zegt per document wat erin staat en bij welke versie hij hoort.
+- Een beschrijving van de afbeelding die als Commons-bijschrift is gemaakt (hooguit 250 tekens), telt de tekens terwijl je de samenvatting met de hand aanpast; te lang kan niet worden opgeslagen (wens Olaf).
+- Hernoem je een object (potlood) naar het woord van een *Beeldt af*-item (label of zoekwoord, hoofdletters tellen niet), dan wordt het ook aan dat item gekoppeld: het telt daar mee (groen) en gaat met zijn kader naar Commons. Een koppeling aan een ander *Beeldt af*-item vervalt. Met een melding en *Ongedaan maken*. API: `"item"` bij `PATCH …/objecten/{id}` (wens Olaf: *child 3* hernoemd tot *doll*).
+
+### Gewijzigd
+
+- De kostenbevestiging van *Wat staat op deze pagina?* noemt de drie dingen die de AI maakt als opsomming (wens Olaf).
+- De knoppen *Beschrijving opnieuw* en *Verwijderen* lopen in een smalle kolom door op een nieuwe regel in plaats van afgekapt te worden.
+- *Toevoegen aan gestructureerde gegevens (op Commons)* is uitgeschakeld zolang er niets toe te voegen is (geen objecten, geen AI-suggesties en geen bijschrift op Commons om met de hand te herschrijven), met de reden eronder (wens Olaf).
+- Elk uitklapblok begint met een korte uitleg in één stijl (wat je er doet, en wat er daarna gebeurt): *Van Commons*, *AI-suggesties voor deze afbeelding*, *Zoeken*, *Aanwijzen of tekenen*, *Naar Commons*, *Kleurenlegenda*, *Bulkacties* en *Opslaan en exporteren* (wens Olaf).
+- *AI-suggesties voor deze afbeelding*: de zin dat de suggesties bij de afbeelding horen (en hoe je ze weghaalt), staat er pas als er suggesties zijn, niet bij de eerste vraag (wens Olaf).
+- De (i)-uitleg kan sub-opsommingen hebben (regels met `  - `); bij *Naar Commons* zo voor beeldt af (items uit Commons krijgen een kader; andere objecten worden reconciliatievoorstellen, je kiest zelf het best passende Wikidata-item) en de vier keuzes voor bijschriften (wens Olaf).
+- *Naar Commons*: de uitleg onder de knop als opsomming (beeldt af, bijschrift), met *kader* in plaats van *plaats*, en een kortere knop: *Toevoegen aan gestructureerde gegevens (op Commons)* (de kop zegt al *Naar Commons*; wens Olaf).
+
 ## [0.37.0] - 2026-11-10
 
 ### Toegevoegd

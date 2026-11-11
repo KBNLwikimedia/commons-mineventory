@@ -443,12 +443,13 @@ def get_object(mid, n, object_id):
 
 @api.patch("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>")
 def patch_object(mid, n, object_id):
-    """{"bijschrift": {"tekst"} | null}, {"naam": "…" | null}, {"status": …} and/or
-    {"prullenbak": true | false}. The name is your own name for the object in the list."""
+    """{"bijschrift": {"tekst"} | null}, {"naam": "…" | null}, {"status": …},
+    {"prullenbak": true | false} and/or {"item": {"q", "label"} | null}. The name is your own
+    name for the object in the list; "item" links it to a Wikidata item (or removes the link)."""
     body = _body()
-    fields = {"bijschrift", "naam", "status", "prullenbak"}
+    fields = {"bijschrift", "naam", "status", "prullenbak", "item"}
     if not body or not set(body) <= fields:
-        raise DetectionError("Te wijzigen: 'bijschrift', 'naam', 'status' en 'prullenbak'.", status=400)
+        raise DetectionError("Te wijzigen: 'bijschrift', 'naam', 'status', 'prullenbak' en 'item'.", status=400)
     file = _page_file(mid, n)
     service = _service()
     if "prullenbak" in body:
@@ -462,6 +463,8 @@ def patch_object(mid, n, object_id):
         service.set_caption(file, n, object_id, body["bijschrift"])
     if "naam" in body:
         service.set_name(file, n, object_id, body["naam"])
+    if "item" in body:
+        service.set_item(file, n, object_id, body["item"])
     return jsonify(service.get_object(file, n, object_id))
 
 

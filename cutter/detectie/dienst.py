@@ -868,6 +868,30 @@ class DetectionService:
         return self.public(file, n, obj)
 
     @_locked
+    def set_item(self, file, n, object_id, value):
+        """Link an object to a Wikidata item ({"q": "Q…", "label": "…"}) or remove the link
+        (None). Used when you rename an object to the word of a depicts item (wish Olaf): it then
+        counts for that item and goes to Commons as its depicts with this bounding box."""
+        if value is not None and not (isinstance(value, dict) and isinstance(value.get("q"), str) and re.fullmatch(r"Q\d+", value["q"])):
+            raise DetectionError('Geef item als {"q": "Q…", "label": "…"} of null.', status=400, code="invalid_body")
+        store = self._load_store(file, n)
+        obj = self._find_in(store, object_id)
+        if value is None:
+            obj.pop("wikidata", None)
+            obj.pop("label_item", None)
+            obj.get("herkomst", {}).pop("item", None)
+        else:
+            obj["wikidata"] = value["q"]
+            label = value.get("label")
+            if isinstance(label, str) and label.strip() and label.strip() != value["q"]:
+                obj["label_item"] = " ".join(label.split())[:120]
+            else:
+                obj.pop("label_item", None)
+            obj.setdefault("herkomst", {})["item"] = value["q"]
+        self._write_store(file, n, store)
+        return self.public(file, n, obj)
+
+    @_locked
     def set_field(self, file, n, object_id, key, value):
         """Store a field on an object (e.g. the Commons concept) and return it."""
         store = self._load_store(file, n)

@@ -37,9 +37,13 @@
             <template #label>{{ t(`page.field_${field}`) }}</template>
             <cdx-text-area v-if="group.long || field.startsWith('samenvatting')" v-model="draft[field]" :autosize="true" @keydown.esc.stop.prevent="cancel" />
             <cdx-text-input v-else v-model="draft[field]" @keydown.esc.stop.prevent="cancel" @keydown.enter="save" />
+            <!-- A Commons caption may hold at most 250 characters: count while you edit (wish Olaf). -->
+            <template v-if="captionField(field)" #help-text>
+              <span :class="{ 'cc-te-lang': captionLength(field) > CAPTION_MAX }">{{ t(captionLength(field) > CAPTION_MAX ? "page.caption_too_long" : "original.caption_count", { n: captionLength(field), max: CAPTION_MAX }) }}</span>
+            </template>
           </cdx-field>
           <div class="cc-knoppen">
-            <cdx-button action="progressive" weight="primary" :disabled="!changed || busy" @click="save">{{ t("actions.save_short") }}</cdx-button>
+            <cdx-button action="progressive" weight="primary" :disabled="!changed || busy || captionTooLong" @click="save">{{ t("actions.save_short") }}</cdx-button>
             <cdx-button @click="cancel">{{ t("actions.cancel") }}</cdx-button>
           </div>
         </div>
@@ -190,8 +194,13 @@ function cancel() {
   editing.value = null;
   draft.value = {};
 }
+// A description made as a Commons caption: its summary must stay within 250 characters.
+const CAPTION_MAX = 250;
+const captionField = (field) => props.inventory?.beschrijvingsniveau === "caption" && field.startsWith("samenvatting");
+const captionLength = (field) => (draft.value[field] || "").split(/\s+/).filter(Boolean).join(" ").length;
+const captionTooLong = computed(() => Object.keys(draft.value).some((f) => captionField(f) && captionLength(f) > CAPTION_MAX));
 function save() {
-  if (changed.value) saveTexts({ ...draft.value });
+  if (changed.value && !captionTooLong.value) saveTexts({ ...draft.value });
 }
 
 // "Ongedaan maken": the texts as they were before the last change.

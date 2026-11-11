@@ -25,14 +25,19 @@
     @default="open = false"
   >
     <!-- **text** in a paragraph is shown bold (no HTML from the texts); lines starting
-         with "- " become a bulleted list. -->
+         with "- " become a bulleted list, lines with "  - " a list under the item before. -->
     <template v-for="(block, i) in blocks" :key="i">
       <p v-if="block.text">
         <template v-for="(part, j) in block.text.split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
       </p>
       <ul v-if="block.items.length" class="cc-info-lijst">
         <li v-for="(item, k) in block.items" :key="k">
-          <template v-for="(part, j) in item.split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
+          <template v-for="(part, j) in item.text.split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
+          <ul v-if="item.sub.length">
+            <li v-for="(sub, m) in item.sub" :key="m">
+              <template v-for="(part, j) in sub.split('**')" :key="j"><strong v-if="j % 2">{{ part }}</strong><template v-else>{{ part }}</template></template>
+            </li>
+          </ul>
         </li>
       </ul>
     </template>
@@ -59,8 +64,12 @@ const open = ref(false);
 const blocks = computed(() =>
   (props.paragraphs || []).map((paragraph) => {
     const lines = String(paragraph).split("\n");
-    const items = lines.filter((line) => line.startsWith("- ")).map((line) => line.slice(2));
-    return { text: lines.filter((line) => !line.startsWith("- ")).join(" ").trim(), items };
+    const items = [];
+    for (const line of lines) {
+      if (line.startsWith("- ")) items.push({ text: line.slice(2), sub: [] });
+      else if (line.startsWith("  - ") && items.length) items[items.length - 1].sub.push(line.slice(4)); // a sub-bullet (wish Olaf)
+    }
+    return { text: lines.filter((line) => !line.trimStart().startsWith("- ")).join(" ").trim(), items };
   })
 );
 </script>

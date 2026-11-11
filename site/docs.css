@@ -60,3 +60,4 @@ footer p { margin: 4px 0; }
   .menu { position: static; max-height: none; border-bottom: 1px solid var(--border-subtle); }
   .menu .toc { display: none; }
 }
+ul.doclist .what { color: var(--subtle); font-size: .9rem; }

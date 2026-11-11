@@ -791,7 +791,7 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-termen-bron { margin: 0.25rem 0 0.5rem; }
 .cc-termen-bron .cc-schuif-compact { margin: 0; }
 /* Always side by side; in a narrow column the button texts wrap instead of the buttons. */
-.cc-termen-knoppen { display: flex; flex-wrap: nowrap; align-items: center; gap: 0.75rem; margin-top: 0.15rem; }
+.cc-termen-knoppen { display: flex; flex-wrap: wrap; align-items: center; column-gap: 0.75rem; row-gap: 0.25rem; margin-top: 0.15rem; } /* wraps in a narrow column instead of cutting the buttons off */
 .cc-termen-knoppen .cdx-button { white-space: normal; text-align: left; min-width: 0; max-width: none; height: auto; }
 .cc-termen-bron .cc-schuif-compact input[type="range"] { max-width: 9rem; }
 
@@ -881,6 +881,11 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 /* "Gegevens van deze afbeelding" (FO 9.7): a wide window with two tabs. */
 .cc-origineel.cdx-dialog { max-width: 52rem; width: 95vw; }
 .cc-origineel-knop { margin-top: 0.75rem; }
+.cc-naar-commons-uitleg p { margin: 0.25rem 0; }
+.cc-naar-commons-uitleg ul { margin: 0.25rem 0; padding-left: 1.25rem; }
+.cc-naar-commons-uitleg ul ul { margin: 0.1rem 0; }
+/* The long label wraps instead of being cut off in a narrow column. */
+.cc-origineel-knop .cdx-button { white-space: normal; height: auto; max-width: 100%; text-align: left; }
 .cc-origineel-commons { margin: 0 0 0.25rem; padding-left: 1.1rem; font-size: 0.875rem; }
 .cc-origineel-commons li { margin: 0.15rem 0; }
 .cc-merkje { margin-left: 0.35rem; padding: 0 0.3em; border-radius: 2px; background: #fef6e7; color: #705000; font-size: 0.75rem; }

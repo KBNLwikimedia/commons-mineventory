@@ -611,6 +611,18 @@ def test_rename_object(http):
     assert "naam" not in http.patch(url, json={"naam": ""}).get_json()
 
 
+def test_link_object_to_an_item_and_back(http):
+    """PATCH {"item": {"q", "label"}} links an object to a depicts item (rename to its word,
+    wish Olaf); null removes the link."""
+    found = http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "basket"}).get_json()
+    url = f"{PAGE}/objecten/{found['objecten'][0]['id']}"
+    linked = http.patch(url, json={"naam": "doll", "item": {"q": "Q168658", "label": "doll"}}).get_json()
+    assert linked["naam"] == "doll" and linked["wikidata"] == "Q168658"
+    assert http.patch(url, json={"item": {"q": "doll"}}).status_code == 400
+    unlinked = http.patch(url, json={"item": None}).get_json()
+    assert not unlinked.get("wikidata")
+
+
 
 def test_detection_says_where_hits_went(http):
     first = http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "grape bunch"}).get_json()

@@ -40,6 +40,7 @@
       <!-- The (i) in the heading (wish Olaf): a button in the heading does not fold it. -->
       <!-- A click on the (i) also unfolds the legend, so its explanation and the rows go together (wish Olaf). -->
       <template #title>{{ t("legend.title") }} <span class="cc-legenda-info" @click.capture="unfoldLegend"><info-dialog :title="t('legend.info_title')" :label="t('legend.info_label')" :paragraphs="colourInfo" /></span></template>
+      <p class="cc-uitleg cc-sectie-intro">{{ t("legend.intro") }}</p>
       <!-- The label in a fixed column, so the checkboxes of both rows start at the same place,
            and a second line starts under the first checkbox (wish Olaf). -->
       <div v-if="show.boxen && legend.length" class="cc-legenda-rij">

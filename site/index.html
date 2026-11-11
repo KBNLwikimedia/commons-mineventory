@@ -197,6 +197,21 @@
              <span lang="en">As JPG (the rectangle) or transparent PNG (the shape), one by one or as a zip, always from the original.</span></p>
         </div>
         <div class="card">
+          <h3><span lang="nl">‘Beeldt af’ lokaliseren</span><span lang="en">Locate ‘depicts’ items</span></h3>
+          <p><span lang="nl">Items die op Commons al als ‘beeldt af’ staan, maar zonder plek, laat je door de AI op de afbeelding zoeken. Een woord dat al gezocht is, komt gratis uit de cache; of vraag SAM opnieuw.</span>
+             <span lang="en">Items already on Commons as ‘depicts’, but without a place, are located on the image by the AI. A word searched before comes free from the cache; or ask SAM anew.</span></p>
+        </div>
+        <div class="card">
+          <h3><span lang="nl">Terug naar het origineel</span><span lang="en">Back to the original</span></h3>
+          <p><span lang="nl">Naar Commons: ‘beeldt af’ met het kader dat je vond, nieuwe items als voorstellen en bijschriften, voor de hele afbeelding. Eerst een concept; je bevestigt alles zelf.</span>
+             <span lang="en">To Commons: ‘depicts’ with the box you found, new items as proposals, and captions, for the whole image. A draft first; you confirm everything yourself.</span></p>
+        </div>
+        <div class="card">
+          <h3><span lang="nl">Overzicht en export</span><span lang="en">Overview and export</span></h3>
+          <p><span lang="nl">Objecten, prullenbak, changelog en verbruik met facetten, zoeken en sorteerbare kolommen; exporteren naar JSON, CSV en Excel. Elke keuze staat in het adres.</span>
+             <span lang="en">Objects, trash, changelog and usage with facets, search and sortable columns; export to JSON, CSV and Excel. Every choice is kept in the address.</span></p>
+        </div>
+        <div class="card">
           <h3><span lang="nl">Klaar voor Commons</span><span lang="en">Ready for Commons</span></h3>
           <p><span lang="nl">Per uitsnede een concept zoals de bestandspagina: bestandsnaam, captions, licentie, categorieën, <code>{{Extracted from}}</code> en gestructureerde gegevens.</span>
              <span lang="en">For each cut-out a draft like the file page: file name, captions, licence, categories, <code>{{Extracted from}}</code> and structured data.</span></p>
@@ -250,7 +265,7 @@
       <div class="phases">
         <div class="phase done"><div class="st"><span lang="nl">Klaar</span><span lang="en">Done</span></div>
           <h3><span lang="nl">Fase 1: lokaal</span><span lang="en">Phase 1: local</span></h3>
-          <p><span lang="nl">Openen, detecteren, beschrijven, uitsnijden, Commons-concept, REST-API, tweetalige interface.</span><span lang="en">Open, detect, describe, cut out, Commons draft, REST API, bilingual interface.</span></p></div>
+          <p><span lang="nl">Openen, detecteren, beschrijven, uitsnijden, Commons-concept, ‘beeldt af’ lokaliseren, REST-API, tweetalige interface (versie 0.38.0).</span><span lang="en">Open, detect, describe, cut out, Commons draft, locating ‘depicts’ items, REST API, bilingual interface (version 0.38.0).</span></p></div>
         <div class="phase next"><div class="st"><span lang="nl">Volgende</span><span lang="en">Next</span></div>
           <h3><span lang="nl">Fase 2: inloggen en uploaden</span><span lang="en">Phase 2: log in and upload</span></h3>
           <p><span lang="nl">OAuth met je Wikimedia-account, uploaden naar een testwiki, beheerpaneel.</span><span lang="en">OAuth with your Wikimedia account, uploads to a test wiki, admin panel.</span></p></div>
@@ -304,32 +319,35 @@
   "use strict";
   var SLIDES = [
     { file: "01-werkblad-ai.png",
-      nl: ["Het werkblad", "Bekeken, Beeld, Objecten zoeken en Wat je vond: de AI-beschrijving van de hele afbeelding en de gevonden objecten met hun maskers."],
-      en: ["The worksheet", "Viewed, Image, Find objects and What you found: the AI description of the whole image and the objects found, with their masks."] },
+      nl: ["Het werkblad", "Bekeken, Beeld, Beschrijven en vinden en Gevonden objecten (uitsneden): 23 objecten met hun maskers op een stilleven, en de AI-beschrijving van de hele afbeelding."],
+      en: ["The worksheet", "Viewed, Image, Describe and find, and Found objects (cut-outs): 23 objects with their masks on a still life, and the AI description of the whole image."] },
     { file: "02-album-maskers.png",
-      nl: ["Veel objecten tegelijk", "23 objecten op een blad uit een album amicorum, met kaders en maskers."],
-      en: ["Many objects at once", "23 objects on a leaf from an album amicorum, with boxes and masks."] },
-    { file: "03-zoektermen-engels.png",
-      nl: ["AI-zoektermen", "Per zoekterm hoeveel objecten er gevonden zijn, en alles in één keer detecteren. Hier in de Engelse interface."],
-      en: ["AI search terms", "How many objects were found per search term, and detecting them all at once. Shown in the English interface."] },
-    { file: "04-regios-uit-commons.png",
-      nl: ["Regio's uit Commons", "De dertien heiligen die op Commons al als ‘beeldt af’ met positie staan, gratis als objecten. (Proefmodus)"],
-      en: ["Regions from Commons", "The thirteen saints already on Commons as ‘depicts’ with a position, as free objects. (Demo mode)"] },
-    { file: "05-wat-staat-hierop.png",
-      nl: ["Wat staat hierop?", "Soort, onderwerp en beschrijving in het Nederlands en Engels, met AI-merkjes en voorstellen voor ‘beeldt af’."],
-      en: ["What is on this?", "Type, subject and description in Dutch and English, with AI badges and suggestions for ‘depicts’."] },
-    { file: "06-vergroter.png",
-      nl: ["De vergroter", "De uitsnede in volledige resolutie, bron en positie, bijschrift, downloaden als JPG of PNG. (Proefmodus)"],
-      en: ["The magnifier", "The cut-out at full resolution, source and position, caption, download as JPG or PNG. (Demo mode)"] },
+      nl: ["Veel objecten tegelijk", "Een blad uit een album amicorum met kaders en maskers; in de kleurenlegenda kies je welke soorten in beeld blijven. Rechts het nieuwe uitklapblok Naar Commons."],
+      en: ["Many objects at once", "A leaf from an album amicorum with boxes and masks; in the colour legend you choose which kinds stay in view. On the right the new To Commons section."] },
+    { file: "03-ai-zoektermen.png",
+      nl: ["AI-zoektermen", "De AI stelt zoektermen voor bij de hele afbeelding; per term hoeveel objecten er gevonden zijn (groen), en alles in één keer lokaliseren. Hier in de Engelse interface."],
+      en: ["AI search terms", "The AI suggests search terms for the whole image; per term how many objects were found (green), and locating them all at once. Shown in the English interface."] },
+    { file: "04-beeldt-af-lokaliseren.png",
+      nl: ["Beeldt af, zonder regio", "Items die op Commons al als ‘beeldt af’ staan, maar zonder plek: de AI zoekt waar ze op de afbeelding staan. Groen is gevonden; een woord dat al gezocht is, komt gratis uit de cache, of je vraagt SAM opnieuw."],
+      en: ["Depicts, without a location", "Items already on Commons as ‘depicts’, but without a place: the AI finds where they are on the image. Green means found; a word searched before comes free from the cache, or you ask SAM anew."] },
+    { file: "05-vergroter.png",
+      nl: ["De vergroter", "De uitsnede in volledige resolutie, als transparante PNG of JPG, met bron, positie, bijschrift en downloaden; bladeren met Vorige en Volgende."],
+      en: ["The magnifier", "The cut-out at full resolution, as a transparent PNG or a JPG, with source, position, caption and download; browse with Previous and Next."] },
+    { file: "06-wat-staat-hierop.png",
+      nl: ["Wat staat hierop?", "Soort, onderwerp en beschrijving in het Nederlands en Engels, met AI-merkjes, eerdere beschrijvingen en voorstellen voor ‘beeldt af’."],
+      en: ["What is on this?", "Type, subject and description in Dutch and English, with AI badges, earlier descriptions and suggestions for ‘depicts’."] },
     { file: "07-commons-concept.png",
-      nl: ["Het Commons-concept", "Bestandsnaam, formaat en captions, zoals de uitsnede op Commons komt. (Proefmodus)"],
-      en: ["The Commons draft", "File name, format and captions, as the cut-out will appear on Commons. (Demo mode)"] },
-    { file: "08-gestructureerde-gegevens.png",
-      nl: ["Gestructureerde gegevens", "‘Beeldt af’, auteursrechtstatus, collectie en meer, te bewerken zoals op Commons. (Proefmodus)"],
-      en: ["Structured data", "‘Depicts’, copyright status, collection and more, editable as on Commons. (Demo mode)"] },
+      nl: ["Het Commons-concept", "Bestandsnaam, formaat, bijschriften en de bestandspagina zoals de uitsnede op Commons komt, met {{Extracted from}} en gestructureerde gegevens."],
+      en: ["The Commons draft", "File name, format, captions and the file page as the cut-out will appear on Commons, with {{Extracted from}} and structured data."] },
+    { file: "08-naar-commons.png",
+      nl: ["Naar Commons", "De gestructureerde gegevens van de hele afbeelding: items die al op Commons staan krijgen het kader dat je vond, nieuwe objecten worden voorstellen, en bijschriften. Eerst een concept; niets gaat vanzelf naar Commons."],
+      en: ["To Commons", "The structured data of the whole image: items already on Commons get the box you found, new objects become proposals, plus captions. A draft first; nothing goes to Commons by itself."] },
     { file: "09-objecten.png",
-      nl: ["Objecten", "Alle opgeslagen uitsneden, met hoe lang ze nog bewaard worden, en de prullenbak. (Proefmodus)"],
-      en: ["Objects", "All saved cut-outs, with how long they will still be kept, and the bin. (Demo mode)"] }
+      nl: ["Objecten", "Alle objecten van alle afbeeldingen, met facetten, zoeken, sorteerbare kolommen, kaarten of een lijst, exporteren naar JSON, CSV en Excel, en de prullenbak."],
+      en: ["Objects", "All objects of all images, with facets, search, sortable columns, cards or a list, export to JSON, CSV and Excel, and the trash."] },
+    { file: "10-changelog.png",
+      nl: ["Changelog en verbruik", "De changelog in de app, met facetten op soort wijziging, versie en datum, zoeken en exporteren; de pagina Verbruik werkt net zo."],
+      en: ["Changelog and usage", "The changelog in the app, with facets on kind of change, version and date, search and export; the Usage page works the same way."] }
   ];
   var UI = {
     nl: { prev: "Vorige", next: "Volgende", pause: "❚❚ Pauze", play: "▶ Afspelen", slide: "Dia", of: "van", enlarge: "Klik om te vergroten" },
