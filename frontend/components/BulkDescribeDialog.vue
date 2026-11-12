@@ -82,7 +82,7 @@
     <cdx-field class="cc-aanwijzing">
       <template #label>{{ t("describe.hint") }}</template>
       <template #help-text>{{ t("bulkdescribe.hint_help") }}</template>
-      <cdx-text-input v-model="hint" :placeholder="t('describe.hint_placeholder')" :maxlength="300" />
+      <cdx-text-input clearable v-model="hint" :placeholder="t('describe.hint_placeholder')" :maxlength="300" />
     </cdx-field>
     <!-- 2. The length, from a few words via a Commons caption (at most 250 characters) to a paragraph. -->
     <!-- A Commons caption in one click, with the Commons mark, as for the whole image (wish Olaf). -->

@@ -5,6 +5,20 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-11-12
+
+### Toegevoegd
+
+- Een **slotje** helemaal rechts in de titel van elk van de vijf uitklappers van het detectiepaneel (*Van Commons*, *AI-suggesties*, *Zoeken*, *Aanwijzen of tekenen*, *Naar Commons*): op slot blijft de uitklapper uitgevouwen of ingevouwen zoals hij was, ook na opnieuw laden en bij een andere afbeelding, en vouwt de titel hem niet meer in of uit (wens Olaf). Ook de links van de app zelf (bijv. *Zoek het* na niets gevonden) vouwen hem dan niet uit; ze scrollen er alleen naartoe. Bewaard in de browser (`cc-uitklap-vast`). Het ⓘ-venster van elke uitklapper legt het slotje uit en zegt hoe het nu staat.
+
+### Gewijzigd
+
+- **Kleuren van meldingen** volgen één regel (besluit Olaf, Codex): rood alleen als er iets misging, geel voor wat je moet weten of ongedaan kunt maken, groen als het lukte. *Naar de prullenbak* (ook in bulk en op de pagina *Objecten*), *samengevoegd*, *al in de prullenbak*, *hernoemd en gekoppeld* en *bestand hernoemd* waren grijs en zijn nu geel; *geen dubbelingen* en *al beschreven* waren rood en zijn nu geel; *kopiëren mislukt* was geel en is nu rood.
+- De melding onder een knop in het detectiepaneel (gevonden, samengevoegd, in de prullenbak met *Terugzetten*, niets gevonden met de andere wegen) is één onderdeel in plaats van zes kopieën; onder *Zoeken* staat bij niets gevonden geen link meer naar *Zoeken* zelf (wens Olaf).
+- Opgeruimd na de vereenvoudigingen: het zoekveld naast de afbeelding slaat nu ook bij een **groep** met een eigen naam de AI-zoekterm over (zoals de pagina *Objecten* en de export al deden); de oude eigen zoekwoorden van de *beeldt af*-knoppen worden uit de browser gewist; negen ongebruikte vertalingen zijn weg.
+- Het veld *AI-hint* bij Aanwijzen en bij Tekenen is alleen te gebruiken als de schakelaar erboven aanstaat; anders staat het grijs (wens Olaf).
+- Alle korte zoek- en hintvelden hebben een kruisje om ze leeg te maken, zoals het zoekveld boven de objecten al had: *Zoeken*, de AI-hints bij Aanwijzen en Tekenen, de hint bij *Beschrijven* (ook in bulk), het zoeken naar een *beeldt af*-item of een categorie, en het zoeken bij *Gegevens van het origineel* (wens Olaf). Velden met een beschrijving, bijschrift of naam krijgen het niet.
+
 ## [0.40.0] - 2026-11-12
 
 ### Toegevoegd

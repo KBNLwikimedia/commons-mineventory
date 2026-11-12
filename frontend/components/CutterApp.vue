@@ -513,7 +513,10 @@ function objectText(o) {
   // A name of your own replaces the AI's search term (wish Olaf, 12-11-2026): "car" no longer
   // finds the suitcase that was found as "cardboard box".
   // (label and label_nl are that term and its Dutch, so they go too; label_item is the Wikidata item.)
-  const ai = o.naam ? [] : [o.label, o.label_nl, o.zoekterm];
+  // The same rule as the Objects page and the export (facets.js, api.py): a group's name counts as
+  // a name of its own, and a region from Commons keeps its label (that is Commons' word, not the AI's).
+  const own = o.naam || o.groep?.naam;
+  const ai = own ? (o.bron === "commons" ? [o.label] : []) : [o.label, o.label_nl, o.zoekterm];
   return [listNames.value[o.id], o.naam, ...ai, o.label_item, o.wikidata, o.bijschrift?.tekst, ...description]
     .filter(Boolean)
     .join(" ")
@@ -554,6 +557,9 @@ const magnified = computed(() => objects.value.find((o) => o.id === magnifiedId.
 let noticeId = 0;
 // A notice shows at the top of the page, or with where: "objecten" in the objects column,
 // where the action it reports on took place.
+/* Colours of messages (Codex, decision Olaf 12-11-2026): "error" (red) only when something went
+   wrong; "warning" (yellow) for anything to note or to undo (to the trash, nothing found, merged);
+   "success" (green) when it worked; "notice" (grey) only for fixed explanations, not as a message. */
 function notify(type, text, extra = {}) {
   notices.value = [...notices.value.slice(-3), { id: ++noticeId, type, text, ...extra }];
 }
@@ -610,7 +616,7 @@ async function openFile(text) {
     const isMid = /^m\d+$/i.test(text.trim());
     const found = await get(`${API}/bestand${query(isMid ? { mid: text.trim() } : { url: text.trim() })}`);
     file.value = found;
-    if (found.doorverwezen_van) notify("notice", t("file.redirected", { from: found.doorverwezen_van, to: found.titel }));
+    if (found.doorverwezen_van) notify("warning", t("file.redirected", { from: found.doorverwezen_van, to: found.titel }));
     if (found.ondersteund) await goToPage(start.mid === found.mid && start.pagina ? Number(start.pagina) : 1);
   } catch (error) {
     file.value = null;
@@ -761,7 +767,7 @@ async function renameObject(id, name) {
     if ("item" in body) {
       const oldLabel = before.item ? depictsItems().find((item) => item.q === before.item.q)?.label || before.item.label || before.item.q : "";
       const text = body.item ? t("objects.renamed_linked", { item: match.label, q: match.q }) : t("objects.renamed_unlinked", { item: oldLabel });
-      notify("notice", text, {
+      notify("warning", text, {
         where: "objecten",
         object: shownObject(changed, n),
         actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => undoRename(id, n, mid, before) }],
@@ -982,7 +988,7 @@ async function trashMany(members, name, title) {
     if (magnifierOpen.value && ids.includes(magnifiedId.value)) magnifierOpen.value = false;
     if (result) objects.value = result.objecten;
     refreshTrashTerms(n);
-    notify("notice", t(ids.length === 1 ? "panel.bulk_trashed_one" : "panel.bulk_trashed", { n: ids.length, term: name }), {
+    notify("warning", t(ids.length === 1 ? "panel.bulk_trashed_one" : "panel.bulk_trashed", { n: ids.length, term: name }), {
       where: "objecten",
       actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreMany(ids, n, mid, name) }],
       link: { href: "/objecten?tab=prullenbak", label: t("objects.to_trash") },
@@ -1106,7 +1112,7 @@ async function mergeDuplicates(scope = "alle") {
     const pairs = (result.paren || []).map((pair) => t("detect.merged_pair", { gone: objectName(pair.weg, props.config.taal, t), kept: objectName(pair.in, props.config.taal, t) }));
     actionResult.value = result.samengevoegd
       ? { type: "success", text: t("detect.merged_list", { n: result.samengevoegd }), list: pairs }
-      : { type: "error", text: t("objects.merged_none") };
+      : { type: "warning", text: t("objects.merged_none") };
   } catch (error) {
     failInTab(error);
   }
@@ -1161,7 +1167,7 @@ async function describeAll(scope = "selectie") {
       : objects.value.filter((o) => o.status === "geselecteerd");
   const chosen = among.filter((o) => !o.beschrijving);
   if (!chosen.length) {
-    actionResult.value = { type: "error", text: t("describe.nothing_to_do") };
+    actionResult.value = { type: "warning", text: t("describe.nothing_to_do") };
     return;
   }
   const usd = props.config.muse.beschrijving_usd * chosen.length;
@@ -1365,7 +1371,7 @@ async function trashObject(id) {
     }
     objects.value = result.objecten;
     refreshTrashTerms(n);
-    notify("notice", t("objects.trashed"), {
+    notify("warning", t("objects.trashed"), {
       where: "objecten",
       object: shown,
       actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreObject(id, n, mid, shown) }],

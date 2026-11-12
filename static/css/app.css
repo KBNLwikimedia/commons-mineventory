@@ -525,6 +525,22 @@ button.cc-kaart-oog { border: 0; background: none; cursor: pointer; }
 .cc-ai-voorbeeld { position: relative; z-index: 1; will-change: transform; }
 .cc-modus-keuze + .cc-modus-keuze { margin-top: 0.75rem; }
 .cc-modus-keuze p { margin: 0.25rem 0 0; }
+/* The lock pin in a section title: faint until used; locked it is blue and the title no longer folds. */
+/* At the far right of the title (wish Olaf), not right after the text. */
+.cc-paneel > details > summary { position: relative; padding-right: 2.5rem; }
+.cc-paneel > details > summary .cc-slot { position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); }
+/* Open lock: a faint grey icon, no frame. Locked: a white lock on a filled blue square, so the two
+   are told apart at a glance (wish Olaf). */
+.cc-slot { border: 1px solid transparent; border-radius: 4px; background: none; padding: 0.25rem; cursor: pointer; opacity: 0.45; vertical-align: middle; line-height: 1; }
+.cc-slot .cdx-icon { color: var(--color-subtle, #72777d); }
+.cc-slot:hover, .cc-slot:focus-visible { opacity: 1; border-color: var(--border-color-base, #a2a9b1); }
+.cc-slot.vast { opacity: 1; background: var(--background-color-progressive, #36c); border-color: var(--background-color-progressive, #36c); }
+.cc-slot.vast .cdx-icon { color: var(--color-inverted, #fff); }
+.cc-slot.vast:hover, .cc-slot.vast:focus-visible { background: var(--background-color-progressive--hover, #3056a9); }
+/* A locked section: its title takes no clicks at all, so the browser never starts folding it (no
+   flicker, wish Olaf); only its buttons (lock, info) still do. */
+.cc-paneel > details.cc-uitklap-vast > summary { pointer-events: none; cursor: default; }
+.cc-paneel > details.cc-uitklap-vast > summary button { pointer-events: auto; }
 /* The AI hint at Point and Draw: a small label above a narrow field. */
 .cc-hint-veld { display: block; margin-top: 0.5rem; max-width: 20rem; }
 .cc-hint-label { display: block; font-size: 0.875rem; color: var(--color-subtle, #54595d); margin-bottom: 0.125rem; }

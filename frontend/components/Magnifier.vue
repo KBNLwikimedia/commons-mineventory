@@ -422,7 +422,7 @@
               <cdx-field class="cc-aanwijzing">
                 <template #label>{{ t("describe.hint") }}</template>
                 <template #help-text>{{ t("describe.hint_help") }}</template>
-                <cdx-text-input v-model="hint" :placeholder="t('describe.hint_placeholder')" :maxlength="300" @keydown.enter="describe(Boolean(description))" />
+                <cdx-text-input clearable v-model="hint" :placeholder="t('describe.hint_placeholder')" :maxlength="300" @keydown.enter="describe(Boolean(description))" />
               </cdx-field>
               <!-- How long the description is, as for the whole image (wish Olaf), with the Commons caption stop. -->
               <detail-slider v-model="descLevel" :disabled="busy" :levels="OBJECT_DESCRIPTION_LEVELS" prefix="objdetail" />
@@ -493,7 +493,7 @@
           <!-- Autosuggest while typing (Codex Lookup); choosing an item adds it to 'beeldt af'.
                Enter or Zoeken shows all results as a list below. -->
           <form class="cc-zoek cc-wikidata-zoek" @submit.prevent="searchWikidata(ownTerm)">
-            <cdx-lookup
+            <cdx-lookup clearable
               v-model:selected="lookupChoice"
               v-model:input-value="ownTerm"
               :menu-items="lookupItems"

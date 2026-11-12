@@ -29,7 +29,7 @@
           </cdx-button>
           <view-switch v-model="view" :buttons="viewButtons" storage-key="cc-weergave-objecten" :use-stored="!viewInAddress" />
         </div>
-        <cdx-message v-if="undo" type="notice" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" @user-dismissed="undo = null">
+        <cdx-message v-if="undo" type="warning" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" @user-dismissed="undo = null">
           {{ t("objects.trashed_n", { n: undo.length }) }}
           <button type="button" class="cc-link" :disabled="busy" @click="restoreMany(undo)">↶ {{ t("magnifier.undo") }}</button>
           <span aria-hidden="true"> · </span>

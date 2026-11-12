@@ -12,7 +12,7 @@ Tot en met 0.31.0 heette de app Commons Cutter; daarom heet het Python-package `
 - Werk na elke afgeronde taak CHANGELOG.md bij (Keep a Changelog, semver).
 
 ## Fasering (strikt)
-- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.40.0); zie BACKLOG.md voor wat nog open staat.
+- Fase 1 = lokaal, zonder kosten: Commons-adapter, Codex-UI, DummyDetector, opslaan/export, Commons-concept zonder upload, REST-API. Klaar (stand 0.40.1); zie BACKLOG.md voor wat nog open staat.
 - GEEN live aanroepen naar de Meta Model API zonder expliciete opdracht van Olaf. MetaSamDetector en de beschrijving alleen testen met fixtures. Olaf draait zelf lokaal in live-modus (`DETECTIE_MODUS=live` in zijn .env); test in de browser dus nooit een knop die betaalt (Zoeken, Aanwijzen, Beschrijf deze afbeelding, Opnieuw vragen) zonder zijn opdracht.
 - Commons alleen lezen (ook `action=parse` voor de proefweergave is een leesverzoek). Bewerkingen op Commons, ook SDC of regio's op het origineel, pas in fase 2 en alleen na een klik en bevestiging van de gebruiker.
 - Uploaden naar Commons alleen na een klik en een bevestiging van de gebruiker. Eerst op een testwiki; de eerste echte upload doet Olaf zelf.
@@ -34,6 +34,7 @@ Tot en met 0.31.0 heette de app Commons Cutter; daarom heet het Python-package `
 ## Interface
 - Kleuren in de afbeelding hebben één betekenis: een kader toont de status, een masker de soort, de rand van een masker is wit.
 - Codex-knoppen zijn blauw (`action="progressive"`); verwijderen is `destructive`; per weergave hooguit één gevulde hoofdactie (`weight="primary"`).
+- Meldingen: rood alleen bij een fout, geel om op te letten of ongedaan te maken (prullenbak, niets gevonden), groen als het lukte; grijs alleen voor vaste uitleg (FO 10.4).
 - Uitleg is klein en grijs (`cc-uitleg`); wat de AI zei staat in een kader (`cc-ai-resultaat`); de uitkomst van een actie als melding onder de knop die erom vroeg. Een knop zonder iets te doen is uitgeschakeld, niet verborgen; een knop met kosten draagt het bedrag.
 - Tekst die AI maakte (SAM, Muse Spark) krijgt een AI-merkje (`AiBadge.vue`) met uitleg; AI-teksten zijn met de hand aan te passen, met Ongedaan maken.
 - Werk met de data van Olaf voorzichtig: maak testobjecten zelf aan en ruim ze op; zet zijn teksten na een test terug.

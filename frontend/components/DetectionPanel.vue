@@ -19,8 +19,8 @@
     <!-- From Commons comes first (wish Olaf, 6-11-2026): what people already put on Commons
          goes before new AI suggestions, and it is free to read. Only when the file has
          captions, depicts, regions or notes (they always refer to page 1). Backlog 26. -->
-    <cdx-accordion v-if="hasCommonsData" v-model="open.commons">
-      <template #title>{{ t("panel.from_commons") }} <info-dialog v-bind="info('commons', 'panel.from_commons')" /></template>
+    <cdx-accordion v-if="hasCommonsData" :model-value="open.commons" data-sectie="commons" @update:model-value="setOpen('commons', $event)" :class="{ 'cc-uitklap-vast': isLocked('commons') }" @click.capture="guard('commons', $event)">
+      <template #title>{{ t("panel.from_commons") }} <info-dialog v-bind="info('commons', 'panel.from_commons')" /> <section-lock :locked="isLocked('commons')" :label="lockLabel('commons')" @toggle="toggleLock('commons')" /></template>
       <p class="cc-uitleg">{{ t("panel.from_commons_intro") }} <a :href="sdcLink" target="_blank" rel="noopener">{{ t("panel.commons_edit_link") }}</a></p>
       <!-- What the app read is kept a day: read again after adding something on Commons. -->
       <p class="cc-uitleg">
@@ -46,7 +46,7 @@
           {{ t("panel.regions_button", { n: regionCount }) }}
         </cdx-button>
         <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
-        <cdx-message v-if="lastResult && resultAt === 'commons' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <result-message v-if="lastResult && resultAt === 'commons' && !busy" v-bind="resultProps(lastResult)" :busy="busy" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" />
       </cdx-accordion>
 
       <!-- (3) Depicts without a position: a chip per item; a click lets SAM find it (paid),
@@ -123,13 +123,13 @@
           </div>
         </div>
         <busy-note v-if="busy && where === 'commons-depicts'" :message="t('busy.sam')" />
-        <cdx-message v-if="lastResult && resultAt === 'commons-depicts' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <result-message v-if="lastResult && resultAt === 'commons-depicts' && !busy" v-bind="resultProps(lastResult)" :busy="busy" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" />
       </cdx-accordion>
     </cdx-accordion>
 
     <!-- Then the AI suggestions: they fit this image, unlike a fixed list. -->
-    <cdx-accordion id="cc-ai-suggesties" v-model="open.suggestions">
-      <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /></template>
+    <cdx-accordion id="cc-ai-suggesties" :model-value="open.suggestions" data-sectie="suggestions" @update:model-value="setOpen('suggestions', $event)" :class="{ 'cc-uitklap-vast': isLocked('suggestions') }" @click.capture="guard('suggestions', $event)">
+      <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /> <section-lock :locked="isLocked('suggestions')" :label="lockLabel('suggestions')" @toggle="toggleLock('suggestions')" /></template>
       <!-- What this section is for, in one or two sentences (wish Olaf), as in From Commons. -->
       <p class="cc-uitleg cc-sectie-intro">{{ t("panel.suggestions_intro") }}</p>
       <!-- In the order of the work: (1) ask the AI what is on the image (one call), (2) its
@@ -263,19 +263,7 @@
             <button type="button" class="cc-link" @click="showPointOrDraw">{{ t("panel.point_or_draw") }}</button>.
           </p>
           <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
-          <cdx-message v-if="lastResult && resultAt === 'suggestions' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">
-            {{ resultText(lastResult) }}
-            <p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p>
-            <ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul>
-            <!-- Nothing found: the other ways to get the object, as links to the sections below. -->
-            <template v-if="isNone(lastResult)"> {{ t("panel.result_none_next") }}
-              <ul class="cc-andere-weg">
-                <li><button type="button" class="cc-link" @click="trySearch(lastResult)">{{ t("panel.result_try_search") }}</button></li>
-                <li><button type="button" class="cc-link" @click="tryPoint('point')">{{ t("panel.result_try_point") }}</button></li>
-                <li><button type="button" class="cc-link" @click="tryPoint('draw')">{{ t("panel.result_try_draw") }}</button></li>
-              </ul>
-            </template>
-          </cdx-message>
+          <result-message v-if="lastResult && resultAt === 'suggestions' && !busy" v-bind="resultProps(lastResult)" :busy="busy" :other-ways="isNone(lastResult)" @try-search="trySearch(lastResult)" @try-point="tryPoint" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" />
           <!-- What of these suggestions is on the image now, and what went to the trash. -->
           <p class="cc-status">
             {{ t("panel.suggestions_found", { n: suggestionTotals.found, terms: suggestionTotals.terms, total: newTerms.length }) }}
@@ -287,35 +275,23 @@
       </template>
     </cdx-accordion>
 
-    <cdx-accordion v-model="open.search">
-      <template #title>{{ t("panel.search") }} <info-dialog v-bind="info('search', 'panel.search')" /></template>
+    <cdx-accordion :model-value="open.search" data-sectie="search" @update:model-value="setOpen('search', $event)" :class="{ 'cc-uitklap-vast': isLocked('search') }" @click.capture="guard('search', $event)">
+      <template #title>{{ t("panel.search") }} <info-dialog v-bind="info('search', 'panel.search')" /> <section-lock :locked="isLocked('search')" :label="lockLabel('search')" @toggle="toggleLock('search')" /></template>
       <p class="cc-uitleg cc-sectie-intro">{{ t("panel.search_intro") }}</p>
       <form class="cc-zoek" @submit.prevent="search">
-        <cdx-text-input v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
+        <cdx-text-input clearable v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
         <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
       </form>
       <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
-      <cdx-message v-if="lastResult && resultAt === 'search' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">
-            {{ resultText(lastResult) }}
-            <p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p>
-            <ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul>
-            <!-- Nothing found: the other ways to get the object, as links to the sections below. -->
-            <template v-if="isNone(lastResult)"> {{ t("panel.result_none_next") }}
-              <ul class="cc-andere-weg">
-                <li><button type="button" class="cc-link" @click="trySearch(lastResult)">{{ t("panel.result_try_search") }}</button></li>
-                <li><button type="button" class="cc-link" @click="tryPoint('point')">{{ t("panel.result_try_point") }}</button></li>
-                <li><button type="button" class="cc-link" @click="tryPoint('draw')">{{ t("panel.result_try_draw") }}</button></li>
-              </ul>
-            </template>
-          </cdx-message>
+      <result-message v-if="lastResult && resultAt === 'search' && !busy" v-bind="resultProps(lastResult)" :busy="busy" :other-ways="isNone(lastResult)" :search-link="false" @try-point="tryPoint" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" />
       <p class="cc-uitleg">{{ t("panel.search_help") }} {{ cost(1) }}</p>
       <!-- Rename to link (wish Olaf): only when the file has depicts items without a region. -->
       <p v-if="commonsDepicts.length" class="cc-uitleg">{{ t("panel.search_rename_tip") }}</p>
     </cdx-accordion>
 
     <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
-    <cdx-accordion v-model="open.point" class="cc-sectie-aanwijzen">
-      <template #title>{{ t("panel.point_or_draw") }} <info-dialog v-bind="info('point', 'panel.point_or_draw')" /></template>
+    <cdx-accordion :model-value="open.point" data-sectie="point" @update:model-value="setOpen('point', $event)" class="cc-sectie-aanwijzen" :class="{ 'cc-uitklap-vast': isLocked('point') }" @click.capture="guard('point', $event)">
+      <template #title>{{ t("panel.point_or_draw") }} <info-dialog v-bind="info('point', 'panel.point_or_draw')" /> <section-lock :locked="isLocked('point')" :label="lockLabel('point')" @toggle="toggleLock('point')" /></template>
       <p class="cc-uitleg cc-sectie-intro">{{ t("panel.point_or_draw_intro") }}</p>
       <!-- Two ways, each folding away on its own, as in the AI suggestions (wish Olaf). -->
       <cdx-accordion v-model="open.aanwijzen" class="cc-deel-uitklap">
@@ -327,11 +303,11 @@
         <!-- A hint for the AI (wish Olaf, 12-11-2026): SAM then looks for this word and keeps what lies under the click. -->
         <label class="cc-hint-veld">
           <span class="cc-hint-label">{{ t("panel.hint_label") }}</span>
-          <cdx-text-input :model-value="hints.point" :placeholder="t('panel.hint_placeholder')" :disabled="busy" @update:model-value="emit('hint', { kind: 'point', text: $event })" />
+          <cdx-text-input clearable :model-value="hints.point" :placeholder="t('panel.hint_placeholder')" :disabled="busy || !pointMode" @update:model-value="emit('hint', { kind: 'point', text: $event })" />
         </label>
         <p class="cc-uitleg">{{ t("panel.point_help") }} <template v-if="hints.point.trim()">{{ t("panel.point_hint_help", { hint: hints.point.trim() }) }} </template>{{ cost(1) }}</p>
         <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
-        <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" :type="lastResult.outcome === 'niets' ? 'warning' : 'success'" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <result-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" v-bind="resultProps(lastResult)" :busy="busy" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" />
       </div>
       </cdx-accordion>
       <cdx-accordion v-model="open.tekenen" class="cc-deel-uitklap">
@@ -343,19 +319,19 @@
         <!-- With a hint the rectangle is searched for that word (paid); without one it stays free. -->
         <label class="cc-hint-veld">
           <span class="cc-hint-label">{{ t("panel.hint_label") }}</span>
-          <cdx-text-input :model-value="hints.draw" :placeholder="t('panel.hint_placeholder')" :disabled="busy" @update:model-value="emit('hint', { kind: 'draw', text: $event })" />
+          <cdx-text-input clearable :model-value="hints.draw" :placeholder="t('panel.hint_placeholder')" :disabled="busy || !drawMode" @update:model-value="emit('hint', { kind: 'draw', text: $event })" />
         </label>
         <p class="cc-uitleg">{{ t("panel.draw_help") }} <template v-if="hints.draw.trim()">{{ t("panel.draw_hint_help", { hint: hints.draw.trim() }) }} {{ cost(1) }}</template><template v-else>{{ t("panel.free") }}</template></p>
         <busy-note v-if="busy && where === 'draw'" :message="t('busy.sam')" />
-        <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'rechthoek'" :type="lastResult.hint && !lastResult.gevonden ? 'warning' : 'success'" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <result-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'rechthoek'" v-bind="resultProps(lastResult)" :busy="busy" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" />
       </div>
       </cdx-accordion>
     </cdx-accordion>
 
     <!-- To Commons: the last step, for all work on the image, not only the AI suggestions (wish
          Olaf): depicts from Commons items, found objects and search terms, and the caption. -->
-    <cdx-accordion v-model="open.tocommons" class="cc-naar-commons">
-      <template #title>{{ t("panel.to_commons") }} <info-dialog v-bind="info('tocommons', 'panel.to_commons')" /></template>
+    <cdx-accordion :model-value="open.tocommons" data-sectie="tocommons" @update:model-value="setOpen('tocommons', $event)" class="cc-naar-commons" :class="{ 'cc-uitklap-vast': isLocked('tocommons') }" @click.capture="guard('tocommons', $event)">
+      <template #title>{{ t("panel.to_commons") }} <info-dialog v-bind="info('tocommons', 'panel.to_commons')" /> <section-lock :locked="isLocked('tocommons')" :label="lockLabel('tocommons')" @toggle="toggleLock('tocommons')" /></template>
       <p class="cc-uitleg cc-sectie-intro">{{ t("panel.to_commons_intro") }}</p>
       <!-- Depicts and captions for the whole image (FO 9.7), in a window of its own. Blue but
            not filled: detecting stays the main action. Disabled for files with more pages, where
@@ -399,6 +375,8 @@
 import { computed, inject, nextTick, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconTrash } from "@wikimedia/codex-icons";
+import SectionLock from "./SectionLock.vue";
+import ResultMessage from "./ResultMessage.vue";
 import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { START_SUGGESTIONS } from "../state.js";
@@ -470,10 +448,62 @@ function info(section, titleKey) {
   return {
     title: t(titleKey),
     label: t("panel.info_label", { section: t(titleKey) }),
-    paragraphs: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
+    paragraphs: [
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => t(`panel.info_${section}_${n}`)).filter((text) => !text.startsWith("panel.")),
+      // The lock pin of this section, and how it stands now (wish Olaf, 12-11-2026).
+      t("panel.info_lock"),
+      t(isLocked(section) ? "panel.info_lock_on" : "panel.info_lock_off", { state: t(open[section] ? "panel.section_state_open" : "panel.section_state_closed") }),
+    ],
   };
 }
 const open = reactive({ captions: true, regios: true, beeldtaf: true, commons: true, search: false, suggestions: true, beschrijving: true, zoektermen: true, aanwijzen: true, tekenen: true, point: false, tocommons: true });
+// Lock pins (wish Olaf, 12-11-2026): a locked section keeps the state it had when it was locked
+// (folded or unfolded), also after the app is loaded again. Nothing folds or unfolds it then: not
+// its title, and not the app's own links (they only scroll to it).
+const LOCK_KEY = "cc-uitklap-vast";
+function loadLocks() {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(LOCK_KEY) || "{}");
+    return Object.fromEntries(Object.entries(stored || {}).filter(([key, state]) => key in open && typeof state === "boolean"));
+  } catch {
+    return {};
+  }
+}
+const locks = reactive(loadLocks());
+Object.assign(open, locks);
+const isLocked = (key) => typeof locks[key] === "boolean";
+function toggleLock(key) {
+  if (isLocked(key)) delete locks[key];
+  else locks[key] = open[key];
+  try {
+    window.localStorage.setItem(LOCK_KEY, JSON.stringify(locks));
+  } catch {
+    /* private window: the lock holds for this visit only */
+  }
+}
+const lockLabel = (key) => {
+  const state = t(open[key] ? "panel.section_state_open" : "panel.section_state_closed");
+  return t(isLocked(key) ? "panel.section_unlock" : "panel.section_lock", { state });
+};
+// Every change of a section goes through here. A locked one refuses it; should the browser have
+// folded it anyway (it did, now and then, on the first click after loading), it is put back.
+function setOpen(key, value) {
+  if (!isLocked(key)) {
+    open[key] = value;
+    return;
+  }
+  if (value === locks[key]) return;
+  nextTick(() => {
+    const element = document.querySelector(`[data-sectie="${key}"]`);
+    if (element && element.open !== locks[key]) element.open = locks[key];
+  });
+}
+// A click on the title of a locked section (not on its buttons, nor in a section inside it) does nothing.
+function guard(key, event) {
+  if (!isLocked(key) || event.target.closest("button")) return;
+  const summary = event.target.closest("summary");
+  if (summary && summary.parentElement === event.currentTarget) event.preventDefault();
+}
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 // The window "Gegevens van deze afbeelding" (9.7).
 const originalOpen = ref(false);
@@ -525,6 +555,8 @@ watch(
   () => {
     const known = hasCommonsData.value;
     Object.assign(open, { commons: known, suggestions: !known, search: false, point: false });
+    // A locked section keeps its own state (lock pin, wish Olaf 12-11-2026).
+    Object.assign(open, locks);
     // #ai-suggesties (the link in "Start this image over", wish Olaf): open the AI suggestions and
     // bring them into view, once.
     // #ai-suggesties (the link in "Start this image over", wish Olaf): for that image only, the AI
@@ -699,7 +731,8 @@ const wasSearched = (word) => searched.value.includes(String(word || "").toLower
 const resultClass = (count, word) => ({ "cc-term-gevonden": count > 0, "cc-term-niets": !count && wasSearched(word) });
 
 // The objects found with the AI's term (no own words any more: the pencil is gone, wish Olaf
-// 12-11-2026). The old own words in this browser are forgotten.
+// 12-11-2026). The old own words in this browser are forgotten, also those of the depicts
+// items (pencil gone in 0.38.1).
 const termObjectIds = (term) => termIds(term.en);
 const termHits = (term) => termObjectIds(term).length;
 watch(
@@ -707,6 +740,7 @@ watch(
   ([mid, n]) => {
     try {
       window.localStorage.removeItem(`cc-term-zoekwoord:${mid}:${n}`);
+      window.localStorage.removeItem(`cc-item-zoekwoord:${mid}`);
     } catch {
       // Blocked storage: nothing to forget.
     }
@@ -792,9 +826,12 @@ watch(() => [props.file.mid, props.page.n], () => (resultAt.value = null));
 // the trash, hidden), yellow when nothing was found at all.
 function resultType(result) {
   if (result.fout) return "error";
+  // Pointing and drawing: about one object; a warning when nothing came of the click or the hint.
+  if (result.modus === "punt") return result.outcome === "niets" ? "warning" : "success";
+  if (result.modus === "rechthoek") return result.hint && !result.gevonden ? "warning" : "success";
   if (result.found || result.excluded) return "success";
   if (result.restored) return "success";
-  return result.merged || result.inGroup || result.inTrash || result.hidden ? "notice" : "warning";
+  return "warning"; // nothing new, merged, in a group or in the trash: to note, not an error
 }
 
 function resultText(result) {
@@ -838,6 +875,8 @@ function resultAlso(result) {
 
 // The objects found hits were merged into, as a bulleted list under the message (wish Olaf).
 const mergedInto = (result) => (result && result.merged && result.holders) || [];
+// Everything the outcome message of a section shows (ResultMessage.vue), in one place.
+const resultProps = (result) => ({ result, type: resultType(result), text: resultText(result), also: resultAlso(result), merged: mergedInto(result) });
 
 // A search with terms that found nothing (not "from Commons", pointing or drawing).
 function isNone(result) {
@@ -845,7 +884,7 @@ function isNone(result) {
 }
 // After nothing was found: open Search with the term filled in, ready to change it.
 async function trySearch(result) {
-  open.search = true;
+  setOpen("search", true);
   prompt.value = result.prompt.split(",").length === 1 ? result.prompt.trim() : "";
   await nextTick();
   const input = document.querySelector(".cc-zoek input");
@@ -857,25 +896,25 @@ async function trySearch(result) {
 // Only unfold Point or draw and scroll to it, no way switched on (link under 'Depicts, without a region').
 // Open the AI suggestions and bring them into view.
 async function showSuggestions() {
-  open.suggestions = true;
+  setOpen("suggestions", true);
   await nextTick();
   document.getElementById("cc-ai-suggesties")?.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 // Open Search and put the cursor in its field, keeping what is typed there.
 async function showSearch() {
-  open.search = true;
+  setOpen("search", true);
   await nextTick();
   const input = document.querySelector(".cc-zoek input");
   input?.scrollIntoView({ block: "center", behavior: "smooth" });
   input?.focus();
 }
 async function showPointOrDraw() {
-  open.point = true;
+  setOpen("point", true);
   await nextTick();
   document.querySelector(".cc-sectie-aanwijzen")?.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 async function tryPoint(mode = "point") {
-  open.point = true;
+  setOpen("point", true);
   open[mode === "draw" ? "tekenen" : "aanwijzen"] = true;
   emit(mode === "draw" ? "draw-mode" : "point-mode", true);
   await nextTick();

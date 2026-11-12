@@ -83,7 +83,7 @@
               </div>
               <!-- Another item for this row: search Wikidata (free) and pick. -->
               <div v-if="otherFor === row.key" class="cc-origineel-zoek">
-                <cdx-text-input v-model="otherText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOther" />
+                <cdx-text-input clearable v-model="otherText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOther" />
                 <ul class="cc-origineel-treffers">
                   <li v-for="hit in otherHits" :key="hit.q">
                     <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
@@ -138,7 +138,7 @@
                 <div v-if="row.beschrijving" class="cc-klein">{{ row.beschrijving }}</div>
                 <div class="cc-klein cc-origineel-bron">{{ t("original.source_zoekterm") }} ({{ row.terms.join(", ") }}) · {{ t("original.no_objects") }}</div>
                 <div v-if="otherFor === row.key" class="cc-origineel-zoek">
-                  <cdx-text-input v-model="otherText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOther" />
+                  <cdx-text-input clearable v-model="otherText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOther" />
                   <ul class="cc-origineel-treffers">
                     <li v-for="hit in otherHits" :key="hit.q">
                       <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
@@ -162,7 +162,7 @@
         <!-- Another item, for what the AI did not find. -->
         <div class="cc-origineel-zoek">
           <label class="cc-klein" for="cc-origineel-eigen">{{ t("original.add_item") }}</label>
-          <cdx-text-input id="cc-origineel-eigen" v-model="ownText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOwn" />
+          <cdx-text-input clearable id="cc-origineel-eigen" v-model="ownText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOwn" />
           <ul class="cc-origineel-treffers">
             <li v-for="hit in ownHits" :key="hit.q">
               <button type="button" class="cc-link" @click="addOwn(hit)">{{ hit.label }}</button>

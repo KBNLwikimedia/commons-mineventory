@@ -82,7 +82,7 @@
               </span>
             </template>
             <form class="cc-categorie-erbij" @submit.prevent="addCategory">
-              <cdx-text-input v-model="newCategory" :placeholder="t('concept.category_add')" :aria-label="t('concept.category_add')" />
+              <cdx-text-input clearable v-model="newCategory" :placeholder="t('concept.category_add')" :aria-label="t('concept.category_add')" />
               <cdx-button action="progressive" type="submit" :disabled="!newCategory.trim()" :aria-label="t('concept.category_add')" :title="t('concept.category_add')">+</cdx-button>
             </form>
             <span v-if="draft.categorieen.some((c) => !c.gekozen)" class="cc-klein cc-categorie-uit">
@@ -114,7 +114,7 @@
             @save-statement="saveStatement"
           >
             <template #depicts-add>
-              <cdx-lookup
+              <cdx-lookup clearable
                 v-model:selected="lookupSelected"
                 v-model:input-value="lookupText"
                 :menu-items="lookupItems"
@@ -639,7 +639,7 @@ async function copy(text) {
     messageType.value = "success";
   } catch {
     message.value = t("concept.copy_failed");
-    messageType.value = "warning";
+    messageType.value = "error";
   }
 }
 

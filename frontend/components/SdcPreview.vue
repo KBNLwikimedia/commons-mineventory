@@ -45,7 +45,7 @@
               <span class="cc-leeg">{{ t("sdc.unknown_value") }}</span>
             </template>
             <cdx-text-input v-else-if="value.tijd !== undefined" v-model="value.tijd" :aria-label="label(group.property)" placeholder="1708, 1708-02, 1708-02-28" />
-            <cdx-lookup
+            <cdx-lookup clearable
               v-else
               v-model:selected="value.item"
               v-model:input-value="value.text"
