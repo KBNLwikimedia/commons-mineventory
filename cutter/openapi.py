@@ -37,7 +37,7 @@ ENDPOINTS = [
     ("post", PAGE + "/inventaris", "Wat staat op deze pagina? (Muse Spark)", [MID, N], '{"model": "auto|standaard|contributor", "opnieuw": false, "detailniveau": "hoofdonderwerp|hoofdzaken|normaal|details", "beschrijvingsniveau": "kort|normaal|caption|uitgebreid"}', 200, True),
     ("delete", PAGE + "/inventaris/{deel}", "Eén deel van het paginaoverzicht verwijderen (gratis)", [MID, N, DEEL], None, 200, False),
     ("post", PAGE + "/inventaris/{deel}", "Eén deel van het paginaoverzicht opnieuw vragen (Muse Spark; altijd een nieuw antwoord)", [MID, N, DEEL], '{"model": "auto|standaard|contributor", "detailniveau": "hoofdonderwerp|hoofdzaken|normaal|details", "beschrijvingsniveau": "kort|normaal|caption|uitgebreid"}', 200, True),
-    ("patch", PAGE + "/inventaris", "De beschrijving van de afbeelding met de hand wijzigen (gratis)", [MID, N], '{"paginasoort", "paginasoort_en", "samenvatting", "samenvatting_en", "tekst"}', 200, False),
+    ("patch", PAGE + "/inventaris", "De beschrijving van de afbeelding met de hand wijzigen (gratis)", [MID, N], '{"paginasoort", "paginasoort_en", "samenvatting", "samenvatting_en", "tekst", "beschrijvingsniveau": "kort|normaal|caption|uitgebreid"}', 200, False),
     ("get", PAGE + "/inventaris/geschiedenis", "Eerdere beschrijvingen van de afbeelding, nieuwste eerst", [MID, N], None, 200, False),
     ("delete", PAGE + "/inventaris/geschiedenis/{versie}", "Eén eerdere beschrijving van de afbeelding verwijderen (gratis)", [MID, N, VERSIE], None, 200, False),
     ("put", PAGE + "/inventaris/{deel}", "Een eerdere beschrijving van de afbeelding weer de huidige maken (alleen deel = beschrijving; gratis)", [MID, N, DEEL], '{"versie": "…"}', 200, False),

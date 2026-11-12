@@ -12,10 +12,11 @@
     <!-- First what makes the description (as with the search terms, wish Olaf): how long it is,
          and under the slider, side by side, asking anew (paid) and removing (free). -->
     <div class="cc-termen-bron">
-      <detail-slider v-model="descLevel" :disabled="busy" :levels="DESCRIPTION_LEVELS" prefix="descdetail" compact />
+      <!-- All four lengths come at once: the slider shows another one, live and free (wish Olaf). -->
+      <detail-slider v-model="descLevel" :disabled="busy || Boolean(editing)" :levels="DESCRIPTION_LEVELS" prefix="descdetail" compact />
       <!-- A Commons caption (at most 250 characters) in one click: puts the slider on that stop.
            A caption belongs to the structured data on Commons, hence a Commons mark (wish Olaf). -->
-      <cdx-toggle-switch :model-value="descLevel === 'caption'" :disabled="busy" class="cc-wikidata-schakelaar" :title="t('descdetail.caption_help')" @update:model-value="setCaption">
+      <cdx-toggle-switch :model-value="descLevel === 'caption'" :disabled="busy || Boolean(editing)" class="cc-wikidata-schakelaar" :title="t('descdetail.caption_help')" @update:model-value="setCaption">
         <commons-logo />
         {{ t("descdetail.caption_switch") }}
       </cdx-toggle-switch>
@@ -30,6 +31,8 @@
       <!-- Explanation under the buttons, like under the search terms (wish Olaf). -->
       <p class="cc-uitleg cc-termen-uitleg">{{ t("panel.description_help") }} {{ t("panel.parts_help") }}</p>
     </div>
+    <!-- A description from before the four lengths has only the one it was asked in. -->
+    <p v-if="lengthMissing" class="cc-uitleg cc-lengte-ontbreekt">{{ t("page.length_not_made", { level: t(`descdetail.${inventory.beschrijvingsniveau || "normaal"}`) }) }}</p>
     <div v-if="hasDescription || editing" class="cc-ai-resultaat">
       <template v-for="group in GROUPS" :key="group.key">
         <div v-if="editing === group.key" ref="editBox" class="cc-veld-bewerken">
@@ -92,7 +95,7 @@
             @keydown.enter.space.prevent="expanded[entry.versie] = !expanded[entry.versie]"
           >
             <strong>{{ language === "en" ? entry.paginasoort_en || entry.paginasoort : entry.paginasoort || entry.paginasoort_en }}</strong>
-            <span class="cc-klein cc-geschiedenis-beschrijving">{{ language === "en" ? entry.samenvatting_en || entry.samenvatting : entry.samenvatting || entry.samenvatting_en }}</span>
+            <span class="cc-klein cc-geschiedenis-beschrijving">{{ entryText(entry, language === "en" ? "en" : "nl") || entryText(entry, language === "en" ? "nl" : "en") }}</span>
             <span v-if="entry.tekst" class="cc-klein cc-geschiedenis-beschrijving">{{ t("page.field_tekst") }}: {{ entry.tekst }}</span>
             <span class="cc-klein cc-geschiedenis-meta">{{ meta(entry) }}</span>
             <span class="cc-link cc-klein cc-geschiedenis-meer">{{ expanded[entry.versie] ? t("describe.history_less") : t("describe.history_more") }}</span>
@@ -162,7 +165,20 @@ watch(descLevel, (level) => {
   } catch {
     // Blocked storage: the level holds until the page is reloaded.
   }
+  // Another length that was made with the others: show it (free, no new version). Each length
+  // keeps its own hand edits; "Ongedaan maken" belonged to the length you left.
+  if (level !== props.inventory?.beschrijvingsniveau && props.inventory?.beschrijvingen?.[level]) showLength(level);
 });
+async function showLength(level) {
+  error.value = "";
+  try {
+    const result = await patch(base.value, { beschrijvingsniveau: level });
+    undoTexts.value = null;
+    emit("changed", result.inventaris);
+  } catch (e) {
+    error.value = errorText(t, e);
+  }
+}
 const t = useT();
 const language = inject("language", "nl");
 
@@ -174,6 +190,8 @@ const GROUPS = [
 ];
 const base = computed(() => `${pagePath(props.mid, props.n)}/inventaris`);
 const hasDescription = computed(() => FIELDS.some((f) => props.inventory[f]));
+// The slider on a length this description does not have (asked before 0.39.0): ask anew for all four.
+const lengthMissing = computed(() => hasDescription.value && descLevel.value !== props.inventory.beschrijvingsniveau && !props.inventory.beschrijvingen?.[descLevel.value]);
 // Model and time of the AI description: of the part asked anew, else of the overview.
 const made = computed(() => props.inventory.delen?.beschrijving || props.inventory);
 const error = ref("");
@@ -255,10 +273,17 @@ async function remove(entry) {
 
 // Earlier versions: unfolded ones (by versie), and the whole text for the hover popup.
 const expanded = reactive({});
+// The text of an earlier version at the length on the slider (a version holds all four lengths
+// since 0.39.0); an older version has only its own length.
+function entryText(entry, lang) {
+  const length = entry.beschrijvingen?.[descLevel.value];
+  if (length) return length[lang] || "";
+  return lang === "en" ? entry.samenvatting_en : entry.samenvatting;
+}
 function fullText(entry) {
   return [
-    [entry.paginasoort, entry.samenvatting].filter(Boolean).join(" — "),
-    [entry.paginasoort_en, entry.samenvatting_en].filter(Boolean).join(" — "),
+    [entry.paginasoort, entryText(entry, "nl")].filter(Boolean).join(" — "),
+    [entry.paginasoort_en, entryText(entry, "en")].filter(Boolean).join(" — "),
     entry.tekst && `${t("page.field_tekst")}: ${entry.tekst}`,
   ].filter(Boolean).join("\n\n");
 }
@@ -268,7 +293,7 @@ function meta(entry) {
   if (entry.bewerkt_op) return t("describe.history_by_hand", { when: time(entry.bewerkt_op) });
   // An AI version also says how long it was asked to be (Short, Normal, Extensive); versions
   // that went into the history before this was kept do not know it, and then show nothing.
-  const length = entry.beschrijvingsniveau ? t("descdetail.used", { level: t(`descdetail.${entry.beschrijvingsniveau}`) }) : "";
+  const length = entry.beschrijvingen ? t("descdetail.all_lengths") : entry.beschrijvingsniveau ? t("descdetail.used", { level: t(`descdetail.${entry.beschrijvingsniveau}`) }) : "";
   return [time(entry.tijdstempel), entry.model, length].filter(Boolean).join(" · ");
 }
 </script>

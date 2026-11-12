@@ -5,6 +5,12 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-12
+
+### Toegevoegd
+
+- De beschrijving van de hele afbeelding komt in één AI-aanroep in alle vier de lengtes (kort, normaal, Commons-caption, uitgebreid; wens Olaf). De schuif *Lengte* wisselt er gratis en meteen tussen. Elke lengte houdt zijn eigen aanpassingen met de hand en zijn eigen AI-origineel; *Eerdere beschrijvingen* bewaart de vier samen als één versie. *Naar Commons* gebruikt de lengte Commons-caption. Een beschrijving van vóór deze versie heeft alleen zijn eigen lengte; de app zegt dat op de andere standen. API: `beschrijvingen` in het overzicht en `beschrijvingsniveau` bij `PATCH …/inventaris`. Eén lengte opnieuw vragen kost iets meer uitvoer dan voorheen; eerder opgeslagen antwoorden gelden voor de nieuwe vraag niet.
+
 ## [0.38.1] - 2026-11-11
 
 ### Gewijzigd

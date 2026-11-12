@@ -94,12 +94,21 @@ def gather(service, file, n):
         "gekozen": list(chosen.values()),
         "zoektermen": terms,
         "suggesties": list(suggestions.values()),
-        "ai_caption": {
-            "nl": overview.get("samenvatting") or "",
-            "en": overview.get("samenvatting_en") or "",
-            "beschrijvingsniveau": overview.get("beschrijvingsniveau") or ("normaal" if overview.get("samenvatting") else None),
-        },
+        "ai_caption": _ai_caption(overview),
         "concept": draft,
+    }
+
+
+def _ai_caption(overview):
+    """The description of the image for a caption: the Commons caption length when it was
+    made (all four lengths come at once since 0.39.0, with hand edits), else what is shown."""
+    caption = (overview.get("beschrijvingen") or {}).get("caption")
+    if caption and overview.get("beschrijvingsniveau") != "caption":
+        return {"nl": caption.get("nl") or "", "en": caption.get("en") or "", "beschrijvingsniveau": "caption"}
+    return {
+        "nl": overview.get("samenvatting") or "",
+        "en": overview.get("samenvatting_en") or "",
+        "beschrijvingsniveau": overview.get("beschrijvingsniveau") or ("normaal" if overview.get("samenvatting") else None),
     }
 
 

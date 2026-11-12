@@ -219,7 +219,7 @@ def test_one_part_of_the_overview_is_asked_again_or_removed_on_its_own(objects, 
     assert again["delen"]["zoektermen"]["tijdstempel"]
     # Only the description anew: the terms stay.
     again = service.inventory(album, 1, part="beschrijving")["inventaris"]
-    assert prompts[-1][1] == ["paginasoort", "paginasoort_en", "samenvatting", "samenvatting_en", "tekst"]
+    assert prompts[-1][1] == sorted(["paginasoort", "paginasoort_en", *beschrijving.SUMMARY_FIELDS, "tekst"])
     assert "zoektermen" not in prompts[-1][0] and again["zoektermen"] == first["zoektermen"]
     # A part is always asked anew (no cache), and removing both parts removes the overview.
     calls = len(prompts)
@@ -396,17 +396,19 @@ def test_group_instruction_follows_the_space_around_it():
 def test_description_levels_change_the_question():
     from cutter.beschrijving import inventory_instructions
 
-    normal = inventory_instructions('"x"')
-    assert "- samenvatting: one sentence in Dutch about what is visible." in normal  # as before the slider
-    assert "three to five sentences" in inventory_instructions('"x"', part="beschrijving", description_level="uitgebreid")
-    assert "a few words" in inventory_instructions('"x"', description_level="kort")
+    # All four lengths in one question (wish Olaf, 11-11-2026), for the whole overview and the part.
+    for question in (inventory_instructions('"x"'), inventory_instructions('"x"', part="beschrijving")):
+        assert "- samenvatting_normaal: one sentence in Dutch about what is visible." in question
+        assert "- samenvatting_uitgebreid: a paragraph of three to five sentences" in question
+        assert "- samenvatting_kort: a few words" in question and "- samenvatting_caption_en:" in question
+        assert "write each one on its own" in question
 
 
 
 def test_caption_level_never_longer_than_250():
     from cutter.beschrijving import CAPTION_MAX, cap_caption, inventory_instructions
 
-    assert "at most 230 characters" in inventory_instructions('"x"', part="beschrijving", description_level="caption")
+    assert "at most 230 characters" in inventory_instructions('"x"', part="beschrijving")
     long = "Een gedekte tafel met fruit. " * 20
     capped = cap_caption(long)
     assert len(capped) <= CAPTION_MAX and capped.endswith(".")
@@ -468,3 +470,36 @@ def test_detection_clue_tells_what_the_app_knows():
     # It goes into the question.
     prompt = beschrijving.build_prompt({"titel": "File:X.jpg"}, clue=sure)
     assert prompt.endswith(sure)
+
+
+def test_four_lengths_in_one_call_and_the_slider_is_free(objects, album, tmp_path):
+    """All four lengths come in one answer; showing another one is free and keeps the
+    hand edits of each length; a version in the history holds all four (wish Olaf)."""
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    first = service.inventory(album, 1)["inventaris"]
+    assert set(first["beschrijvingen"]) == set(beschrijving.DESCRIPTION_LEVELS)
+    assert first["beschrijvingsniveau"] == "caption" and first["samenvatting"] == first["beschrijvingen"]["caption"]["nl"]
+    # Edit the short one, look at the long one, and back: the edit is still there.
+    service.edit_inventory(album, 1, {"beschrijvingsniveau": "kort"})
+    edited = service.edit_inventory(album, 1, {"samenvatting": "Kort, met de hand uitgebreid."})["inventaris"]
+    assert edited["bewerkt"] and edited["ai_origineel"]["samenvatting"] == first["beschrijvingen"]["kort"]["nl"]
+    long = service.edit_inventory(album, 1, {"beschrijvingsniveau": "uitgebreid"})["inventaris"]
+    assert long["samenvatting"] == first["beschrijvingen"]["uitgebreid"]["nl"] and not long.get("bewerkt")
+    back = service.edit_inventory(album, 1, {"beschrijvingsniveau": "kort"})["inventaris"]
+    assert back["samenvatting"] == "Kort, met de hand uitgebreid." and back["bewerkt"]
+    # The history keeps all four lengths per version; putting one back brings all four.
+    history = service.inventory_history(album, 1)
+    assert history and set(history[0]["beschrijvingen"]) == set(beschrijving.DESCRIPTION_LEVELS)
+    restored = service.restore_inventory(album, 1, history[0]["versie"])["inventaris"]
+    assert restored["beschrijvingsniveau"] == "kort" and restored["samenvatting"] == first["beschrijvingen"]["kort"]["nl"]
+    # A caption may not grow past 250 characters by hand.
+    service.edit_inventory(album, 1, {"beschrijvingsniveau": "caption"})
+    with pytest.raises(DetectionError):
+        service.edit_inventory(album, 1, {"samenvatting": "x" * 251})
+    # A length that was not made (an overview from before 0.39.0): 409.
+    store = objects._load_store(album, 1)
+    store["inventaris"].pop("beschrijvingen")
+    objects._write_store(album, 1, store)
+    with pytest.raises(DetectionError) as exc:
+        service.edit_inventory(album, 1, {"beschrijvingsniveau": "kort"})
+    assert exc.value.code == "length_not_made"
