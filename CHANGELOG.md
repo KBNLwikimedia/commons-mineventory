@@ -5,6 +5,14 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.39.2] - 2026-11-12
+
+### Gewijzigd
+
+- Zoeken in de objecten (naast de afbeelding, op de pagina *Objecten* en `q` bij de export) kijkt niet meer naar de zoekterm van de AI als je het object een eigen naam gaf: *car* vindt niet langer de *suitcase* die als *cardboard box* gevonden was (wens Olaf).
+- *Alleen deze maskers tonen* geeft elk object precies één vinkje: de naam die je het gaf, anders de zoekterm (wens Olaf). Een hernoemd object telt niet meer ook onder zijn zoekterm (*cardboard box* hernoemd tot *suitcase*), en de woorden van *Ook gevonden als* tellen hier niet meer mee (*suitcase2* gaf anders ook een vinkje *suitcase*); bij de zoektermen tellen ze nog wel.
+- Zijn de aangevinkte AI-zoektermen al een keer gezocht, dan heet de knop *Alle objecten opnieuw lokaliseren* (of *Gekozen termen opnieuw lokaliseren*), zoals bij de items van *Beeldt af* (wens Olaf).
+
 ## [0.39.1] - 2026-11-12
 
 ### Toegevoegd

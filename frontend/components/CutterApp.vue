@@ -506,7 +506,11 @@ const askedQueryMid = new URLSearchParams(window.location.search).get("mid");
 watch(objectQuery, (q) => writeAddress({ q }));
 function objectText(o) {
   const description = o.beschrijving && typeof o.beschrijving === "object" ? Object.values(o.beschrijving).filter((v) => typeof v === "string") : [];
-  return [listNames.value[o.id], o.naam, o.label, o.label_nl, o.label_item, o.zoekterm, o.wikidata, o.bijschrift?.tekst, ...description]
+  // A name of your own replaces the AI's search term (wish Olaf, 12-11-2026): "car" no longer
+  // finds the suitcase that was found as "cardboard box".
+  // (label and label_nl are that term and its Dutch, so they go too; label_item is the Wikidata item.)
+  const ai = o.naam ? [] : [o.label, o.label_nl, o.zoekterm];
+  return [listNames.value[o.id], o.naam, ...ai, o.label_item, o.wikidata, o.bijschrift?.tekst, ...description]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();

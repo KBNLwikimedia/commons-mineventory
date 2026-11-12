@@ -31,15 +31,15 @@ function foundKind(obj) {
   return obj.bron in source ? kindOf(source[obj.bron]) : null;
 }
 
-/* Every kind an object belongs to, for the tick boxes and their counts (wish Olaf): the name you
-   gave it as well as the search term that found it, the words it was also found with before two
-   finds were merged ("ook": girl in child), and for a group those of its members too.
+/* Every kind an object belongs to, for the tick boxes and their counts: one per object (wish Olaf
+   12-11-2026), the name you gave it, else the search term that found it ("cardboard box" renamed
+   to "suitcase" is only a suitcase); the words it was also found with before finds were merged
+   ("Also found as") no longer count here. A group counts under the kinds of its members too.
    The mask has one colour: that of classKey (a group of mixed kinds without a name has none). */
 export function classKeys(obj) {
   if (!obj) return [];
   const members = obj.bron === "groep" ? obj.groep?.leden || [] : [];
-  const also = (obj.ook || []).map((entry) => kindOf(entry.zoekterm));
-  return [...new Set([ownKind(obj), foundKind(obj), ...also, ...members.flatMap(classKeys)].filter(Boolean))];
+  return [...new Set([classKey(obj), ...members.flatMap(classKeys)].filter(Boolean))];
 }
 
 /* {kind: colour} for the objects of a page; empty when there are fewer than two kinds, so a

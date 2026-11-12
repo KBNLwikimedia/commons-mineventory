@@ -244,7 +244,7 @@
               :disabled="busy || !includedTerms.length"
               @click="act('suggestions', 'detect', { modus: 'prompt', prompt: includedTerms.map((term) => term.en).join(', ') })"
             >
-              {{ t(includedTerms.length === newTerms.length ? "panel.detect_suggestions" : "panel.detect_chosen", { n: includedTerms.length }) }}
+              {{ t(termsLabel, { n: includedTerms.length }) }}
               <span class="cc-kosten">{{ cost(includedTerms.length) }}</span>
             </cdx-button>
             <span class="cc-termen-alles">
@@ -728,6 +728,13 @@ function toggleTerm(term) {
   setExcluded(excluded.value.includes(term) ? excluded.value.filter((t2) => t2 !== term) : [...excluded.value, term]);
 }
 const includedTerms = computed(() => newTerms.value.filter((term) => !excluded.value.includes(term.en)));
+// Once the ticked terms were looked for, the button says "again", like for the depicts items (wish Olaf).
+const termsLabel = computed(() => {
+  const all = includedTerms.value.length === newTerms.value.length;
+  const again = includedTerms.value.some((term) => termHits(term) || wasSearched(term.en));
+  if (again) return all ? "panel.detect_suggestions_again" : "panel.detect_chosen_again";
+  return all ? "panel.detect_suggestions" : "panel.detect_chosen";
+});
 
 function termTitle(term) {
   const parts = [t("panel.term_expected", { n: term.aantal, where: term.waar }), t("panel.term_found", { n: termHits(term) })];

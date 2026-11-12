@@ -1097,7 +1097,8 @@ def _matching(rows, facets=(), flags=(), searched=None):
     def keep(row):
         if any(values and row.get(name) not in values for name, values in chosen.items()) or not all(row.get(name) for name in wanted):
             return False
-        values = row.values() if searched is None else [row.get(name) for name in searched]
+        # A name of your own replaces the AI's search term (wish Olaf, 12-11-2026).
+        values = row.values() if searched is None else [row.get(name) for name in searched if not (row.get("naam") and (name in ("zoekterm", "label_nl") or (name == "label_en" and row.get("bron") != "commons")))]
         text = " ".join(str(value) for value in values if value is not None).lower()
         return all(word in text for word in words)
 

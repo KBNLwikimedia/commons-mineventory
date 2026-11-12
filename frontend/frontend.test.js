@@ -817,32 +817,36 @@ describe("a colour per kind of object", () => {
     expect(kindsWithQuery({}, "doll")).toEqual([["doll", QUERY_COLOUR]]);
   });
 
-  it("counts a merged object also under the words it was found with, keeping its own colour", () => {
+  it("counts a merged object only under its own kind, not under the words it was also found with", () => {
     const child = sam("a", "child", { ook: [{ id: "x", zoekterm: "Girl" }, { id: "y", zoekterm: "klik" }] });
-    expect(classKeys(child)).toEqual(["child", "girl"]);
+    expect(classKeys(child)).toEqual(["child"]);
     expect(classKey(child)).toBe("child");
     const group = { id: "g", bron: "groep", groep: { soort: null, leden: [sam("m", "cardboard box", { ook: [{ id: "s", zoekterm: "suitcase" }] })] } };
-    expect(classKeys(group)).toEqual(["cardboard box", "suitcase"]);
+    expect(classKeys(group)).toEqual(["cardboard box"]);
     const host = document.createElement("div");
     const viewer = new PageViewer(host, () => {});
     viewer.setObjects([child, sam("f", "fence")], [], classColors([child, sam("f", "fence")]));
     viewer.setKindFilter(["girl"]);
+    expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(false);
+    viewer.setKindFilter(["child"]);
     expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
   });
 
-  it("keeps a renamed object under its search term as well", () => {
+  it("counts a renamed object only under its name, no longer under its search term", () => {
     const doll = sam("a", "person", { naam: "Doll" });
-    expect(classKeys(doll)).toEqual(["doll", "person"]);
+    expect(classKeys(doll)).toEqual(["doll"]);
     expect(classKey(doll)).toBe("doll"); // the colour is that of your name
     expect(classKeys(sam("b", "Person", { naam: "person" }))).toEqual(["person"]);
     expect(classKeys(sam("c", "klik", { naam: "handle" }))).toEqual(["handle"]);
-    expect(classKeys({ bron: "groep", groep: { soort: null, naam: "Family", leden: [sam("d", "boy"), sam("e", "person", { naam: "doll" })] } })).toEqual(["family", "boy", "doll", "person"]);
+    expect(classKeys({ bron: "groep", groep: { soort: null, naam: "Family", leden: [sam("d", "boy"), sam("e", "person", { naam: "doll" })] } })).toEqual(["family", "boy", "doll"]);
     const host = document.createElement("div");
     const viewer = new PageViewer(host, () => {});
     viewer.setObjects([doll, sam("f", "fence")], [], classColors([doll, sam("f", "fence")]));
-    for (const kinds of [["doll"], ["person"]]) {
+    viewer.setKindFilter(["doll"]);
+    expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
+    for (const kinds of [["person"], ["fence"]]) {
       viewer.setKindFilter(kinds);
-      expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(true);
+      expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(false);
     }
     viewer.setKindFilter(["fence"]);
     expect(host.querySelector('g.object[data-id="a"]').classList.contains("object-soort-aan")).toBe(false);
@@ -917,5 +921,17 @@ describe("a colour per kind of object", () => {
     const floods = [...host.querySelectorAll("#masker-rand feFlood")].map((f) => f.getAttribute("flood-color"));
     expect(floods).toEqual(["#fff", "#000"]);
     expect(host.querySelectorAll("#masker-rand feMorphology")).toHaveLength(2);
+  });
+});
+
+describe("searching objects after a rename", () => {
+  it("no longer finds an object you named by the AI's search term", () => {
+    const suitcase = { id: "a", mid: "M1", naam: "suitcase", zoekterm: "cardboard box", label_nl: "kartonnen doos" };
+    const car = { id: "b", mid: "M1", zoekterm: "vintage car", label_nl: "oldtimer" };
+    const found = (q) => applyFacets([suitcase, car], { ...emptyFilters(), query: q }).map((o) => o.id);
+    expect(found("car")).toEqual(["b"]);
+    expect(found("doos")).toEqual([]);
+    expect(found("suit")).toEqual(["a"]);
+    expect(found("oldtimer")).toEqual(["b"]); // without a name of its own, the AI's words still count
   });
 });

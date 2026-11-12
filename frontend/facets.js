@@ -6,9 +6,10 @@ export const emptyFilters = () => ({ sources: [], files: [], saved: false, augme
 
 const searchWords = (query) => (query || "").toLowerCase().split(/\s+/).filter(Boolean);
 
-/* What the search box on the Objects page looks in; the same fields as the export (OBJECT_SEARCHED in api.py). */
-const objectText = (o) =>
-  [o.mid, o.bestand_titel, o.naam || o.groep?.naam, o.label_nl, o.label_en, o.zoekterm, o.licentie, o.bijschrift?.tekst, o.beschrijving?.onderwerp, o.beschrijving?.onderwerp_en, o.beschrijving?.beschrijving, o.beschrijving?.beschrijving_en]
+/* What the search box on the Objects page looks in; the same fields as the export (OBJECT_SEARCHED in api.py).
+   A name of your own replaces the AI's search term (wish Olaf, 12-11-2026). */
+export const objectText = (o) =>
+  [o.mid, o.bestand_titel, o.naam || o.groep?.naam, ...(o.naam || o.groep?.naam ? (o.bron === "commons" ? [o.label_en] : []) : [o.label_nl, o.zoekterm, o.label_en]), o.licentie, o.bijschrift?.tekst, o.beschrijving?.onderwerp, o.beschrijving?.onderwerp_en, o.beschrijving?.beschrijving, o.beschrijving?.beschrijving_en]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();

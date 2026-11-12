@@ -1025,3 +1025,14 @@ def test_item_thumbnail_through_the_server(http):
     assert client.item_thumbnail("Q144") == b"JPEG"
     assert any("iiurlwidth=120" in u for u in asked)
     assert http.get("/api/v1/wikidata/kerk/afbeelding").status_code == 400
+
+
+def test_search_skips_the_ai_term_of_a_renamed_object(http):
+    """A name of your own replaces the AI's search term in the search of the export (wish Olaf, 12-11-2026)."""
+    found = http.post(PAGE + "/detecties", json={"modus": "prompt", "prompt": "cardboard box"}).get_json()
+    object_id = found["nieuw"][0]
+    hits = lambda q: [row["id"] for row in http.get(f"/api/v1/objecten/export?formaat=json&q={q}").get_json()["rijen"]]  # noqa: E731
+    assert object_id in hits("cardboard")
+    assert http.patch(f"{PAGE}/objecten/{object_id}", json={"naam": "suitcase"}).status_code == 200
+    assert object_id not in hits("cardboard")
+    assert object_id in hits("suitcase")
