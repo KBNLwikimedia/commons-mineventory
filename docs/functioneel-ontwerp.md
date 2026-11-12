@@ -207,7 +207,8 @@ Op basis van de metingen in de Delpher Uitsnijder:
 | Actie | Aanroepen | Kosten (ongeveer) |
 | --- | --- | --- |
 | Eén zoekterm | 1 SAM | $0,0025 |
-| Aanwijzen (puntprompt) | 1 SAM | $0,0025 |
+| Aanwijzen (puntprompt), ook met een AI-hint | 1 SAM | $0,0025 (met een hint die al gezocht is: gratis) |
+| Tekenen met een AI-hint | 1 SAM | $0,0025 (zonder hint gratis) |
 | Alles detecteren | 8 SAM | $0,02 |
 | Wat staat hierop? (`low`) | 1 Muse | $0,005 (Standard), $0,0003 (Contributor) |
 | Wat staat op deze pagina? (`low`) | 1 Muse | $0,007 |
@@ -239,6 +240,12 @@ Vaste groepen, aangepast aan wat er op Commons staat: wapens en heraldiek, portr
 ### 7.3 Aanwijzen
 
 Klikken op een plek zonder bekend object: een puntprompt aan SAM (één betaalde aanroep), resultaat als kandidaat. Een handmatige rechthoek (gratis) heeft een eigen blok, *Rechthoek tekenen*; Shift-slepen doet hetzelfde zonder die modus.
+
+**AI-hint** (wens Olaf, 12-11-2026, sinds 0.40.0). Bij *Aanwijzen* en bij *Tekenen* staat een veld *AI-hint (optioneel)*, elk met een eigen woord, bijv. *auto*. SAM neemt per aanroep óf een woord óf een punt of rechthoek, nooit allebei (zie `meta-sam-api.md` in de Delpher Uitsnijder); de hint gaat daarom als woordzoektocht, waarvan de app alleen het passende deel houdt:
+
+- *Aanwijzen met een hint*: één zoektocht naar het woord in de hele afbeelding (het bewaarde antwoord als het woord al gezocht was: gratis). Alleen de kleinste vondst waarvan de vorm onder de klik ligt, komt op de pagina, als kandidaat; de andere vondsten niet. Ligt er niets onder de klik, dan meldt het paneel *Geen ‘auto’ gevonden op deze plek* en komt er niets bij. Er volgt geen tweede aanroep zonder hint.
+- *Tekenen met een hint*: alleen de rechthoek met 10% ruimte per kant gaat naar SAM, in een hogere resolutie dan de hele afbeelding (een klein object is zo groter in beeld), met de vraag naar het woord. De vondst die het meest van de rechthoek bedekt, wordt het object, met zijn vorm en aangevinkt. Vindt SAM niets, dan blijft de rechthoek bewaard zoals zonder hint, met het woord als zoekterm. Tekenen met een hint kost één aanroep (met bevestiging en bedrag); zonder hint en met Shift-slepen (ook als het veld gevuld is) blijft het gratis.
+- Het object krijgt het woord als zoekterm (in plaats van *klik* of *rechthoek*), zodat het meetelt bij de vinkjes en bij het zoeken.
 
 ### 7.4 Bulk-operaties
 

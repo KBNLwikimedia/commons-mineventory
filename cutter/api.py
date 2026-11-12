@@ -265,6 +265,16 @@ def _number(value, name):
     return number
 
 
+def _hint(body):
+    """The optional hint of a click or rectangle (a word for SAM); None when empty."""
+    hint = body.get("hint")
+    if hint is None:
+        return None
+    if not isinstance(hint, str):
+        raise DetectionError("'hint' is een woord, bijv. 'car'.", status=400, code="invalid_body")
+    return hint.strip() or None
+
+
 def _minscore(value):
     score = _number(value or 0, "minscore")
     if not 0 <= score <= 1:
@@ -277,6 +287,8 @@ def create_detection(mid, n):
     """Run a detection (7): {"prompt", "modus", "minscore"}, a
     click {"punt": {x, y}}, a manual rectangle {"rechthoek": {x, y, w, h}}
     (free), or a SAM mask for an object with a rectangle {"masker_voor": id}.
+    A click or rectangle may carry a hint {"hint": "car"}: SAM then looks for that
+    word at the click or inside the rectangle (paid, also for the rectangle).
     Only through POST, so link previews and crawlers can never cost money."""
     file = _page_file(mid, n)
     body = _body()
@@ -288,10 +300,13 @@ def create_detection(mid, n):
             raise DetectionError("Geef punt.x en punt.y mee (pixels van het origineel).", status=400)
         x, y = _number(point["x"], "punt.x"), _number(point["y"], "punt.y")
         _require_paid_access(paid)
-        result = service.point(file, n, x, y, user=_user())
+        result = service.point(file, n, x, y, user=_user(), hint=_hint(body))
     elif "rechthoek" in body:
         rect = body["rechthoek"] if isinstance(body["rechthoek"], dict) else {}
-        result = service.rectangle(file, n, {k: _number(rect.get(k), f"rechthoek.{k}") for k in ("x", "y", "w", "h")})
+        hint = _hint(body)
+        if hint:
+            _require_paid_access(paid)
+        result = service.rectangle(file, n, {k: _number(rect.get(k), f"rechthoek.{k}") for k in ("x", "y", "w", "h")}, hint=hint, user=_user())
     elif "masker_voor" in body:
         _require_paid_access(paid)
         result = service.refine_mask(file, n, str(body["masker_voor"]), user=_user())

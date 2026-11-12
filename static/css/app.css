@@ -525,6 +525,9 @@ button.cc-kaart-oog { border: 0; background: none; cursor: pointer; }
 .cc-ai-voorbeeld { position: relative; z-index: 1; will-change: transform; }
 .cc-modus-keuze + .cc-modus-keuze { margin-top: 0.75rem; }
 .cc-modus-keuze p { margin: 0.25rem 0 0; }
+/* The AI hint at Point and Draw: a small label above a narrow field. */
+.cc-hint-veld { display: block; margin-top: 0.5rem; max-width: 20rem; }
+.cc-hint-label { display: block; font-size: 0.875rem; color: var(--color-subtle, #54595d); margin-bottom: 0.125rem; }
 /* Names above the objects (toggle "Names"), in the colour of their frame. */
 .object-naam-boven { dominant-baseline: text-after-edge; stroke: #fff; fill: var(--cc-kandidaat); font-weight: bold; }
 .object-geselecteerd .object-naam-boven { fill: var(--cc-geselecteerd); }

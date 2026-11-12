@@ -1036,3 +1036,11 @@ def test_search_skips_the_ai_term_of_a_renamed_object(http):
     assert http.patch(f"{PAGE}/objecten/{object_id}", json={"naam": "suitcase"}).status_code == 200
     assert object_id not in hits("cardboard")
     assert object_id in hits("suitcase")
+
+
+def test_point_and_rectangle_take_a_hint(http):
+    rect = http.post(PAGE + "/detecties", json={"rechthoek": {"x": 400, "y": 300, "w": 600, "h": 500}, "hint": "car"}).get_json()
+    assert rect["gevonden"] and rect["object"]["zoekterm"] == "car"
+    point = http.post(PAGE + "/detecties", json={"punt": {"x": 1, "y": 1}, "hint": "car"}).get_json()
+    assert point["hint"] == "car"
+    assert http.post(PAGE + "/detecties", json={"punt": {"x": 1, "y": 1}, "hint": 5}).status_code == 400

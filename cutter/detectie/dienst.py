@@ -28,7 +28,7 @@ from pathlib import Path
 from PIL import Image
 
 from .. import export, prompts, regios
-from ..commons import public as public_file
+from ..commons import public as public_file, snap_width
 from .basis import DetectionError
 from ..opruimen import last_used, mark_used
 from ..slot import store_lock
@@ -45,6 +45,8 @@ NEVER_MERGED = {"commons", "groep"}  # regions from Commons stay objects of thei
 # Page image width sent to the detector: the Commons thumbnail step closest to
 # the 2000 px of the Delpher Uitsnijder (functional design 5.2 and 6.1).
 IMAGE_WIDTH = 1920
+MAX_HINT = 100  # characters of a hint at Point or Draw
+HINT_MARGIN = 0.1  # room around a drawn rectangle sent with a hint, per side
 STATUSES = ("kandidaat", "geselecteerd", "uitgesloten")
 MODES = ("prompt", "alles", "commons")
 
@@ -373,10 +375,22 @@ class DetectionService:
         row = min(rows - 1, max(0, int((y - box["y"]) / max(box["h"], 1) * rows)))
         return bool(raster[row, col])
 
-    def point(self, file, n, x, y, user=None):
+    @staticmethod
+    def hint_term(hint):
+        """The search term of a hint at Point or Draw (wish Olaf, 12-11-2026): one term, as
+        typed, with its English word for the detector; None without a hint."""
+        hint = " ".join(str(hint or "").split())[:MAX_HINT]
+        return {"term": hint, "en": prompts.translate(hint)} if hint else None
+
+    def point(self, file, n, x, y, user=None, hint=None):
         """The smallest known object whose shape (mask) is under (x, y);
         otherwise a point prompt. A click inside a known box but beside its
-        shape (a bird in front of the box of a tree) asks the detector."""
+        shape (a bird in front of the box of a tree) asks the detector.
+        With a hint ("car"): a search for that word, of which only the hit under
+        the click is kept (SAM takes a word or a point, never both)."""
+        term = self.hint_term(hint)
+        if term:
+            return self._point_with_hint(file, n, x, y, term, user)
         objects = self.page_objects(file, n)
         hits = [o for o in objects if o["status"] != "uitgesloten" and self._on_shape(file, n, o, x, y)]
         if hits:
@@ -401,17 +415,77 @@ class DetectionService:
         result = next((o for o in objects if obj["id"] in _ids(o)), obj)
         return {"object": self.public(file, n, result), "nieuw": result["id"] == obj["id"], "budget": self.verbruik.status(user)}
 
+    def _point_with_hint(self, file, n, x, y, term, user):
+        """One search for the hint (its saved answer when the word was searched before:
+        free); the smallest hit whose shape lies under the click joins the page, the
+        other hits do not."""
+        page = self.client.load_page(file, n)
+        before = {i for o in self.page_objects(file, n) for i in _ids(o)}
+        hits = [o for o in self._run_term(file, page, term, {"image": None}, user) if self._on_shape(file, n, o, x, y)]
+        result = {"object": None, "nieuw": False, "hint": term["term"], "budget": self.verbruik.status(user)}
+        if not hits:
+            return result
+        obj = min(hits, key=lambda o: o["box"]["w"] * o["box"]["h"])
+        obj["status"] = "kandidaat"  # as any click
+        objects = self._merge_into_page(file, n, [obj])
+        found = next((o for o in objects if obj["id"] in _ids(o)), obj)
+        result.update(object=self.public(file, n, found), nieuw=found["id"] == obj["id"] and obj["id"] not in before)
+        return result
+
+    def _hint_in_box(self, file, page, box, term, user):
+        """The object for a hint inside a drawn rectangle: one search for the word in the
+        rectangle with a margin (sent on its own, so a small object is larger for SAM). The
+        hit that covers most of the rectangle, in page pixels, or None."""
+        mx, my = round(box["w"] * HINT_MARGIN), round(box["h"] * HINT_MARGIN)
+        x0, y0 = max(0, box["x"] - mx), max(0, box["y"] - my)
+        x1, y1 = min(page["breedte"], box["x"] + box["w"] + mx), min(page["hoogte"], box["y"] + box["h"] + my)
+        area = {"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0}
+        crop = None
+        if self.detector.betaald:
+            width = snap_width(IMAGE_WIDTH * page["breedte"] / area["w"], page["breedte"])
+            image = Image.open(io.BytesIO(self.client.page_image(file, page["n"], width))).convert("RGB")
+            s = image.width / page["breedte"]
+            crop = image.crop((round(x0 * s), round(y0 * s), round(x1 * s), round(y1 * s)))
+        if self.detector.betaald:
+            self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
+        detected = self.detector.detect(crop, term["en"], native_size=(area["w"], area["h"]))
+        if self.detector.betaald:
+            self._register(file, page["n"], f"{term['en']} in box {box}", user)
+        best, best_overlap = None, 0
+        for found in detected:
+            obj = found.to_dict()
+            obj["box"] = {"x": obj["box"]["x"] + x0, "y": obj["box"]["y"] + y0, "w": obj["box"]["w"], "h": obj["box"]["h"]}
+            ix = max(0, min(obj["box"]["x"] + obj["box"]["w"], box["x"] + box["w"]) - max(obj["box"]["x"], box["x"]))
+            iy = max(0, min(obj["box"]["y"] + obj["box"]["h"], box["y"] + box["h"]) - max(obj["box"]["y"], box["y"]))
+            if ix * iy > best_overlap:
+                best, best_overlap = obj, ix * iy
+        if best is None:
+            return None
+        digest = hashlib.sha1(f"{page['id']}|{best['herkomst'].get('model')}|hint|{term['en']}|{box}".encode())
+        best.update(id="obj-" + digest.hexdigest()[:10], zoekterm=term["term"], label=term["en"], status="geselecteerd")
+        best["herkomst"] = {**best["herkomst"], "rechthoek": box}
+        return best
+
     @_locked
-    def rectangle(self, file, n, box):
-        """A manual rectangle (Shift-drag, 7.3): free, without a mask."""
+    def rectangle(self, file, n, box, hint=None, user=None):
+        """A manual rectangle (Shift-drag, 7.3): free, without a mask. With a hint ("car",
+        wish Olaf 12-11-2026): one paid search for that word inside the rectangle, and the
+        object gets its shape; when nothing is found the rectangle stays, named after the hint."""
         page = self.client.load_page(file, n)
         box = self._clamp(box, page)
+        term = self.hint_term(hint)
+        if term:
+            found = self._hint_in_box(file, page, box, term, user)
+            if found is not None:
+                objects = self._merge_into_page(file, n, [found])
+                result = next((o for o in objects if found["id"] in _ids(o)), found)
+                return {"object": self.public(file, n, result), "nieuw": result["id"] == found["id"], "hint": term["term"], "gevonden": True, "budget": self.verbruik.status(user)}
         key = f"{page['id']}|handmatig|{box['x']},{box['y']},{box['w']},{box['h']}"
         obj = {
             "id": "obj-" + hashlib.sha1(key.encode()).hexdigest()[:10],
             "bron": "handmatig",
             "label": "rechthoek",
-            "zoekterm": "rechthoek",
+            "zoekterm": term["term"] if term else "rechthoek",
             "score": None,
             "box": box,
             "masker": None,
@@ -420,7 +494,10 @@ class DetectionService:
         }
         objects = self._merge_into_page(file, n, [obj])
         result = next((o for o in objects if obj["id"] in _ids(o)), obj)
-        return {"object": self.public(file, n, result), "nieuw": result["id"] == obj["id"], "budget": self.verbruik.status()}
+        answer = {"object": self.public(file, n, result), "nieuw": result["id"] == obj["id"], "budget": self.verbruik.status(user)}
+        if term:
+            answer.update(hint=term["term"], gevonden=False)
+        return answer
 
     @_locked
     def refine_mask(self, file, n, object_id, user=None):

@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.39.2, 12 november 2026 (nacht). Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.40.0, 12 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -45,7 +45,8 @@ Stand: versie 0.39.2, 12 november 2026 (nacht). Voor wie (mens of Claude-sessie)
   - 0.39.1: geen potloodjes meer bij de AI-zoektermen (eigen woorden vergeten; een regel met links naar *Zoeken* en *Aanwijzen of tekenen*); knoppen bij *Staat al op Commons* met de naam op Commons, gedimd; *Terugzetten uit de prullenbak* in zoekmeldingen; beschrijving per taal in een vak met vaste hoogte, wachtbalk onder de knop; een onleesbaar AI-antwoord geeft 502 `unreadable_answer` en wordt niet bewaard.
   - 0.38.0: hernoemen naar het woord van een *Beeldt af*-item koppelt het object aan dat item (`"item"` bij de object-PATCH); *Naar Commons* met opsommingen en uitgeschakeld zolang er niets toe te voegen is; elk uitklapblok begint met een korte uitleg; sub-opsommingen in de (i) (regels met `  - `); nieuwe schermafbeeldingen en rondleiding.
   - 0.39.2: *Alleen deze maskers tonen* geeft elk object precies één vinkje (eigen naam, anders de zoekterm; geen woorden van *Ook gevonden als* meer, `classKeys` in `class-colors.js`); zoeken in de objecten slaat de AI-zoekterm en het AI-label over bij een object met een eigen naam (lijst, pagina *Objecten*, `q` bij de export); de knop heet *Alle objecten opnieuw lokaliseren* zodra de termen gezocht zijn.
-- Tests: 311 in Python (`pytest`), 71 in de frontend (`npm test`). Alle groen bij 0.39.2.
+  - 0.40.0: een **AI-hint** bij *Aanwijzen* en *Tekenen* (FO 7.3): SAM neemt een woord óf een punt/rechthoek, dus de hint is een woordzoektocht waarvan de app alleen de vondst onder de klik houdt (`_point_with_hint`, via het bewaarde antwoord van `_run_term`) of die in de rechthoek met 10% marge, als eigen uitsnede naar SAM gestuurd (`_hint_in_box`, betaald). Niet live getest: Olaf test de vormen op zijn server. De knoppen van de beschrijving van de hele afbeelding staan in het meervoud.
+- Tests: 316 in Python (`pytest`), 71 in de frontend (`npm test`). Alle groen bij 0.40.0.
 
 ## De interface in het kort
 

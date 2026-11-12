@@ -104,6 +104,8 @@
           @dismiss-notice="dismiss"
           @inventory-changed="inventory = $event"
           :draw-mode="drawMode"
+          :hints="hints"
+          @hint="hints[$event.kind] = $event.text"
           @point-mode="setMode('point', $event)"
           @draw-mode="setMode('draw', $event)"
         />
@@ -384,6 +386,8 @@ const focusedId = ref(null);
 const hoveredId = ref(null);
 const pointMode = ref(false);
 const drawMode = ref(false);
+// A hint per way (wish Olaf, 12-11-2026): the word SAM looks for at the click or in the rectangle.
+const hints = reactive({ point: "", draw: "" });
 
 // Aanwijzen and Rechthoek tekenen exclude each other.
 function setMode(mode, on) {
@@ -1210,13 +1214,14 @@ async function onPoint({ x, y }) {
   lastResult.value = null;
   // Always the price first: only a click on the shape of a known object is free,
   // and the shapes are on the server (a click in a box beside its shape is a new search).
-  if (!(await confirmCost(1, props.config.sam_usd, t("confirm.action_point")))) return;
+  const hint = hints.point.trim();
+  if (!(await confirmCost(1, props.config.sam_usd, hint ? t("confirm.action_point_hint", { hint }) : t("confirm.action_point")))) return;
   busy.value = true;
   try {
-    const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { punt: { x, y } });
+    const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { punt: { x, y }, ...(hint ? { hint } : {}) });
     // The outcome in the panel, under "Aanwijzen of tekenen": new, already known, or nothing.
     if (!result.object) {
-      lastResult.value = { section: "point", modus: "punt", outcome: "niets", at: Date.now() };
+      lastResult.value = { section: "point", modus: "punt", outcome: "niets", hint, at: Date.now() };
       return;
     }
     if (result.nieuw) objects.value = [...objects.value.filter((o) => o.id !== result.object.id), result.object];
@@ -1231,14 +1236,23 @@ async function onPoint({ x, y }) {
 }
 
 async function onRectangle(rect) {
+  // The hint only counts with the Draw switch on: a Shift-drag stays free.
+  const hint = drawMode.value ? hints.draw.trim() : "";
+  if (hint) {
+    lastResult.value = null;
+    if (!(await confirmCost(1, props.config.sam_usd, t("confirm.action_draw_hint", { hint })))) return;
+    busy.value = true;
+  }
   try {
-    const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { rechthoek: rect });
+    const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { rechthoek: rect, ...(hint ? { hint } : {}) });
     objects.value = [...objects.value.filter((o) => o.id !== result.object.id), result.object];
     newIds.value = [result.object.id];
     focusedId.value = result.object.id;
-    lastResult.value = { section: "point", modus: "rechthoek", outcome: "nieuw", name: listNames.value[result.object.id] || objectName(result.object, props.config.taal, t), at: Date.now() };
+    lastResult.value = { section: "point", modus: "rechthoek", outcome: "nieuw", hint, gevonden: result.gevonden, name: listNames.value[result.object.id] || objectName(result.object, props.config.taal, t), at: Date.now() };
   } catch (error) {
     fail(error);
+  } finally {
+    busy.value = false;
   }
 }
 

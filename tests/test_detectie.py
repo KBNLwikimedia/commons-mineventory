@@ -243,3 +243,47 @@ def test_too_many_terms_in_one_request(service, album):
     with pytest.raises(DetectionError) as exc:
         service.detect(album, 1, prompt)
     assert exc.value.code == "too_many_terms"
+
+
+def test_point_with_a_hint_keeps_only_the_hit_under_the_click(service, album):
+    hits = service.detect(album, 1, "portret")["objecten"]
+    # The same word again, from its saved answer (free): the hit under the click.
+    target = hits[0]
+    box = target["box"]
+    result = service.point(album, 1, box["x"] + box["w"] // 2, box["y"] + box["h"] // 2, hint="portret")
+    assert result["hint"] == "portret" and result["object"]["zoekterm"] == "portret"
+    assert result["object"]["label"] == "portrait"
+    # A click on nothing with a hint: no object, and nothing new on the page.
+    count = len(service.page_objects(album, 1))
+    corner = service.point(album, 1, box["x"] + 1, box["y"] + 1, hint="portret")
+    if corner["object"] is None:
+        assert len(service.page_objects(album, 1)) == count and corner["hint"] == "portret"
+
+
+def test_point_with_a_hint_on_a_fresh_page_adds_one_object(service, album):
+    first = service._run_term(album, service.client.load_page(album, 1), service.hint_term("auto"), {"image": None}, None)
+    box = first[0]["box"]
+    result = service.point(album, 1, box["x"] + box["w"] // 2, box["y"] + box["h"] // 2, hint="  auto ")
+    assert result["nieuw"] and result["object"]["zoekterm"] == "auto" and result["object"]["status"] == "kandidaat"
+    assert len(service.page_objects(album, 1)) == 1
+
+
+def test_rectangle_with_a_hint_gets_a_shape_inside_it(service, album):
+    rect = {"x": 400, "y": 300, "w": 600, "h": 500}
+    result = service.rectangle(album, 1, rect, hint="auto")
+    obj = result["object"]
+    assert result["gevonden"] and result["hint"] == "auto"
+    assert obj["zoekterm"] == "auto" and obj["bron"] == "dummy" and obj["masker"]
+    # The shape lies in the rectangle with its margin (10% per side).
+    b = obj["box"]
+    assert 340 <= b["x"] and 250 <= b["y"] and b["x"] + b["w"] <= 1060 and b["y"] + b["h"] <= 850
+    # Drawn again: the same object, not a second one.
+    again = service.rectangle(album, 1, rect, hint="auto")
+    assert again["object"]["id"] == obj["id"] and len(service.page_objects(album, 1)) == 1
+
+
+def test_rectangle_with_a_hint_and_nothing_found_stays_a_named_rectangle(service, album, monkeypatch):
+    monkeypatch.setattr(service.detector, "detect", lambda *a, **k: [])
+    result = service.rectangle(album, 1, {"x": 10, "y": 10, "w": 300, "h": 200}, hint="car")
+    assert result["gevonden"] is False and result["object"]["bron"] == "handmatig"
+    assert result["object"]["zoekterm"] == "car" and result["object"]["masker"] is None

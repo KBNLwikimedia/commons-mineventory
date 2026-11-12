@@ -5,6 +5,16 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-12
+
+### Toegevoegd
+
+- **AI-hint bij Aanwijzen en Tekenen** (wens Olaf): typ een woord, bijv. *auto*, en de AI-beelddetectie zoekt daarnaar. Bij Aanwijzen houdt de app alleen de vondst onder je klik (één aanroep; gratis als het woord al gezocht was); bij Tekenen gaat alleen de rechthoek met wat ruimte naar SAM en krijgt het object zijn vorm (één aanroep; zonder hint en met Shift-slepen blijft tekenen gratis). Het object krijgt het woord als zoekterm. API: `"hint"` bij `punt` en `rechthoek`.
+
+### Gewijzigd
+
+- De knoppen voor de beschrijving van de hele afbeelding staan in het meervoud (*Beschrijvingen laten maken*, *Beschrijvingen opnieuw laten maken*, *Beschrijvingen verwijderen*; Engels *Generate descriptions*, …): één aanroep maakt alle vier de lengtes (wens Olaf).
+
 ## [0.39.2] - 2026-11-12
 
 ### Gewijzigd

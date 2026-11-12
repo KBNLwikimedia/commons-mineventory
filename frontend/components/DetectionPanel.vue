@@ -324,7 +324,12 @@
         <cdx-toggle-switch :model-value="pointMode" @update:model-value="emit('point-mode', $event)">
           {{ t("panel.point_switch") }}
         </cdx-toggle-switch>
-        <p class="cc-uitleg">{{ t("panel.point_help") }} {{ cost(1) }}</p>
+        <!-- A hint for the AI (wish Olaf, 12-11-2026): SAM then looks for this word and keeps what lies under the click. -->
+        <label class="cc-hint-veld">
+          <span class="cc-hint-label">{{ t("panel.hint_label") }}</span>
+          <cdx-text-input :model-value="hints.point" :placeholder="t('panel.hint_placeholder')" :disabled="busy" @update:model-value="emit('hint', { kind: 'point', text: $event })" />
+        </label>
+        <p class="cc-uitleg">{{ t("panel.point_help") }} <template v-if="hints.point.trim()">{{ t("panel.point_hint_help", { hint: hints.point.trim() }) }} </template>{{ cost(1) }}</p>
         <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
         <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" :type="lastResult.outcome === 'niets' ? 'warning' : 'success'" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
       </div>
@@ -335,8 +340,14 @@
         <cdx-toggle-switch :model-value="drawMode" @update:model-value="emit('draw-mode', $event)">
           {{ t("panel.draw_switch") }}
         </cdx-toggle-switch>
-        <p class="cc-uitleg">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
-        <cdx-message v-if="lastResult && resultAt === 'point' && lastResult.modus === 'rechthoek'" type="success" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <!-- With a hint the rectangle is searched for that word (paid); without one it stays free. -->
+        <label class="cc-hint-veld">
+          <span class="cc-hint-label">{{ t("panel.hint_label") }}</span>
+          <cdx-text-input :model-value="hints.draw" :placeholder="t('panel.hint_placeholder')" :disabled="busy" @update:model-value="emit('hint', { kind: 'draw', text: $event })" />
+        </label>
+        <p class="cc-uitleg">{{ t("panel.draw_help") }} <template v-if="hints.draw.trim()">{{ t("panel.draw_hint_help", { hint: hints.draw.trim() }) }} {{ cost(1) }}</template><template v-else>{{ t("panel.free") }}</template></p>
+        <busy-note v-if="busy && where === 'draw'" :message="t('busy.sam')" />
+        <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'rechthoek'" :type="lastResult.hint && !lastResult.gevonden ? 'warning' : 'success'" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
       </div>
       </cdx-accordion>
     </cdx-accordion>
@@ -413,13 +424,15 @@ const props = defineProps({
   trashTerms: { type: Object, default: () => ({}) },
   pointMode: { type: Boolean, default: false },
   drawMode: { type: Boolean, default: false },
+  // The hints for Point and Draw ({point, draw}): a word SAM looks for.
+  hints: { type: Object, default: () => ({ point: "", draw: "" }) },
   // The outcome of the last detection: shown in the section whose button asked for it.
   lastResult: { type: Object, default: null },
   // Notices about actions in this panel, shown near their button (where: commons, ai-…).
   notices: { type: Array, default: () => [] },
 });
 const noticesAt = (place) => props.notices.filter((n) => n.where === place);
-const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode", "dismiss-result", "read-again", "dismiss-notice", "restore-trash"]);
+const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode", "dismiss-result", "read-again", "dismiss-notice", "restore-trash", "hint"]);
 const t = useT();
 const config = inject("config");
 // The two models in the live-mode line link to Meta's own pages. Muse Spark
@@ -762,7 +775,7 @@ watch(
   (busy) => {
     if (!busy) return;
     const recent = Date.now() - clicked.at < 1500;
-    where.value = recent ? clicked.section : props.pointMode ? "point" : "top";
+    where.value = recent ? clicked.section : props.pointMode ? "point" : props.drawMode ? "draw" : "top";
   }
 );
 
@@ -788,10 +801,13 @@ function resultText(result) {
   if (result.fout) return result.fout; // the request failed: its reason, here under the button
   // Pointing and drawing: about one object.
   if (result.modus === "punt") {
-    if (result.outcome === "niets") return t("panel.result_point_none");
+    if (result.outcome === "niets") return result.hint ? t("panel.result_point_none_hint", { hint: result.hint }) : t("panel.result_point_none");
     return t(result.outcome === "bekend" ? "panel.result_point_known" : "panel.result_point_new", { name: result.name });
   }
-  if (result.modus === "rechthoek") return t("panel.result_rectangle", { name: result.name });
+  if (result.modus === "rechthoek") {
+    if (!result.hint) return t("panel.result_rectangle", { name: result.name });
+    return t(result.gevonden ? "panel.result_rectangle_hint" : "panel.result_rectangle_hint_none", { name: result.name, hint: result.hint });
+  }
   const terms = result.prompt.split(",").map((s) => s.trim()).filter(Boolean);
   const what = result.modus === "commons" ? t("panel.result_commons") : terms.length > 1 ? t("panel.result_terms", { n: terms.length }) : t("panel.result_term", { term: terms[0] || "" });
   const elsewhere = elsewhereParts(result);
