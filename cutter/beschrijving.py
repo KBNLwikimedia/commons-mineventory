@@ -527,7 +527,8 @@ def parse_inventory(text, max_terms=MAX_TERMS):
     except ValueError:
         data = None
     if not isinstance(data, dict):
-        return {"paginasoort": "", "paginasoort_en": "", "samenvatting": " ".join((text or "").split())[:300], "samenvatting_en": "", "tekst": "", "zoektermen": []}
+        # Not JSON: "inventory" does not keep this as an answer (it says so and asks to retry).
+        return {"paginasoort": "", "paginasoort_en": "", "samenvatting": " ".join((text or "").split())[:300], "samenvatting_en": "", "tekst": "", "zoektermen": [], "onleesbaar": True}
     terms, seen = [], set()
     for entry in data.get("zoektermen") or []:
         if not isinstance(entry, dict):
@@ -1438,6 +1439,12 @@ class DescriptionService:
             else:
                 amount = 0.0
             parsed = parse_inventory(output_text(body), DETAIL_LEVELS[detail][0])
+            # An answer that is not JSON, or a description without any text, is no answer: the
+            # call is booked (it was made), but nothing is stored or cached, so asking again
+            # really asks again instead of bringing back the broken answer for free.
+            unreadable = parsed.pop("onleesbaar", False) or (
+                part != "zoektermen" and not parsed.get("beschrijvingen") and not parsed.get("samenvatting") and not parsed.get("samenvatting_en")
+            )
             if part is not None:
                 keys = (*INVENTORY_PARTS[part], *(("beschrijvingen",) if part == "beschrijving" else ()))
                 parsed = {k: parsed[k] for k in keys}
@@ -1478,6 +1485,13 @@ class DescriptionService:
                     cost=amount,
                     user=user,
                 )
+        if unreadable:
+            raise DetectionError(
+                "Het antwoord van de AI was onleesbaar of zonder beschrijving; er is niets bewaard. Probeer het opnieuw.",
+                status=502,
+                retry=True,
+                code="unreadable_answer",
+            )
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(overview, ensure_ascii=False, indent=2), encoding="utf-8")
         if part is not None:

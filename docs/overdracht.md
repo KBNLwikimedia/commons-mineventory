@@ -1,6 +1,6 @@
 # Overdracht – Commons Mineventory
 
-Stand: versie 0.39.0, 12 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
+Stand: versie 0.39.1, 12 november 2026. Voor wie (mens of Claude-sessie) het werk overneemt. Lees daarna, in deze volgorde: [CLAUDE.md](../CLAUDE.md), [het functioneel ontwerp](functioneel-ontwerp.md), [de backlog](../BACKLOG.md) en [de changelog](../CHANGELOG.md).
 
 ## Waar het staat
 
@@ -42,8 +42,9 @@ Stand: versie 0.39.0, 12 november 2026. Voor wie (mens of Claude-sessie) het wer
   - 0.37.0: *Bewaarde antwoorden of SAM opnieuw* bij lokaliseren (`"vers": true`), *Naar Commons* als eigen uitklapblok, CropTool, *Waar gebruikt* en *Geschiedenis* in de bestandskop; Vite volgt `uitvoer/` niet meer (op Windows bleven verwijderde mappen anders vastzitten) en een map in gebruik geeft 409 `files_in_use`.
   - 0.38.1: de AI-zoektermen in twee blokken (*Staat al op Commons*, alleen lezen, en *Nieuw*); *Van Commons > Beeldt af* zonder potlood (zoekt op het Engelse label); *Nieuw item toevoegen?* met drie links; tip bij *Zoeken* over hernoemen; een nieuwe beschrijving van de hele afbeelding is standaard een Commons-caption (hooguit 250 tekens, `PAGE_DEFAULT_DESCRIPTION_LEVEL`).
   - 0.39.0: de beschrijving van de hele afbeelding komt in één AI-aanroep in alle vier de lengtes (`beschrijvingen` in het overzicht); de schuif wisselt gratis (`PATCH … {beschrijvingsniveau}`); elke lengte houdt zijn eigen aanpassingen en AI-origineel; een versie in *Eerdere beschrijvingen* bevat alle vier; *Naar Commons* gebruikt de caption-lengte.
+  - 0.39.1: geen potloodjes meer bij de AI-zoektermen (eigen woorden vergeten; een regel met links naar *Zoeken* en *Aanwijzen of tekenen*); knoppen bij *Staat al op Commons* met de naam op Commons, gedimd; *Terugzetten uit de prullenbak* in zoekmeldingen; beschrijving per taal in een vak met vaste hoogte, wachtbalk onder de knop; een onleesbaar AI-antwoord geeft 502 `unreadable_answer` en wordt niet bewaard.
   - 0.38.0: hernoemen naar het woord van een *Beeldt af*-item koppelt het object aan dat item (`"item"` bij de object-PATCH); *Naar Commons* met opsommingen en uitgeschakeld zolang er niets toe te voegen is; elk uitklapblok begint met een korte uitleg; sub-opsommingen in de (i) (regels met `  - `); nieuwe schermafbeeldingen en rondleiding.
-- Tests: 309 in Python (`pytest`), 70 in de frontend (`npm test`). Alle groen bij 0.39.0.
+- Tests: 310 in Python (`pytest`), 70 in de frontend (`npm test`). Alle groen bij 0.39.1.
 
 ## De interface in het kort
 

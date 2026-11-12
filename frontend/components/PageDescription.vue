@@ -28,11 +28,14 @@
           <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget_beschrijving_button") }}
         </cdx-button>
       </div>
+      <!-- While the AI works: the waiting bar right under the button that asked (wish Olaf, 12-11-2026). -->
+      <slot name="wachten" />
       <!-- Explanation under the buttons, like under the search terms (wish Olaf). -->
       <p class="cc-uitleg cc-termen-uitleg">{{ t("panel.description_help") }} {{ t("panel.parts_help") }}</p>
     </div>
     <!-- A description from before the four lengths has only the one it was asked in. -->
-    <p v-if="lengthMissing" class="cc-uitleg cc-lengte-ontbreekt">{{ t("page.length_not_made", { level: t(`descdetail.${inventory.beschrijvingsniveau || "normaal"}`) }) }}</p>
+    <!-- Made with the four lengths, but the AI left this one empty: another message (asking anew helps). -->
+    <p v-if="lengthMissing" class="cc-uitleg cc-lengte-ontbreekt">{{ lengthMissingText }}</p>
     <div v-if="hasDescription || editing" class="cc-ai-resultaat">
       <template v-for="group in GROUPS" :key="group.key">
         <div v-if="editing === group.key" ref="editBox" class="cc-veld-bewerken">
@@ -55,11 +58,17 @@
             <strong>{{ t("panel.inventory_text") }}</strong>
             <blockquote>{{ inventory.tekst }}{{ " " }}<edit-pencil :label="t(`page.group_${group.key}`)" :disabled="busy || Boolean(editing)" @click="start(group)" /></blockquote>
           </template>
-          <p v-else :class="{ 'cc-ai-en': group.key === 'en' }">
-            {{ inventory[group.fields[0]] }}<template v-if="inventory[group.fields[0]] && inventory[group.fields[1]]"> — </template>{{ inventory[group.fields[1]] }}
-            <edit-pencil :label="t(`page.group_${group.key}`)" :disabled="busy || Boolean(editing)" @click="start(group)" />
-            <ai-badge v-if="group.key === 'en' || (group.key === 'nl' && !inventory.samenvatting_en)" kind="pagina" :model="made.model" :edited="Boolean(inventory.bewerkt)" />
-          </p>
+          <!-- A box of fixed height that scrolls when the text is longer: the slider changes the
+               length of the text, not the height of the page (wish Olaf, 12-11-2026). -->
+          <div v-else class="cc-lengte-vak">
+            <p class="cc-lengte-tekst" :class="{ 'cc-ai-en': group.key === 'en' }" tabindex="0">
+              {{ inventory[group.fields[0]] }}<template v-if="inventory[group.fields[0]] && inventory[group.fields[1]]"> — </template>{{ inventory[group.fields[1]] }}
+            </p>
+            <span class="cc-lengte-acties">
+              <edit-pencil :label="t(`page.group_${group.key}`)" :disabled="busy || Boolean(editing)" @click="start(group)" />
+              <ai-badge v-if="group.key === 'en' || (group.key === 'nl' && !inventory.samenvatting_en)" kind="pagina" :model="made.model" :edited="Boolean(inventory.bewerkt)" />
+            </span>
+          </div>
         </div>
       </template>
     </div>
@@ -191,7 +200,13 @@ const GROUPS = [
 const base = computed(() => `${pagePath(props.mid, props.n)}/inventaris`);
 const hasDescription = computed(() => FIELDS.some((f) => props.inventory[f]));
 // The slider on a length this description does not have (asked before 0.39.0): ask anew for all four.
-const lengthMissing = computed(() => hasDescription.value && descLevel.value !== props.inventory.beschrijvingsniveau && !props.inventory.beschrijvingen?.[descLevel.value]);
+// Made with the four lengths but this one came back empty, or made before the four lengths.
+const lengthMissingText = computed(() =>
+  Object.keys(props.inventory.beschrijvingen || {}).length
+    ? t("page.length_empty", { level: t(`descdetail.${descLevel.value}`) })
+    : t("page.length_not_made", { level: t(`descdetail.${props.inventory.beschrijvingsniveau || "normaal"}`) }),
+);
+const lengthMissing = computed(() =>hasDescription.value && descLevel.value !== props.inventory.beschrijvingsniveau && !props.inventory.beschrijvingen?.[descLevel.value]);
 // Model and time of the AI description: of the part asked anew, else of the overview.
 const made = computed(() => props.inventory.delen?.beschrijving || props.inventory);
 const error = ref("");

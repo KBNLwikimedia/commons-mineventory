@@ -5,6 +5,31 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-11-12
+
+### Toegevoegd
+
+- Onder de AI-zoektermen staat een regel: *Niet goed? Haal het object rechts weg. Iets anders zoeken? Gebruik Zoeken of Aanwijzen of tekenen*, met links naar die blokken.
+- Vindt een zoekactie iets dat in de prullenbak ligt, dan staat in de melding een knop *Terugzetten uit de prullenbak*; de melding zegt daarna zelf hoeveel er terug zijn (wens Olaf). *Niets nieuws voor …* heet nu *Geen nieuwe objecten voor …: wat de AI vond, was er al*, zodat het niet meer als een fout leest.
+
+### Verwijderd
+
+- De potloodjes bij de AI-zoektermen (wens Olaf): een term is wat de AI zei, het getal telt de objecten van dat woord. Een eigen woord gaf veel complexiteit, zoals een knop *sky* die eigenlijk *driveway* was. Een fout object haal je rechts weg; iets anders zoek je met *Zoeken* of *Aanwijzen of tekenen*. De eigen woorden die de browser nog had, worden vergeten.
+
+### Gewijzigd
+
+- De knoppen bij *Staat al op Commons* tonen de naam van het item op Commons (*stairs*), niet het woord van de AI (*staircase*, nu in de tooltip); twee AI-woorden voor hetzelfde item geven één knop (wens Olaf).
+- De beschrijving van de hele afbeelding staat per taal in een vak met een vaste hoogte, dat scrolt als de tekst langer is; het potlood en het AI-merkje staan ernaast. Schuiven met *Lengte* verandert de hoogte van de pagina dus niet meer (wens Olaf).
+- Terwijl de AI de afbeelding opnieuw beschrijft, staat de wachtbalk direct onder *Beschrijving opnieuw*, niet meer onder de tekst (wens Olaf).
+- De zoektermen onder *Staat al op Commons* zijn gedimd (minder fel groen, wat grijzer), omdat je er niet op kunt klikken (wens Olaf).
+- De gekozen stand van een schuif (lengte, detailniveau) staat altijd op een eigen regel onder de schuif; een lange stand zoals *Commons-caption (hooguit 250 tekens)* sprong eerst van naast de schuif naar eronder (wens Olaf).
+
+### Gerepareerd
+
+- Een AI-zoekterm die je met het potlood een eigen woord gaf, telde de objecten van beide woorden: *driveway*, hernoemd tot *sky*, toonde *sky 2* bij één object *sky*. Het getal telt nu alleen het woord op het knopje (wens Olaf).
+- Een antwoord van de AI dat geen JSON is, of een beschrijving zonder tekst, gold als een goed antwoord: het werd bewaard en in de cache gezet, zodat *Wat staat op deze pagina?* daarna gratis hetzelfde kapotte antwoord teruggaf. Nu volgt een melding (502 `unreadable_answer`) met de vraag het opnieuw te proberen; de aanroep is wel geboekt, er wordt niets bewaard.
+- Liet de AI één lengte leeg, dan zei de app dat de beschrijving van vóór de vier lengtes was. Nu zegt hij dat de AI deze lengte niet gaf.
+
 ## [0.39.0] - 2026-11-12
 
 ### Toegevoegd

@@ -1,7 +1,7 @@
 <!--
   The level of detail for the AI search terms (functional design 7.6): how many kinds
   of objects the AI image description suggests, from the one main subject to many small
-  details. A slider with four stops; the chosen stop is shown in words beside it.
+  details. A slider with four stops; the chosen stop is shown in words under it.
 -->
 <template>
   <div class="cc-schuif" :class="{ 'cc-schuif-compact': compact }" :title="compact ? t(`${prefix}.help`) : undefined">

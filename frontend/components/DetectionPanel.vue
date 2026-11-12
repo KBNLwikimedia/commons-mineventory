@@ -46,7 +46,7 @@
           {{ t("panel.regions_button", { n: regionCount }) }}
         </cdx-button>
         <busy-note v-if="busy && where === 'commons'" :message="t('busy.commons')" />
-        <cdx-message v-if="lastResult && resultAt === 'commons' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <cdx-message v-if="lastResult && resultAt === 'commons' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
       </cdx-accordion>
 
       <!-- (3) Depicts without a position: a chip per item; a click lets SAM find it (paid),
@@ -123,7 +123,7 @@
           </div>
         </div>
         <busy-note v-if="busy && where === 'commons-depicts'" :message="t('busy.sam')" />
-        <cdx-message v-if="lastResult && resultAt === 'commons-depicts' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <cdx-message v-if="lastResult && resultAt === 'commons-depicts' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
       </cdx-accordion>
     </cdx-accordion>
 
@@ -162,8 +162,9 @@
           @changed="emit('inventory-changed', $event)"
           @again="act('beschrijving', 'inventory', { deel: 'beschrijving', beschrijvingsniveau: $event })"
           @forget="act('beschrijving', 'forget-inventory', { deel: 'beschrijving' })"
-        />
-        <busy-note v-if="busy && where === 'beschrijving'" :message="t('busy.muse_page')" />
+        >
+          <template #wachten><busy-note v-if="busy && where === 'beschrijving'" :message="t('busy.muse_page')" /></template>
+        </page-description>
         <notice-list :notices="noticesAt('ai-beschrijving')" @dismiss="emit('dismiss-notice', $event)" />
         </cdx-accordion>
 
@@ -193,9 +194,10 @@
             <p class="cc-termen-kop">{{ t("panel.terms_on_commons_title", { n: commonsTerms.length }) }}</p>
             <p class="cc-uitleg cc-termen-uitleg">{{ t("panel.terms_on_commons_help") }}</p>
             <div class="cc-knoppen">
+              <!-- The name of the item on Commons ("stairs"), not the AI's word ("staircase"): one thing per chip (wish Olaf). -->
               <span v-for="term in commonsTerms" :key="term.en" class="cc-term cc-term-vast" :class="{ 'cc-term-gevonden': commonsTermCount(term) > 0 }">
-                <cdx-button size="small" disabled :title="t('panel.term_on_commons_help')">
-                  {{ termLabel(term) }}
+                <cdx-button size="small" disabled :title="t('panel.term_on_commons_help_ai', { term: termLabel(term) })">
+                  {{ commonsLabel(term) }}
                   <span v-if="commonsTermCount(term)" class="cc-term-aantal">{{ commonsTermCount(term) }}</span>
                 </cdx-button>
               </span>
@@ -205,11 +207,11 @@
           <p v-if="!newTerms.length" class="cc-uitleg">{{ t("panel.terms_new_none") }}</p>
           <!-- What the terms are for: finding where on the image each thing is. -->
           <p v-if="newTerms.length" class="cc-uitleg cc-termen-uitleg">
-            {{ t("panel.terms_help") }} {{ cost(1) }} {{ t("panel.terms_pencil") }} {{ t("panel.terms_colours") }} {{ t("panel.terms_choose") }}
+            {{ t("panel.terms_help") }} {{ cost(1) }} {{ t("panel.terms_colours") }} {{ t("panel.terms_choose") }}
           </p>
           <div v-if="newTerms.length" class="cc-knoppen">
             <!-- Each term: a tick (does it go along with "Detect all"?) and the term itself (detect only this one). -->
-            <span v-for="term in newTerms" :key="term.en" class="cc-term" :class="{ 'cc-term-uit': excluded.includes(term.en), ...resultClass(termHits(term), termWord(term)) }">
+            <span v-for="term in newTerms" :key="term.en" class="cc-term" :class="{ 'cc-term-uit': excluded.includes(term.en), ...resultClass(termHits(term), term.en) }">
               <input
                 type="checkbox"
                 class="cc-term-mee"
@@ -219,40 +221,17 @@
                 :title="t('panel.term_include', { term: termLabel(term) })"
                 @change="toggleTerm(term.en)"
               />
-              <!-- The search word can be changed with the pencil, as for the depicts items (wish Olaf). -->
-              <input
-                v-if="editingTerm === term.en"
-                ref="termInput"
-                v-model="termDraft"
-                class="cc-term-veld"
-                :aria-label="t('panel.term_word', { term: termLabel(term) })"
-                @keydown.enter.prevent="saveTermWord(term)"
-                @keydown.esc.prevent="editingTerm = null"
-                @blur="saveTermWord(term)"
-              />
+              <!-- The AI's term as it is: no pencil (wish Olaf, 12-11-2026). Wrong? Remove the object
+                   on the right. Something else? Search or Point or draw (the line under the terms). -->
               <cdx-button
-                v-else
                 action="progressive"
                 size="small"
                 :disabled="busy"
                 :title="termTitle(term)"
-                @click="act('suggestions', 'detect', { modus: 'prompt', prompt: termWord(term) })"
+                @click="act('suggestions', 'detect', { modus: 'prompt', prompt: term.en })"
               >
-                {{ termWords[term.en] || termLabel(term) }}
-                <span v-if="termHits(term) || wasSearched(termWord(term))" class="cc-term-aantal">{{ termHits(term) }}</span>
-              </cdx-button>
-              <cdx-button
-                v-if="editingTerm !== term.en"
-                action="progressive"
-                weight="quiet"
-                size="small"
-                class="cc-term-potlood"
-                :disabled="busy"
-                :aria-label="t('panel.term_word', { term: termLabel(term) })"
-                :title="t('panel.term_word', { term: termLabel(term) })"
-                @click="startTermWord(term)"
-              >
-                <cdx-icon :icon="cdxIconEdit" size="small" />
+                {{ termLabel(term) }}
+                <span v-if="termHits(term) || wasSearched(term.en)" class="cc-term-aantal">{{ termHits(term) }}</span>
               </cdx-button>
             </span>
             <!-- The ticked terms in one go, right behind the terms themselves: the main action here;
@@ -263,7 +242,7 @@
               weight="primary"
               size="small"
               :disabled="busy || !includedTerms.length"
-              @click="act('suggestions', 'detect', { modus: 'prompt', prompt: includedTerms.map(termWord).join(', ') })"
+              @click="act('suggestions', 'detect', { modus: 'prompt', prompt: includedTerms.map((term) => term.en).join(', ') })"
             >
               {{ t(includedTerms.length === newTerms.length ? "panel.detect_suggestions" : "panel.detect_chosen", { n: includedTerms.length }) }}
               <span class="cc-kosten">{{ cost(includedTerms.length) }}</span>
@@ -278,10 +257,15 @@
             </span>
             </div>
           </div>
+          <!-- Not right, or something else: the places for that (wish Olaf). -->
+          <p v-if="newTerms.length" class="cc-uitleg">
+            {{ t("panel.terms_other") }} <button type="button" class="cc-link" @click="showSearch">{{ t("panel.search") }}</button> {{ t("panel.terms_other_or") }}
+            <button type="button" class="cc-link" @click="showPointOrDraw">{{ t("panel.point_or_draw") }}</button>.
+          </p>
           <busy-note v-if="busy && where === 'suggestions'" :message="t('busy.sam')" />
           <cdx-message v-if="lastResult && resultAt === 'suggestions' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">
             {{ resultText(lastResult) }}
-            <p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}</p>
+            <p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p>
             <ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul>
             <!-- Nothing found: the other ways to get the object, as links to the sections below. -->
             <template v-if="isNone(lastResult)"> {{ t("panel.result_none_next") }}
@@ -313,7 +297,7 @@
       <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
       <cdx-message v-if="lastResult && resultAt === 'search' && !busy" :type="resultType(lastResult)" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">
             {{ resultText(lastResult) }}
-            <p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}</p>
+            <p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p>
             <ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul>
             <!-- Nothing found: the other ways to get the object, as links to the sections below. -->
             <template v-if="isNone(lastResult)"> {{ t("panel.result_none_next") }}
@@ -342,7 +326,7 @@
         </cdx-toggle-switch>
         <p class="cc-uitleg">{{ t("panel.point_help") }} {{ cost(1) }}</p>
         <busy-note v-if="busy && where === 'point'" :message="t('busy.sam')" />
-        <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" :type="lastResult.outcome === 'niets' ? 'warning' : 'success'" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <cdx-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'punt'" :type="lastResult.outcome === 'niets' ? 'warning' : 'success'" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
       </div>
       </cdx-accordion>
       <cdx-accordion v-model="open.tekenen" class="cc-deel-uitklap">
@@ -352,7 +336,7 @@
           {{ t("panel.draw_switch") }}
         </cdx-toggle-switch>
         <p class="cc-uitleg">{{ t("panel.draw_help") }} {{ t("panel.free") }}</p>
-        <cdx-message v-if="lastResult && resultAt === 'point' && lastResult.modus === 'rechthoek'" type="success" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
+        <cdx-message v-if="lastResult && resultAt === 'point' && lastResult.modus === 'rechthoek'" type="success" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss-result')">{{ resultText(lastResult) }}<p v-if="resultAlso(lastResult)" class="cc-melding-alinea">{{ resultAlso(lastResult) }}<template v-if="lastResult.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash', lastResult)">↶ {{ t("panel.result_restore_trash") }}</button></template></p><p v-if="lastResult.restoreError" class="cc-melding-alinea">{{ lastResult.restoreError }}</p><ul v-if="mergedInto(lastResult).length" class="cc-melding-lijst" :aria-label="t('panel.result_merged_into')"><li v-for="name in mergedInto(lastResult)" :key="name">{{ name }}</li></ul></cdx-message>
       </div>
       </cdx-accordion>
     </cdx-accordion>
@@ -403,7 +387,7 @@
 <script setup>
 import { computed, inject, nextTick, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
-import { cdxIconEdit, cdxIconTrash } from "@wikimedia/codex-icons";
+import { cdxIconTrash } from "@wikimedia/codex-icons";
 import { textParts } from "../confirm.js";
 import { money, useT } from "../i18n.js";
 import { START_SUGGESTIONS } from "../state.js";
@@ -435,7 +419,7 @@ const props = defineProps({
   notices: { type: Array, default: () => [] },
 });
 const noticesAt = (place) => props.notices.filter((n) => n.where === place);
-const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode", "dismiss-result", "read-again", "dismiss-notice"]);
+const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode", "dismiss-result", "read-again", "dismiss-notice", "restore-trash"]);
 const t = useT();
 const config = inject("config");
 // The two models in the live-mode line link to Meta's own pages. Muse Spark
@@ -630,7 +614,22 @@ const commonsNames = computed(() => {
 const commonsItemFor = (term) => commonsNames.value.get(String(term.en || "").toLowerCase()) || commonsNames.value.get(String(term.nl || "").toLowerCase()) || null;
 // The AI terms in two blocks (wish Olaf): what Commons already depicts (read only; locate those
 // under From Commons) and what the AI adds, which you can search for, change and add.
-const commonsTerms = computed(() => (props.inventory?.zoektermen || []).filter((term) => commonsItemFor(term)));
+// One chip per item: two AI words for the same item ("stairs", "staircase") are one thing.
+const commonsTerms = computed(() => {
+  const seen = new Set();
+  return (props.inventory?.zoektermen || []).filter((term) => {
+    const q = commonsItemFor(term);
+    if (!q || seen.has(q)) return false;
+    seen.add(q);
+    return true;
+  });
+});
+// The name of that item on Commons, in the language of the interface.
+const commonsLabel = (term) => {
+  const q = commonsItemFor(term);
+  const statement = (props.file.sdc?.beeldt_af || []).find((st) => st.soort === "item" && st.waarde === q) || {};
+  return (config.taal === "en" ? statement.label_en || statement.label : statement.label || statement.label_en) || termLabel(term);
+};
 const newTerms = computed(() => (props.inventory?.zoektermen || []).filter((term) => !commonsItemFor(term)));
 // How many objects on the image are linked to the depicts item of such a term.
 const commonsTermCount = (term) => {
@@ -686,57 +685,21 @@ watch(
 const wasSearched = (word) => searched.value.includes(String(word || "").toLowerCase());
 const resultClass = (count, word) => ({ "cc-term-gevonden": count > 0, "cc-term-niets": !count && wasSearched(word) });
 
-// Your own search word for an AI search term (the pencil, wish Olaf), per file and page,
-// remembered in this browser; empty or the term again goes back to the term.
-const termWords = ref({});
-const termWordsKey = computed(() => `cc-term-zoekwoord:${props.file.mid}:${props.page.n}`);
+// The objects found with the AI's term (no own words any more: the pencil is gone, wish Olaf
+// 12-11-2026). The old own words in this browser are forgotten.
+const termObjectIds = (term) => termIds(term.en);
+const termHits = (term) => termObjectIds(term).length;
 watch(
-  termWordsKey,
-  (key) => {
+  () => [props.file.mid, props.page.n],
+  ([mid, n]) => {
     try {
-      termWords.value = JSON.parse(window.localStorage.getItem(key) || "{}");
+      window.localStorage.removeItem(`cc-term-zoekwoord:${mid}:${n}`);
     } catch {
-      termWords.value = {};
+      // Blocked storage: nothing to forget.
     }
   },
   { immediate: true }
 );
-const termWord = (term) => cleanWord(termWords.value[term.en] || term.en);
-// Objects found with the term, or with your own word for it.
-// The term itself and your own search word for it, each object once.
-const termObjectIds = (term) => {
-  const word = termWords.value[term.en];
-  return [...new Set([...termIds(term.en), ...(word ? termIds(word) : [])])];
-};
-const termHits = (term) => {
-  const word = termWords.value[term.en];
-  return termObjectIds(term).length;
-};
-const editingTerm = ref(null);
-const termDraft = ref("");
-const termInput = ref(null);
-async function startTermWord(term) {
-  editingTerm.value = term.en;
-  termDraft.value = termWord(term);
-  await nextTick();
-  const input = Array.isArray(termInput.value) ? termInput.value[0] : termInput.value;
-  input?.focus();
-  input?.select();
-}
-function saveTermWord(term) {
-  if (editingTerm.value !== term.en) return;
-  const word = cleanWord(termDraft.value);
-  const words = { ...termWords.value };
-  if (word && word.toLowerCase() !== term.en.toLowerCase()) words[term.en] = word;
-  else delete words[term.en];
-  termWords.value = words;
-  editingTerm.value = null;
-  try {
-    window.localStorage.setItem(termWordsKey.value, JSON.stringify(words));
-  } catch {
-    // Blocked storage: the word holds until the page is reloaded.
-  }
-}
 
 // Terms left out of "Detect all" (by their English term), per file and page,
 // remembered in this browser only (a convenience; nothing is stored on the server).
@@ -768,7 +731,6 @@ const includedTerms = computed(() => newTerms.value.filter((term) => !excluded.v
 
 function termTitle(term) {
   const parts = [t("panel.term_expected", { n: term.aantal, where: term.waar }), t("panel.term_found", { n: termHits(term) })];
-  if (termWords.value[term.en]) parts.push(t("panel.term_searched_as", { word: termWord(term) }));
   if (props.trashTerms[term.en]) parts.push(t("panel.term_trashed", { n: props.trashTerms[term.en] }));
   return parts.join(" · ");
 }
@@ -811,6 +773,7 @@ watch(() => [props.file.mid, props.page.n], () => (resultAt.value = null));
 function resultType(result) {
   if (result.fout) return "error";
   if (result.found || result.excluded) return "success";
+  if (result.restored) return "success";
   return result.merged || result.inGroup || result.inTrash || result.hidden ? "notice" : "warning";
 }
 
@@ -841,6 +804,7 @@ function elsewhereParts(result) {
     result.inGroup && t(result.inGroup === 1 ? "panel.result_in_group_one" : "panel.result_in_group", { n: result.inGroup }),
     result.inTrash && t(result.inTrash === 1 ? "panel.result_in_trash_one" : "panel.result_in_trash", { n: result.inTrash }),
     result.hidden && t(result.hidden === 1 ? "panel.result_hidden_one" : "panel.result_hidden", { n: result.hidden }),
+    result.restored && t(result.restored === 1 ? "panel.result_restored_one" : "panel.result_restored", { n: result.restored }),
   ].filter(Boolean);
 }
 // "Also found: …" as a paragraph of its own under the message (wish Olaf), with the list below it.
@@ -854,7 +818,7 @@ const mergedInto = (result) => (result && result.merged && result.holders) || []
 
 // A search with terms that found nothing (not "from Commons", pointing or drawing).
 function isNone(result) {
-  return Boolean(result) && !result.fout && result.modus === "prompt" && !result.found && !result.excluded && !result.merged && !result.inGroup && !result.inTrash && !result.hidden;
+  return Boolean(result) && !result.fout && result.modus === "prompt" && !result.found && !result.excluded && !result.merged && !result.inGroup && !result.inTrash && !result.hidden && !result.restored;
 }
 // After nothing was found: open Search with the term filled in, ready to change it.
 async function trySearch(result) {

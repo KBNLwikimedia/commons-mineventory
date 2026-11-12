@@ -697,6 +697,11 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 /* The description of the whole image: Dutch, English (italic), the text read; editable in place. */
 .cc-ai-groep + .cc-ai-groep, .cc-ai-resultaat .cc-veld-bewerken + .cc-ai-groep, .cc-ai-groep + .cc-veld-bewerken { margin-top: 0.4rem; }
 .cc-ai-groep .cc-ai-en { font-style: italic; }
+/* The description of the whole image: each language in a box of fixed height that scrolls when needed,
+   so moving the Length slider does not change the height of the page (wish Olaf, 12-11-2026). */
+.cc-lengte-vak { display: flex; align-items: flex-start; gap: 0.4rem; }
+.cc-ai-resultaat .cc-lengte-tekst { flex: 1; min-width: 0; height: 9.6em; line-height: 1.6; overflow-y: auto; padding-right: 0.25rem; overscroll-behavior: contain; }
+.cc-lengte-acties { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; flex: none; }
 .cc-ai-groep blockquote { margin: 0.2rem 0 0; padding-left: 0.6rem; border-left: 3px solid var(--cc-rand); white-space: pre-line; font-style: italic; }
 .cc-pagina-beschrijving .cc-tekst-acties { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0 0 0.5rem; }
 /* Earlier versions: two lines each; hover shows the whole text, a click unfolds it. */
@@ -730,7 +735,9 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-schuif { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; margin: 0.5rem 0; }
 .cc-schuif-kop { font-weight: 700; font-size: 0.875rem; }
 .cc-schuif input[type="range"] { flex: 1 1 8rem; max-width: 14rem; accent-color: var(--color-progressive, #36c); }
-.cc-schuif-waarde { font-size: 0.875rem; }
+/* The chosen stop always on its own line under the slider: a long one ("Commons caption (at most
+   250 characters)") no longer jumps from beside the slider to under it (wish Olaf, 12-11-2026). */
+.cc-schuif-waarde { font-size: 0.875rem; flex-basis: 100%; }
 .cc-schuif .cc-uitleg { flex-basis: 100%; margin: 0; }
 
 /* "Groeperen: alle waterdruppels (15) · alle bladeren (9)" under the search terms (7.4). */
@@ -832,14 +839,14 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-commons-captions { margin: 0 0 0.25rem; padding-left: 0; list-style: none; font-size: 0.875rem; }
 .cc-commons-captions li { margin: 0.15rem 0; }
 .cc-taal-code { display: inline-block; min-width: 1.6rem; margin-right: 0.3rem; padding: 0 0.25rem; border: 1px solid var(--cc-rand, #c8ccd1); border-radius: 2px; font-size: 0.75rem; text-align: center; color: var(--color-subtle, #54595d); }
-.cc-term-veld { width: 9rem; border: 0; padding: 0 0.3rem; font: inherit; font-size: 0.875rem; }
-.cc-term .cc-term-potlood { padding: 0 0.25rem; min-width: 0; }
 .cc-termen-kop { margin: 0.75rem 0 0.25rem; font-size: 0.875rem; font-weight: 700; }
 /* AI terms that Commons already depicts (wish Olaf): read only, a dashed chip with dark text,
    green when objects are linked to that item. Specific enough to beat Codex's disabled style. */
 .cc-knoppen .cc-term.cc-term-vast { border-style: dashed; background: #f8f9fa; }
 .cc-knoppen .cc-term.cc-term-vast .cdx-button:disabled { background: transparent; color: #202122; border-color: transparent; cursor: default; }
 .cc-knoppen .cc-term.cc-term-vast.cc-term-gevonden { background: #8fdcb8; }
+/* Read-only: dimmed, less bright green and a little grey, so they do not look clickable (wish Olaf, 12-11-2026). */
+.cc-knoppen .cc-term.cc-term-vast { opacity: 0.6; filter: saturate(0.6); }
 
 /* A choice in a confirmation (e.g. remove only SAM's shape, or the whole object). */
 .cc-bevestig-keuze { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.75rem 0; }

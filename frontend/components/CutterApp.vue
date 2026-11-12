@@ -94,6 +94,7 @@
           :trash-terms="trashTerms"
           :last-result="lastResult"
           @dismiss-result="lastResult = null"
+          @restore-trash="restoreFound"
           @read-again="readAgain"
           :point-mode="pointMode"
           @detect="detect"
@@ -836,6 +837,8 @@ async function detect(request) {
       merged: (elders.samengevoegd || []).length,
       inGroup: (elders.in_groep || []).length,
       inTrash: (elders.in_prullenbak || []).length,
+      // Which ones, so the message can offer to restore them (wish Olaf, 12-11-2026).
+      trashIds: elders.in_prullenbak || [],
       holders: holders.map((id) => listNames.value[id] || objectName(result.objecten.find((o) => o.id === id) || {}, props.config.taal, t)).filter(Boolean),
       prompt: request.prompt || "",
       modus: request.modus,
@@ -980,6 +983,31 @@ async function trashMany(members, name, title) {
     failInTab(error);
     const data = await get(pagePath(mid, n)).catch(() => null); // some may have gone: show what is there
     if (data && mid === file.value?.mid && n === pageN.value) objects.value = data.objecten;
+  } finally {
+    busy.value = false;
+  }
+}
+
+// "Restore from trash" in a search message: the hits that were in the trash come back as
+// objects; the message says so itself, under the button that asked (wish Olaf, 12-11-2026).
+async function restoreFound(result) {
+  const ids = result?.trashIds || [];
+  if (!ids.length || busy.value) return;
+  const n = pageN.value;
+  const mid = file.value.mid;
+  busy.value = true;
+  try {
+    for (const id of ids) await patch(objectPath(mid, n, id), { prullenbak: false });
+    if (mid === file.value?.mid && n === pageN.value) {
+      const data = await get(pagePath(mid, n));
+      objects.value = data.objecten;
+      trashTerms.value = data.prullenbak_termen || {};
+    }
+    if (lastResult.value === result) {
+      lastResult.value = { ...result, inTrash: 0, trashIds: [], restored: ids.length, ids: [...(result.ids || []), ...ids] };
+    }
+  } catch (error) {
+    if (lastResult.value === result) lastResult.value = { ...result, restoreError: errorText(t, error) };
   } finally {
     busy.value = false;
   }

@@ -503,3 +503,31 @@ def test_four_lengths_in_one_call_and_the_slider_is_free(objects, album, tmp_pat
     with pytest.raises(DetectionError) as exc:
         service.edit_inventory(album, 1, {"beschrijvingsniveau": "kort"})
     assert exc.value.code == "length_not_made"
+
+
+def test_an_unreadable_answer_is_not_kept(objects, album, tmp_path):
+    """An answer that is not JSON, or a description without any text, gives an error that
+    asks to retry; nothing is stored or cached, so asking again really asks again. A length
+    the AI left empty is simply not there; the others work."""
+
+    class Answer(DummyVision):
+        def __init__(self, text):
+            super().__init__()
+            self.text = text
+
+        def describe(self, *args, **kwargs):
+            return {"output_text": self.text, "usage": {"input_tokens": 0, "output_tokens": 0}}
+
+    for text in ("Sorry, I cannot see the image.", json.dumps({"paginasoort": "prent", "zoektermen": []})):
+        service = DescriptionService(Answer(text), objects, CONFIG, tmp_path / "cache")
+        with pytest.raises(DetectionError) as exc:
+            service.inventory(album, 1)
+        assert exc.value.code == "unreadable_answer" and exc.value.retry
+        assert not objects._load_store(album, 1).get("inventaris")
+        assert not list((tmp_path / "cache").rglob("*.json"))
+    # One length empty: the chosen one is missing, so the first one there is is shown.
+    fields = {f"samenvatting_{level}{suffix}": f"{level}{suffix}" for level in beschrijving.DESCRIPTION_LEVELS for suffix in ("", "_en")}
+    fields["samenvatting_caption"] = fields["samenvatting_caption_en"] = ""
+    service = DescriptionService(Answer(json.dumps({"paginasoort": "prent", "zoektermen": [], **fields})), objects, CONFIG, tmp_path / "cache")
+    overview = service.inventory(album, 1)["inventaris"]
+    assert "caption" not in overview["beschrijvingen"] and overview["beschrijvingsniveau"] == "kort" and overview["samenvatting"] == "kort"
