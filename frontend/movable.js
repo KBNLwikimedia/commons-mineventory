@@ -128,26 +128,53 @@ export function movableDialog(selector, { storageKey, labels, min } = {}) {
     const header = dialog?.querySelector(".cdx-dialog__header");
     if (!dialog || !header) return;
     undo = makeMovable(dialog, { handle: header, storageKey, labels, min });
-    header.ondblclick = (event) => {
-      if (event.target.closest("button")) return;
-      forgetPlacement(storageKey);
-      // Back to the middle, as Codex places it, but fixed there again: without a position of its
-      // own the edges no longer resize it (bug found by Olaf 13-11-2026).
-      dialog.removeAttribute("style");
-      const box = dialog.getBoundingClientRect();
-      Object.assign(dialog.style, {
-        position: "fixed",
-        margin: "0",
-        left: `${box.left}px`,
-        top: `${box.top}px`,
-        width: `${box.width}px`,
-        height: `${box.height}px`,
-        maxWidth: "none",
-        maxHeight: "none",
-      });
-    };
+    header.ondblclick = centreOnDoubleClick(dialog, storageKey);
   }
   return { enable, disable };
+}
+
+/* A double-click on the title bar (not on its buttons) puts the dialog back in the middle and
+   forgets where it was. Back to where Codex places it, but fixed there again: without a position
+   of its own the edges no longer resize it (bug found by Olaf 13-11-2026). */
+function centreOnDoubleClick(dialog, storageKey) {
+  return (event) => {
+    if (event.target.closest("button")) return;
+    if (storageKey) forgetPlacement(storageKey);
+    dialog.removeAttribute("style");
+    const box = dialog.getBoundingClientRect();
+    Object.assign(dialog.style, {
+      position: "fixed",
+      margin: "0",
+      left: `${box.left}px`,
+      top: `${box.top}px`,
+      width: `${box.width}px`,
+      height: `${box.height}px`,
+      maxWidth: "none",
+      maxHeight: "none",
+    });
+  };
+}
+
+/* Every dialog of the page movable by its title bar and resizable at its edges (wish Olaf
+   13-11-2026: sometimes you need to see what is behind it), also the ones that open later:
+   confirmations, describe in bulk, locating, … Once per page. Dialogs that do it themselves,
+   with a remembered place (the magnifier, the original's data), are left to them (`skip`). The
+   others start in the middle each time they open. */
+let watching = false;
+export function movableDialogs(labels = {}, skip = ".cc-vergroter, .cc-origineel") {
+  if (watching || typeof MutationObserver === "undefined") return;
+  watching = true;
+  const wire = (dialog) => {
+    if (dialog.dataset.ccVersleepbaar || dialog.matches(skip)) return;
+    const header = dialog.querySelector(".cdx-dialog__header");
+    if (!header) return;
+    dialog.dataset.ccVersleepbaar = "1";
+    makeMovable(dialog, { handle: header, labels });
+    header.ondblclick = centreOnDoubleClick(dialog);
+  };
+  const scan = () => document.querySelectorAll(".cdx-dialog").forEach(wire);
+  new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+  scan();
 }
 
 /* Forget the remembered position and size (the dialog is centred again next time). */

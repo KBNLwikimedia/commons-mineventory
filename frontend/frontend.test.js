@@ -1097,3 +1097,28 @@ describe("tick boxes", () => {
     expect(legend.find("button").text()).toBe("objects.all");
   });
 });
+
+describe("every dialog movable", () => {
+  it("wires dialogs that appear later, not the ones that do it themselves (wish Olaf)", async () => {
+    const { movableDialogs } = await import("./movable.js");
+    const make = (cls) => {
+      const dialog = document.createElement("div");
+      dialog.className = `cdx-dialog ${cls}`;
+      const header = document.createElement("header");
+      header.className = "cdx-dialog__header";
+      dialog.append(header);
+      document.body.append(dialog);
+      return dialog;
+    };
+    const first = make("cc-bevestig");
+    movableDialogs({ move: "move" });
+    expect(first.classList.contains("cc-verplaatsbaar")).toBe(true);
+    const later = make("cc-lokaliseren");
+    const own = make("cc-vergroter");
+    await new Promise((resolve) => setTimeout(resolve, 0)); // the observer runs after the change
+    expect(later.classList.contains("cc-verplaatsbaar")).toBe(true);
+    expect(later.querySelectorAll(".cc-rand")).toHaveLength(8);
+    expect(own.classList.contains("cc-verplaatsbaar")).toBe(false);
+    [first, later, own].forEach((d) => d.remove());
+  });
+});

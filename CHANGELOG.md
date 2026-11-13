@@ -5,6 +5,12 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.40.5] - 2026-11-13
+
+### Gewijzigd
+
+- **Elk venster is versleepbaar** (wens Olaf): niet alleen de vergroter en *Gestructureerde gegevens*, maar ook alle bevestigingsvensters, *Objecten laten beschrijven*, *Objecten lokaliseren*, *… opnieuw laten maken* en de uitleg achter een ⓘ. Je sleept aan de titelbalk, maakt groter of kleiner aan de randen, en een dubbelklik op de titelbalk zet het terug in het midden. Eén stuk code voor alle vensters (`movableDialogs` in `movable.js`), ook voor vensters die later opengaan.
+
 ## [0.40.4] - 2026-11-13
 
 ### Gewijzigd
