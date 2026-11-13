@@ -80,7 +80,7 @@ const MODEL_TEXTS = { "sam-3.1": "sam", "muse-spark-1.3": "muse_spark", "muse-sp
 const modelInfo = computed(() => ({
   title: t("usage.models_info_title"),
   label: t("usage.models_info_label"),
-  paragraphs: [1, 2, 3, 4, 5].map((n) => t(`usage.models_info_${n}`)),
+  paragraphs: [1, 2, 3, 4, 5, 6].map((n) => t(`usage.models_info_${n}`)),
 }));
 
 const rows = computed(() =>

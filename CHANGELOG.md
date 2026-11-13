@@ -5,6 +5,14 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.40.7] - 2026-11-13
+
+### Gewijzigd
+
+- De vaste zin *Deze suggesties horen bij de afbeelding, niet bij de objecten …* onder de uitleg van *AI-suggesties voor deze afbeelding* is weg (wens Olaf).
+- *Verbruik* > *Over deze modellen*: een alinea over wat de prijs van een vraag aan Muse Spark bepaalt: het model, dat de app per bestand kiest (Contributor bij publiek domein zonder rechtenlabels), en het denkwerk bij *AI-bijsturing* (standaard *Gemiddeld*).
+- In de uitleg bovenaan *AI-suggesties voor deze afbeelding* zijn *beschrijving*, *tekst* en *zoektermen* klikbaar: een klik klapt dat deel hieronder open en schuift ernaartoe (wens Olaf).
+
 ## [0.40.6] - 2026-11-13
 
 ### Toegevoegd

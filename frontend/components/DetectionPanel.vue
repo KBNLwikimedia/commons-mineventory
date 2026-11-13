@@ -139,15 +139,19 @@
       <div v-else class="cc-uitleg cc-sectie-intro">
         {{ t("panel.suggestions_done") }}
         <ul class="cc-uitleg-lijst">
-          <li v-for="line in madeLines" :key="line">{{ line }}</li>
+          <!-- The word in [brackets] jumps to its part below and opens it (wish Olaf 13-11-2026). -->
+          <li v-for="line in madeLines" :key="line.text">
+            <template v-for="(piece, k) in linkPieces(line.text)" :key="k">
+              <a v-if="piece.link" href="#" class="cc-naar-deel" @click.prevent="showPart(line.part)">{{ piece.text }}</a>
+              <template v-else>{{ piece.text }}</template>
+            </template>
+          </li>
         </ul>
       </div>
       <!-- In the order of the work: (1) ask the AI what is on the image (one call), (2) its
            description, (3) the search terms: find where those things are, and what was found.
            Each part can be asked again (a call for that part only) or removed on its own.
            Explanations (cc-uitleg) look different from what the AI said (cc-ai-resultaat). -->
-      <!-- They belong to the image, not to its objects (wish Olaf): say so where they are, once there are any. -->
-      <p v-if="inventory" class="cc-uitleg cc-suggesties-eigen">{{ t("panel.suggestions_belong") }}</p>
       <!-- Removing everything, or a part whose place is gone with it: the outcome on top of this section. -->
       <notice-list :notices="inventory ? noticesAt('ai-alles') : notices.filter((n) => String(n.where || '').startsWith('ai-'))" @dismiss="emit('dismiss-notice', $event)" />
       <template v-if="!inventory">
@@ -160,7 +164,7 @@
       <template v-else>
         <!-- (2) The AI's description of the image: editable, with its earlier versions (PageDescription.vue).
              Each of the two parts folds away on its own (wish Olaf). -->
-        <cdx-accordion v-model="open.beschrijving" class="cc-deel-uitklap">
+        <cdx-accordion v-model="open.beschrijving" class="cc-deel-uitklap" data-deel="beschrijving">
           <template #title>{{ t("panel.part_title_beschrijving") }}</template>
         <page-description
           :mid="file.mid"
@@ -178,7 +182,7 @@
         </cdx-accordion>
 
         <!-- (3) The search terms. -->
-        <cdx-accordion v-model="open.zoektermen" class="cc-deel-uitklap">
+        <cdx-accordion v-model="open.zoektermen" class="cc-deel-uitklap" data-deel="zoektermen">
           <template #title>{{ t("panel.part_title_zoektermen") }}</template>
         <!-- First what makes the search terms (the level of detail, asking anew, removing), compact
              on one line; under it the terms themselves, the result of that (wish Olaf). -->
@@ -730,8 +734,20 @@ const madeLines = computed(() => {
   const terms = !n
     ? t("panel.suggestions_done_no_terms")
     : `${n === 1 ? t("panel.suggestions_done_terms_one") : t("panel.suggestions_done_terms", { n })} ${t(suggestionTotals.value.found ? "panel.suggestions_done_terms_found" : "panel.suggestions_done_terms_none_found")}`;
-  return [description, text, terms];
+  return [
+    { text: description, part: "beschrijving" },
+    { text: text, part: "beschrijving" }, // the text from the image is shown with the description
+    { text: terms, part: "zoektermen" },
+  ];
 });
+// "a [word] here" → pieces, the bracketed one a link.
+const linkPieces = (text) => String(text).split(/(\[[^\]]+\])/).filter(Boolean).map((piece) => (piece.startsWith("[") && piece.endsWith("]") ? { text: piece.slice(1, -1), link: true } : { text: piece, link: false }));
+// Open a part of the AI suggestions and bring it into view.
+async function showPart(part) {
+  open[part] = true;
+  await nextTick();
+  document.querySelector(`[data-deel="${part}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 const suggestionTotals = computed(() => {
   const terms = newTerms.value;
   const found = terms.map((term) => termObjectIds(term));

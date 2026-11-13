@@ -473,7 +473,6 @@ span.cc-facet-duim { display: inline-block; cursor: default; }
 .cc-bestand-ids a { white-space: nowrap; }
 .cc-bevestig-objecten-boven { margin-top: 0; }
 .cc-bevestig-objecten.cc-bevestig-objecten-boven img { width: auto; max-width: 100%; height: 10rem; object-fit: contain; }
-.cc-suggesties-eigen { margin-top: 0; }
 .cc-object-vinkje .cc-ook-regel { display: block; font-size: 0.75rem; line-height: 1.4; }
 .cc-ook-meer { font-size: inherit; }
 .cc-ook-woord { display: inline-flex; align-items: center; margin-right: 0.35rem; white-space: nowrap; }
@@ -1055,6 +1054,8 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-lokaliseren-termen { margin: 0 0 0.6rem; padding-left: 1.25rem; }
 .cc-lokaliseren-woord { display: grid; gap: 0.1rem; margin: 0.35rem 0; }
 /* A depicts item without an English label (SAM needs one), and the language of a name in another language. */
+/* A word in the AI-suggestions intro that jumps to its part below. */
+.cc-naar-deel { color: var(--color-progressive, #36c); }
 .cc-geen-engels { color: var(--color-warning, #ab7f2a); margin-right: 0.2rem; }
 .cc-label-taal { font-size: 0.75em; color: var(--cc-tekst-zacht, #54595d); }
 /* "Prompt aanpassen" inside AI steering: a fold-out within the fold-out (wish Olaf). */
