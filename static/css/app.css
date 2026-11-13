@@ -1149,3 +1149,77 @@ details.cc-ai-bijsturing .cc-uitleg,
 details.cc-ai-bijsturing details.cc-ai-bijsturing-deel > summary .cdx-accordion__header__description { font-size: 0.8125rem; line-height: 1.4; }
 details.cc-ai-bijsturing .cdx-radio .cdx-label__label__text { font-size: 0.875rem; font-weight: 400; }
 details.cc-ai-bijsturing .cc-schuif-waarde { font-size: 0.8125rem; }
+
+/* "Naar Commons" step by step (wish Olaf 13-11-2026): StepBar.vue and the steps of OriginalData.vue. */
+.cc-stappen { display: flex; flex-wrap: wrap; gap: 0.25rem; list-style: none; margin: 0 0 0.75rem; padding: 0; counter-reset: none; }
+.cc-stappen > li { flex: 1 1 8rem; margin: 0; }
+.cc-stap { display: flex; align-items: center; gap: 0.4rem; width: 100%; padding: 0.4rem 0.5rem; border: 0; border-bottom: 3px solid var(--cc-rand, #c8ccd1); background: none; font: inherit; font-size: 0.875rem; color: var(--color-subtle, #54595d); text-align: left; cursor: pointer; }
+.cc-stap:hover { background: var(--background-color-interactive-subtle, #f8f9fa); }
+.cc-stap-nummer { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border: 1px solid currentColor; border-radius: 50%; font-weight: bold; font-size: 0.8125rem; }
+.cc-stap-naam { flex: 1; min-width: 0; }
+.cc-stap-aantal { flex: none; min-width: 1.3rem; padding: 0 0.3rem; border-radius: 0.65rem; background: var(--background-color-progressive-subtle, #eaf3ff); color: var(--color-progressive, #36c); font-size: 0.75rem; font-weight: bold; text-align: center; }
+.cc-stap.cc-stap-gedaan { border-bottom-color: var(--color-progressive, #36c); }
+.cc-stap.cc-stap-actief { border-bottom-color: var(--color-progressive, #36c); color: var(--color-emphasized, #101418); font-weight: bold; }
+.cc-stap.cc-stap-actief .cc-stap-nummer { background: var(--color-progressive, #36c); border-color: var(--color-progressive, #36c); color: #fff; }
+.cc-origineel-stapkop { margin: 0 0 0.25rem; font-size: 1rem; }
+.cc-origineel-groep { margin: 0.5rem 0 0.75rem; }
+.cc-origineel-groep-blijft .cc-origineel-commons { color: var(--color-subtle, #54595d); }
+.cc-origineel-taal-erbij { margin: 1rem 0 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--cc-rand, #eaecf0); }
+.cc-origineel-taal-invoer { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
+.cc-origineel-taal-invoer .cdx-combobox { flex: 1 1 16rem; }
+.cc-origineel-caption { padding-bottom: 0.5rem; border-bottom: 1px solid var(--cc-rand, #eaecf0); }
+.cc-origineel-was { text-decoration: line-through; color: var(--color-subtle, #54595d); }
+.cc-origineel-controle code { white-space: normal; }
+.cc-origineel-vinklijst { list-style: none; padding-left: 0; }
+.cc-origineel-vinklijst > li { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+/* One fixed height for every step, so the header and the step bar stay in place (wish Olaf
+   13-11-2026); a short step leaves space at the bottom. Resizing by hand (movable.js) still wins. */
+.cc-origineel.cdx-dialog { height: min(calc(100vh - 2rem), 56rem); }
+.cc-origineel.cdx-dialog .cdx-dialog__body { flex-grow: 1; }
+/* Step 1 of "Naar Commons" in the look of the Structured data tab on Commons (wish Olaf 13-11-2026). */
+.cc-sdc-blok { margin: 0.75rem 0; padding: 0.75rem 1rem; border: 1px solid var(--border-color-base, #a2a9b1); border-radius: 2px; }
+.cc-sdc-blok-kop { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.cc-sdc-blok-titel { font-weight: bold; font-size: 0.875rem; }
+.cc-sdc-eigenschap { font-style: italic; font-size: 0.875rem; }
+.cc-sdc-items { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+.cc-sdc-item { margin: 0 0 3px; padding: 0.35rem 0.5rem; background: var(--background-color-interactive-subtle, #f8f9fa); }
+.cc-sdc-rij { display: flex; align-items: center; gap: 0.5rem; }
+.cc-sdc-rij > input, .cc-sdc-geen-vinkje { flex: none; width: 1rem; margin: 0; }
+.cc-sdc-label { font-weight: bold; }
+.cc-sdc-q { color: var(--color-subtle, #54595d); }
+.cc-sdc-status { margin-left: auto; color: var(--color-subtle, #54595d); text-align: right; }
+.cc-sdc-item-blijft .cc-sdc-label { font-weight: normal; }
+.cc-sdc-item-blijft img { opacity: 0.6; }
+.cc-sdc-blok a.cc-sdc-label, .cc-sdc-blok a.cc-sdc-eigenschap { text-decoration: none; }
+.cc-sdc-selectie { display: block; margin: 0.25rem 0 0.25rem 0.5rem; text-align: left; }
+.cc-sdc-selectie.cc-sdc-selectie-rijen { margin-left: 0; }
+/* Which of the found objects get a box (wish Olaf 13-11-2026). */
+.cc-sdc-kies { margin-left: 0.4rem; font-size: inherit; }
+.cc-sdc-objecten { margin: 0.35rem 0 0.15rem 1.5rem; }
+.cc-sdc-objecten ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+.cc-sdc-objecten li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+.cc-sdc-objecten label { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+.cc-sdc-duim { width: 2.5rem; height: 2.5rem; object-fit: contain; background: #fff; border: 1px solid var(--cc-rand, #c8ccd1); }
+.cc-sdc-waarheen { color: var(--color-subtle, #54595d); }
+/* The item's Wikidata description as a column (wish Olaf 13-11-2026). */
+.cc-sdc-beschrijving { flex: 1 1 10rem; min-width: 0; color: var(--color-subtle, #54595d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-sdc-rij .cc-sdc-status { margin-left: 0; flex: none; }
+.cc-origineel-concept { margin-bottom: 0.5rem; }
+/* Step 1 as a table with fixed columns (wish Olaf 13-11-2026): tick box, image, item, Q-id,
+   description, status, "choose which". Overrides the flex row above. */
+.cc-sdc-blok .cc-sdc-rij { display: grid; grid-template-columns: 1rem 1.75rem minmax(6rem, 9rem) 5.5rem minmax(6rem, 1fr) 12rem 6.5rem; column-gap: 0.6rem; align-items: center; }
+.cc-sdc-blok .cc-sdc-tabelkop { padding: 0 0.5rem 0.2rem; font-weight: bold; color: var(--color-subtle, #54595d); border-bottom: 1px solid var(--cc-rand, #c8ccd1); margin-bottom: 3px; }
+.cc-sdc-blok .cc-sdc-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-sdc-blok .cc-sdc-q { font-variant-numeric: tabular-nums; }
+.cc-sdc-blok .cc-sdc-beschrijving { font-size: 0.75rem; line-height: 1.3; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cc-sdc-blok .cc-sdc-status { line-height: 1.3; }
+.cc-sdc-blok .cc-sdc-actie { text-align: right; }
+.cc-sdc-blok .cc-sdc-kies { margin-left: 0; }
+.cc-sdc-blok .cc-sdc-item { padding: 0.3rem 0.5rem; min-height: 2.6rem; display: flex; flex-direction: column; justify-content: center; }
+.cc-origineel.cdx-dialog { max-width: 66rem; }
+/* The draft line at the bottom: small and grey, so it does not draw attention from the steps (wish Olaf 13-11-2026). */
+.cc-origineel .cc-origineel-concept-regel { font-size: 0.75rem; color: var(--color-subtle, #54595d); }
+.cc-origineel .cc-origineel-concept-regel .cc-info-knop,
+.cc-origineel .cc-origineel-concept-regel .cc-info-knop * { font-size: 0.75rem; font-weight: normal; min-height: 0; padding: 0; }
+.cc-origineel .cc-origineel-concept-regel .cc-link { font-size: 0.75rem; }
+.cc-sdc-blok .cc-sdc-rij .cc-sdc-status { text-align: left; }

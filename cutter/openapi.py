@@ -27,7 +27,7 @@ ENDPOINTS = [
     ("get", PAGE + "/afbeelding", "Verkleinde afbeelding (Commons-thumbnailstap, gecachet)", [MID, N, _q("w", "Gewenste breedte in pixels", "integer")], None, 200, False),
     ("post", "/bestand/{mid}/opnieuw-lezen", "Het bestand opnieuw van Commons lezen in plaats van uit de cache (gratis; alleen lezen)", [MID], None, 200, False),
     ("get", PAGE + "/origineel", "Beeldt af en captions voor de hele afbeelding: wat op Commons staat, de voorstellen en het concept (gratis)", [MID, N], None, 200, False),
-    ("put", PAGE + "/origineel", "Het concept van beeldt af en captions bewaren (gratis; verandert niets op Commons)", [MID, N], '{"beeldt_af": [{"q", "label", "met_positie", "objecten", "bron", "term"}], "positie_bij_bestaande": ["Q…"], "verborgen": ["Q…"], "captions": {"nl": {"keuze": "toevoegen|houden|vervangen|zelf", "tekst"}}}', 200, False),
+    ("put", PAGE + "/origineel", "Het concept van beeldt af en captions bewaren (gratis; verandert niets op Commons)", [MID, N], '{"beeldt_af": [{"q", "label", "met_positie", "objecten", "bron", "term"}], "positie_bij_bestaande": [{"q", "objecten"}], "verborgen": ["Q…"], "captions": {"nl": {"keuze": "toevoegen|houden|vervangen|zelf", "tekst"}}}', 200, False),
     ("post", PAGE + "/detecties", "Detectie: zoekterm, modus (prompt, alles, commons), punt, rechthoek of masker_voor",
      [MID, N], '{"prompt", "modus", "minscore", "items": {zoekterm: Q-id}, "als": {zoekwoord: zoekterm}, "vers": false} | {"punt": {x, y}, "hint"?} | {"rechthoek": {x, y, w, h}, "hint"?} | {"masker_voor": id}', 201, True),
     ("get", PAGE + "/detecties/raming", "Kostenraming van een detectie; voert niets uit",

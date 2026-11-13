@@ -971,6 +971,16 @@ def test_original_data_and_draft(http):
     too_long = {**body, "captions": {"nl": {"keuze": "toevoegen", "tekst": "x" * 251}}}
     assert http.put(BOOK + "/origineel", json=too_long).status_code == 400
     assert http.put(BOOK + "/origineel", json={"beeldt_af": [{"q": "kerk"}]}).status_code == 400
+    # Boxes for an existing statement: which of the found objects (wish Olaf 13-11-2026);
+    # a bare Q-id (older drafts) still works.
+    boxes = {**body, "positie_bij_bestaande": [{"q": "Q40662", "objecten": ["a", "b"]}, "Q1"]}
+    kept = http.put(BOOK + "/origineel", json=boxes).get_json()["concept"]["positie_bij_bestaande"]
+    assert kept == [{"q": "Q40662", "objecten": ["a", "b"]}, {"q": "Q1", "objecten": None}]
+    assert http.put(BOOK + "/origineel", json={**body, "positie_bij_bestaande": [{"q": "hoed"}]}).status_code == 400
+    # A caption in another language, your own text (wish Olaf 13-11-2026); not a language name.
+    other = {**body, "captions": {"de": {"keuze": "toevoegen", "tekst": "Ein Stundenbuch."}, "zh-hans": {"keuze": "toevoegen", "tekst": "时祷书"}}}
+    assert set(http.put(BOOK + "/origineel", json=other).get_json()["concept"]["captions"]) == {"de", "zh-hans"}
+    assert http.put(BOOK + "/origineel", json={**body, "captions": {"Duits": {"keuze": "toevoegen", "tekst": "x"}}}).status_code == 400
 
 
 def test_ai_completed_versions_and_own_prompt(http):

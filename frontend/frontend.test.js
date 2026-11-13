@@ -1377,3 +1377,18 @@ it("bulletList reads bullets and sub-bullets, and nothing else", async () => {
   expect(bulletList("  - zonder kop")).toEqual([]);
   expect(bulletList(null)).toEqual([]);
 });
+
+it("original.js: caption languages and the edit summary for Commons", async () => {
+  const { isLanguageCode, languageFromInput, editSummary } = await import("./original.js");
+  expect(isLanguageCode("de")).toBe(true);
+  expect(isLanguageCode("zh-hans")).toBe(true);
+  expect(isLanguageCode("Duits")).toBe(false);
+  expect(languageFromInput(" DE ", "nl")).toBe("de");
+  expect(languageFromInput("German", "nl")).toBe("de");
+  expect(languageFromInput("Klingon tongue", "nl")).toBe("");
+  expect(editSummary({})).toBe("");
+  expect(editSummary({ depicts: 3, positions: 1, added: ["de"], changed: ["nl"] })).toBe(
+    "Added depicts (3), position to existing depicts (1) and caption (de), changed caption (nl) with Commons Mineventory; AI suggestions checked by the user"
+  );
+  expect(editSummary({ changed: ["en"] })).toBe("Changed caption (en) with Commons Mineventory; AI suggestions checked by the user");
+});

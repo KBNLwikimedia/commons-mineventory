@@ -29,7 +29,7 @@ De app is afgeleid van de [Delpher Uitsnijder](https://github.com/ookgezellig/de
 
 ## Status
 
-Fase 1 is klaar (versie 0.40.7): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
+Fase 1 is klaar (versie 0.41.0): alles werkt lokaal behalve inloggen en uploaden. Standaard draait de app met een nagebootste detector en beschrijving (`DETECTIE_MODUS=dummy`, gratis). Met een eigen sleutel van de Meta Model API in `.env` (`MODEL_API_KEY`, `DETECTIE_MODUS=live`) zijn SAM en Muse Spark echt te gebruiken; elke betaalde actie vraagt eerst om bevestiging, met het bedrag. Het ontwerp staat in [docs/functioneel-ontwerp.md](docs/functioneel-ontwerp.md), de API in [docs/api.md](docs/api.md).
 
 ## Lokaal draaien
 
@@ -55,7 +55,7 @@ Opruimen volgens de bewaartermijnen (originelen 7 dagen, uitsneden 30 dagen, det
 
 ## Wat de app nu doet
 
-- Een Commons-bestand openen via de URL, de titel of de M-id; ook PDF- en DjVu-pagina's, en originelen boven 100 megapixel (die worden met libvips stuk voor stuk gelezen). Het werkblad heeft vier kolommen in de volgorde van het werk: *Bekeken* (je geopende afbeeldingen, met *Opzij gezet*), *Beeld*, *Beschrijven en vinden* en *Gevonden objecten (uitsneden)*; elke kolom schuift in tot een strook. Op een telefoon zijn de kolommen tabbladen.
+- Een Commons-bestand openen via de URL, de titel of de M-id; ook PDF- en DjVu-pagina's, en originelen boven 100 megapixel (die worden met libvips stuk voor stuk gelezen). Het werkblad heeft vier kolommen in de volgorde van het werk: *Afbeeldingenbibliotheek* (je geopende afbeeldingen, met *Opzij gezet*), *Beeld*, *Afbeelding beschrijven en objecten vinden* en *Gevonden objecten (uitsneden)*; elke kolom schuift in tot een strook. Op een telefoon zijn de kolommen tabbladen.
 - Objecten en maskers detecteren met SAM 3.1 (Meta Model API): zoeken met een zoekterm, AI-suggesties voor de afbeelding (de aangevinkte zoektermen in één keer, met een schuif voor het **detailniveau**: van alleen het hoofdonderwerp tot veel kleine details), Aanwijzen (ook binnen het kader van een ander object). Of zelf een rechthoek tekenen (gratis) en er later een transparante PNG van laten maken. Na elke actie staat de uitkomst in het paneel; met een schuif **minimale zekerheid** verberg je minder zekere vondsten.
 - **Kleuren met één betekenis** in de afbeelding: een kader toont de status, een masker de soort object (per zoekterm een kleur, met een stip in de lijst), de rand van een masker is altijd wit. In de *Kleurenlegenda* kies je met vinkjes, met aantallen en *Alle · Geen · Omkeren*, welke kaders en maskers in beeld blijven.
 - **Groeperen**, zoals in PowerPoint: van veel kleine objecten (bijvoorbeeld vijftien waterdruppels) één object maken, met één kader en de maskers samen, en weer opheffen. Een groep wordt beschreven aan de hand van zijn objecten.
@@ -67,7 +67,7 @@ Opruimen volgens de bewaartermijnen (originelen 7 dagen, uitsneden 30 dagen, det
 - De pagina **Objecten** met facetten (bron, AI-aangevuld, bestand, opgeslagen), ook voor de prullenbak: per bestand een miniatuur met een zoombare weergave die de maskers van de objecten toont, de vergroter op de pagina zelf (voor de prullenbak alleen om te bekijken), en bij een opgeslagen uitsnede *Bestand openen*, *Downloaden* en, lokaal, *Tonen in map*.
 - **Beeldt af, zonder regio**: items die op Commons al als *beeldt af* staan, maar zonder plek, laat je door de AI op de afbeelding zoeken, los of allemaal tegelijk. Groen is gevonden. Een woord dat al gezocht is, komt gratis uit de cache; wil je toch een nieuw antwoord, dan kies je *SAM opnieuw vragen*. Hernoem je een object naar het woord van zo'n item, dan wordt het ook aan dat item gekoppeld (met *Ongedaan maken*).
 - **Naar Commons**: de gestructureerde gegevens van de hele afbeelding als concept: *beeldt af* met het kader dat je vond, nieuwe objecten als reconciliatievoorstellen (je kiest zelf het Wikidata-item) en bijschriften (houden, vervangen, een taal toevoegen of je eigen tekst). Opslaan op Commons volgt in fase 2.
-- **Opnieuw beginnen** met een afbeelding (↻ bij *Bekeken*): alles van die afbeelding weg, met de keuze om de eerdere AI-antwoorden te houden (gratis) of de AI opnieuw te vragen.
+- **Opnieuw beginnen** met een afbeelding (↻ bij *Afbeeldingenbibliotheek*): alles van die afbeelding weg, met de keuze om de eerdere AI-antwoorden te houden (gratis) of de AI opnieuw te vragen.
 - In de bestandskop naast de bestandsnaam het M-id, het Q-id van het werk en kleine links naar *Bijsnijden in CropTool*, *Waar gebruikt* en de *Geschiedenis* op Commons; bij de collectie en locatie het logo van de instelling.
 - De pagina's *Objecten*, *Prullenbak*, *Changelog* en *Verbruik* met facetten, zoeken, sorteerbare kolommen, kaarten of een lijst, en exporteren naar JSON, CSV en Excel. Elke keuze (facet, zoekterm, sortering, weergave) staat in het adres, zodat je een link kunt delen.
 - Een volledig tweetalige interface (Nederlands en Engels, ook de foutmeldingen en de privacyverklaring) in de stijl van Wikimedia, met [Codex](https://doc.wikimedia.org/codex/latest/) en Vue 3, gebouwd met Vite. De server is Python (Flask); Node.js is alleen nodig om de frontend te bouwen.
@@ -79,7 +79,7 @@ Klik op een afbeelding voor de volledige grootte. Alle schermafbeeldingen zijn v
 
 <table>
   <tr>
-    <td width="50%"><a href="docs/screenshots/01-werkblad-ai.png"><img src="docs/screenshots/01-werkblad-ai.png" alt="Het werkblad"></a><br><sub><b>1. Het werkblad.</b> Bekeken, Beeld, Beschrijven en vinden en Gevonden objecten (uitsneden): 23 objecten met hun maskers op een stilleven, en de AI-beschrijving van de hele afbeelding.</sub></td>
+    <td width="50%"><a href="docs/screenshots/01-werkblad-ai.png"><img src="docs/screenshots/01-werkblad-ai.png" alt="Het werkblad"></a><br><sub><b>1. Het werkblad.</b> Bekeken, Beeld, Afbeelding beschrijven en objecten vinden en Gevonden objecten (uitsneden): 23 objecten met hun maskers op een stilleven, en de AI-beschrijving van de hele afbeelding.</sub></td>
     <td width="50%"><a href="docs/screenshots/02-album-maskers.png"><img src="docs/screenshots/02-album-maskers.png" alt="Veel objecten tegelijk"></a><br><sub><b>2. Veel objecten tegelijk.</b> Een blad uit een album amicorum met kaders en maskers; in de kleurenlegenda kies je welke soorten in beeld blijven. Rechts het nieuwe uitklapblok Naar Commons.</sub></td>
   </tr>
   <tr>

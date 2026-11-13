@@ -5,6 +5,25 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-13
+
+### Gewijzigd
+
+- **Gestructureerde gegevens van deze afbeelding** (*Naar Commons*) in vier stappen (wens Olaf), met een stapbalk bovenaan en *Vorige* / *Volgende* onderaan: 1. *Al op Commons*: wat er al als *beeldt af* staat, opgemaakt als het tabblad *Structured data* op Commons en in dezelfde volgorde; bij wat ook op de afbeelding gevonden is een vinkje om de plek toe te voegen, met *Alle · Geen · Omkeren*; de rest blijft zoals het is. Zonder *beeldt af* op Commons valt deze stap weg; 2. *Nieuwe beeldt af*: de voorstellen, met of zonder plek, en een eigen item; 3. *Bijschriften*; 4. *Controleren*: precies wat er op Commons zou veranderen, met *Aanpassen* per deel en de bewerkingssamenvatting. Er wordt nooit iets verwijderd. De lange lijst bovenaan is vervangen door een korte uitleg per stap. Het venster heeft in elke stap dezelfde hoogte, zodat de kop en de stapbalk niet verspringen.
+- In dit venster heet de plek van een object op de afbeelding (P2677) nu *locatie (kader)*, niet meer *plek* (wens Olaf).
+- In stap 1 staan de items waar een kader bij kan bovenaan, en hun vinkjes staan standaard aan: je vinkt uit wat niet klopt (wens Olaf; was standaard uit).
+- Stap 1 is een tabel met vaste kolommen: item, Q-id, de **beschrijving van het Wikidata-item** (in de taal van de interface; zonder beschrijving leeg), de stand op de afbeelding en *kies welke*. *Niet gevonden* heet nu *nog niet gelokaliseerd* (met uitleg in de tooltip).
+- **Kiezen welke objecten een kader krijgen** (wens Olaf): elk gelokaliseerd item heeft een uitklapper met zijn objecten (miniatuur en vinkje, *Alle · Geen · Omkeren*); het vinkje bij het item staat half aan als je er een paar kiest. Alle gekozen kaders komen als eigen kwalificatoren P2677 op de bestaande verklaring; er komen geen extra verklaringen voor hetzelfde item (besluit Olaf; P2677 mag meer waarden hebben, al tekent Commons die dan niet als gele kaders). Het concept bewaart per item de gekozen objecten (`positie_bij_bestaande: [{q, objecten}]`; een kale Q-id van eerder blijft werken).
+- **Het concept is duidelijker** (wens Olaf): opent het venster een bewaard concept, dan zegt een gele melding dat bovenaan, met de datum en *Opnieuw beginnen* (met *Ongedaan maken*); na het bewaren zegt de melding waar het staat en hoe je verder gaat. Onderaan, klein: *Wat is een concept?* (wat, waar: `uitvoer/<M-id>/pagina_<n>/origineel.json`, en hoe terughalen), wanneer het bewaard is en *Download als JSON*.
+- Wijs je in die uitklapper een miniatuur aan, dan verschijnt een vergroting van de uitsnede (tot 420 pixels), zoals bij de afbeeldingen van de items (wens Olaf).
+- *Alle · Geen · Omkeren* staat links, direct boven de vinkjes die het zet (stap 1 en 2).
+- De eerste kolom heet nu *Afbeeldingenbibliotheek* (Engels *Image library*; was *Bekeken*): je werkvoorraad (wens Olaf).
+- De middelste kolom heet nu *Afbeelding beschrijven en objecten vinden* (was *Beschrijven en vinden*; wens Olaf).
+
+### Toegevoegd
+
+- **Bijschriften in elke taal** (wens Olaf): *Taal toevoegen* (een taal uit de lijst of een taalcode) en zelf schrijven. Bijschriften die op Commons al in een andere taal staan, zijn nu ook te wijzigen (standaard *Bestaande houden*). De API neemt elke taalcode aan (`de`, `zh-hans`). Hulpfuncties in `frontend/original.js`, de stapbalk in `StepBar.vue`.
+
 ## [0.40.7] - 2026-11-13
 
 ### Gewijzigd
