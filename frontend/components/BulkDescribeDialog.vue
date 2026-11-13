@@ -70,7 +70,7 @@
 
     <!-- The settings, up to and including the prompt, as one fold-out: closed to start with; a
          click on one object in the table opens it (wish Olaf). -->
-    <cdx-accordion v-model="settingsOpen" class="cc-bulk-uitklap">
+    <cdx-accordion v-model="settingsOpen" class="cc-bulk-uitklap cc-ai-bijsturing">
     <template #title>{{ t("bulkdescribe.settings") }}</template>
     <p class="cc-uitleg">
       <strong>{{ current === ALL ? t("bulkdescribe.editing_all", { n: objects.length }) : t("bulkdescribe.editing_one", { name: objects[current]?.name || "" }) }}</strong>
@@ -87,11 +87,15 @@
     <!-- 2. The length, from a few words via a Commons caption (at most 250 characters) to a paragraph. -->
     <!-- A Commons caption in one click, with the Commons mark, as for the whole image (wish Olaf). -->
     <div class="cc-bulk-lengte">
-      <detail-slider v-model="level" :levels="LEVELS" prefix="objdetail" />
-      <cdx-toggle-switch :model-value="level === 'caption'" class="cc-wikidata-schakelaar" :title="t('descdetail.caption_help')" @update:model-value="(on) => (level = on ? 'caption' : 'normaal')">
-        <commons-logo />
-        {{ t("descdetail.caption_switch") }}
-      </cdx-toggle-switch>
+      <detail-slider v-model="level" :levels="LEVELS" prefix="objdetail">
+        <!-- Right behind the slider, without a text of its own (wish Olaf 13-11-2026). -->
+        <template #after>
+          <span class="cc-caption-schakelaar" :title="t('descdetail.caption_help')">
+            <cdx-toggle-switch :model-value="level === 'caption'" :aria-label="t('descdetail.caption_switch')" @update:model-value="(on) => (level = on ? 'caption' : 'normaal')" />
+            <commons-logo colour />
+          </span>
+        </template>
+      </detail-slider>
     </div>
     <!-- 3. The space around the cut-out the AI sees: 0% here, only the object itself. -->
     <label class="cc-marge">
@@ -112,7 +116,7 @@
     </figure>
     </div>
     <!-- 4. The prompt as it goes to the model, for the shown object (to read; the app makes it). -->
-    <cdx-accordion v-model="promptOpen" class="cc-bulk-prompt">
+    <cdx-accordion v-model="promptOpen" class="cc-bulk-prompt cc-ai-bijsturing-deel">
       <template #title>{{ t("bulkdescribe.prompt") }}</template>
       <template #description>{{ t("bulkdescribe.prompt_for", { name: objects[shown]?.name || "" }) }}</template>
       <p class="cc-uitleg">{{ t("bulkdescribe.prompt_help") }}</p>

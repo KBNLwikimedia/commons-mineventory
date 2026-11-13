@@ -25,7 +25,7 @@
     </header>
     <slot name="under-header" />
     <p v-if="!objects.length" class="cc-leeg">{{ emptyText || t("objects.empty") }}</p>
-    <ul>
+    <ul ref="list" :class="{ 'cc-vaste-hoogte': listHeight }" :style="listHeight ? { height: `${listHeight}px` } : null">
       <li
         v-for="obj in sorted"
         :key="obj.id"
@@ -95,6 +95,20 @@
         </span>
       </li>
     </ul>
+    <!-- The grey line under the list: drag it up or down to make the list shorter or longer
+         (wish Olaf, 12-11-2026); arrow keys too, a double-click gives the list its own height back. -->
+    <div
+      v-if="objects.length"
+      class="cc-rij-splitter"
+      role="separator"
+      tabindex="0"
+      aria-orientation="horizontal"
+      :aria-label="t('objects.resize_list')"
+      :title="t('objects.resize_list')"
+      @pointerdown="startResize"
+      @keydown="resizeKey"
+      @dblclick="resetHeight"
+    ></div>
   </section>
 </template>
 
@@ -108,6 +122,7 @@ import SavedLabel from "./SavedLabel.vue";
 import AlsoFoundAs from "./AlsoFoundAs.vue";
 import { numberedNames, objectName } from "../state.js";
 import { classColor, classKey } from "../class-colors.js";
+import { readStored, removeStored, writeStored } from "../storage.js";
 
 const props = defineProps({
   // Shown instead of "No objects yet" when a search in the list finds nothing.
@@ -205,6 +220,47 @@ watch(
   }
 );
 onBeforeUnmount(() => clearTimeout(scrollTimer));
+
+// The height of the list, set by dragging the line under it; remembered in this browser.
+// Without one the list takes the room the column has (and scrolls inside it).
+const HEIGHT_KEY = "cc-hoogte-objecten";
+const MIN_HEIGHT = 80;
+const list = ref(null);
+const listHeight = ref(Number(readStored(HEIGHT_KEY)) || 0);
+function setHeight(value) {
+  listHeight.value = Math.round(Math.max(MIN_HEIGHT, value));
+  writeStored(HEIGHT_KEY, String(listHeight.value));
+}
+function startResize(event) {
+  const el = event.currentTarget;
+  const startY = event.clientY;
+  const startHeight = list.value.getBoundingClientRect().height;
+  el.setPointerCapture(event.pointerId);
+  el.classList.add("actief");
+  const move = (e) => setHeight(startHeight + e.clientY - startY);
+  const stop = () => {
+    el.classList.remove("actief");
+    el.removeEventListener("pointermove", move);
+    el.removeEventListener("pointerup", stop);
+    el.removeEventListener("pointercancel", stop);
+  };
+  el.addEventListener("pointermove", move);
+  el.addEventListener("pointerup", stop);
+  el.addEventListener("pointercancel", stop);
+  event.preventDefault();
+}
+function resizeKey(event) {
+  const step = event.shiftKey ? 64 : 16;
+  const now = list.value.getBoundingClientRect().height;
+  if (event.key === "ArrowUp") setHeight(now - step);
+  else if (event.key === "ArrowDown") setHeight(now + step);
+  else return;
+  event.preventDefault();
+}
+function resetHeight() {
+  listHeight.value = 0;
+  removeStored(HEIGHT_KEY);
+}
 const name = (obj) => objectName(obj, language, t);
 // A small cut-out; the box in the URL makes a changed object load anew.
 const thumbnail = (obj) => `${objectPath(props.mid, props.n, obj.id)}/uitsnede.jpg?w=96&v=${obj.box.x}-${obj.box.y}-${obj.box.w}-${obj.box.h}`;

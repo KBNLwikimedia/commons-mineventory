@@ -4,6 +4,7 @@
 
 import re
 
+QID = re.compile(r"Q\d+")  # a Wikidata item id; use with fullmatch
 PUBLIC_DOMAIN = "Q19652"  # P6216 copyright status: public domain
 
 PROPERTIES = {

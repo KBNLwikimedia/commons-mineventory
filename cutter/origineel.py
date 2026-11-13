@@ -12,12 +12,13 @@ per term (GET /wikidata/zoek, cached), so the window opens at once.
 """
 
 import json
-import re
 from datetime import datetime, timezone
 
+from .concept import MAX_CAPTION
 from .detectie.basis import DetectionError
+from .sdc import QID
 
-CAPTION_MAX = 250
+CAPTION_MAX = MAX_CAPTION
 LANGUAGES = ("nl", "en")
 CHOICES = ("toevoegen", "houden", "vervangen", "zelf")
 
@@ -126,7 +127,7 @@ def save_draft(service, file, n, body):
         raise _invalid("'beeldt_af' is een lijst.")
     clean_depicts = []
     for entry in depicts:
-        if not isinstance(entry, dict) or not re.fullmatch(r"Q\d+", str(entry.get("q", ""))):
+        if not isinstance(entry, dict) or not QID.fullmatch(str(entry.get("q", ""))):
             raise _invalid("Elk 'beeldt_af' heeft een 'q' (Q-id).")
         objects = entry.get("objecten", [])
         if not isinstance(objects, list) or not all(isinstance(o, str) for o in objects):
@@ -140,10 +141,10 @@ def save_draft(service, file, n, body):
             "term": str(entry.get("term") or "")[:100] or None,
         })
     add_position = body.get("positie_bij_bestaande", [])
-    if not isinstance(add_position, list) or not all(re.fullmatch(r"Q\d+", str(q)) for q in add_position):
+    if not isinstance(add_position, list) or not all(QID.fullmatch(str(q)) for q in add_position):
         raise _invalid("'positie_bij_bestaande' is een lijst van Q-id's.")
     hidden = body.get("verborgen", [])
-    if not isinstance(hidden, list) or not all(re.fullmatch(r"Q\d+", str(q)) for q in hidden):
+    if not isinstance(hidden, list) or not all(QID.fullmatch(str(q)) for q in hidden):
         raise _invalid("'verborgen' is een lijst van Q-id's.")
     captions = body.get("captions", {})
     if not isinstance(captions, dict):

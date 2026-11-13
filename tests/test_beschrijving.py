@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import FakeResponse, FakeSession
 from cutter import beschrijving
 from cutter.beschrijving import DescriptionService, DummyVision, MetaVision, choose_model, parse_answer
 from cutter.detectie.basis import DetectionError
@@ -20,25 +21,6 @@ CONFIG = {
     "BEELDMODEL_CONTRIBUTOR": True,
     "BEELDMODEL_REDENEREN": "low",
 }
-
-
-class FakeResponse:
-    def __init__(self, status_code, body):
-        self.status_code = status_code
-        self._body = body
-
-    def json(self):
-        return self._body
-
-
-class FakeSession:
-    def __init__(self, response):
-        self.response = response
-        self.calls = []
-
-    def post(self, url, json, headers, timeout):
-        self.calls.append({"url": url, "json": json, "headers": headers})
-        return self.response
 
 
 def test_parse_answer_with_suggestions():
@@ -531,3 +513,99 @@ def test_an_unreadable_answer_is_not_kept(objects, album, tmp_path):
     service = DescriptionService(Answer(json.dumps({"paginasoort": "prent", "zoektermen": [], **fields})), objects, CONFIG, tmp_path / "cache")
     overview = service.inventory(album, 1)["inventaris"]
     assert "caption" not in overview["beschrijvingen"] and overview["beschrijvingsniveau"] == "kort" and overview["samenvatting"] == "kort"
+
+
+def test_page_description_own_prompt(objects, album, tmp_path):
+    """Your own prompt for the description of the whole image (wish Olaf 13-11-2026): the next
+    "describe anew" sends it; the earlier one goes to the history; back to the app's prompt."""
+    prompts = []
+
+    class Recording(DummyVision):
+        def describe(self, model, prompt, data_url, obj, effort=None, schema=beschrijving.SCHEMA):
+            prompts.append(prompt)
+            return super().describe(model, prompt, data_url, obj, effort, schema)
+
+    service = DescriptionService(Recording(), objects, CONFIG, tmp_path / "cache")
+    file = album
+    service.inventory(file, 1)
+    preview = service.page_prompt_preview(file, 1)
+    assert preview["eigen"] is False and preview["prompt"] == preview["standaard_prompt"]
+    service.save_page_prompt(file, 1, "Describe only the sky.\n\nKeep the fields.")
+    service.save_page_prompt(file, 1, "Describe only the airplane.")
+    preview = service.page_prompt_preview(file, 1)
+    assert preview["eigen"] is True and preview["prompt"] == "Describe only the airplane."
+    assert [h["tekst"] for h in preview["geschiedenis"]] == ["Describe only the sky.\n\nKeep the fields."]
+    result = service.inventory(file, 1, again=True, part="beschrijving")
+    assert prompts[-1] == "Describe only the airplane."
+    assert result["inventaris"]["delen"]["beschrijving"]["prompt_eigen"] is True
+    # Only the description uses it: asking the search terms anew sends the app's prompt.
+    service.inventory(file, 1, again=True, part="zoektermen")
+    assert prompts[-1] != "Describe only the airplane."
+    version = preview["geschiedenis"][0]["bewaard_op"]
+    assert service.forget_page_prompt_version(file, 1, version)["geschiedenis"] == []
+    back = service.reset_page_prompt(file, 1)
+    assert back["eigen"] is False and [h["tekst"] for h in back["geschiedenis"]] == ["Describe only the airplane."]
+    service.inventory(file, 1, again=True, part="beschrijving")
+    assert prompts[-1] == back["standaard_prompt"]
+    with pytest.raises(DetectionError):
+        service.save_page_prompt(file, 1, "   ")
+    with pytest.raises(DetectionError):
+        service.forget_page_prompt_version(file, 1, "nope")
+
+
+def test_search_terms_own_prompt(objects, album, tmp_path):
+    """The search terms have a prompt of their own too (wish Olaf 13-11-2026), apart from the
+    description's; the app's prompt follows the level of detail."""
+    prompts = []
+
+    class Recording(DummyVision):
+        def describe(self, model, prompt, data_url, obj, effort=None, schema=beschrijving.SCHEMA):
+            prompts.append(prompt)
+            return super().describe(model, prompt, data_url, obj, effort, schema)
+
+    service = DescriptionService(Recording(), objects, CONFIG, tmp_path / "cache")
+    service.inventory(album, 1)
+    few = service.page_prompt_preview(album, 1, "zoektermen", "hoofdonderwerp")
+    many = service.page_prompt_preview(album, 1, "zoektermen", "details")
+    assert few["standaard_prompt"] != many["standaard_prompt"] and few["detailniveau"] == "hoofdonderwerp"
+    service.save_page_prompt(album, 1, "List only the fruit.", "zoektermen")
+    assert service.page_prompt_preview(album, 1, "beschrijving")["eigen"] is False
+    result = service.inventory(album, 1, again=True, part="zoektermen")
+    assert prompts[-1] == "List only the fruit."
+    delen = result["inventaris"]["delen"]
+    assert delen["zoektermen"]["prompt_eigen"] is True and "prompt_eigen" not in result["inventaris"]
+    service.inventory(album, 1, again=True, part="beschrijving")
+    assert prompts[-1] != "List only the fruit."
+    assert not service.inventory_plan(album, 1)["inventaris"]["delen"]["beschrijving"].get("prompt_eigen")
+    back = service.reset_page_prompt(album, 1, "zoektermen")
+    assert back["eigen"] is False and back["geschiedenis"][0]["tekst"] == "List only the fruit."
+    with pytest.raises(DetectionError):
+        service.page_prompt_preview(album, 1, "alles")
+    with pytest.raises(DetectionError):
+        service.page_prompt_preview(album, 1, "zoektermen", "heel veel")
+
+
+def test_part_anew_with_hint_and_effort(objects, album, tmp_path):
+    """Asking a part anew can take a hint and a reasoning effort (wish Olaf 13-11-2026)."""
+    calls = []
+
+    class Recording(DummyVision):
+        def describe(self, model, prompt, data_url, obj, effort=None, schema=beschrijving.SCHEMA):
+            calls.append((prompt, effort))
+            return super().describe(model, prompt, data_url, obj, effort, schema)
+
+    service = DescriptionService(Recording(), objects, CONFIG, tmp_path / "cache")
+    service.inventory(album, 1)
+    result = service.inventory(album, 1, again=True, part="beschrijving", hint="  Look  at the airplane ", effort="high")
+    prompt, effort = calls[-1]
+    assert prompt.endswith("Look at the airplane") and effort == "high"
+    assert result["inventaris"]["delen"]["beschrijving"]["aanwijzing"] == "Look at the airplane"
+    assert result["inventaris"]["delen"]["beschrijving"]["redeneren"] == "high"
+    assert "aanwijzing" not in result["inventaris"]
+    plan = service.inventory_plan(album, 1)
+    assert set(plan["kosten_per_redeneren"]) == {"low", "medium", "high"}
+    with pytest.raises(DetectionError):
+        service.inventory(album, 1, again=True, part="beschrijving", effort="max")
+    with pytest.raises(DetectionError):
+        service.inventory(album, 1, effort="high")  # only when asking one part
+

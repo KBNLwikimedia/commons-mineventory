@@ -1,6 +1,7 @@
 // Moving and resizing a dialog (the magnifier): drag the title bar to move it,
 // drag an edge or corner to resize it. Plain JS, like the viewer; the Vue
 // component only switches it on. Position and size are remembered per browser.
+import { readStored, removeStored, writeStored } from "./storage.js";
 
 export const EDGES = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
@@ -32,22 +33,6 @@ export function moveRect(rect, dx, dy, viewport = { width: Infinity, height: Inf
   };
 }
 
-function load(key) {
-  try {
-    return JSON.parse(localStorage.getItem(key) || "null");
-  } catch {
-    return null;
-  }
-}
-
-function save(key, rect) {
-  try {
-    localStorage.setItem(key, JSON.stringify(rect));
-  } catch {
-    // Private mode or blocked storage: it simply is not remembered.
-  }
-}
-
 /* Makes `dialog` movable by `handle` and resizable at its edges. Returns a function that undoes it. */
 export function makeMovable(dialog, { handle, storageKey, labels = {}, min } = {}) {
   const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
@@ -70,7 +55,7 @@ export function makeMovable(dialog, { handle, storageKey, labels = {}, min } = {
     return { left: box.left, top: box.top, width: box.width, height: box.height };
   }
 
-  const remembered = storageKey && load(storageKey);
+  const remembered = storageKey && readStored(storageKey, null, { json: true });
   if (remembered && remembered.width > 0) {
     const fitted = resizeRect(moveRect(remembered, 0, 0, viewport()), "se", 0, 0, min, viewport());
     apply(fitted);
@@ -94,7 +79,7 @@ export function makeMovable(dialog, { handle, storageKey, labels = {}, min } = {
       target.removeEventListener("pointerup", onUp);
       target.removeEventListener("pointercancel", onUp);
       dialog.classList.remove("cc-slepen");
-      if (storageKey) save(storageKey, current());
+      if (storageKey) writeStored(storageKey, current(), { json: true });
     };
     target.addEventListener("pointermove", onMove);
     target.addEventListener("pointerup", onUp);
@@ -128,11 +113,31 @@ export function makeMovable(dialog, { handle, storageKey, labels = {}, min } = {
   };
 }
 
+/* A Codex dialog (Codex renders it elsewhere in the page, so it is found by `selector`) made
+   movable by its title bar and resizable at its edges; a double-click on the title bar centres
+   it again. enable() after the dialog opened (and rendered), disable() when it closes. */
+export function movableDialog(selector, { storageKey, labels, min } = {}) {
+  let undo = null;
+  function disable() {
+    undo?.();
+    undo = null;
+  }
+  function enable() {
+    disable();
+    const dialog = document.querySelector(selector);
+    const header = dialog?.querySelector(".cdx-dialog__header");
+    if (!dialog || !header) return;
+    undo = makeMovable(dialog, { handle: header, storageKey, labels, min });
+    header.ondblclick = (event) => {
+      if (event.target.closest("button")) return;
+      forgetPlacement(storageKey);
+      dialog.removeAttribute("style");
+    };
+  }
+  return { enable, disable };
+}
+
 /* Forget the remembered position and size (the dialog is centred again next time). */
 export function forgetPlacement(storageKey) {
-  try {
-    localStorage.removeItem(storageKey);
-  } catch {
-    // nothing to forget
-  }
+  removeStored(storageKey);
 }

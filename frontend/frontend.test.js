@@ -838,7 +838,9 @@ describe("a colour per kind of object", () => {
     expect(classKey(doll)).toBe("doll"); // the colour is that of your name
     expect(classKeys(sam("b", "Person", { naam: "person" }))).toEqual(["person"]);
     expect(classKeys(sam("c", "klik", { naam: "handle" }))).toEqual(["handle"]);
-    expect(classKeys({ bron: "groep", groep: { soort: null, naam: "Family", leden: [sam("d", "boy"), sam("e", "person", { naam: "doll" })] } })).toEqual(["family", "boy", "doll"]);
+    // A group with a name of its own counts only under that name (wish Olaf 12-11-2026).
+    expect(classKeys({ bron: "groep", groep: { soort: null, naam: "Family", leden: [sam("d", "boy"), sam("e", "person", { naam: "doll" })] } })).toEqual(["family"]);
+    expect(classKeys({ bron: "groep", naam: "car-group", groep: { soort: null, leden: [sam("g", "car"), sam("h", "wheel")] } })).toEqual(["car-group"]);
     const host = document.createElement("div");
     const viewer = new PageViewer(host, () => {});
     viewer.setObjects([doll, sam("f", "fence")], [], classColors([doll, sam("f", "fence")]));
@@ -933,5 +935,92 @@ describe("searching objects after a rename", () => {
     expect(found("doos")).toEqual([]);
     expect(found("suit")).toEqual(["a"]);
     expect(found("oldtimer")).toEqual(["b"]); // without a name of its own, the AI's words still count
+  });
+});
+
+describe("small shared helpers", async () => {
+  const { readStored, writeStored, removeStored } = await import("./storage.js");
+  const { kindsOf, commonsFileUrl } = await import("./state.js");
+  const { priceLabel } = await import("./i18n.js");
+
+  it("stores text and JSON in this browser, and falls back when there is nothing or it is broken", () => {
+    writeStored("cc-test-tekst", "1");
+    expect(readStored("cc-test-tekst")).toBe("1");
+    writeStored("cc-test-json", { a: true }, { json: true });
+    expect(readStored("cc-test-json", {}, { json: true })).toEqual({ a: true });
+    window.localStorage.setItem("cc-test-json", "{kapot");
+    expect(readStored("cc-test-json", [], { json: true })).toEqual([]);
+    removeStored("cc-test-tekst");
+    removeStored("cc-test-json");
+    expect(readStored("cc-test-tekst", "x")).toBe("x");
+  });
+
+  it("swallows errors of blocked storage", () => {
+    const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(readStored("cc-x", "fallback")).toBe("fallback");
+    expect(() => writeStored("cc-x", "1")).not.toThrow();
+    spy.mockRestore();
+    set.mockRestore();
+  });
+
+  it("counts objects per search term without groups, named as in the list", () => {
+    const objects = [
+      { zoekterm: "hat", label_nl: "hoed" },
+      { zoekterm: "hat", label_nl: "hoed", beschrijving: {} },
+      { zoekterm: "dog" },
+      { zoekterm: "hat", bron: "groep" },
+      { label: "klik" },
+    ];
+    expect(kindsOf(objects, "nl")).toEqual([
+      { term: "hat", name: "hoed", n: 2 },
+      { term: "dog", name: "dog", n: 1 },
+    ]);
+    expect(kindsOf(objects, "en", (o) => o.beschrijving)).toEqual([
+      { term: "hat", name: "hat", n: 1 },
+      { term: "dog", name: "dog", n: 1 },
+    ]);
+  });
+
+  it("shows a price in brackets when paid, else the word for free", () => {
+    const t = (key) => ({ "panel.free": "(gratis)" })[key] ?? key;
+    expect(priceLabel(0.01, true, "en", t)).toBe("($0.01)");
+    expect(priceLabel(0.01, false, "nl", t)).toBe("(gratis)");
+  });
+
+  it("links to a file on Commons, optionally at an anchor", () => {
+    expect(commonsFileUrl("File:A b.jpg", "P180")).toBe("https://commons.wikimedia.org/wiki/File%3AA_b.jpg#P180");
+    expect(commonsFileUrl("")).toBe("https://commons.wikimedia.org/wiki/");
+  });
+});
+
+describe("formatStamp", () => {
+  it("shows a moment to the second (wish Olaf)", async () => {
+    const { formatStamp } = await import("./i18n.js");
+    expect(formatStamp("2026-11-13T11:24:07.123Z", "nl")).toMatch(/:\d\d:07$/);
+    expect(formatStamp("2026-11-13T11:24:07Z", "en", "short")).toMatch(/:\d\d:07$/);
+    expect(formatStamp("", "nl")).toBe("");
+    expect(formatStamp("niet een tijd", "nl")).toBe("");
+  });
+});
+
+describe("askRemoval", () => {
+  it("shows what goes between the question and the rest of the text (wish Olaf)", async () => {
+    const { askRemoval, answerConfirm, confirmState } = await import("./confirm.js");
+    const asked = askRemoval("Delete this prompt?\n\nThe descriptions stay.", { title: "Delete" }, "Describe only the fruit.");
+    expect(confirmState.text).toBe("Delete this prompt?");
+    expect(confirmState.quote).toBe("Describe only the fruit.");
+    expect(confirmState.note).toBe("The descriptions stay.");
+    answerConfirm(false);
+    expect(await asked).toBe(false);
+    const image = askRemoval("Remove it?", { title: "Remove" }, { objects: [{ image: "/a.png", name: "a" }] });
+    expect(confirmState.objects).toHaveLength(1);
+    expect(confirmState.quote).toBe("");
+    answerConfirm(false);
+    await image;
   });
 });

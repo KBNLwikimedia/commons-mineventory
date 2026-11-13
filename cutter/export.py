@@ -32,13 +32,19 @@ DISCLAIMER = (
 )
 
 
-def _png(image):
+def encode(image, fmt, **options):
+    """The bytes of a PIL image saved as `fmt` ("PNG", "JPEG") with these save options."""
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG", optimize=True)
+    image.save(buffer, format=fmt, **options)
     return buffer.getvalue()
 
 
-def _rect(box, scale):
+def _png(image):
+    return encode(image, "PNG", optimize=True)
+
+
+def rect(box, scale):
+    """(x0, y0, x1, y1) of a box in native page pixels, scaled by `scale`; at least one pixel."""
     x0 = int(box["x"] * scale)
     y0 = int(box["y"] * scale)
     x1 = max(x0 + 1, round((box["x"] + box["w"]) * scale))
@@ -54,7 +60,7 @@ def cutout(page_image, box, scale, raster):
     The mask is stretched over the box; bilinear scaling gives soft edges in
     the alpha channel, the separate mask PNG is thresholded to pure black/white.
     """
-    crop = page_image.crop(_rect(box, scale)).convert("RGBA")
+    crop = page_image.crop(rect(box, scale)).convert("RGBA")
     alpha = Image.fromarray(raster * 255, "L").resize(crop.size, Image.BILINEAR)
     crop.putalpha(alpha)
     mask = alpha.point(lambda value: 255 if value >= 128 else 0)
@@ -63,9 +69,7 @@ def cutout(page_image, box, scale, raster):
 
 def crop_jpeg(page_image, box, scale, quality=JPEG_QUALITY):
     """JPEG of a rectangle of the page (native pixels, scaled by `scale`)."""
-    buffer = io.BytesIO()
-    page_image.crop(_rect(box, scale)).convert("RGB").save(buffer, format="JPEG", quality=quality)
-    return buffer.getvalue()
+    return encode(page_image.crop(rect(box, scale)).convert("RGB"), "JPEG", quality=quality)
 
 
 def readme(file):

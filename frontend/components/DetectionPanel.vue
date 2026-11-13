@@ -14,7 +14,7 @@
       </template>
       <template v-else>{{ t("panel.mode_dummy") }}</template>
     </p>
-    <busy-note v-if="busy && where === 'top'" :message="t('busy.general')" />
+    <busy-note v-if="busy && !busyElsewhere && where === 'top'" :message="t('busy.general')" />
 
     <!-- From Commons comes first (wish Olaf, 6-11-2026): what people already put on Commons
          goes before new AI suggestions, and it is free to read. Only when the file has
@@ -26,7 +26,7 @@
       <p class="cc-uitleg">
         <button type="button" class="cc-link" :disabled="busy" :title="t('panel.commons_read_again_help')" @click="act('commons-lezen', 'read-again')">{{ t("panel.commons_read_again") }}</button>
       </p>
-      <busy-note v-if="busy && where === 'commons-lezen'" :message="t('busy.general')" />
+      <busy-note v-if="busy && !busyElsewhere && where === 'commons-lezen'" :message="t('busy.general')" />
       <!-- The outcome right under the link (wish Olaf), not at the top of the page. -->
       <notice-list :notices="noticesAt('commons')" @dismiss="emit('dismiss-notice', $event)" />
 
@@ -131,7 +131,14 @@
     <cdx-accordion id="cc-ai-suggesties" :model-value="open.suggestions" data-sectie="suggestions" @update:model-value="setOpen('suggestions', $event)" :class="{ 'cc-uitklap-vast': isLocked('suggestions') }" @click.capture="guard('suggestions', $event)">
       <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /> <section-lock :locked="isLocked('suggestions')" :label="lockLabel('suggestions')" @toggle="toggleLock('suggestions')" /></template>
       <!-- What this section is for, in one or two sentences (wish Olaf), as in From Commons. -->
-      <p class="cc-uitleg cc-sectie-intro">{{ t("panel.suggestions_intro") }}</p>
+      <!-- What the AI makes, one bullet each (wish Olaf 13-11-2026). -->
+      <div class="cc-uitleg cc-sectie-intro">
+        {{ t("panel.suggestions_intro") }}
+        <ul class="cc-uitleg-lijst">
+          <li>{{ t("panel.suggestions_intro_description") }}</li>
+          <li>{{ t("panel.suggestions_intro_terms") }}</li>
+        </ul>
+      </div>
       <!-- In the order of the work: (1) ask the AI what is on the image (one call), (2) its
            description, (3) the search terms: find where those things are, and what was found.
            Each part can be asked again (a call for that part only) or removed on its own.
@@ -378,8 +385,9 @@ import { cdxIconTrash } from "@wikimedia/codex-icons";
 import SectionLock from "./SectionLock.vue";
 import ResultMessage from "./ResultMessage.vue";
 import { textParts } from "../confirm.js";
-import { money, useT } from "../i18n.js";
-import { START_SUGGESTIONS } from "../state.js";
+import { priceLabel, useT } from "../i18n.js";
+import { START_SUGGESTIONS, commonsFileUrl } from "../state.js";
+import { readStored, removeStored, writeStored } from "../storage.js";
 import { get, pagePath } from "../api.js";
 import { objectsWithTerm } from "../facets.js";
 import AiBadge from "./AiBadge.vue";
@@ -393,6 +401,8 @@ import NoticeList from "./NoticeList.vue";
 // Read once when the app starts (module scope), so a panel built again still knows it.
 const SUGGESTIONS_FOR = START_SUGGESTIONS;
 const props = defineProps({
+  // Busy with something in the objects column (describe, group): its note shows there, not here.
+  busyElsewhere: { type: Boolean, default: false },
   file: { type: Object, required: true },
   page: { type: Object, required: true },
   busy: { type: Boolean, default: false },
@@ -422,27 +432,14 @@ const modelLinks = {
 const prompt = ref("");
 // The level of detail of the search terms: that of the overview, else the last one chosen in this browser.
 const DETAIL_KEY = "cc-detailniveau";
-function storedDetail() {
-  try {
-    return window.localStorage.getItem(DETAIL_KEY) || "normaal";
-  } catch {
-    return "normaal";
-  }
-}
-const detail = ref(props.inventory?.detailniveau || storedDetail());
+const detail = ref(props.inventory?.detailniveau || readStored(DETAIL_KEY, "normaal"));
 watch(
   () => props.inventory?.detailniveau,
   (level) => {
     if (level) detail.value = level;
   }
 );
-watch(detail, (level) => {
-  try {
-    window.localStorage.setItem(DETAIL_KEY, level);
-  } catch {
-    // Blocked storage: the level holds until the page is reloaded.
-  }
-});
+watch(detail, (level) => writeStored(DETAIL_KEY, level));
 // The (i) beside each section title: a popup that explains what the section does.
 function info(section, titleKey) {
   return {
@@ -462,12 +459,8 @@ const open = reactive({ captions: true, regios: true, beeldtaf: true, commons: t
 // its title, and not the app's own links (they only scroll to it).
 const LOCK_KEY = "cc-uitklap-vast";
 function loadLocks() {
-  try {
-    const stored = JSON.parse(window.localStorage.getItem(LOCK_KEY) || "{}");
-    return Object.fromEntries(Object.entries(stored || {}).filter(([key, state]) => key in open && typeof state === "boolean"));
-  } catch {
-    return {};
-  }
+  const stored = readStored(LOCK_KEY, {}, { json: true });
+  return Object.fromEntries(Object.entries(stored || {}).filter(([key, state]) => key in open && typeof state === "boolean"));
 }
 const locks = reactive(loadLocks());
 Object.assign(open, locks);
@@ -475,11 +468,7 @@ const isLocked = (key) => typeof locks[key] === "boolean";
 function toggleLock(key) {
   if (isLocked(key)) delete locks[key];
   else locks[key] = open[key];
-  try {
-    window.localStorage.setItem(LOCK_KEY, JSON.stringify(locks));
-  } catch {
-    /* private window: the lock holds for this visit only */
-  }
+  writeStored(LOCK_KEY, locks, { json: true }); // private window: the lock holds for this visit only
 }
 const lockLabel = (key) => {
   const state = t(open[key] ? "panel.section_state_open" : "panel.section_state_closed");
@@ -546,7 +535,7 @@ const commonsDepicts = computed(() => {
   return [...seen.values()];
 });
 const hasCommonsData = computed(() => Boolean(regionCount.value || commonsCaptions.value.length || commonsDepicts.value.length));
-const sdcLink = computed(() => `https://commons.wikimedia.org/wiki/${encodeURIComponent((props.file.titel || "").replace(/ /g, "_"))}#P180`);
+const sdcLink = computed(() => commonsFileUrl(props.file.titel, "P180"));
 
 // With data on Commons, From Commons is open and the other sections closed (wish Olaf);
 // without, the AI suggestions are open. Set again for every file and page.
@@ -593,22 +582,12 @@ const excludedItems = ref([]);
 const excludedItemsKey = computed(() => `cc-items-uit:${props.file.mid}`);
 watch(
   excludedItemsKey,
-  (key) => {
-    try {
-      excludedItems.value = JSON.parse(window.localStorage.getItem(key) || "[]");
-    } catch {
-      excludedItems.value = [];
-    }
-  },
+  (key) => (excludedItems.value = readStored(key, [], { json: true })),
   { immediate: true }
 );
 function setExcludedItems(list) {
   excludedItems.value = [...new Set(list)];
-  try {
-    window.localStorage.setItem(excludedItemsKey.value, JSON.stringify(excludedItems.value));
-  } catch {
-    // Blocked storage: the choice holds until the page is reloaded.
-  }
+  writeStored(excludedItemsKey.value, excludedItems.value, { json: true });
 }
 const toggleItem = (q) => setExcludedItems(excludedItems.value.includes(q) ? excludedItems.value.filter((x) => x !== q) : [...excludedItems.value, q]);
 const includedItems = computed(() => commonsDepicts.value.filter((item) => !excludedItems.value.includes(item.q)));
@@ -682,8 +661,8 @@ const commonsTermCount = (term) => {
   return props.objects.reduce((n, o) => n + (o.wikidata === q) + (o.groep?.leden || []).filter((m) => m.wikidata === q).length, 0);
 };
 
-const cost = (calls) => (config.betaald ? `(${money(calls * config.sam_usd, config.taal)})` : t("panel.free"));
-const museCost = (usd) => (config.betaald ? `(${money(usd, config.taal)})` : t("panel.free"));
+const cost = (calls) => priceLabel(calls * config.sam_usd, config.betaald, config.taal, t);
+const museCost = (usd) => priceLabel(usd, config.betaald, config.taal, t);
 
 // Where the waiting feedback goes: the section whose button was clicked last;
 // a click in the image (point mode) shows it under Aanwijzen.
@@ -705,13 +684,7 @@ const searched = ref([]);
 const searchedKey = computed(() => `cc-gezocht:${props.file.mid}:${props.page.n}`);
 watch(
   searchedKey,
-  (key) => {
-    try {
-      searched.value = JSON.parse(window.localStorage.getItem(key) || "[]");
-    } catch {
-      searched.value = [];
-    }
-  },
+  (key) => (searched.value = readStored(key, [], { json: true })),
   { immediate: true }
 );
 watch(
@@ -720,11 +693,7 @@ watch(
     if (!result || result.modus !== "prompt" || !result.prompt) return;
     const words = result.prompt.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
     searched.value = [...new Set([...searched.value, ...words])];
-    try {
-      window.localStorage.setItem(searchedKey.value, JSON.stringify(searched.value));
-    } catch {
-      // Blocked storage: the colours hold until the page is reloaded.
-    }
+    writeStored(searchedKey.value, searched.value, { json: true });
   }
 );
 const wasSearched = (word) => searched.value.includes(String(word || "").toLowerCase());
@@ -738,12 +707,8 @@ const termHits = (term) => termObjectIds(term).length;
 watch(
   () => [props.file.mid, props.page.n],
   ([mid, n]) => {
-    try {
-      window.localStorage.removeItem(`cc-term-zoekwoord:${mid}:${n}`);
-      window.localStorage.removeItem(`cc-item-zoekwoord:${mid}`);
-    } catch {
-      // Blocked storage: nothing to forget.
-    }
+    removeStored(`cc-term-zoekwoord:${mid}:${n}`);
+    removeStored(`cc-item-zoekwoord:${mid}`);
   },
   { immediate: true }
 );
@@ -754,22 +719,12 @@ const excluded = ref([]);
 const storageKey = computed(() => `cc-termen-uit:${props.file.mid}:${props.page.n}`);
 watch(
   storageKey,
-  (key) => {
-    try {
-      excluded.value = JSON.parse(window.localStorage.getItem(key) || "[]");
-    } catch {
-      excluded.value = [];
-    }
-  },
+  (key) => (excluded.value = readStored(key, [], { json: true })),
   { immediate: true }
 );
 function setExcluded(terms) {
   excluded.value = [...new Set(terms)];
-  try {
-    window.localStorage.setItem(storageKey.value, JSON.stringify(excluded.value));
-  } catch {
-    // Blocked storage: the choice holds until the page is reloaded.
-  }
+  writeStored(storageKey.value, excluded.value, { json: true });
 }
 function toggleTerm(term) {
   setExcluded(excluded.value.includes(term) ? excluded.value.filter((t2) => t2 !== term) : [...excluded.value, term]);

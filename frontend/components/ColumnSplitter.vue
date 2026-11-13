@@ -23,6 +23,7 @@
 
 <script setup>
 import { onMounted, ref } from "vue";
+import { readStored, removeStored, writeStored } from "../storage.js";
 
 const props = defineProps({
   // The CSS variable on the work area, e.g. "--cc-links-breedte".
@@ -50,24 +51,14 @@ function column(el) {
 function apply(el, value, save = true) {
   width.value = Math.min(props.max, Math.max(props.min, value));
   area(el)?.style.setProperty(props.variable, `${width.value}px`);
-  if (!save) return;
-  try {
-    window.localStorage.setItem(props.storageKey, String(Math.round(width.value)));
-  } catch {
-    // Blocked storage: the width is simply not remembered.
-  }
+  if (save) writeStored(props.storageKey, String(Math.round(width.value)));
 }
 
 const root = ref(null);
 
 onMounted(() => {
   const el = root.value;
-  let stored = null;
-  try {
-    stored = Number(window.localStorage.getItem(props.storageKey));
-  } catch {
-    stored = null;
-  }
+  const stored = Number(readStored(props.storageKey));
   if (stored) apply(el, stored, false);
   else width.value = column(el)?.getBoundingClientRect().width || props.min;
 });
@@ -104,11 +95,7 @@ function key(event) {
 function reset(event) {
   const el = event.currentTarget;
   area(el)?.style.removeProperty(props.variable);
-  try {
-    window.localStorage.removeItem(props.storageKey);
-  } catch {
-    // Nothing to forget.
-  }
+  removeStored(props.storageKey);
   width.value = column(el)?.getBoundingClientRect().width || props.min;
 }
 </script>

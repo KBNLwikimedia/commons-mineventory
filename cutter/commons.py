@@ -17,6 +17,8 @@ from PIL import Image
 
 from . import rechten, sdc, tegels, wikitekst
 from .cache import FetchError
+from .opruimen import sharded
+from .sdc import QID
 
 COMMONS_HOSTS = {"commons.wikimedia.org", "commons.m.wikimedia.org"}
 FILE_PAGE = "https://commons.wikimedia.org/wiki/"
@@ -299,10 +301,10 @@ class CommonsClient:
         info = wikitekst.info_template(text)
         qid = (info.params.get("wikidata") or "").strip() if info else ""
         source = "wikitekst"
-        if not re.fullmatch(r"Q\d+", qid):
+        if not QID.fullmatch(qid):
             qid = next((s["waarde"] for s in (parsed_sdc or {}).get("digitale_weergave_van", []) if s["soort"] == "item"), "")
             source = "sdc"
-        if not re.fullmatch(r"Q\d+", qid or ""):
+        if not QID.fullmatch(qid or ""):
             return None
         try:
             return {**self.work(qid), "via": source}
@@ -368,7 +370,7 @@ class CommonsClient:
         url = info.get("thumburl") or info.get("url")
         return self.fetcher.get(url) if url else None
 
-    def _wikidata_entities(self, ids, props, pattern=r"Q\d+", fallback=False):
+    def _wikidata_entities(self, ids, props, pattern=QID, fallback=False):
         """(id, entity) from Wikidata's wbgetentities, 50 ids per request, cached.
         A batch that cannot be fetched is skipped: labels and descriptions are a
         nicety, the id itself stays readable."""
@@ -668,7 +670,7 @@ class CommonsClient:
         """The original on disk (fetched once), or None without a cache folder."""
         if self.originals_dir is None:
             return None
-        path = self.originals_dir / file["sha1"][:2] / file["sha1"]
+        path = sharded(self.originals_dir, file["sha1"])
         if not path.exists():
             self._original_bytes(file)
         else:
@@ -680,7 +682,7 @@ class CommonsClient:
         under cache/originelen/<sha1> (cleaned up after BEWAAR_ORIGINELEN_DAGEN)."""
         if self.originals_dir is None:
             return self.fetcher.get(file["origineel_url"])
-        path = self.originals_dir / file["sha1"][:2] / file["sha1"]
+        path = sharded(self.originals_dir, file["sha1"])
         if path.exists():
             path.touch()  # retention counts from the last use (12.1)
             return path.read_bytes()

@@ -130,8 +130,7 @@ def _current_user():
 
 def _muse_info():
     config = current_app.config
-    effort = config.get("BEELDMODEL_REDENEREN")
-    effort = effort if effort in beschrijving.EFFORTS else None
+    effort = beschrijving.effort_of(config)
     model = config["BEELDMODEL"]
     cheap = config["BEELDMODEL_RECHTENVRIJ"]
     return {

@@ -20,15 +20,14 @@ import requests
 from PIL import Image, ImageDraw
 
 from . import __version__
-from .detectie.basis import DetectionError
-from .opruimen import mark_used
+from .detectie.basis import INTERNAL_LABELS, DetectionError
+from .export import encode
+from .opruimen import cached_bytes, mark_used, sharded
 
 MODEL = "muse-image-1.0"
 PRICE_USD = 0.01  # per generated image, whatever the prompt or tools (Meta's price list)
 SEND_SIDE = 1536  # longest side of the cut-out sent to the model, in pixels
 PROMPT_VERSION = 2  # 2: "Complete it" (the subject may be "an object"); your own name first
-# Labels the app gives itself (a click, a drawn rectangle, a region): never a subject for the AI.
-INTERNAL_LABELS = {"klik", "rechthoek", "regio"}
 WHITE = 236  # a pixel with every channel at or above this counts as background
 FILLED_COLOUR = (230, 0, 140, 150)  # magenta, half transparent: what the AI filled in
 
@@ -67,9 +66,7 @@ class DummyImageEditor:
         draw = ImageDraw.Draw(image)
         draw.rectangle([0, 0, min(image.width, 220), 28], fill=(51, 102, 204))
         draw.text((8, 8), "AI-aangevuld (dummy)", fill=(255, 255, 255))
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        return buffer.getvalue()
+        return encode(image, "PNG")
 
 
 class MetaImageEditor:
@@ -132,9 +129,7 @@ def prepare(png, side=SEND_SIDE):
         image = image.resize((max(1, round(image.width * scale)), max(1, round(image.height * scale))), Image.LANCZOS)
     white = Image.new("RGBA", image.size, (255, 255, 255, 255))
     white.alpha_composite(image)
-    buffer = io.BytesIO()
-    white.convert("RGB").save(buffer, format="PNG", optimize=True)
-    return buffer.getvalue(), f"{image.width}x{image.height}"
+    return encode(white.convert("RGB"), "PNG", optimize=True), f"{image.width}x{image.height}"
 
 
 def white_background(pixels, keep=None, side=400):
@@ -209,7 +204,7 @@ class CompletionService:
         return {"aangevuld": obj.get("aangevuld"), "model": MODEL, "betaald": paid, "kosten_usd": PRICE_USD if paid else 0.0}
 
     def _path(self, key):
-        return self.cache_dir / key[:2] / f"{key}.png"
+        return sharded(self.cache_dir, key, ".png")
 
     def default_prompt(self, file, n, object_id):
         """The prompt the app would send, with the object's subject (free)."""
@@ -246,10 +241,8 @@ class CompletionService:
                     )
             # Always a PNG, whatever came back.
             image = Image.open(io.BytesIO(result))
-            buffer = io.BytesIO()
-            image.convert("RGB").save(buffer, format="PNG", optimize=True)
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(buffer.getvalue())
+            path.write_bytes(encode(image.convert("RGB"), "PNG", optimize=True))
         with Image.open(path) as image:
             dimensions = list(image.size)
         note = {
@@ -322,20 +315,21 @@ class CompletionService:
         none (or it expired). Made once and cached next to the image itself. With `key`
         an earlier version (for the carousel)."""
         completed_path = self._completed_path(file, n, object_id, key)
-        path = completed_path.with_name(completed_path.stem + "_transparant.png")
-        if path.exists():
-            mark_used(path)
-            return path.read_bytes()
-        completed = Image.open(completed_path).convert("RGB")
+
+        def make():
+            completed = Image.open(completed_path).convert("RGB")
+            shape = self._cutout_shape(file, n, object_id, completed.size)
+            background = white_background(np.asarray(completed), keep=shape)
+            rgba = completed.convert("RGBA")
+            rgba.putalpha(Image.fromarray(np.where(background, 0, 255).astype(np.uint8), "L"))
+            return encode(rgba, "PNG", optimize=True)
+
+        return cached_bytes(completed_path.with_name(completed_path.stem + "_transparant.png"), make)
+
+    def _cutout_shape(self, file, n, object_id, size):
+        """Where the saved cut-out is opaque, stretched to `size` (a boolean array)."""
         cutout = Image.open(io.BytesIO(self.objects.saved_file(file, n, object_id, "png"))).convert("RGBA")
-        shape = np.asarray(cutout.getchannel("A").resize(completed.size, Image.BILINEAR)) >= 128
-        background = white_background(np.asarray(completed), keep=shape)
-        rgba = completed.convert("RGBA")
-        rgba.putalpha(Image.fromarray(np.where(background, 0, 255).astype(np.uint8), "L"))
-        buffer = io.BytesIO()
-        rgba.save(buffer, format="PNG", optimize=True)
-        path.write_bytes(buffer.getvalue())
-        return buffer.getvalue()
+        return np.asarray(cutout.getchannel("A").resize(size, Image.BILINEAR)) >= 128
 
     def filled_overlay(self, file, n, object_id):
         """A transparent PNG, the size of the AI-completed version, that colours what
@@ -343,21 +337,17 @@ class CompletionService:
         completed version is not white. Approximate: the model draws the whole image
         anew and may shift it a little. Cached next to the completed version."""
         completed_path = self._completed_path(file, n, object_id)
-        path = completed_path.with_name(completed_path.stem + "_ingevuld.png")
-        if path.exists():
-            mark_used(path)
-            return path.read_bytes()
-        completed = Image.open(completed_path).convert("RGB")
-        cutout = Image.open(io.BytesIO(self.objects.saved_file(file, n, object_id, "png"))).convert("RGBA")
-        shape = np.asarray(cutout.getchannel("A").resize(completed.size, Image.BILINEAR)) >= 128
-        painted = np.asarray(completed).min(axis=2) < WHITE
-        filled = painted & ~shape
-        overlay = np.zeros(filled.shape + (4,), dtype=np.uint8)
-        overlay[filled] = FILLED_COLOUR
-        buffer = io.BytesIO()
-        Image.fromarray(overlay, "RGBA").save(buffer, format="PNG", optimize=True)
-        path.write_bytes(buffer.getvalue())
-        return buffer.getvalue()
+
+        def make():
+            completed = Image.open(completed_path).convert("RGB")
+            shape = self._cutout_shape(file, n, object_id, completed.size)
+            painted = np.asarray(completed).min(axis=2) < WHITE
+            filled = painted & ~shape
+            overlay = np.zeros(filled.shape + (4,), dtype=np.uint8)
+            overlay[filled] = FILLED_COLOUR
+            return encode(Image.fromarray(overlay, "RGBA"), "PNG", optimize=True)
+
+        return cached_bytes(completed_path.with_name(completed_path.stem + "_ingevuld.png"), make)
 
     def forget(self, file, n, object_id):
         """Remove the current version from the object; it goes to the history, and the

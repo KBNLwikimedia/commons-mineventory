@@ -34,12 +34,18 @@ function foundKind(obj) {
 /* Every kind an object belongs to, for the tick boxes and their counts: one per object (wish Olaf
    12-11-2026), the name you gave it, else the search term that found it ("cardboard box" renamed
    to "suitcase" is only a suitcase); the words it was also found with before finds were merged
-   ("Also found as") no longer count here. A group counts under the kinds of its members too.
+   ("Also found as") no longer count here. A group is one object too (wish Olaf 12-11-2026): with a
+   name of its own or members of one kind it counts only under that kind, so "car" and "wheel"
+   grouped as "car-group" leave the tick boxes of car and wheel, and come back on ungrouping. Only
+   a group of mixed kinds without a name (it has no kind) counts under those of its members, or no
+   tick box would show it.
    The mask has one colour: that of classKey (a group of mixed kinds without a name has none). */
 export function classKeys(obj) {
   if (!obj) return [];
+  const own = classKey(obj);
+  if (own) return [own];
   const members = obj.bron === "groep" ? obj.groep?.leden || [] : [];
-  return [...new Set([classKey(obj), ...members.flatMap(classKeys)].filter(Boolean))];
+  return [...new Set(members.flatMap(classKeys))];
 }
 
 /* {kind: colour} for the objects of a page; empty when there are fewer than two kinds, so a

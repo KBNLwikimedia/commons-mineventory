@@ -8,15 +8,15 @@ text and decoding masks is left to Meta's official `meta-sam-parser`.
 """
 
 import base64
-import io
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import requests
-from meta_sam_parser import CompletedOutcome, decode_mask_to_raster, image_segmentation_format
+from meta_sam_parser import CompletedOutcome, image_segmentation_format
 
 from .. import __version__
+from ..export import encode
 from .basis import DetectedObject, DetectionError, Detector
 
 logger = logging.getLogger(__name__)
@@ -51,9 +51,8 @@ def prepare_image(image, max_width=DEFAULT_MAX_WIDTH):
     if width > max_width:
         scale = width / max_width
         image = image.resize((max_width, round(height / scale)))
-    buffer = io.BytesIO()
-    image.convert("RGB").save(buffer, format="JPEG", quality=JPEG_QUALITY)
-    data_url = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+    data = encode(image.convert("RGB"), "JPEG", quality=JPEG_QUALITY)
+    data_url = "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii")
     return data_url, image.size, scale
 
 
@@ -131,11 +130,6 @@ def parse_output(text):
         elif record.kind == "mask" and record.object_id in records:
             records[record.object_id].mask = record.mask
     return list(records.values())
-
-
-def decode_mask(record):
-    """Row-major 0/1 raster (bytes) of a record's mask, via the official decoder."""
-    return decode_mask_to_raster(record.mask)
 
 
 class MetaSamDetector(Detector):

@@ -15,6 +15,8 @@ from pathlib import Path
 
 import requests
 
+from .opruimen import sharded
+
 
 class FetchError(Exception):
     """Raised when a remote resource cannot be fetched."""
@@ -33,8 +35,7 @@ class FileCache:
         self._clock = clock
 
     def _path(self, key):
-        digest = hashlib.sha1(key.encode("utf-8")).hexdigest()
-        return self.directory / digest[:2] / digest
+        return sharded(self.directory, hashlib.sha1(key.encode("utf-8")).hexdigest())
 
     def get(self, key, max_age=None):
         """The cached bytes, or None when absent or older than `max_age` seconds."""

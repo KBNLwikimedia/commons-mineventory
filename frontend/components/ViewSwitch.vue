@@ -6,6 +6,7 @@
 <script setup>
 import { onMounted } from "vue";
 import { CdxToggleButtonGroup } from "@wikimedia/codex";
+import { readStored, writeStored } from "../storage.js";
 
 const props = defineProps({
   modelValue: { type: String, required: true },
@@ -18,22 +19,13 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 
 function choose(value) {
-  emit("update:modelValue", value);
-  try {
-    localStorage.setItem(props.storageKey, value);
-  } catch {
-    // Storage can be off in a private window; the choice then lasts as long as the page.
-  }
+  emit("update:modelValue", value); // storage off in a private window: the choice lasts as long as the page
+  writeStored(props.storageKey, value);
 }
 
 onMounted(() => {
   if (!props.useStored) return;
-  let stored = null;
-  try {
-    stored = localStorage.getItem(props.storageKey);
-  } catch {
-    return;
-  }
+  const stored = readStored(props.storageKey);
   if (stored && props.buttons.some((button) => button.value === stored)) emit("update:modelValue", stored);
 });
 </script>

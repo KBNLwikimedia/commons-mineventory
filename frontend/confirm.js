@@ -7,6 +7,16 @@ export const confirmState = reactive({
   // Optional: objects the question is about ({image, name}), shown as a list with thumbnails;
   // and a text field ({label, placeholder, help}) whose value askConfirmValue() returns.
   objects: [], objectsFirst: false, input: null, inputValue: "",
+  // Optional: what else to know (wish Olaf 13-11-2026), as a paragraph after the objects; the
+  // text itself says first, and briefly, what the action does.
+  note: "",
+  // Optional: a text the question is about, shown as it is in a block of its own after the
+  // question (e.g. the earlier prompt that would be deleted; wish Olaf 13-11-2026).
+  quote: "",
+  // Optional: what goes as labelled fields ([{label, help, value}]): the label in bold, its value
+  // in a block of its own, a little smaller (wish Olaf 13-11-2026), after the question.
+  fields: [],
+  fieldsTitle: "",
   // Optional: a choice ({value, label, help, go, destructive}); the chosen one sets the
   // button, and askConfirmValue() returns it as `choice`.
   choices: [], choice: "",
@@ -45,7 +55,7 @@ export function askConfirm(text, options = {}) {
 }
 
 // Resolves to {ok, value}: with `input`, value is what was typed in the field ("" if nothing).
-export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], objectsFirst = false, input = null, choices = [], store = session() } = {}) {
+export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], objectsFirst = false, input = null, choices = [], note = "", quote = "", fields = [], fieldsTitle = "", store = session() } = {}) {
   if (skipped(dontAsk, store)) return Promise.resolve({ ok: true, value: "", choice: choices[0]?.value || "" });
   if (confirmState.resolve) confirmState.resolve(false); // a newer question replaces an open one
   return new Promise((resolve) => {
@@ -60,6 +70,10 @@ export function askConfirmValue(text, { title = "", go = "", destructive = false
       dontAskChecked: false,
       objects,
       objectsFirst,
+      note,
+      quote,
+      fields,
+      fieldsTitle,
       input,
       inputValue: "",
       choices,
@@ -81,6 +95,24 @@ export function askConfirmValue(text, { title = "", go = "", destructive = false
       },
     });
   });
+}
+
+// Deleting an earlier version (of a description, a completion, a prompt): the same question
+// everywhere, only the sentence differs. `t` is the translation function. What goes is shown
+// between the question and the rest of the text (wish Olaf 13-11-2026): `shown` is a text
+// (the prompt, the description) or {objects} (e.g. the image of a completed version).
+export function confirmDeleteVersion(text, t, shown = "") {
+  return askRemoval(text, { title: t("describe.history_delete"), go: t("describe.history_delete"), destructive: true }, shown);
+}
+
+// A question about removing something, with what goes shown after the first paragraph: a text
+// (`shown` a string: in a block of its own) or {objects: [{image, name}]}. The rest of the text
+// becomes the note below it.
+export function askRemoval(text, options, shown = "") {
+  const what = typeof shown === "string" ? { quote: shown.trim() } : { objects: shown?.objects || [] };
+  if (!what.quote && !what.objects?.length) return askConfirm(text, options);
+  const [question, ...rest] = text.split(/\n\s*\n/);
+  return askConfirm(question, { ...options, ...what, note: [rest.join("\n\n"), options.note].filter(Boolean).join("\n\n") });
 }
 
 export function answerConfirm(answer) {

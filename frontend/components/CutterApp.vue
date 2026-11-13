@@ -69,6 +69,7 @@
           :class-colors="kindColors"
           :search-text="objectQuery"
           :new-ids="newIds"
+          :waiting="maskWait"
           :point-mode="pointMode"
           :draw-mode="drawMode"
           @object-click="onObjectClick"
@@ -89,6 +90,7 @@
           :file="file"
           :page="page"
           :busy="busy"
+          :busy-elsewhere="busyAt === 'objecten'"
           :inventory="inventory"
           :objects="objects"
           :trash-terms="trashTerms"
@@ -208,15 +210,7 @@
                 </div>
                 <!-- Per kind, as in Group and Trash (wish Olaf, 7-11-2026): the visible objects of one
                      search term without a description; paid, so each link carries its amount. -->
-                <p v-if="describableTerms.length" class="cc-groeperen">
-                  {{ t("bulk.per_kind") }}
-                  <template v-for="(item, i) in describableTerms" :key="item.term">
-                    <template v-if="i"> · </template>
-                    <button type="button" class="cc-link" :disabled="busy" :title="t('bulk.describe_kind_help')" @click="describeAll({ term: item.term })">
-                      {{ t("panel.group_all", { term: item.name, n: item.n }) }} <span class="cc-kosten">{{ costFor(item.n) }}</span>
-                    </button>
-                  </template>
-                </p>
+                <kind-links :items="describableTerms" :disabled="busy" :help="t('bulk.describe_kind_help')" :price="costFor" @pick="describeAll({ term: $event })" />
                 <p class="cc-uitleg">{{ describeNote }} {{ t("bulk.describe_help") }}</p>
               </cdx-tab>
               <cdx-tab name="ontdubbelen" :label="t('bulk.tab_dedupe')">
@@ -239,15 +233,7 @@
                     {{ t("bulk.group_all", { n: visibleObjects.length }) }}
                   </cdx-button>
                 </div>
-                <p v-if="groupableTerms.length" class="cc-groeperen">
-                  {{ t("bulk.per_kind") }}
-                  <template v-for="(item, i) in groupableTerms" :key="item.term">
-                    <template v-if="i"> · </template>
-                    <button type="button" class="cc-link" :disabled="busy" :title="t('panel.group_all_help')" @click="groupTerm(item.term)">
-                      {{ t("panel.group_all", { term: item.name, n: item.n }) }}
-                    </button>
-                  </template>
-                </p>
+                <kind-links :items="groupableTerms" :disabled="busy" :help="t('panel.group_all_help')" @pick="groupTerm" />
                 <p class="cc-uitleg">{{ t("panel.bulk_group_help") }}</p>
               </cdx-tab>
               <cdx-tab name="prullenbak" :label="t('bulk.tab_trash', { n: selectedCount })">
@@ -259,15 +245,7 @@
                     {{ t("bulk.trash_all", { n: visibleObjects.length }) }}
                   </cdx-button>
                 </div>
-                <p v-if="trashableTerms.length" class="cc-groeperen">
-                  {{ t("bulk.per_kind") }}
-                  <template v-for="(item, i) in trashableTerms" :key="item.term">
-                    <template v-if="i"> · </template>
-                    <button type="button" class="cc-link cc-link-weg" :disabled="busy" :title="t('panel.bulk_trash_item_help')" @click="trashTerm(item.term)">
-                      {{ t("panel.group_all", { term: item.name, n: item.n }) }}
-                    </button>
-                  </template>
-                </p>
+                <kind-links :items="termKinds" :disabled="busy" :help="t('panel.bulk_trash_item_help')" remove @pick="trashTerm" />
                 <p class="cc-uitleg">{{ t("panel.bulk_trash_help") }}</p>
               </cdx-tab>
             </cdx-tabs>
@@ -275,7 +253,7 @@
                  red when nothing could be done. -->
             <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}<ul v-if="actionResult.list?.length" class="cc-melding-lijst"><li v-for="line in actionResult.list" :key="line">{{ line }}</li></ul></cdx-message>
           </div>
-          <busy-note v-if="busy && busyAt === 'objecten'" :message="t('busy.describe')" />
+          <busy-note v-if="busy && busyAt === 'objecten'" :message="maskWait || t('busy.describe')" />
           </cdx-accordion>
           <cdx-accordion v-model="actionsOpen.save" class="cc-acties-uitklap">
           <template #title>{{ t("bulk.save_title") }}</template>
@@ -328,6 +306,17 @@
       :cost-line="bulkDescribe.costLine"
       @answer="answerBulkDescribe"
     />
+    <!-- Describe the whole image anew: what happens, the cost, and (folded away) the prompt (wish Olaf). -->
+    <page-describe-dialog
+      :open="pageDescribe.open"
+      :path="pageDescribe.path"
+      :paid="pageDescribe.paid"
+      :costs="pageDescribe.costs"
+      :default-effort="pageDescribe.defaultEffort"
+      :part="pageDescribe.part"
+      :detail="pageDescribe.detail"
+      @answer="answerPageDescribe"
+    />
   </div>
 </template>
 
@@ -338,15 +327,17 @@ import { cdxIconDownload, cdxIconPrevious, cdxIconSearch, cdxIconTrash, cdxIconU
 import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
 import { classColors } from "../class-colors.js";
 import { writeAddress } from "../facets.js";
-import { askConfirm, askConfirmValue } from "../confirm.js";
-import { money, useT } from "../i18n.js";
+import { askConfirm, askConfirmValue, askRemoval } from "../confirm.js";
+import { money, priceLabel, useT } from "../i18n.js";
 import BulkDescribeDialog from "./BulkDescribeDialog.vue";
+import PageDescribeDialog from "./PageDescribeDialog.vue";
 import BusyNote from "./BusyNote.vue";
 import ColumnHeader from "./ColumnHeader.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
 import ColumnStrip from "./ColumnStrip.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { addToHistory, appUrl, clearHistory, forgetFileInBrowser, numberedNames, objectName, readHistory, readStart, removeFromHistory, setAside } from "../state.js";
+import { addToHistory, appUrl, clearHistory, commonsFileUrl, forgetFileInBrowser, kindsOf, numberedNames, objectName, readHistory, readStart, removeFromHistory, setAside } from "../state.js";
+import { readStored, writeStored } from "../storage.js";
 import ViewedPanel from "./ViewedPanel.vue";
 import DetectionPanel from "./DetectionPanel.vue";
 import FileBar from "./FileBar.vue";
@@ -354,6 +345,7 @@ import Magnifier from "./Magnifier.vue";
 import NoticeList from "./NoticeList.vue";
 import RetentionInfo from "./RetentionInfo.vue";
 import InfoDialog from "./InfoDialog.vue";
+import KindLinks from "./KindLinks.vue";
 import ObjectList from "./ObjectList.vue";
 import PageList from "./PageList.vue";
 import ViewerPane from "./ViewerPane.vue";
@@ -431,21 +423,11 @@ watch(
 // it is folded away, the first open column of the others does.
 const COLUMNS = ["historie", "beeld", "zoeken", "objecten"];
 const WIDTHS = { historie: "var(--cc-historie-breedte)", zoeken: "var(--cc-paneel-breedte)", objecten: "var(--cc-links-breedte)" };
-function readClosed(column) {
-  try {
-    return window.localStorage.getItem(`cc-kolom-dicht-${column}`) === "1";
-  } catch {
-    return false; // blocked storage: every column starts open
-  }
-}
-const closed = reactive(Object.fromEntries(COLUMNS.map((column) => [column, readClosed(column)])));
+// Blocked storage: every column starts open.
+const closed = reactive(Object.fromEntries(COLUMNS.map((column) => [column, readStored(`cc-kolom-dicht-${column}`) === "1"])));
 function setClosed(column, value) {
   closed[column] = value;
-  try {
-    window.localStorage.setItem(`cc-kolom-dicht-${column}`, value ? "1" : "0");
-  } catch {
-    // Blocked storage: the choice holds until the page is reloaded.
-  }
+  writeStored(`cc-kolom-dicht-${column}`, value ? "1" : "0");
 }
 const flexibleColumn = computed(() => (closed.beeld ? ["zoeken", "objecten", "historie"].find((c) => !closed[c]) : "beeld"));
 // A border can be dragged when the column it sizes is open and not the flexible one.
@@ -465,24 +447,14 @@ const initialInput = start.url || start.titel || start.mid || "";
 // from Commons) have no score and always show. Remembered in this browser.
 const CERTAINTY_KEY = "cc-min-zekerheid";
 function readCertainty() {
-  try {
-    const value = Number(window.localStorage.getItem(CERTAINTY_KEY));
-    return value >= 0 && value <= 0.95 ? value : 0;
-  } catch {
-    return 0;
-  }
+  const value = Number(readStored(CERTAINTY_KEY));
+  return value >= 0 && value <= 0.95 ? value : 0;
 }
 // The address wins (wish Olaf: zekerheid=57 in a shared link), else this browser's last choice.
 const askedCertainty = Number(new URLSearchParams(window.location.search).get("zekerheid"));
 const minScore = ref(askedCertainty > 0 && askedCertainty <= 95 ? askedCertainty / 100 : readCertainty());
 watch(minScore, (value) => writeAddress({ zekerheid: value > 0 ? String(Math.round(value * 100)) : "" }));
-watch(minScore, (value) => {
-  try {
-    window.localStorage.setItem(CERTAINTY_KEY, String(value));
-  } catch {
-    // Blocked storage: the value holds until the page is reloaded.
-  }
-});
+watch(minScore, (value) => writeStored(CERTAINTY_KEY, String(value)));
 const hasScores = computed(() => objects.value.some((o) => o.score != null));
 // The slider runs from the lowest to the highest certainty found: below the lowest
 // nothing would change, above the highest everything would be hidden.
@@ -587,8 +559,10 @@ function failInTab(error) {
 async function confirmCost(calls, usd, action = "", objects = []) {
   if (!props.config.betaald || !calls) return true;
   const cost = t("confirm.cost", { n: calls, amount: money(usd, props.config.taal) });
-  // `objects`: what the question is about, as a list with small cut-outs (like grouping).
-  return askConfirm(action ? `${action}\n\n${cost}` : cost, { title: t("confirm.cost_title"), objects });
+  // `objects`: what the question is about, as a list with small cut-outs (like grouping); the
+  // cost then comes after them.
+  if (objects.length) return askConfirm(action || cost, { title: t("confirm.cost_title"), objects, note: action ? cost : "" });
+  return askConfirm(action ? `${action}\n\n${cost}` : cost, { title: t("confirm.cost_title") });
 }
 
 // Some of the words were searched on this image before: use SAM's saved answers (free for those
@@ -869,7 +843,23 @@ async function detect(request) {
 // Remove the page overview, or one part of it ("beschrijving" or "zoektermen"), after a confirmation.
 async function forgetInventory(part = null) {
   const key = part || "alles";
-  if (!(await askConfirm(t(`panel.part_forget_confirm_${key}`), { title: t(`panel.part_forget_title_${key}`), go: t(key === "zoektermen" ? "panel.part_forget_zoektermen_button" : key === "beschrijving" ? "panel.part_forget_beschrijving_button" : "panel.part_forget"), destructive: true }))) return;
+  // What goes, one bullet per thing with what it says now (wish Olaf 13-11-2026): the kind of
+  // image, the description in its four lengths, the text read, and/or the search terms.
+  const overview = inventory.value || {};
+  const en = props.config.taal === "en";
+  const pick = (nl, other) => (en ? other || nl : nl || other) || "";
+  const fields = [];
+  if (key !== "zoektermen") {
+    fields.push({ label: t("panel.part_forget_item_kind"), value: pick(overview.paginasoort, overview.paginasoort_en) });
+    fields.push({ label: t("panel.part_forget_item_lengths"), help: t("panel.part_forget_item_lengths_help"), value: pick(overview.samenvatting, overview.samenvatting_en) });
+    // The text read keeps its lines (stored with " | " between them).
+    fields.push({ label: t("panel.part_forget_item_text"), help: t("panel.part_forget_item_text_help"), value: String(overview.tekst || "").split(/\s*\|\s*/).join("\n") });
+  }
+  if (key !== "beschrijving") {
+    fields.push({ label: t("panel.part_forget_item_terms"), value: (overview.zoektermen || []).map((term) => (en ? term.en : term.nl || term.en)).join(", ") });
+  }
+  const [question, ...rest] = t(`panel.part_forget_confirm_${key}`).split(/\n\s*\n/);
+  if (!(await askConfirm(question, { title: t(`panel.part_forget_title_${key}`), go: t(key === "zoektermen" ? "panel.part_forget_zoektermen_button" : key === "beschrijving" ? "panel.part_forget_beschrijving_go" : "panel.part_forget"), destructive: true, fields, fieldsTitle: t("panel.part_forget_goes"), note: rest.join("\n\n") }))) return;
   try {
     const result = await del(`${pagePath(file.value.mid, pageN.value)}/inventaris${part ? `/${part}` : ""}`);
     inventory.value = result.inventaris;
@@ -887,6 +877,24 @@ async function askInventory(again = false, part = null, detail = undefined, desc
   busy.value = true;
   try {
     const plan = await get(`${base}/inventaris`);
+    // The description or the search terms asked anew (there are some already): a window of its
+    // own, where the prompt can be changed too (wish Olaf 13-11-2026). The first time goes with
+    // the app's prompt.
+    const hasDescription = Boolean(inventory.value?.samenvatting || inventory.value?.samenvatting_en || Object.keys(inventory.value?.beschrijvingen || {}).length);
+    const hasTerms = Boolean(inventory.value?.zoektermen?.length);
+    let steer = {};
+    if ((part === "beschrijving" && hasDescription) || (part === "zoektermen" && hasTerms)) {
+      const answer = await askPageDescribe({
+        path: base,
+        part,
+        detail: part === "zoektermen" ? detail || inventory.value?.detailniveau || "normaal" : "",
+        paid: plan.betaald,
+        costs: plan.kosten_per_redeneren || {},
+        defaultEffort: plan.redeneren || "low",
+      });
+      if (!answer) return;
+      steer = { ...(answer.hint ? { aanwijzing: answer.hint } : {}), redeneren: answer.effort };
+    } else {
     const action =
       part === "beschrijving"
         ? t("confirm.action_page_description", { length: t(`descdetail.${descLevel || "normaal"}`) })
@@ -894,11 +902,12 @@ async function askInventory(again = false, part = null, detail = undefined, desc
           ? t("confirm.action_page_terms", { level: t(`detail.${detail || "normaal"}`) })
           : t("confirm.action_page", { level: t(`detail.${detail || "normaal"}`) });
     if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd, action))) return;
+    }
     const level = {
       ...(detail && part !== "beschrijving" ? { detailniveau: detail } : {}),
       ...(descLevel && part !== "zoektermen" ? { beschrijvingsniveau: descLevel } : {}),
     };
-    const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? level : { opnieuw: again, ...level });
+    const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? { ...level, ...steer } : { opnieuw: again, ...level });
     inventory.value = result.inventaris;
   } catch (error) {
     fail(error);
@@ -929,28 +938,51 @@ async function makeGroup(members, body) {
     title: t("objects.group_title"),
     go: t("objects.group_go"),
     objects: members.map((o) => shownObject(o)),
+    note: t("objects.group_note"),
     input: { label: t("objects.group_name"), placeholder, help: t("objects.group_name_help") },
   });
   if (!answer.ok) return null;
-  const result = await post(`${pagePath(file.value.mid, pageN.value)}/groepen`, { ...body, ...(answer.value ? { naam: answer.value } : {}) });
-  objects.value = result.objecten;
-  return { n: result.object.groep.aantal, name: objectName(result.object, props.config.taal, t) };
+  return withMaskWait(t("busy.group"), async () => {
+    const result = await post(`${pagePath(file.value.mid, pageN.value)}/groepen`, { ...body, ...(answer.value ? { naam: answer.value } : {}) });
+    await loadMasks([result.object]);
+    objects.value = result.objecten;
+    return { n: result.object.groep.aantal, name: objectName(result.object, props.config.taal, t) };
+  });
 }
 
-// Search terms with two or more loose objects (not groups), to group per kind in one click;
-// named as in the list (Dutch name when there is one).
-// The visible objects per search term (no groups), for grouping and the trash in bulk.
-const termKinds = computed(() => {
-  const terms = new Map();
-  for (const o of visibleObjects.value) {
-    if (o.bron === "groep" || !o.zoekterm) continue;
-    const item = terms.get(o.zoekterm) || { term: o.zoekterm, name: props.config.taal === "en" ? o.zoekterm : o.label_nl || o.zoekterm, n: 0 };
-    item.n += 1;
-    terms.set(o.zoekterm, item);
+/* Grouping and ungrouping take a moment: the server joins (or splits) the masks, then the image
+   fetches them. Meanwhile a note over the image and under the bulk buttons (wish Olaf 12-11-2026);
+   it goes when the new masks are in, so they show at once. */
+const maskWait = ref("");
+async function withMaskWait(text, work) {
+  maskWait.value = text;
+  busy.value = true;
+  busyAt.value = "objecten";
+  try {
+    return await work();
+  } finally {
+    maskWait.value = "";
+    busy.value = false;
+    busyAt.value = null;
   }
-  return [...terms.values()];
-});
-const trashableTerms = computed(() => termKinds.value);
+}
+// Fetch the masks of these objects into the browser cache before they are shown; at most 20 s.
+function loadMasks(list) {
+  const urls = list.map((o) => o?.masker_url).filter(Boolean);
+  return Promise.all(urls.map((url) => new Promise((resolve) => {
+    const image = new Image();
+    const timer = setTimeout(resolve, 20000);
+    image.onload = image.onerror = () => { clearTimeout(timer); resolve(); };
+    image.src = url;
+  })));
+}
+
+// The visible objects per search term (no groups), named as in the list (Dutch name when there
+// is one): for the trash in bulk; with two or more, to group per kind in one click; without a
+// description, to describe per kind.
+const termKinds = computed(() => kindsOf(visibleObjects.value, props.config.taal));
+const groupableTerms = computed(() => termKinds.value.filter((item) => item.n >= 2));
+const describableTerms = computed(() => kindsOf(visibleObjects.value, props.config.taal, (o) => o.beschrijving));
 // The tab of the bulk actions: always Beschrijven to start with, also on another file (wish Olaf).
 const bulkTab = ref("beschrijven");
 // The fold-outs Bulk actions and Save and export: closed by default (wish Olaf).
@@ -975,9 +1007,11 @@ const trashAllVisible = () => trashMany(visibleObjects.value, t("bulk.everything
 async function trashMany(members, name, title) {
   if (!members.length) return;
   const fromCommons = members.some((o) => o.bron === "commons");
-  const links = { ...objectsLinks(), ...(fromCommons ? { commons: { href: `https://commons.wikimedia.org/wiki/${encodeURIComponent((file.value.titel || "").replace(/ /g, "_"))}#P180`, label: t("objects.trash_commons_link") } } : {}) };
-  const text = [t(members.length === 1 ? "panel.bulk_trash_confirm_one" : "panel.bulk_trash_confirm", { n: members.length, term: name }), fromCommons ? t("objects.trash_confirm_commons") : ""].filter(Boolean).join("\n\n");
-  if (!(await askConfirm(text, { title, go: t("panel.bulk_trash_go", { n: members.length }), destructive: true, links, objects: members.map((o) => shownObject(o)) }))) return;
+  const links = trashLinks(fromCommons);
+  const one = members.length === 1;
+  const text = t(one ? "panel.bulk_trash_confirm_one" : "panel.bulk_trash_confirm", { n: members.length, term: name });
+  const note = [t(one ? "panel.bulk_trash_note_one" : "panel.bulk_trash_note"), fromCommons ? t("objects.trash_confirm_commons") : ""].filter(Boolean).join("\n\n");
+  if (!(await askConfirm(text, { title, go: t("panel.bulk_trash_go", { n: members.length }), destructive: true, links, objects: members.map((o) => shownObject(o)), note }))) return;
   const n = pageN.value;
   const mid = file.value.mid;
   const ids = members.map((o) => o.id);
@@ -1011,12 +1045,7 @@ async function restoreFound(result) {
   const mid = file.value.mid;
   busy.value = true;
   try {
-    for (const id of ids) await patch(objectPath(mid, n, id), { prullenbak: false });
-    if (mid === file.value?.mid && n === pageN.value) {
-      const data = await get(pagePath(mid, n));
-      objects.value = data.objecten;
-      trashTerms.value = data.prullenbak_termen || {};
-    }
+    await restoreIds(ids, n, mid);
     if (lastResult.value === result) {
       lastResult.value = { ...result, inTrash: 0, trashIds: [], restored: ids.length, ids: [...(result.ids || []), ...ids] };
     }
@@ -1027,30 +1056,25 @@ async function restoreFound(result) {
   }
 }
 
+// Objects back from the trash; when their page is still open it shows them again (Undo can come
+// after another file was opened: then only the server changes).
+async function restoreIds(ids, n, mid) {
+  for (const id of ids) await patch(objectPath(mid, n, id), { prullenbak: false });
+  if (mid === file.value?.mid && n === pageN.value) {
+    const data = await get(pagePath(mid, n));
+    objects.value = data.objecten;
+    trashTerms.value = data.prullenbak_termen || {};
+  }
+}
+
 async function restoreMany(ids, n, mid, name) {
   try {
-    for (const id of ids) await patch(objectPath(mid, n, id), { prullenbak: false });
-    if (mid === file.value?.mid && n === pageN.value) {
-      const data = await get(pagePath(mid, n));
-      objects.value = data.objecten;
-      trashTerms.value = data.prullenbak_termen || {};
-    }
+    await restoreIds(ids, n, mid);
     notify("success", t(ids.length === 1 ? "panel.bulk_restored_one" : "panel.bulk_restored", { n: ids.length, term: name }), { where: "objecten" });
   } catch (error) {
     fail(error);
   }
 }
-
-const groupableTerms = computed(() => {
-  const terms = new Map();
-  for (const o of visibleObjects.value) {
-    if (o.bron === "groep" || !o.zoekterm) continue;
-    const item = terms.get(o.zoekterm) || { term: o.zoekterm, name: props.config.taal === "en" ? o.zoekterm : o.label_nl || o.zoekterm, n: 0 };
-    item.n += 1;
-    terms.set(o.zoekterm, item);
-  }
-  return [...terms.values()].filter((item) => item.n >= 2);
-});
 
 // "Groeperen (n)": the selected objects; the outcome under the buttons.
 async function groupSelected() {
@@ -1091,12 +1115,16 @@ async function ungroupObject(id) {
   const group = objects.value.find((o) => o.id === id);
   const members = group?.groep?.leden || [];
   const loses = group && (group.bijschrift?.tekst || group.beschrijving || group.opgeslagen);
-  const text = t("objects.ungroup_confirm_list", { n: members.length }) + (loses ? `\n\n${t("objects.ungroup_confirm")}` : "");
+  const text = t("objects.ungroup_confirm_list", { n: members.length });
+  const note = t("objects.ungroup_note") + (loses ? `\n\n${t("objects.ungroup_confirm")}` : "");
   const shown = members.map((m) => ({ image: `${objectPath(file.value.mid, pageN.value, m.id)}/uitsnede.jpg?w=96`, name: objectName(m, props.config.taal, t) })); // the same name as in the list
-  if (!(await askConfirm(text, { title: t("objects.ungroup"), go: t("objects.ungroup"), destructive: Boolean(loses), objects: shown }))) return;
+  if (!(await askConfirm(text, { title: t("objects.ungroup"), go: t("objects.ungroup"), destructive: Boolean(loses), objects: shown, note }))) return;
   try {
-    const result = await del(`${pagePath(file.value.mid, pageN.value)}/groepen/${id}`);
-    objects.value = result.objecten;
+    await withMaskWait(t("busy.ungroup"), async () => {
+      const result = await del(`${pagePath(file.value.mid, pageN.value)}/groepen/${id}`);
+      await loadMasks(result.objecten.filter((o) => members.some((m) => m.id === o.id)));
+      objects.value = result.objecten;
+    });
   } catch (error) {
     fail(error);
   }
@@ -1120,26 +1148,14 @@ async function mergeDuplicates(scope = "alle") {
 
 // Ticked objects without a description: what "Describe selected objects" describes, and its price.
 const toDescribe = computed(() => objects.value.filter((o) => o.status === "geselecteerd" && !o.beschrijving).length);
-const describeCost = computed(() => (props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * toDescribe.value, props.config.taal)})` : t("panel.free")));
+const describeCost = computed(() => costFor(toDescribe.value));
 // Everything visible without a description: "Describe all".
 const toDescribeAll = computed(() => visibleObjects.value.filter((o) => !o.beschrijving).length);
 const describeAllCost = computed(() => costFor(toDescribeAll.value));
 // The price of describing n objects, as on the buttons.
 function costFor(n) {
-  return props.config.betaald ? `(${money(props.config.muse.beschrijving_usd * n, props.config.taal)})` : t("panel.free");
+  return priceLabel(props.config.muse.beschrijving_usd * n, props.config.betaald, props.config.taal, t);
 }
-// Per kind (wish Olaf): the visible objects of a search term without a description (no groups,
-// as in Group and Trash), named as in the list.
-const describableTerms = computed(() => {
-  const terms = new Map();
-  for (const o of visibleObjects.value) {
-    if (o.bron === "groep" || !o.zoekterm || o.beschrijving) continue;
-    const item = terms.get(o.zoekterm) || { term: o.zoekterm, name: props.config.taal === "en" ? o.zoekterm : o.label_nl || o.zoekterm, n: 0 };
-    item.n += 1;
-    terms.set(o.zoekterm, item);
-  }
-  return [...terms.values()];
-});
 // The line under the describe button: what it will do with the ticked objects.
 const describeNote = computed(() => {
   const selected = selectedCount.value;
@@ -1208,6 +1224,18 @@ let bulkDescribeAnswer = null;
 function askBulkDescribe(question) {
   Object.assign(bulkDescribe, question, { open: true });
   return new Promise((resolve) => (bulkDescribeAnswer = resolve));
+}
+// The window of "… opnieuw laten maken": {hint, effort} to go ahead, false when cancelled.
+const pageDescribe = reactive({ open: false, path: "", paid: false, costs: {}, defaultEffort: "low", part: "beschrijving", detail: "" });
+let pageDescribeAnswer = null;
+function askPageDescribe(question) {
+  Object.assign(pageDescribe, question, { open: true });
+  return new Promise((resolve) => (pageDescribeAnswer = resolve));
+}
+function answerPageDescribe(ok) {
+  pageDescribe.open = false;
+  pageDescribeAnswer?.(ok);
+  pageDescribeAnswer = null;
 }
 function answerBulkDescribe(settings) {
   bulkDescribe.open = false;
@@ -1323,15 +1351,15 @@ async function trashObject(id) {
   // and does not do, and offer to remove only SAM's shape (wish Olaf, 6-11-2026).
   const fromCommons = target?.bron === "commons";
   const shaped = Boolean(target?.box_regio && target?.masker);
-  const links = { ...objectsLinks(), ...(fromCommons ? { commons: { href: `https://commons.wikimedia.org/wiki/${encodeURIComponent((file.value.titel || "").replace(/ /g, "_"))}#P180`, label: t("objects.trash_commons_link") } } : {}) };
+  const links = trashLinks(fromCommons);
   const choices = shaped
     ? [
         { value: "vorm", label: t("objects.trash_choice_shape"), help: t(fromCommons ? "objects.trash_choice_shape_help_commons" : "objects.trash_choice_shape_help"), go: t("objects.trash_shape_go"), destructive: false },
         { value: "prullenbak", label: t("objects.trash_choice_object"), help: t("objects.trash_choice_object_help"), go: t("objects.trash"), destructive: true },
       ]
     : [];
-  const text = [t("objects.trash_confirm"), fromCommons ? t("objects.trash_confirm_commons") : ""].filter(Boolean).join("\n\n");
-  const answer = await askConfirmValue(shaped ? t(fromCommons ? "objects.trash_shape_intro_commons" : "objects.trash_shape_intro") + (fromCommons ? "\n\n" + t("objects.trash_confirm_commons") : "") : text, {
+  const commonsNote = fromCommons ? t("objects.trash_confirm_commons") : "";
+  const answer = await askConfirmValue(shaped ? t(fromCommons ? "objects.trash_shape_intro_commons" : "objects.trash_shape_intro") : t("objects.trash_confirm"), {
     title: shaped ? t("objects.trash_shape_title") : t("objects.trash"),
     go: t("objects.trash"),
     destructive: true,
@@ -1339,6 +1367,7 @@ async function trashObject(id) {
     choices,
     // Always asked (wish Olaf), with the object itself in the question; no "don't ask again".
     objects: target ? [shownObject(target)] : [],
+    note: shaped ? commonsNote : [t("objects.trash_note"), commonsNote].filter(Boolean).join("\n\n"),
   });
   if (!answer.ok) return;
   if (answer.choice === "vorm") {
@@ -1384,12 +1413,7 @@ async function trashObject(id) {
 
 async function restoreObject(id, n, mid = file.value.mid, shown = null) {
   try {
-    await patch(objectPath(mid, n, id), { prullenbak: false });
-    if (mid === file.value?.mid && n === pageN.value) {
-      const data = await get(pagePath(file.value.mid, n));
-      objects.value = data.objecten;
-      trashTerms.value = data.prullenbak_termen || {};
-    }
+    await restoreIds([id], n, mid);
     notify("success", t("objects.restored"), { where: "objecten", object: shown }); // with the object: which one came back
   } catch (error) {
     fail(error);
@@ -1419,6 +1443,11 @@ const objectsLinks = () => ({
   objects: { href: "/objecten", label: t("objects.page_link") },
   trash: { href: "/objecten?tab=prullenbak", label: t("objects.trash_link") },
 });
+// The links in a trash question; for objects from Commons also to the depicts of the file there.
+const trashLinks = (fromCommons) => ({
+  ...objectsLinks(),
+  ...(fromCommons ? { commons: { href: commonsFileUrl(file.value.titel, "P180"), label: t("objects.trash_commons_link") } } : {}),
+});
 
 async function forget(mid) {
   const entry = visited.value.find((e) => e.mid === mid);
@@ -1428,7 +1457,8 @@ async function forget(mid) {
     // The M-id opens the image again (in the input bar, and back in the active list).
     mid: { href: appUrl(mid, entry?.pagina || 1), label: mid, sameTab: true, class: "cc-mid-link" },
   };
-  if (await askConfirm(t("history.remove_confirm", { name }), { title: t("history.remove"), go: t("history.remove"), destructive: true, links })) {
+  const image = { image: `/api/v1/bestand/${mid}/pagina/1/afbeelding?w=120`, name };
+  if (await askRemoval(t("history.remove_confirm", { name }), { title: t("history.remove"), go: t("history.remove"), destructive: true, links }, { objects: [image] })) {
     visited.value = removeFromHistory(mid);
   }
 }

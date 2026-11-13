@@ -1,8 +1,9 @@
 <!--
   Earlier versions (of a description) one at a time, as a carousel: Previous / Next,
-  "2 of 5", and a row of small round dots below to jump to a version. The content and
-  the actions of a version (use it, the bin) come from the slots, so the same carousel
-  serves every list of versions. ← and → step through the versions while it has focus.
+  "2 of 5", and a row of small round dots below to jump to a version. The content of a
+  version comes from the slot, so the same carousel serves every list of versions; its
+  actions are the same everywhere: Use (emits "use") and the bin (emits "delete"), both
+  with the version shown. ← and → step through the versions while it has focus.
 -->
 <template>
   <div v-if="items.length" class="cc-versies" role="group" :aria-label="label" tabindex="0" @keydown.left.stop.prevent="go(index - 1)" @keydown.right.stop.prevent="go(index + 1)">
@@ -14,7 +15,12 @@
       <cdx-button weight="quiet" size="small" :disabled="index >= items.length - 1" :aria-label="t('version.next')" :title="t('version.next')" @click="go(index + 1)">
         <cdx-icon :icon="cdxIconNext" />
       </cdx-button>
-      <span class="cc-versies-acties"><slot name="actions" :item="current" :index="index" /></span>
+      <span class="cc-versies-acties">
+        <cdx-button action="progressive" size="small" :disabled="disabled" @click="emit('use', current)">{{ t("describe.history_use") }}</cdx-button>
+        <cdx-button action="destructive" weight="quiet" size="small" :disabled="disabled" :aria-label="t('describe.history_delete')" :title="t('describe.history_delete')" @click="emit('delete', current)">
+          <cdx-icon :icon="cdxIconTrash" size="small" />
+        </cdx-button>
+      </span>
     </div>
     <div class="cc-versies-inhoud">
       <slot :item="current" :index="index" />
@@ -39,7 +45,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { CdxButton, CdxIcon } from "@wikimedia/codex";
-import { cdxIconNext, cdxIconPrevious } from "@wikimedia/codex-icons";
+import { cdxIconNext, cdxIconPrevious, cdxIconTrash } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 
 const props = defineProps({
@@ -47,7 +53,10 @@ const props = defineProps({
   // The field that identifies a version (for the dots), e.g. "versie".
   itemKey: { type: String, default: "versie" },
   label: { type: String, default: "" },
+  // Use and the bin disabled (e.g. while busy).
+  disabled: { type: Boolean, default: false },
 });
+const emit = defineEmits(["use", "delete"]);
 const t = useT();
 const index = ref(0);
 const current = computed(() => props.items[index.value]);

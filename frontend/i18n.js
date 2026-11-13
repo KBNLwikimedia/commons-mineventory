@@ -34,3 +34,17 @@ export function money(amount, language = "en") {
     maximumFractionDigits: 4,
   }).format(amount || 0);
 }
+
+// A price as on a button: "($0.01)" when it is paid (live mode), else the word for free.
+/* A moment shown in the app, always to the second (wish Olaf 13-11-2026): "13 nov 2026, 12:24:07".
+   `dateStyle` "short" for the compact lines under earlier versions. Empty for no value. */
+export function formatStamp(value, language = "nl", dateStyle = "medium") {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(language === "en" ? "en-GB" : "nl-NL", { dateStyle, timeStyle: "medium" });
+}
+
+export function priceLabel(amount, paid, language, t) {
+  return paid ? `(${money(amount, language)})` : t("panel.free");
+}

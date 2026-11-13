@@ -10,6 +10,8 @@ Free and local: composing a concept calls nothing. The check before upload
 import re
 
 from . import rechten, wikitekst
+from .detectie.basis import INTERNAL_LABELS
+from .sdc import QID
 
 MAX_NAME_BYTES = 240  # 9.2; Commons allows 255 bytes, the margin is for "(2)" and the like
 MAX_CAPTION = 250  # characters per caption (9.4)
@@ -130,7 +132,7 @@ def subject_of(obj):
     if description.get("onderwerp_en"):
         return description["onderwerp_en"]
     label = obj.get("label") or "detail"
-    return "Detail" if label in ("klik", "rechthoek", "regio") else label
+    return "Detail" if label in INTERNAL_LABELS else label
 
 
 MAKER_FIELDS = ("author", "artist", "photographer", "illustrator")
@@ -289,7 +291,7 @@ def validate_patch(body):
         if CATEGORY_FORBIDDEN.search(category["naam"]) or not category["naam"].strip() or len(category["naam"].encode()) > 240:
             raise ValueError(f"'{category['naam']}' is geen geldige categorienaam.")
     if "beeldt_af" in body and not (
-        isinstance(body["beeldt_af"], list) and all(isinstance(d, dict) and re.fullmatch(r"Q\d+", str(d.get("q", ""))) for d in body["beeldt_af"])
+        isinstance(body["beeldt_af"], list) and all(isinstance(d, dict) and QID.fullmatch(str(d.get("q", ""))) for d in body["beeldt_af"])
     ):
         raise ValueError("'beeldt_af' is een lijst van {\"q\": \"Q…\", \"label\": …}.")
     for key in ("image_extracted",):
@@ -318,7 +320,7 @@ def _validate_sdc_values(values):
             kinds = [k for k in ("item", "tijd", "onbekend") if k in (value if isinstance(value, dict) else {})]
             if len(kinds) != 1:
                 raise ValueError("Een waarde is {\"item\": \"Q…\"}, {\"tijd\": \"1708\"} of {\"onbekend\": true}.")
-            if "item" in value and not re.fullmatch(r"Q\d+", str(value["item"])):
+            if "item" in value and not QID.fullmatch(str(value["item"])):
                 raise ValueError(f"'{value['item']}' is geen Wikidata-item (Q…).")
             if "tijd" in value and time_value(value["tijd"]) is None:
                 raise ValueError(f"'{value['tijd']}' is geen datum; gebruik bijv. 1708, 1708-02 of 1708-02-28.")

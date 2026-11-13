@@ -46,6 +46,7 @@ import { computed, ref, watch } from "vue";
 import { CdxAccordion } from "@wikimedia/codex";
 import { useT } from "../i18n.js";
 import { DRAG_TYPE } from "../state.js";
+import { readStored, writeStored } from "../storage.js";
 import HistoryList from "./HistoryList.vue";
 
 const props = defineProps({
@@ -63,19 +64,8 @@ const asideEntries = computed(() => props.entries.filter((e) => e.opzij));
 
 // The folding header of "Opzij gezet": remembered in this browser.
 const OPEN_KEY = "cc-opzij-open";
-const asideOpen = ref(false);
-try {
-  asideOpen.value = window.localStorage.getItem(OPEN_KEY) === "1";
-} catch {
-  // Blocked storage: folded.
-}
-watch(asideOpen, (open) => {
-  try {
-    window.localStorage.setItem(OPEN_KEY, open ? "1" : "0");
-  } catch {
-    // Blocked storage: the choice holds until the page is reloaded.
-  }
-});
+const asideOpen = ref(readStored(OPEN_KEY) === "1"); // blocked storage: folded
+watch(asideOpen, (open) => writeStored(OPEN_KEY, open ? "1" : "0"));
 
 // Drag and drop: only rows of this list (their M-id), highlighted while above an area.
 const over = ref(null);

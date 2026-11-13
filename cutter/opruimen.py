@@ -48,6 +48,23 @@ def mark_used(path):
         pass  # a read-only disk or a file that just went: the cleanup is a little early
 
 
+def sharded(directory, key, suffix=""):
+    """Path of a cached file: `directory`/<first two chars of key>/<key><suffix>."""
+    return Path(directory) / key[:2] / f"{key}{suffix}"
+
+
+def cached_bytes(path, make):
+    """The bytes at `path` (marked used), or `make()`, written there and returned."""
+    path = Path(path)
+    if path.exists():
+        mark_used(path)
+        return path.read_bytes()
+    data = make()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return data
+
+
 def last_used(path):
     stat = Path(path).stat()
     return max(stat.st_mtime, stat.st_atime)

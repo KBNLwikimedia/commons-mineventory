@@ -191,7 +191,7 @@ import { computed, inject, onMounted, reactive, ref, watch } from "vue";
 import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxTab, CdxTabs } from "@wikimedia/codex";
 import { cdxIconEye, cdxIconRestore, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post } from "../api.js";
-import { askConfirm } from "../confirm.js";
+import { askConfirm, askRemoval } from "../confirm.js";
 import { useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
@@ -308,11 +308,12 @@ async function trashMany(list) {
 
 // One object from its card: first a confirmation, like every move to the trash (wish Olaf).
 async function trashOne(obj) {
-  let text = t("objects.trash_one_confirm", { name: name(obj) });
-  if (obj.bron === "commons") text += "\n\n" + t("objects.trash_one_commons");
+  const text = t("objects.trash_one_confirm", { name: name(obj) });
+  let note = t("objects.trash_one_note");
+  if (obj.bron === "commons") note += "\n\n" + t("objects.trash_one_commons");
   // With its thumbnail, so you see what goes (wish Olaf).
   const objects = [{ image: `${obj.uitsnede_url}?w=96`, name: name(obj) }];
-  if (!(await askConfirm(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true, objects }))) return;
+  if (!(await askConfirm(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true, objects, note }))) return;
   await trashMany([obj]);
 }
 
@@ -321,7 +322,7 @@ async function trashShown() {
   const text = t(filtered.value ? "objects.trash_shown_confirm" : "objects.trash_all_confirm", { n });
   // The thumbnails too, as long as the list stays readable.
   const objects = n <= 40 ? shown.value.map((o) => ({ image: `${o.uitsnede_url}?w=96`, name: name(o) })) : [];
-  if (!(await askConfirm(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true, objects }))) return;
+  if (!(await askConfirm(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true, objects, note: t("objects.trash_many_note") }))) return;
   await trashMany([...shown.value]);
 }
 
@@ -348,7 +349,8 @@ async function restore(obj) {
 }
 
 async function purge(obj) {
-  if (!(await askConfirm(t("objects.delete_confirm"), { go: t("objects.delete_forever"), destructive: true }))) return;
+  const objects = [{ image: `${obj.uitsnede_url}?w=96`, name: name(obj) }];
+  if (!(await askConfirm(t("objects.delete_confirm"), { go: t("objects.delete_forever"), destructive: true, objects, note: t("objects.cannot_undo") }))) return;
   try {
     await del(`${API}/prullenbak/${obj.mid}/${obj.pagina}/${encodeURIComponent(obj.id)}`);
     await load();
@@ -364,7 +366,7 @@ async function restoreShown() {
 async function purgeShown() {
   const list = [...shownTrash.value];
   const objects = list.length <= 40 ? list.map((o) => ({ image: `${o.uitsnede_url}?w=96`, name: name(o) })) : [];
-  if (!(await askConfirm(t("objects.delete_shown_confirm", { n: list.length }), { go: t("objects.delete_forever"), destructive: true, objects }))) return;
+  if (!(await askConfirm(t("objects.delete_shown_confirm", { n: list.length }), { go: t("objects.delete_forever"), destructive: true, objects, note: t("objects.cannot_undo") }))) return;
   busy.value = true;
   try {
     for (const obj of list) await del(`${API}/prullenbak/${obj.mid}/${obj.pagina}/${encodeURIComponent(obj.id)}`);
@@ -379,7 +381,9 @@ async function purgeShown() {
 async function emptyTrash() {
   const n = trash.value.length;
   const text = n === 1 ? t("objects.empty_confirm_one") : t("objects.empty_confirm", { n });
-  if (!(await askConfirm(text, { go: t("objects.delete_forever"), destructive: true }))) return;
+  // What goes, with its thumbnails, as long as the list stays readable (wish Olaf 13-11-2026).
+  const objects = n <= 40 ? trash.value.map((o) => ({ image: `${o.uitsnede_url}?w=96`, name: name(o) })) : [];
+  if (!(await askRemoval(text, { go: t("objects.delete_forever"), destructive: true }, { objects }))) return;
   try {
     await del(`${API}/prullenbak`);
     await load();

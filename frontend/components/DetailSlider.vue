@@ -17,6 +17,8 @@
       :aria-valuetext="t(`${prefix}.${modelValue}`)"
       @input="emit('update:modelValue', levels[Number($event.target.value)])"
     />
+    <!-- Right behind the slider, e.g. the Commons-caption switch of the page description. -->
+    <slot name="after" />
     <span class="cc-schuif-waarde">{{ t(`${prefix}.${modelValue}`) }}</span>
     <!-- Compact (above the search terms): the explanation is the tooltip instead. -->
     <p v-if="!compact" class="cc-uitleg">{{ t(`${prefix}.help`) }}</p>

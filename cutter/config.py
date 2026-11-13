@@ -52,7 +52,8 @@ class Config:
         self.BEELDMODEL = _env("BEELDMODEL", "muse-spark-1.3")
         self.BEELDMODEL_RECHTENVRIJ = _env("BEELDMODEL_RECHTENVRIJ", "muse-spark-1.3-contributor")
         self.BEELDMODEL_CONTRIBUTOR = _env_bool("BEELDMODEL_CONTRIBUTOR", "aan")
-        self.BEELDMODEL_REDENEREN = _env("BEELDMODEL_REDENEREN", "low")
+        # Medium by default (wish Olaf 13-11-2026): the descriptions are better, for a little more.
+        self.BEELDMODEL_REDENEREN = _env("BEELDMODEL_REDENEREN", "medium")
 
         # Wikimedia Commons (read-only in phase 1).
         self.COMMONS_API = _env("COMMONS_API", "https://commons.wikimedia.org/w/api.php")

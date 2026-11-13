@@ -164,6 +164,24 @@ export function savedLabel(obj, t, language = "nl", now = Date.now()) {
   };
 }
 
+// The page of a file on Commons, e.g. with anchor "P180" at its depicts statements.
+export function commonsFileUrl(title, anchor = "") {
+  return `https://commons.wikimedia.org/wiki/${encodeURIComponent(String(title || "").replace(/ /g, "_"))}${anchor ? `#${anchor}` : ""}`;
+}
+
+/* The objects per search term ({term, name, n}), groups left out, named as in the list (the Dutch
+   label when there is one); `skip(object)` leaves more out. For the "per kind" links in bulk. */
+export function kindsOf(objects, language = "nl", skip = () => false) {
+  const terms = new Map();
+  for (const o of objects) {
+    if (o.bron === "groep" || !o.zoekterm || skip(o)) continue;
+    const item = terms.get(o.zoekterm) || { term: o.zoekterm, name: language === "en" ? o.zoekterm : o.label_nl || o.zoekterm, n: 0 };
+    item.n += 1;
+    terms.set(o.zoekterm, item);
+  }
+  return [...terms.values()];
+}
+
 // The name of a Commons file without the namespace ("File:Foo.jpg" → "Foo.jpg").
 export function fileName(title) {
   return String(title || "").replace(/^File:/, "");

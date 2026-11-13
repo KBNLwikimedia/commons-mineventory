@@ -19,7 +19,6 @@ import functools
 import hashlib
 import io
 import json
-import re
 import shutil
 import time
 from datetime import datetime, timezone
@@ -30,7 +29,8 @@ from PIL import Image
 from .. import export, prompts, regios
 from ..commons import public as public_file, snap_width
 from .basis import DetectionError
-from ..opruimen import last_used, mark_used
+from ..opruimen import cached_bytes, last_used, mark_used, sharded
+from ..sdc import QID
 from ..slot import store_lock
 from ..verbruik import KOSTEN_PER_AFBEELDING
 from .maskers import MaskCache, decode_raster, union_mask
@@ -188,8 +188,7 @@ class DetectionService:
     def _cache_path(self, page_id, term):
         width = getattr(self.detector, "max_width", IMAGE_WIDTH)
         key = f"{page_id}|{self.detector.model}|{width}|{term}"
-        digest = hashlib.sha1(key.encode()).hexdigest()
-        return self.cache_dir / digest[:2] / f"{digest}.json"
+        return sharded(self.cache_dir, hashlib.sha1(key.encode()).hexdigest(), ".json")
 
     def plan(self, file, n, terms, fresh=False):
         """How many paid calls a request needs (cached terms are free). `fresh`: every term goes
@@ -274,7 +273,7 @@ class DetectionService:
             raise DetectionError("'items' is een object {zoekterm: Q-id}.", status=400, code="invalid_body")
         checked = {}
         for term, q in items.items():
-            if not isinstance(term, str) or not isinstance(q, str) or not re.fullmatch(r"Q\d+", q):
+            if not isinstance(term, str) or not isinstance(q, str) or not QID.fullmatch(q):
                 raise DetectionError(f"Ongeldig item bij '{term}': geef een Q-id, bijv. Q144.", status=400, code="invalid_body")
             checked[term.strip().lower()] = q
         return checked
@@ -949,7 +948,7 @@ class DetectionService:
         """Link an object to a Wikidata item ({"q": "Q…", "label": "…"}) or remove the link
         (None). Used when you rename an object to the word of a depicts item (wish Olaf): it then
         counts for that item and goes to Commons as its depicts with this bounding box."""
-        if value is not None and not (isinstance(value, dict) and isinstance(value.get("q"), str) and re.fullmatch(r"Q\d+", value["q"])):
+        if value is not None and not (isinstance(value, dict) and isinstance(value.get("q"), str) and QID.fullmatch(value["q"])):
             raise DetectionError('Geef item als {"q": "Q…", "label": "…"} of null.', status=400, code="invalid_body")
         store = self._load_store(file, n)
         obj = self._find_in(store, object_id)
@@ -1114,7 +1113,7 @@ class DetectionService:
                 files["masker"] = f"pagina_{n}/maskers/{obj['id']}_mask.png"
                 (folder.parent / files["png"]).write_bytes(png)
                 (folder.parent / files["masker"]).write_bytes(mask)
-            x0, y0, x1, y1 = export._rect(obj["box"], scale)
+            x0, y0, x1, y1 = export.rect(obj["box"], scale)
             obj["opgeslagen"] = {**files, "tijdstempel": now, "breedte": x1 - x0, "hoogte": y1 - y0}
         self._write_store(file, n, store)
         return {
@@ -1203,33 +1202,20 @@ class DetectionService:
         obj = self._find(file, n, object_id)
         box = obj["box"]
         key = hashlib.sha1(f"{file['sha1']}|{n}|{object_id}|{box}|{width}".encode()).hexdigest()
-        path = self.cache_dir.parent / "uitsneden" / key[:2] / f"{key}.jpg"
-        if path.exists():
-            mark_used(path)
-            return path.read_bytes()
+        return cached_bytes(sharded(self.cache_dir.parent / "uitsneden", key, ".jpg"), lambda: self._make_cutout_jpeg(file, n, box, width))
+
+    def _make_cutout_jpeg(self, file, n, box, width):
         page = self.client.load_page(file, n)
         if width and width <= 400:
             needed = width * page["breedte"] / max(1, box["w"])
             image = Image.open(io.BytesIO(self.client.page_image(file, n, min(needed, page["breedte"]))))
         else:
             image = self.client.original_image(file, n)
-        scale = image.width / page["breedte"]
-        crop = image.crop(
-            (
-                int(box["x"] * scale),
-                int(box["y"] * scale),
-                max(int(box["x"] * scale) + 1, round((box["x"] + box["w"]) * scale)),
-                max(int(box["y"] * scale) + 1, round((box["y"] + box["h"]) * scale)),
-            )
-        )
+        crop = image.crop(export.rect(box, image.width / page["breedte"]))
         crop = crop.convert("RGB")  # the piece only: a large original is never converted as a whole
         if width and crop.width > width:
             crop = crop.resize((width, max(1, round(crop.height * width / crop.width))))
-        buffer = io.BytesIO()
-        crop.save(buffer, format="JPEG", quality=85)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(buffer.getvalue())
-        return buffer.getvalue()
+        return export.encode(crop, "JPEG", quality=85)
 
     def all_objects(self, sources=None, trash=False, mid=None, saved=None):
         """Every object on every page in the output folder (or, with `trash`,

@@ -8,7 +8,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from ..opruimen import mark_used
+from ..export import encode
+from ..opruimen import cached_bytes, sharded
 
 
 def decode_raster(mask_data):
@@ -43,9 +44,7 @@ def mask_png(mask_data):
     rgba = np.zeros(raster.shape + (4,), dtype=np.uint8)
     rgba[..., :3] = 255
     rgba[..., 3] = raster * 255
-    buffer = io.BytesIO()
-    Image.fromarray(rgba, "RGBA").save(buffer, format="PNG", optimize=True)
-    return buffer.getvalue()
+    return encode(Image.fromarray(rgba, "RGBA"), "PNG", optimize=True)
 
 
 def union_mask(members, box, max_side=4096):
@@ -65,9 +64,8 @@ def union_mask(members, box, max_side=4096):
         if x1 <= x or y1 <= y:
             continue
         canvas[y:y1, x:x1] |= part[: y1 - y, : x1 - x].astype(np.uint8)
-    buffer = io.BytesIO()
-    Image.fromarray(canvas * 255, "L").convert("1").save(buffer, format="PNG", optimize=True)
-    return {"encoding": "png", "payload": base64.b64encode(buffer.getvalue()).decode("ascii"), "width": width, "height": height}
+    png = encode(Image.fromarray(canvas * 255, "L").convert("1"), "PNG", optimize=True)
+    return {"encoding": "png", "payload": base64.b64encode(png).decode("ascii"), "width": width, "height": height}
 
 
 class MaskCache:
@@ -78,11 +76,4 @@ class MaskCache:
 
     def png(self, mask_data):
         key = hashlib.sha1(repr(sorted((mask_data or {}).items())).encode()).hexdigest()
-        path = self.directory / key[:2] / f"{key}.png"
-        if path.exists():
-            mark_used(path)
-            return path.read_bytes()
-        data = mask_png(mask_data)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
-        return data
+        return cached_bytes(sharded(self.directory, key, ".png"), lambda: mask_png(mask_data))

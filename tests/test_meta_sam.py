@@ -10,6 +10,8 @@ import pytest
 import requests
 from PIL import Image
 
+from conftest import FakeResponse, FakeSession
+
 from cutter.detectie.basis import DetectionError
 from meta_sam_parser import SegmentationMask
 
@@ -18,7 +20,6 @@ from cutter.detectie.meta_sam import (
     MetaSamDetector,
     SamRecord,
     build_request,
-    decode_mask,
     extract_output_text,
     parse_output,
     point_prompt,
@@ -26,27 +27,10 @@ from cutter.detectie.meta_sam import (
 )
 
 
-class FakeResponse:
-    def __init__(self, status_code, body):
-        self.status_code = status_code
-        self._body = body
-
-    def json(self):
-        if isinstance(self._body, Exception):
-            raise self._body
-        return self._body
-
-
-class FakeSession:
-    def __init__(self, response):
-        self.response = response
-        self.calls = []
-
-    def post(self, url, json, headers, timeout):
-        self.calls.append({"url": url, "json": json, "headers": headers})
-        if isinstance(self.response, Exception):
-            raise self.response
-        return self.response
+def raster_of(record):
+    """Row-major 0/1 list of a record's mask, decoded the way the app does (maskers.decode_raster)."""
+    mask = record.mask
+    return decode_raster({"encoding": str(mask.encoding), "payload": mask.payload, "width": mask.width, "height": mask.height}).flatten().tolist()
 
 
 def page(width=4000, height=5000):
@@ -138,7 +122,7 @@ def test_parse_small_output_with_official_parser():
     assert len(records) == 1
     r = records[0]
     assert (r.object_id, r.left, r.top, r.right, r.bottom, r.confidence) == ("0", 1, 1, 6, 6, 0.9)  # x2/y2 inclusive
-    assert list(decode_mask(r)) == SMALL_RASTER
+    assert raster_of(r) == SMALL_RASTER
 
 
 def test_detect_end_to_end_with_small_output():
@@ -217,7 +201,7 @@ def test_real_response_with_one_photograph():
     assert (record.mask.width, record.mask.height) == (1024, 712)
     box_ratio = (record.right - record.left) / (record.bottom - record.top)
     assert abs(record.mask.width / record.mask.height - box_ratio) < 0.01
-    raster = decode_mask(record)
+    raster = raster_of(record)
     assert len(raster) == 1024 * 712 and set(raster) == {0, 1}
     assert 0.9 < sum(raster) / len(raster) < 0.97  # a rectangular photo, nearly filled
 

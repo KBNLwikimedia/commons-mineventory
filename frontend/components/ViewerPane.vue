@@ -90,6 +90,8 @@
       <div ref="host" class="viewer" :aria-busy="imageState === 'loading' ? 'true' : 'false'"></div>
       <!-- Waiting feedback while the image comes in: the first time, the server fetches the original from Commons. -->
       <busy-note v-if="imageState === 'loading'" class="cc-viewer-laden" :message="t('viewer.loading')" />
+      <!-- Waiting for something the image will show, e.g. the mask of a new group (wish Olaf). -->
+      <busy-note v-else-if="waiting" class="cc-viewer-laden" :message="waiting" />
       <cdx-message v-else-if="imageState === 'error'" type="error" class="cc-viewer-laden">{{ t("viewer.load_error") }}</cdx-message>
     </div>
   </div>
@@ -101,6 +103,7 @@ import { CdxAccordion, CdxButton, CdxCheckbox, CdxIcon, CdxMessage } from "@wiki
 import { cdxIconZoomIn, cdxIconZoomOut } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 import { numberedNames, objectName } from "../state.js";
+import { readStored, writeStored } from "../storage.js";
 import { PageViewer } from "../viewer/viewer.js";
 import BusyNote from "./BusyNote.vue";
 import InfoDialog from "./InfoDialog.vue";
@@ -109,6 +112,8 @@ import { readAddress, writeAddress } from "../facets.js";
 
 const props = defineProps({
   mid: { type: String, required: true },
+  // A text while the image waits for something (a group being made or undone); empty: nothing.
+  waiting: { type: String, default: "" },
   page: { type: Object, required: true },
   objects: { type: Array, required: true },
   // {kind: colour} when the page has more than one kind of object (class-colors.js).
@@ -234,23 +239,12 @@ watch([hiddenKinds, shownKinds], () => {
 });
 // Masks, boxes and names on the image: on/off, remembered in this browser.
 const SHOW_KEY = "cc-weergave";
-function storedShow() {
-  try {
-    return JSON.parse(window.localStorage.getItem(SHOW_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-const show = reactive({ maskers: true, boxen: true, namen: false, ...storedShow() });
+const show = reactive({ maskers: true, boxen: true, namen: false, ...readStored(SHOW_KEY, {}, { json: true }) });
 watch(
   show,
   () => {
     viewer.value?.setLabels(show.namen);
-    try {
-      window.localStorage.setItem(SHOW_KEY, JSON.stringify(show));
-    } catch {
-      // Blocked storage: the choice is simply not remembered.
-    }
+    writeStored(SHOW_KEY, show, { json: true });
   },
   { deep: true }
 );

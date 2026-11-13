@@ -252,7 +252,8 @@ import { cdxIconEdit, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, errorText, get, pagePath, put } from "../api.js";
 import { useT } from "../i18n.js";
 import { searchItems } from "../wikidata.js";
-import { forgetPlacement, makeMovable } from "../movable.js";
+import { movableDialog } from "../movable.js";
+import { commonsFileUrl } from "../state.js";
 import AiBadge from "./AiBadge.vue";
 import InfoDialog from "./InfoDialog.vue";
 import BusyNote from "./BusyNote.vue";
@@ -300,48 +301,31 @@ function showZoom(event, q) {
 const hideZoom = () => (zoom.show = false);
 // Without an image: a grey square that says so, so the rows stay aligned (wish Olaf).
 const noImage = (event) => event.target.parentElement?.classList.add("cc-zonder-beeld");
-const commonsUrl = computed(() => `https://commons.wikimedia.org/wiki/${encodeURIComponent((props.file.titel || "").replace(/ /g, "_"))}#P180`);
+const commonsUrl = computed(() => commonsFileUrl(props.file.titel, "P180"));
 
 // -- Loading and building the rows ---------------------------------------------------------
 
+// Move by the title bar, resize at the edges (wish Olaf), as the magnifier; Codex renders
+// the dialog elsewhere in the page (teleport). Double-click the title bar to centre it again.
+const mover = movableDialog(".cc-origineel", {
+  storageKey: "cc-origineel-plaats",
+  labels: { move: t("magnifier.move"), resize: t("magnifier.resize") },
+  min: { width: 420, height: 300 },
+});
 watch(
   () => props.open,
   async (open) => {
     if (!open) {
-      undoMovable?.();
-      undoMovable = null;
+      mover.disable();
       return;
     }
     load();
     await nextTick();
-    enableMoving();
+    mover.enable();
   },
   { immediate: true }
 );
-
-// Move by the title bar, resize at the edges (wish Olaf), as the magnifier; Codex renders
-// the dialog elsewhere in the page (teleport). Double-click the title bar to centre it again.
-const PLACEMENT_KEY = "cc-origineel-plaats";
-let undoMovable = null;
-function enableMoving() {
-  undoMovable?.();
-  undoMovable = null;
-  const dialog = document.querySelector(".cc-origineel");
-  const header = dialog?.querySelector(".cdx-dialog__header");
-  if (!dialog || !header) return;
-  undoMovable = makeMovable(dialog, {
-    handle: header,
-    storageKey: PLACEMENT_KEY,
-    labels: { move: t("magnifier.move"), resize: t("magnifier.resize") },
-    min: { width: 420, height: 300 },
-  });
-  header.ondblclick = (event) => {
-    if (event.target.closest("button")) return;
-    forgetPlacement(PLACEMENT_KEY);
-    dialog.removeAttribute("style");
-  };
-}
-onBeforeUnmount(() => undoMovable?.());
+onBeforeUnmount(() => mover.disable());
 
 async function load() {
   loading.value = true;

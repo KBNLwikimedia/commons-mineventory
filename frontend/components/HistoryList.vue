@@ -88,7 +88,7 @@ function dragStart(event, entry) {
   event.dataTransfer.effectAllowed = "move";
 }
 
-const format = new Intl.DateTimeFormat(language === "nl" ? "nl-NL" : "en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const format = new Intl.DateTimeFormat(language === "nl" ? "nl-NL" : "en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 function when(iso) {
   try {
     return format.format(new Date(iso));

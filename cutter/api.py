@@ -21,6 +21,8 @@ from .commons import CommonsError, public as public_file
 from .config import ROOT_DIR
 from .detectie.basis import DetectionError
 from .openapi import openapi_spec
+from .sdc import QID
+from .verbruik import kind_of
 
 api = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -377,6 +379,33 @@ def put_inventory_part(mid, n, deel):
     return jsonify(_descriptions().restore_inventory(_page_file(mid, n), n, body["versie"]))
 
 
+@api.get("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>/prompt")
+def page_part_prompt(mid, n, deel):
+    """The prompt asking this part anew (beschrijving or zoektermen) would send for the whole
+    image (the image goes along separately); also the app's own prompt, yours and your earlier
+    ones. For zoektermen ?detailniveau= sets the app's prompt. Free."""
+    return jsonify(_descriptions().page_prompt_preview(_page_file(mid, n), n, deel, request.args.get("detailniveau") or None))
+
+
+@api.put("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>/prompt")
+def save_page_part_prompt(mid, n, deel):
+    """Your own prompt for asking this part anew: {"prompt": "…"}; the one before goes to the
+    history. The next POST …/inventaris/{deel} uses it. Free."""
+    return jsonify(_descriptions().save_page_prompt(_page_file(mid, n), n, _body().get("prompt"), deel))
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>/prompt")
+def reset_page_part_prompt(mid, n, deel):
+    """Back to the app's prompt; yours goes to the history. Free."""
+    return jsonify(_descriptions().reset_page_prompt(_page_file(mid, n), n, deel))
+
+
+@api.delete("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>/prompt/geschiedenis/<versie>")
+def forget_page_part_prompt(mid, n, deel, versie):
+    """Remove one earlier prompt of your own for this part (its "bewaard_op"). Free."""
+    return jsonify(_descriptions().forget_page_prompt_version(_page_file(mid, n), n, versie, deel))
+
+
 @api.delete("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>")
 def forget_inventory_part(mid, n, deel):
     """Remove one part of the overview: beschrijving or zoektermen. Free."""
@@ -389,7 +418,16 @@ def inventory_part(mid, n, deel):
     a new answer, paid in live mode. The other part stays."""
     body = _body()
     _require_paid_access(_descriptions().vision.betaald)
-    return jsonify(_descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=True, user=_user(), part=deel, detail=body.get("detailniveau"), description_level=body.get("beschrijvingsniveau")))
+    hint = body.get("aanwijzing")
+    if hint is not None and not isinstance(hint, str):
+        raise DetectionError("'aanwijzing' moet een tekst zijn.", status=400, code="invalid_body")
+    return jsonify(
+        _descriptions().inventory(
+            _page_file(mid, n), n, body.get("model"), again=True, user=_user(), part=deel,
+            detail=body.get("detailniveau"), description_level=body.get("beschrijvingsniveau"),
+            hint=hint, effort=body.get("redeneren"),
+        )
+    )
 
 
 @api.post("/bestand/<mid>/pagina/<int:n>/inventaris")
@@ -775,7 +813,7 @@ def delete_description(mid, n, object_id):
 def item_thumbnail(q):
     """A small thumbnail of the image (P18) of a Wikidata item, through the server (the
     browser loads nothing from Wikimedia). ?w= 60, 120 or 240. 404 without an image. Free."""
-    if not re.fullmatch(r"Q\d+", q or ""):
+    if not QID.fullmatch(q or ""):
         raise CommonsError("Geef een Q-id, bijv. Q144.", status=400, code="bad_qid")
     width = {"60": 60, "240": 240}.get(request.args.get("w", ""), 120)
     data = _client().item_thumbnail(q, width)
@@ -792,7 +830,7 @@ def item_logo(q):
     """The logo (P154) of a Wikidata item, e.g. of the collection or location of a work (wish
     Olaf), as a small PNG through the server (the browser loads nothing from Wikimedia). ?w= 32,
     64 or 120. 404 without a logo. Free."""
-    if not re.fullmatch(r"Q\d+", q or ""):
+    if not QID.fullmatch(q or ""):
         raise CommonsError("Geef een Q-id, bijv. Q144.", status=400, code="bad_qid")
     width = {"32": 32, "120": 120}.get(request.args.get("w", ""), 64)
     data = _client().item_thumbnail(q, width, prop="P154")
@@ -1185,7 +1223,7 @@ def export_usage():
     texts = i18n.messages(g.get("taal", i18n.DEFAULT))
     rows = []
     for entry in reversed(_service().verbruik.entries()):
-        kind = entry.get("soort") or "sam"
+        kind = kind_of(entry)
         rows.append({**entry, "soort": kind, "soort_naam": texts.get(f"usage.kind_{kind}", kind), "datum": entry["tijd"][:10], "tijd": entry["tijd"].replace("T", " ")})
     return _table(_matching(rows, facets=("soort", "datum", "bestand", "model", "gebruiker")), USAGE_COLUMNS, "verbruik", fmt)
 

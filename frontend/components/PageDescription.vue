@@ -13,13 +13,18 @@
          and under the slider, side by side, asking anew (paid) and removing (free). -->
     <div class="cc-termen-bron">
       <!-- All four lengths come at once: the slider shows another one, live and free (wish Olaf). -->
-      <detail-slider v-model="descLevel" :disabled="busy || Boolean(editing)" :levels="DESCRIPTION_LEVELS" prefix="descdetail" compact />
-      <!-- A Commons caption (at most 250 characters) in one click: puts the slider on that stop.
-           A caption belongs to the structured data on Commons, hence a Commons mark (wish Olaf). -->
-      <cdx-toggle-switch :model-value="descLevel === 'caption'" :disabled="busy || Boolean(editing)" class="cc-wikidata-schakelaar" :title="t('descdetail.caption_help')" @update:model-value="setCaption">
-        <commons-logo />
-        {{ t("descdetail.caption_switch") }}
-      </cdx-toggle-switch>
+      <detail-slider v-model="descLevel" :disabled="busy || Boolean(editing)" :levels="DESCRIPTION_LEVELS" prefix="descdetail" compact>
+        <!-- A Commons caption (at most 250 characters) in one click: puts the slider on that stop.
+             A caption belongs to the structured data on Commons, hence a Commons mark (wish Olaf).
+             Right behind the slider, without a text of its own: the slider already names the
+             length, so "Commons caption" is not said twice (wish Olaf 13-11-2026). -->
+        <template #after>
+          <span class="cc-caption-schakelaar" :title="t('descdetail.caption_help')">
+            <cdx-toggle-switch :model-value="descLevel === 'caption'" :disabled="busy || Boolean(editing)" :aria-label="t('descdetail.caption_switch')" @update:model-value="setCaption" />
+            <commons-logo colour />
+          </span>
+        </template>
+      </detail-slider>
       <div class="cc-termen-knoppen">
         <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="`${t('panel.part_again_help_beschrijving')} ${t('panel.parts_help')}`" @click="emit('again', descLevel)">
           {{ t(hasDescription ? "panel.part_again_beschrijving" : "panel.part_ask_beschrijving") }} <span class="cc-kosten">{{ cost }}</span>
@@ -91,7 +96,7 @@
       <template #title>{{ t("describe.history", { n: history.length }) }}</template>
       <template #description>{{ t("describe.history_short") }}</template>
       <!-- One version at a time: Previous / Next, "2 of 5" and dots (VersionCarousel.vue). -->
-      <version-carousel :items="history" item-key="versie" :label="t('describe.history_short')">
+      <version-carousel :items="history" item-key="versie" :label="t('describe.history_short')" :disabled="busy" @use="use" @delete="remove">
         <template #default="{ item: entry }">
           <div
             class="cc-geschiedenis-tekstblok"
@@ -103,18 +108,21 @@
             @click="expanded[entry.versie] = !expanded[entry.versie]"
             @keydown.enter.space.prevent="expanded[entry.versie] = !expanded[entry.versie]"
           >
-            <strong>{{ language === "en" ? entry.paginasoort_en || entry.paginasoort : entry.paginasoort || entry.paginasoort_en }}</strong>
-            <span class="cc-klein cc-geschiedenis-beschrijving">{{ entryText(entry, language === "en" ? "en" : "nl") || entryText(entry, language === "en" ? "nl" : "en") }}</span>
-            <span v-if="entry.tekst" class="cc-klein cc-geschiedenis-beschrijving">{{ t("page.field_tekst") }}: {{ entry.tekst }}</span>
+            <div class="cc-versie-veld">
+              <span class="cc-versie-label">{{ t("version.kind") }}</span>
+              <strong>{{ language === "en" ? entry.paginasoort_en || entry.paginasoort : entry.paginasoort || entry.paginasoort_en }}</strong>
+            </div>
+            <div class="cc-versie-veld">
+              <span class="cc-versie-label">{{ t("version.description") }}</span>
+              <span class="cc-geschiedenis-beschrijving">{{ entryText(entry, language === "en" ? "en" : "nl") || entryText(entry, language === "en" ? "nl" : "en") }}</span>
+            </div>
+            <div v-if="entry.tekst" class="cc-versie-veld cc-versie-tekst">
+              <span class="cc-versie-label">{{ t("page.field_tekst") }}</span>
+              <span class="cc-geschiedenis-beschrijving">{{ readLines(entry.tekst) }}</span>
+            </div>
             <span class="cc-klein cc-geschiedenis-meta">{{ meta(entry) }}</span>
             <span class="cc-link cc-klein cc-geschiedenis-meer">{{ expanded[entry.versie] ? t("describe.history_less") : t("describe.history_more") }}</span>
           </div>
-        </template>
-        <template #actions="{ item: entry }">
-          <cdx-button action="progressive" size="small" :disabled="busy" @click="use(entry)">{{ t("describe.history_use") }}</cdx-button>
-          <cdx-button action="destructive" weight="quiet" size="small" :disabled="busy" :aria-label="t('describe.history_delete')" :title="t('describe.history_delete')" @click="remove(entry)">
-            <cdx-icon :icon="cdxIconTrash" size="small" />
-          </cdx-button>
         </template>
       </version-carousel>
     </cdx-accordion>
@@ -128,8 +136,9 @@ import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, Cd
 import { cdxIconTrash } from "@wikimedia/codex-icons";
 import { del, errorText, get, pagePath, patch, put } from "../api.js";
 import { fitToText } from "../autosize.js";
-import { askConfirm } from "../confirm.js";
-import { useT } from "../i18n.js";
+import { confirmDeleteVersion } from "../confirm.js";
+import { formatStamp, useT } from "../i18n.js";
+import { readStored, writeStored } from "../storage.js";
 import DetailSlider from "./DetailSlider.vue";
 import VersionCarousel from "./VersionCarousel.vue";
 import AiBadge from "./AiBadge.vue";
@@ -149,14 +158,7 @@ const emit = defineEmits(["changed", "again", "forget"]);
 // else a Commons caption (the default of a new description, wish Olaf 11-11-2026).
 const DESCRIPTION_LEVELS = ["kort", "normaal", "caption", "uitgebreid"];
 const DESC_KEY = "cc-beschrijvingsniveau";
-function storedDescLevel() {
-  try {
-    return window.localStorage.getItem(DESC_KEY) || "caption";
-  } catch {
-    return "caption";
-  }
-}
-const descLevel = ref(props.inventory?.beschrijvingsniveau || storedDescLevel());
+const descLevel = ref(props.inventory?.beschrijvingsniveau || readStored(DESC_KEY, "caption"));
 // The Wikidata switch: on puts the slider on "caption"; off goes back to the stop before it.
 let levelBeforeCaption = descLevel.value === "caption" ? "normaal" : descLevel.value;
 function setCaption(on) {
@@ -169,11 +171,7 @@ function setCaption(on) {
 }
 watch(() => props.inventory?.beschrijvingsniveau, (level) => level && (descLevel.value = level));
 watch(descLevel, (level) => {
-  try {
-    window.localStorage.setItem(DESC_KEY, level);
-  } catch {
-    // Blocked storage: the level holds until the page is reloaded.
-  }
+  writeStored(DESC_KEY, level);
   // Another length that was made with the others: show it (free, no new version). Each length
   // keeps its own hand edits; "Ongedaan maken" belonged to the length you left.
   if (level !== props.inventory?.beschrijvingsniveau && props.inventory?.beschrijvingen?.[level]) showLength(level);
@@ -277,7 +275,9 @@ async function use(entry) {
   }
 }
 async function remove(entry) {
-  if (!(await askConfirm(t("describe.history_delete_confirm"), { title: t("describe.history_delete"), go: t("describe.history_delete"), destructive: true }))) return;
+  const kind = language === "en" ? entry.paginasoort_en || entry.paginasoort : entry.paginasoort || entry.paginasoort_en;
+  const text = entryText(entry, language === "en" ? "en" : "nl") || entryText(entry, language === "en" ? "nl" : "en");
+  if (!(await confirmDeleteVersion(t("describe.history_delete_confirm"), t, [kind, text].filter(Boolean).join("\n")))) return;
   error.value = "";
   try {
     history.value = (await del(`${base.value}/geschiedenis/${encodeURIComponent(entry.versie)}`)).geschiedenis;
@@ -295,6 +295,8 @@ function entryText(entry, lang) {
   if (length) return length[lang] || "";
   return lang === "en" ? entry.samenvatting_en : entry.samenvatting;
 }
+// The text read from the image is kept with " | " between its lines: one line each again.
+const readLines = (text) => String(text || "").split(/\s*\|\s*/).join("\n");
 function fullText(entry) {
   return [
     [entry.paginasoort, entryText(entry, "nl")].filter(Boolean).join(" — "),
@@ -303,7 +305,7 @@ function fullText(entry) {
   ].filter(Boolean).join("\n\n");
 }
 
-const time = (value) => (value ? new Date(value).toLocaleString(language, { dateStyle: "short", timeStyle: "short" }) : "");
+const time = (value) => formatStamp(value, language, "short");
 function meta(entry) {
   if (entry.bewerkt_op) return t("describe.history_by_hand", { when: time(entry.bewerkt_op) });
   // An AI version also says how long it was asked to be (Short, Normal, Extensive); versions

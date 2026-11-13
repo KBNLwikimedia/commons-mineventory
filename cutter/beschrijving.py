@@ -36,8 +36,10 @@ from PIL import Image, ImageDraw
 
 from . import __version__
 from .detectie.meta_sam import extract_output_text
-from .detectie.basis import DetectionError
-from .opruimen import mark_used
+from .concept import MAX_CAPTION
+from .detectie.basis import INTERNAL_LABELS, DetectionError
+from .export import encode
+from .opruimen import cached_bytes, mark_used, sharded
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +61,10 @@ PRICES = {
 # Input, output tokens per call, measured in the Delpher Uitsnijder (2-11-2026);
 # the answer is now bilingual, so the output estimates are a little higher.
 ESTIMATE_TOKENS = (1500, 2400)
-ESTIMATE_OUTPUT_PER_EFFORT = {"minimal": 600, "low": 1100, "medium": 1800}
+ESTIMATE_OUTPUT_PER_EFFORT = {"minimal": 600, "low": 1100, "medium": 1800, "high": 3000}
+# The reasoning efforts you may choose when asking a part of the page overview anew (wish Olaf
+# 13-11-2026); higher costs more, so the scale stops at "high".
+CHOSEN_EFFORTS = ("low", "medium", "high")
 EFFORTS = ("minimal", "low", "medium", "high", "xhigh", "max")  # "none" gives HTTP 400 on Muse Spark
 
 KINDS = [
@@ -197,7 +202,7 @@ def group_members(obj):
     for member in (obj.get("groep") or {}).get("leden", []):
         description = member.get("beschrijving") or {}
         label = member.get("label_en") or member.get("label") or ""
-        if label.lower() in ("klik", "rechthoek", "regio"):  # labels the app gave itself
+        if label.lower() in INTERNAL_LABELS:
             label = ""
         name = member.get("naam") or description.get("onderwerp_en") or (member.get("bijschrift") or {}).get("tekst") or label or "object"
         name = " ".join(str(name).split())[:60]
@@ -303,7 +308,7 @@ DETAIL_LEVELS = {
 }
 DEFAULT_DETAIL = "normaal"
 
-CAPTION_MAX = 250  # characters: the limit of a caption (label) in the structured data on Commons
+CAPTION_MAX = MAX_CAPTION  # characters: the limit of a caption (label) in the structured data on Commons
 CAPTION_ASK = 230  # what the question asks for, to leave some room
 
 
@@ -616,6 +621,31 @@ def clean_own_prompt(text):
     return "\n".join(lines).strip()[:MAX_OWN_PROMPT]
 
 
+def apply_own_prompt(holder, text, key="prompt_eigen", history_key="prompt_geschiedenis"):
+    """Make `text` the prompt of your own on `holder` (an object, or a page store); None or
+    "": back to the app's prompt. The one before goes on top of the history, each text once,
+    at most MAX_PROMPT_HISTORY."""
+    text = clean_own_prompt(text)
+    previous = holder.get(key)
+    history = [h for h in holder.get(history_key) or [] if h.get("tekst") != text]
+    if previous and previous.get("tekst") != text:
+        history = [previous] + [h for h in history if h.get("tekst") != previous.get("tekst")]
+    if text:
+        holder[key] = {"tekst": text, "bewaard_op": datetime.now(timezone.utc).isoformat(timespec="milliseconds")}
+    else:
+        holder.pop(key, None)
+    holder[history_key] = history[:MAX_PROMPT_HISTORY]
+
+
+# Your own prompt for asking a part of the page overview anew (wish Olaf 13-11-2026): the
+# description and the search terms each have one, kept in the page store under these keys
+# (your prompt, your earlier ones).
+PAGE_PROMPT_KEYS = {
+    "beschrijving": ("inventaris_prompt_eigen", "inventaris_prompt_geschiedenis"),
+    "zoektermen": ("zoektermen_prompt_eigen", "zoektermen_prompt_geschiedenis"),
+}
+
+
 def clean_margin(margin):
     """The margin as a share of the box, 0 to MAX_MARGIN in steps of 0.05;
     MARGIN when not given or not a number."""
@@ -651,9 +681,7 @@ def model_input(page_image, page_width, box, margin=MARGIN, max_side=MAX_SIDE, o
         x1 = ((box["x"] + box["w"]) * scale - left) * factor
         y1 = ((box["y"] + box["h"]) * scale - top) * factor
         draw.rectangle((x0, y0, x1 - 1, y1 - 1), outline=(221, 51, 51), width=max(2, round(max(crop.size) / 250)))
-    buffer = io.BytesIO()
-    crop.save(buffer, format="JPEG", quality=88)
-    return buffer.getvalue(), crop.size
+    return encode(crop, "JPEG", quality=88), crop.size
 
 
 def crop_with_margin(page_image, page_width, box, margin=MARGIN, max_side=MAX_SIDE):
@@ -914,6 +942,29 @@ def make_vision(config):
 # ---------------------------------------------------------------------------
 
 
+def effort_of(config):
+    """The configured reasoning effort (BEELDMODEL_REDENEREN), or None when it is not one of EFFORTS."""
+    effort = config.get("BEELDMODEL_REDENEREN")
+    return effort if effort in EFFORTS else None
+
+
+def _apply_hand_edit(target, changes):
+    """Write hand-edited fields (already stripped) into `target` (a description or a
+    page overview), keeping what the AI said under "ai_origineel" while a field
+    differs from it, and mark the version as edited ("bewerkt", "bewerkt_op")."""
+    original = target.setdefault("ai_origineel", {})
+    for field, value in changes.items():
+        if field not in original:
+            original[field] = target.get(field) or ""
+        target[field] = value
+        if value == original[field]:
+            original.pop(field)
+    if not original:
+        target.pop("ai_origineel")
+    target["bewerkt"] = bool(original)
+    target["bewerkt_op"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds")  # unique per version
+
+
 class DescriptionService:
     """Describe objects of the detection service and store the result on the
     object (`beschrijving`), cached per file SHA-1, object box, model and
@@ -939,8 +990,7 @@ class DescriptionService:
         raise DetectionError("Geef model als 'auto', 'standaard' of 'contributor'.", status=400)
 
     def _effort(self):
-        effort = self.config.get("BEELDMODEL_REDENEREN")
-        return effort if effort in EFFORTS else None
+        return effort_of(self.config)
 
     def plan(self, file, n, object_id, user=None):
         """What a description would cost, without calling anything."""
@@ -980,8 +1030,7 @@ class DescriptionService:
             key += f"|marge:{margin}"
         if page_text:
             key += f"|paginatekst:{hashlib.sha1(page_text.encode()).hexdigest()}"
-        digest = hashlib.sha1(key.encode()).hexdigest()
-        return self.cache_dir / digest[:2] / f"{digest}.json"
+        return sharded(self.cache_dir, hashlib.sha1(key.encode()).hexdigest(), ".json")
 
     def _source_image(self, file, n):
         """The page image to crop from: the original when it can be used,
@@ -1000,15 +1049,12 @@ class DescriptionService:
         margin = clean_margin(margin)
         # Made once per box, margin and size, then from the cache (cleaned up with the cut-outs).
         key = hashlib.sha1(f"{file['sha1']}|{n}|{obj['box']}|{margin}|{side}|invoer".encode()).hexdigest()
-        path = self.cache_dir.parent / "uitsneden" / key[:2] / f"{key}.jpg"
-        if path.exists():
-            mark_used(path)
-            return path.read_bytes()
-        page = self.objects.client.load_page(file, n)
-        data, _size = model_input(self._source_image(file, n), page["breedte"], obj["box"], margin, side, outline=True)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
-        return data
+
+        def make():
+            page = self.objects.client.load_page(file, n)
+            return model_input(self._source_image(file, n), page["breedte"], obj["box"], margin, side, outline=True)[0]
+
+        return cached_bytes(sharded(self.cache_dir.parent / "uitsneden", key, ".jpg"), make)
 
     def _question(self, file, n, obj, hint, margin, group_focus, description_level):
         """The parts of the question about an object: the prompt as it goes to the model,
@@ -1061,19 +1107,9 @@ class DescriptionService:
     def _set_own_prompt(self, file, n, object_id, text):
         """Make `text` the prompt of your own (None or "": back to the app's prompt); the
         one before goes on top of the history, each text once, at most MAX_PROMPT_HISTORY."""
-        text = clean_own_prompt(text)
         with self.objects.lock:
             store = self.objects._load_store(file, n)
-            obj = self.objects._find_in(store, object_id)
-            previous = obj.get("prompt_eigen")
-            history = [h for h in obj.get("prompt_geschiedenis") or [] if h.get("tekst") != text]
-            if previous and previous.get("tekst") != text:
-                history = [previous] + [h for h in history if h.get("tekst") != previous.get("tekst")]
-            if text:
-                obj["prompt_eigen"] = {"tekst": text, "bewaard_op": datetime.now(timezone.utc).isoformat(timespec="milliseconds")}
-            else:
-                obj.pop("prompt_eigen", None)
-            obj["prompt_geschiedenis"] = history[:MAX_PROMPT_HISTORY]
+            apply_own_prompt(self.objects._find_in(store, object_id), text)
             self.objects._write_store(file, n, store)
 
     def save_prompt(self, file, n, object_id, text):
@@ -1334,18 +1370,7 @@ class DescriptionService:
             self._keep_in_history(obj)
             obj["beschrijving_geschiedenis"][0] = json.loads(json.dumps(obj["beschrijving_geschiedenis"][0]))
             description = obj["beschrijving"] = json.loads(json.dumps(description))
-            original = description.setdefault("ai_origineel", {})
-            for field, value in changes.items():
-                value = value.strip()
-                if field not in original:
-                    original[field] = description.get(field) or ""
-                description[field] = value
-                if value == original[field]:
-                    original.pop(field)
-            if not original:
-                description.pop("ai_origineel")
-            description["bewerkt"] = bool(original)
-            description["bewerkt_op"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds")  # unique per version
+            _apply_hand_edit(description, {field: value.strip() for field, value in changes.items()})
             self.objects._write_store(file, n, store)
         return self.objects.public(file, n, obj)
 
@@ -1375,6 +1400,8 @@ class DescriptionService:
             "redeneren": self._effort(),
             "betaald": paid,
             "kosten_schatting_usd": estimate(choice["model"], self._effort(), ESTIMATE_PAGE_INPUT) if paid else 0.0,
+            # What asking a part anew costs per reasoning effort you may choose (wish Olaf).
+            "kosten_per_redeneren": {e: (estimate(choice["model"], e, ESTIMATE_PAGE_INPUT) if paid else 0.0) for e in CHOSEN_EFFORTS},
             "budget": self.objects.verbruik.status(user),
         }
 
@@ -1386,16 +1413,20 @@ class DescriptionService:
         # Since 0.39.0 the description comes in all four lengths: an answer of its own.
         if part != "zoektermen":
             key += "|lengtes"
-        digest = hashlib.sha1(key.encode()).hexdigest()
-        return self.cache_dir / digest[:2] / f"{digest}.json"
+        return sharded(self.cache_dir, hashlib.sha1(key.encode()).hexdigest(), ".json")
 
-    def inventory(self, file, n, model=None, again=False, user=None, part=None, detail=None, description_level=None):
+    def inventory(self, file, n, model=None, again=False, user=None, part=None, detail=None, description_level=None, hint=None, effort=None):
         """Ask the model what is on the whole page (paid in live mode, cached)
         and keep the overview in the page's store ("inventaris"). With `part`
         ("beschrijving" or "zoektermen") only that part is asked anew, always a
         new answer; the other part of the stored overview stays as it is.
         `detail` (DETAIL_LEVELS) sets how many kinds of objects the search
-        terms ask for; without it, the level of the stored overview."""
+        terms ask for; without it, the level of the stored overview.
+        Asking a part anew may also take a `hint` (an extra instruction, added at the end of the
+        prompt) and an `effort` (CHOSEN_EFFORTS; else the configured one), wish Olaf 13-11-2026."""
+        hint = clean_hint(hint) if part is not None else ""
+        if effort is not None and (part is None or effort not in CHOSEN_EFFORTS):
+            raise DetectionError(f"Onbekend redeneerniveau '{effort}'; kies uit {', '.join(CHOSEN_EFFORTS)} (alleen bij één deel).", status=400, code="invalid_body")
         if part is not None and part not in INVENTORY_PARTS:
             raise DetectionError(f"Onbekend deel '{part}'; kies uit {', '.join(INVENTORY_PARTS)}.", status=404, code="not_found")
         if detail is None:
@@ -1408,6 +1439,8 @@ class DescriptionService:
             raise DetectionError(f"Onbekend beschrijvingsniveau '{description_level}'; kies uit {', '.join(DESCRIPTION_LEVELS)}.", status=400, code="invalid_body")
         choice = self._model(file, model)
         path = self._inventory_cache_path(file, n, choice["model"], part, detail)
+        # Asking a part anew may go with a prompt of your own (wish Olaf 13-11-2026).
+        own = self._own_page_prompt(file, n, part) if part in PAGE_PROMPT_KEYS else ""
         if self.objects.counts_for_file(file, path) and not again and part is None:
             mark_used(path)
             overview = json.loads(path.read_text(encoding="utf-8"))
@@ -1415,7 +1448,7 @@ class DescriptionService:
                 show_description_length(overview, description_level)
             return self._store_inventory(file, n, overview, cached=True, user=user)
 
-        effort = self._effort()
+        effort = effort or self._effort()
         # A paid call books its cost while it runs (Verbruik.reservation): parallel
         # requests cannot together pass the daily limit or budget.
         booking = self.objects.verbruik.reservation(1, user=user, cost=estimate(choice["model"], effort, ESTIMATE_PAGE_INPUT)) if self.vision.betaald else nullcontext()
@@ -1423,14 +1456,10 @@ class DescriptionService:
             image = Image.open(io.BytesIO(self.objects.client.page_image(file, n, PAGE_WIDTH))).convert("RGB")
             if image.width > PAGE_WIDTH:
                 image = image.resize((PAGE_WIDTH, round(image.height * PAGE_WIDTH / image.width)))
-            buffer = io.BytesIO()
-            image.save(buffer, format="JPEG", quality=85)
-            data_url = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
-            publication = f'"{file.get("naam")}"' + (f", page {n}" if file.get("paginas", 1) > 1 else "")
-            prompt = inventory_instructions(publication, part, detail)
-            known = commons_context(file)  # what people already put on Commons (backlog 26)
-            if known:
-                prompt += COMMONS_CONTEXT_INSTRUCTION.format(context=known)
+            data_url = "data:image/jpeg;base64," + base64.b64encode(encode(image, "JPEG", quality=85)).decode("ascii")
+            prompt = own or self._inventory_prompt(file, n, part, detail)
+            if hint:
+                prompt += HINT_INSTRUCTION.format(hint=hint)
 
             body = self.vision.describe(choice["model"], prompt, data_url, None, effort, schema=inventory_schema(part))
             tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
@@ -1459,6 +1488,8 @@ class DescriptionService:
                     parsed["beschrijvingsniveau"] = description_level
             overview = {
                 **parsed,
+                **({"prompt_eigen": True} if own else {}),  # asked with a prompt of your own
+                **({"aanwijzing": hint} if hint else {}),
                 "model": choice["model"],
                 "model_reden": choice["reden"],
                 "redeneren": effort,
@@ -1498,6 +1529,84 @@ class DescriptionService:
             return self._store_inventory_part(file, n, part, overview, user=user)
         return self._store_inventory(file, n, overview, cached=False, user=user)
 
+    def _inventory_prompt(self, file, n, part=None, detail=DEFAULT_DETAIL):
+        """The app's prompt for the overview, or for one part: the question, and what people
+        already put on Commons (backlog 26)."""
+        publication = f'"{file.get("naam")}"' + (f", page {n}" if file.get("paginas", 1) > 1 else "")
+        prompt = inventory_instructions(publication, part, detail)
+        known = commons_context(file)
+        if known:
+            prompt += COMMONS_CONTEXT_INSTRUCTION.format(context=known)
+        return prompt
+
+    # -- Your own prompt for asking the description or the search terms anew (wish Olaf 13-11-2026) --
+    # Like "What is this?" for an object: you change the app's prompt, the next "anew" of that
+    # part uses it, and your earlier prompts are kept. The answer format (the fields) stays the
+    # app's, so the answer still fits. Kept in the page store, so "Start over" removes it.
+
+    @staticmethod
+    def _prompt_keys(part):
+        if part not in PAGE_PROMPT_KEYS:
+            raise DetectionError(f"Onbekend deel '{part}'; kies uit {', '.join(PAGE_PROMPT_KEYS)}.", status=404, code="not_found")
+        return PAGE_PROMPT_KEYS[part]
+
+    def _own_page_prompt(self, file, n, part="beschrijving"):
+        own = self.objects._load_store(file, n).get(self._prompt_keys(part)[0]) or {}
+        return (own.get("tekst") or "").strip()
+
+    def page_prompt_preview(self, file, n, part="beschrijving", detail=None):
+        """The prompt asking this part anew would send for the whole image (the image goes along
+        separately), the app's own, yours and your earlier ones. For the search terms the app's
+        prompt follows `detail` (else the level of the stored overview). Free."""
+        key, history_key = self._prompt_keys(part)
+        store = self.objects._load_store(file, n)
+        if part == "zoektermen":
+            detail = detail or (store.get("inventaris") or {}).get("detailniveau") or DEFAULT_DETAIL
+            if detail not in DETAIL_LEVELS:
+                raise DetectionError(f"Onbekend detailniveau '{detail}'; kies uit {', '.join(DETAIL_LEVELS)}.", status=400, code="invalid_body")
+        standard = self._inventory_prompt(file, n, part, detail or DEFAULT_DETAIL)
+        own = self._own_page_prompt(file, n, part)
+        return {
+            "deel": part,
+            "prompt": own or standard,
+            "standaard_prompt": standard,
+            "eigen": bool(own),
+            "eigen_prompt": store.get(key),
+            "geschiedenis": store.get(history_key) or [],
+            **({"detailniveau": detail} if part == "zoektermen" else {}),
+        }
+
+    def _set_page_prompt(self, file, n, part, text):
+        key, history_key = self._prompt_keys(part)
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            apply_own_prompt(store, text, key, history_key)
+            self.objects._write_store(file, n, store)
+        return self.page_prompt_preview(file, n, part)
+
+    def save_page_prompt(self, file, n, text, part="beschrijving"):
+        """Your own prompt for asking this part anew (free)."""
+        self._prompt_keys(part)
+        if not isinstance(text, str) or not text.strip():
+            raise DetectionError("Geef een 'prompt' (tekst); terug naar de prompt van de app gaat met DELETE.", status=400, code="invalid_body")
+        return self._set_page_prompt(file, n, part, text)
+
+    def reset_page_prompt(self, file, n, part="beschrijving"):
+        """Back to the app's prompt; yours goes to the history (free)."""
+        return self._set_page_prompt(file, n, part, None)
+
+    def forget_page_prompt_version(self, file, n, version, part="beschrijving"):
+        """Remove an earlier prompt from the history; `version` is its "bewaard_op" (free)."""
+        _key, history_key = self._prompt_keys(part)
+        with self.objects.lock:
+            store = self.objects._load_store(file, n)
+            history = store.get(history_key) or []
+            if not any(h.get("bewaard_op") == version for h in history):
+                raise DetectionError("Deze eerdere prompt bestaat niet (meer).", status=404, code="not_found")
+            store[history_key] = [h for h in history if h.get("bewaard_op") != version]
+            self.objects._write_store(file, n, store)
+        return self.page_prompt_preview(file, n, part)
+
     def forget_inventory(self, file, n, part=None):
         """Remove the page overview from the page, or one part of it: the
         description ("beschrijving": kind, summary and the text read in and under
@@ -1536,6 +1645,8 @@ class DescriptionService:
         if part == "beschrijving":
             fields["beschrijvingen"] = answer.get("beschrijvingen") or {}
         meta = {k: v for k, v in answer.items() if k not in fields}
+        own_prompt = meta.pop("prompt_eigen", False)  # kept per part, under "delen"
+        part_hint = meta.pop("aanwijzing", "")
         with self.objects.lock:
             store = self.objects._load_store(file, n)
             current = dict(store.get("inventaris") or {})
@@ -1545,7 +1656,9 @@ class DescriptionService:
                     current.pop(key, None)
             empty = {k: [] if k == "zoektermen" else "" for keys in INVENTORY_PARTS.values() for k in keys}
             overview = {**empty, **meta, **current, **fields}
-            overview["delen"] = {**(overview.get("delen") or {}), part: meta}
+            overview.pop("prompt_eigen", None)
+            overview.pop("aanwijzing", None)
+            overview["delen"] = {**(overview.get("delen") or {}), part: {**meta, **({"prompt_eigen": True} if own_prompt else {}), **({"aanwijzing": part_hint} if part_hint else {})}}
             if "detailniveau" in answer:  # the search terms asked anew at another level
                 overview["detailniveau"] = answer["detailniveau"]
             if "beschrijvingsniveau" in answer:  # the description asked anew at another length
@@ -1608,17 +1721,7 @@ class DescriptionService:
                 return {"inventaris": overview}  # nothing changes: no new version
             self._keep_page_description(store)
             overview = store["inventaris"] = json.loads(json.dumps(overview))
-            original = overview.setdefault("ai_origineel", {})
-            for field, value in changes.items():
-                if field not in original:
-                    original[field] = overview.get(field) or ""
-                overview[field] = value
-                if value == original[field]:
-                    original.pop(field)
-            if not original:
-                overview.pop("ai_origineel")
-            overview["bewerkt"] = bool(original)
-            overview["bewerkt_op"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+            _apply_hand_edit(overview, changes)
             sync_description_length(overview)
             self.objects._write_store(file, n, store)
         return {"inventaris": overview}

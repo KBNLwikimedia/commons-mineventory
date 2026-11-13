@@ -7,6 +7,10 @@ configuration (DETECTIE_MODUS=dummy|live).
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+# Labels the app gives objects itself (a click, a drawn rectangle, a region):
+# not a real name, never a subject for the AI.
+INTERNAL_LABELS = frozenset({"klik", "rechthoek", "regio"})
+
 
 #: Fixed error codes per HTTP status, which the UI translates (functional design 3).
 DEFAULT_CODES = {

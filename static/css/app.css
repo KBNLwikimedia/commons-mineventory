@@ -70,7 +70,7 @@ h2, h3, h4 { margin: 0.5rem 0; }
 /* -- Generic -------------------------------------------------------------- */
 .cc-klein { font-size: 0.8125rem; color: var(--cc-tekst-zacht); }
 /* Explanations (how something works, what it costs): small and grey, apart from results. */
-.cc-uitleg { font-size: 0.75rem; line-height: 1.4; color: var(--cc-tekst-zacht); margin: 0.4rem 0; }
+.cc-uitleg { font-size: 0.75rem; line-height: 1.4; color: var(--cc-tekst-zacht); margin: 0.4rem 0; max-width: 50rem; }
 /* What the AI said: a card with a coloured edge, in the normal text colour. */
 .cc-ai-resultaat { margin: 0.5rem 0 0.75rem; padding: 0.5rem 0.75rem; background: var(--background-color-interactive-subtle, #f8f9fa); border-left: 3px solid var(--border-color-progressive, #36c); border-radius: 2px; font-size: 0.875rem; color: var(--color-base, #202122); }
 .cc-ai-resultaat p { margin: 0; }
@@ -81,7 +81,6 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-deel-acties { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: -0.25rem 0 0.5rem; }
 .cc-deel-kop { margin: 0.75rem 0 0; padding-top: 0.5rem; border-top: 1px solid var(--cc-rand); font-size: 0.875rem; }
 .cc-leeg { color: var(--cc-tekst-zacht); font-style: italic; }
-.cc-uitleg { color: var(--cc-tekst-zacht); max-width: 50rem; }
 .cc-knoppen { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
 /* A button wider than a narrow column wraps its text instead of being cut off on both sides. */
 .cc-knoppen .cdx-button { max-width: 100%; white-space: normal; height: auto; min-height: 32px; text-align: left; }
@@ -160,6 +159,12 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-splitter::after { content: ""; position: absolute; top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; background: var(--cc-rand); transition: background 0.1s; }
 .cc-splitter:hover::after, .cc-splitter:focus-visible::after, .cc-splitter.actief::after { left: calc(50% - 2px); width: 4px; background: var(--color-progressive, #36c); }
 .cc-splitter:focus-visible { outline: none; }
+/* The line under the list of objects: drag it to make the list shorter or longer. */
+.cc-rij-splitter { flex: none; height: 0.75rem; cursor: row-resize; position: relative; touch-action: none; }
+.cc-rij-splitter::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; background: var(--cc-rand); transition: background 0.1s; }
+.cc-rij-splitter:hover::after, .cc-rij-splitter:focus-visible::after, .cc-rij-splitter.actief::after { top: calc(50% - 2px); height: 4px; background: var(--color-progressive, #36c); }
+.cc-rij-splitter:focus-visible { outline: none; }
+.cc-objecten > ul.cc-vaste-hoogte { overflow-y: auto; }
 .cc-acties { display: grid; gap: 0.4rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--cc-rand); }
 /* Under the objects the buttons stay in view while the list scrolls. */
 .cc-links .cc-acties { position: sticky; bottom: 0; background: var(--background-color-base, #fff); padding-bottom: 0.5rem; }
@@ -317,6 +322,9 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-rand-se::after { content: ""; position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; border-right: 2px solid var(--cc-rand); border-bottom: 2px solid var(--cc-rand); }
 /* The tab bar of the magnifier stays in view while the content scrolls (the dialog body scrolls). */
 .cc-vergroter .cdx-tabs__header { position: sticky; top: -8px; z-index: 2; background-color: var(--background-color-base, #fff); }
+/* The sub-tabs inside "Wat staat hierop?" (Beschrijving, Beeldt af): not sticky, a little smaller. */
+.cc-vergroter .cc-subtabs .cdx-tabs__header { position: static; }
+.cc-vergroter .cc-subtabs { margin-top: 0.25rem; }
 .cc-weergave { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; }
 .cc-vergroter-beeld { text-align: center; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; margin: 0.5rem 0; }
 .cc-vergroter-beeld img { max-width: 100%; max-height: 50vh; }
@@ -402,7 +410,6 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-weergave-commons .catlinks, .cc-weergave-commons .mw-normal-catlinks { border: 1px solid var(--cc-rand); padding: 0.3rem 0.5rem; margin-top: 1rem; }
 .cc-sdc { border: 1px solid var(--cc-rand); padding: 0.5rem 1rem; margin: 0.5rem 0; }
 .cc-sdc-groep { margin: 0.5rem 0 1rem; }
-.cc-sdc-kop { font-size: 0.95rem; margin: 0 0 0.35rem; }
 .cc-sdc-eigenschap { font-weight: normal; font-style: italic; font-size: 0.875rem; }
 .cc-sdc-waarden { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .cc-sdc-waarden > li { background: var(--background-color-interactive-subtle, #f8f9fa); padding: 0.4rem 0.6rem; }
@@ -692,7 +699,7 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-voorbeeld-kop .cdx-toggle-button-group { flex: none; display: inline-flex; flex-wrap: nowrap; white-space: nowrap; }
 .cc-voorbeeld-kop > .cc-klein { flex: 1; min-width: 0; }
 /* Structured data: Edit at the right of a statement, as on Commons; the editing rows. */
-.cc-sdc-kop { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.cc-sdc-kop { font-size: 0.95rem; margin: 0 0 0.35rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 .cc-sdc-edit { font-weight: normal; font-size: 0.875rem; }
 .cc-sdc-vast { font-weight: normal; cursor: help; }
 .cc-sdc-bewerk-rij { display: flex; align-items: center; gap: 0.35rem; }
@@ -706,12 +713,24 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 
 /* Confirmations with sections (ConfirmDialog.vue): a short heading, then text or a list. */
 .cc-bevestig-blok + .cc-bevestig-blok { margin-top: 0.75rem; }
+/* The note after the list of objects: a paragraph of its own (wish Olaf 13-11-2026). */
+.cc-bevestig-objecten + .cc-bevestig-noot { margin-top: 0.75rem; }
+/* The text a question is about (e.g. the prompt to delete), in a block of its own. */
+.cc-bevestig-citaat { margin: 0.75rem 0; max-height: 12rem; }
+.cc-bevestig-citaat + .cc-bevestig-noot { margin-top: 0.75rem; }
+/* What goes, as fields: the name in bold, the value in a grey block of its own, a little smaller (wish Olaf). */
+.cc-bevestig-velden { display: grid; gap: 0.4rem; margin: 0.75rem 0; }
+.cc-bevestig-velden .cc-bevestig-kop { margin: 0; }
+.cc-bevestig-veld-waarde { display: grid; gap: 0.1rem; }
+.cc-bevestig-veld-naam { font-size: 0.875rem; }
+.cc-bevestig-waarde { display: block; padding: 0.4rem 0.6rem; background: var(--background-color-interactive-subtle, #f8f9fa); border-left: 3px solid var(--cc-rand); font-size: 0.875rem; line-height: 1.4; white-space: pre-line; max-height: 9rem; overflow-y: auto; }
+.cc-bevestig-waarde.leeg { color: var(--cc-tekst-zacht, #54595d); }
+.cc-bevestig-velden + .cc-bevestig-noot { margin-top: 0.75rem; }
 .cc-bevestig-kop { display: block; margin-bottom: 0.15rem; }
 .cc-bevestig-blok p { margin: 0; }
-.cc-bevestig-blok ul { margin: 0; padding-left: 1.25rem; }
 /* A long list (e.g. the search terms in a cost question) scrolls on its own, so the
    dialog never grows beyond the screen and the buttons stay in view (wish Olaf). */
-.cc-bevestig-blok ul { max-height: 30vh; overflow-y: auto; }
+.cc-bevestig-blok ul { margin: 0; padding-left: 1.25rem; max-height: 30vh; overflow-y: auto; }
 .cc-mid-link { font-weight: bold; }
 /* The description of the whole image: Dutch, English (italic), the text read; editable in place. */
 .cc-ai-groep + .cc-ai-groep, .cc-ai-resultaat .cc-veld-bewerken + .cc-ai-groep, .cc-ai-groep + .cc-veld-bewerken { margin-top: 0.4rem; }
@@ -757,6 +776,11 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 /* The chosen stop always on its own line under the slider: a long one ("Commons caption (at most
    250 characters)") no longer jumps from beside the slider to under it (wish Olaf, 12-11-2026). */
 .cc-schuif-waarde { font-size: 0.875rem; flex-basis: 100%; }
+/* The Commons-caption switch right behind the length slider: the logo and the switch, no text. */
+.cc-caption-schakelaar { display: inline-flex; align-items: center; gap: 0.3rem; }
+.cc-caption-schakelaar .cdx-toggle-switch { margin: 0; }
+.cc-caption-schakelaar .cdx-toggle-switch__switch { transform: scale(0.7); margin: 0 -0.4rem; }
+.cc-commons-kleur { width: 16px; height: 16px; flex: none; }
 .cc-schuif .cc-uitleg { flex-basis: 100%; margin: 0; }
 
 /* "Groeperen: alle waterdruppels (15) · alle bladeren (9)" under the search terms (7.4). */
@@ -776,6 +800,9 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
   .cc-links:not(.dicht) > .cc-kolom-inhoud > * { flex: none; }
   .cc-links:not(.dicht) > .cc-kolom-inhoud > .cc-objecten { flex: 1 1 auto; min-height: 6rem; display: flex; flex-direction: column; }
   .cc-links .cc-objecten > ul { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  /* A height of its own (dragged): the list keeps it; the objects block shrinks around it. */
+  .cc-links .cc-objecten > ul.cc-vaste-hoogte { flex: none; }
+  .cc-links:not(.dicht) > .cc-kolom-inhoud > .cc-objecten:has(> ul.cc-vaste-hoogte) { flex: none; }
   .cc-links .cc-acties { position: static; }
 }
 
@@ -783,6 +810,8 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bevestig-objecten { list-style: none; margin: 0.75rem 0 0; padding: 0; max-height: 14rem; overflow-y: auto; display: grid; gap: 0.25rem; }
 .cc-bevestig-objecten li { display: flex; align-items: center; gap: 0.5rem; }
 .cc-bevestig-objecten img { width: 2rem; height: 2rem; object-fit: cover; border: 1px solid var(--cc-rand); background: var(--background-color-interactive-subtle, #f8f9fa); flex: none; }
+/* One thing in the question (one object, one image): larger, so you see what goes (wish Olaf). */
+.cc-bevestig-objecten.cc-bevestig-een img { width: auto; height: 6rem; max-width: 60%; object-fit: contain; }
 .cc-bevestig-veld { margin-top: 0.75rem; }
 
 /* The overlay with what the AI filled in, exactly over the completed image. */
@@ -832,7 +861,15 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-versies-balk { display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.25rem; }
 .cc-versies-positie { font-size: 0.875rem; font-variant-numeric: tabular-nums; min-width: 4.5rem; text-align: center; }
 .cc-versies-acties { margin-left: auto; display: inline-flex; align-items: center; gap: 0.25rem; }
-.cc-versies-inhoud .cc-geschiedenis-tekstblok { display: flex; flex-direction: column; gap: 0.15rem; }
+.cc-versies-inhoud .cc-geschiedenis-tekstblok { display: flex; flex-direction: column; gap: 0.5rem; }
+/* An earlier version as labelled fields (wish Olaf 13-11-2026): a small grey heading above each
+   field; the text read from the image in a block of its own; the meta line apart at the bottom. */
+.cc-versie-veld { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.cc-versie-label { font-size: 0.75rem; font-weight: 700; color: var(--cc-tekst-zacht); }
+.cc-versie-veld .cc-geschiedenis-beschrijving { font-size: 0.875rem; }
+.cc-versie-tekst { padding: 0.4rem 0.6rem; background: var(--background-color-base, #fff); border-left: 3px solid var(--cc-rand); }
+.cc-versie-tekst .cc-geschiedenis-beschrijving { white-space: pre-line; font-style: italic; }
+.cc-versies-inhoud .cc-geschiedenis-meta { padding-top: 0.4rem; border-top: 1px solid var(--cc-rand); font-size: 0.75rem; }
 .cc-versies-stippen { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
 .cc-versies-stip { width: 0.6rem; height: 0.6rem; padding: 0; border-radius: 50%; border: 1px solid var(--color-progressive, #36c); background: transparent; cursor: pointer; }
 .cc-versies-stip.actief { background: var(--color-progressive, #36c); }
@@ -854,18 +891,16 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-wikidata-logo { width: 1.1rem; height: 0.7rem; vertical-align: -0.05rem; margin-right: 0.3rem; }
 
 /* From Commons (backlog 26): captions, regions and depicts already on Commons. */
-.cc-commons-kop { margin: 0.75rem 0 0.25rem; font-size: 0.875rem; font-weight: 700; }
+.cc-commons-kop, .cc-termen-kop { margin: 0.75rem 0 0.25rem; font-size: 0.875rem; font-weight: 700; }
 .cc-commons-captions { margin: 0 0 0.25rem; padding-left: 0; list-style: none; font-size: 0.875rem; }
 .cc-commons-captions li { margin: 0.15rem 0; }
 .cc-taal-code { display: inline-block; min-width: 1.6rem; margin-right: 0.3rem; padding: 0 0.25rem; border: 1px solid var(--cc-rand, #c8ccd1); border-radius: 2px; font-size: 0.75rem; text-align: center; color: var(--color-subtle, #54595d); }
-.cc-termen-kop { margin: 0.75rem 0 0.25rem; font-size: 0.875rem; font-weight: 700; }
 /* AI terms that Commons already depicts (wish Olaf): read only, a dashed chip with dark text,
-   green when objects are linked to that item. Specific enough to beat Codex's disabled style. */
-.cc-knoppen .cc-term.cc-term-vast { border-style: dashed; background: #f8f9fa; }
+   green when objects are linked to that item. Specific enough to beat Codex's disabled style.
+   Read-only: dimmed, less bright green and a little grey, so they do not look clickable (wish Olaf, 12-11-2026). */
+.cc-knoppen .cc-term.cc-term-vast { border-style: dashed; background: #f8f9fa; opacity: 0.6; filter: saturate(0.6); }
 .cc-knoppen .cc-term.cc-term-vast .cdx-button:disabled { background: transparent; color: #202122; border-color: transparent; cursor: default; }
 .cc-knoppen .cc-term.cc-term-vast.cc-term-gevonden { background: #8fdcb8; }
-/* Read-only: dimmed, less bright green and a little grey, so they do not look clickable (wish Olaf, 12-11-2026). */
-.cc-knoppen .cc-term.cc-term-vast { opacity: 0.6; filter: saturate(0.6); }
 
 /* A choice in a confirmation (e.g. remove only SAM's shape, or the whole object). */
 .cc-bevestig-keuze { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.75rem 0; }
@@ -927,7 +962,8 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-origineel-rij > input { margin-top: 0.3rem; }
 .cc-origineel-item { flex: 1; min-width: 0; }
 .cc-origineel-bron { color: var(--color-subtle, #54595d); }
-.cc-origineel-met-positie { font-size: 0.8125rem; white-space: nowrap; }
+/* The longer label "With relative position within image (P2677)": may wrap, in a narrow column. */
+.cc-origineel-met-positie { font-size: 0.8125rem; white-space: normal; max-width: 11rem; display: inline-flex; align-items: flex-start; gap: 0.2rem; }
 .cc-origineel-zoek { margin: 0.5rem 0; }
 .cc-origineel-treffers { list-style: none; margin: 0.25rem 0; padding: 0; font-size: 0.875rem; }
 .cc-origineel-leeg { margin: 0.5rem 0; font-size: 0.875rem; }
@@ -948,7 +984,7 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-origineel-upload { color: #14866d; }
 
 /* The image (P18) of a Wikidata item in the structured-data window. */
-.cc-item-beeld { width: 3.5rem; height: 3.5rem; object-fit: contain; flex: none; background: var(--background-color-interactive-subtle, #f8f9fa); border: 1px solid var(--cc-rand, #eaecf0); border-radius: 2px; }
+.cc-item-beeld { width: 3.5rem; height: 3.5rem; object-fit: contain; flex: none; background: var(--background-color-interactive-subtle, #f8f9fa); border: 1px solid var(--cc-rand, #eaecf0); border-radius: 2px; cursor: zoom-in; }
 .cc-item-beeld-klein { width: 1.6rem; height: 1.6rem; vertical-align: middle; margin-right: 0.3rem; }
 
 /* No image (P18) on Wikidata: a grey square with a short text instead. */
@@ -959,14 +995,10 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 
 /* The larger view of an item's image while pointing at its thumbnail. */
 .cc-item-zoom { position: fixed; z-index: 1000; max-width: 260px; max-height: 260px; object-fit: contain; background: #fff; border: 1px solid var(--border-color-base, #a2a9b1); border-radius: 2px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); pointer-events: none; }
-.cc-item-beeld { cursor: zoom-in; }
 
 .cc-origineel-rij > .cdx-button { flex: none; }
 
 .cc-origineel-kop { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
-
-/* The longer label "With relative position within image (P2677)": may wrap, in a narrow column. */
-.cc-origineel-met-positie { white-space: normal; max-width: 11rem; display: inline-flex; align-items: flex-start; gap: 0.2rem; }
 
 /* Fold-outs Bulk actions and Save and export (wish Olaf). */
 .cc-acties-uitklap > summary .cdx-accordion__header__title { font-size: 1rem; }
@@ -991,10 +1023,21 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bulk-kosten { margin: 0.75rem 0 0; }
 
 /* The prompt of "What is this?" with a pencil and history (wish Olaf). */
-.cc-ai-prompt-rij { margin-top: 0.5rem; }
-.cc-ai-prompt-rij dd > .cc-uitleg { margin: 0.25rem 0 0; }
 .cc-eigen-prompt { font-weight: bold; }
 .cc-eigen-prompt-veld textarea { font-family: monospace; font-size: 0.75rem; }
+/* "Beschrijvingen opnieuw laten maken": the prompt folded away as a refinement (wish Olaf). */
+.cc-pagina-beschrijven.cdx-dialog { max-width: 44rem; }
+.cc-pagina-beschrijven p { margin: 0 0 0.6rem; }
+.cc-pagina-prompt { margin-top: 0.5rem; }
+/* Which prompt goes (the app's or yours) is a small grey line under "Prompt aanpassen", not a second
+   heading (wish Olaf 13-11-2026); specific enough to win over Codex in both load orders. */
+.cc-pagina-beschrijven .cc-pagina-prompt .cdx-accordion__header__description,
+.cc-pagina-beschrijven .cc-pagina-prompt .cdx-accordion__header__description .cc-eigen-prompt { font-weight: normal; font-size: 0.8125rem; color: var(--cc-tekst-zacht, #54595d); }
+.cc-pagina-veld { margin: 0.25rem 0 0.75rem; }
+/* "Prompt aanpassen" inside AI steering: a fold-out within the fold-out (wish Olaf). */
+.cc-pagina-prompt .cc-pagina-prompt, .cc-prompt-uitklap { margin-top: 0.5rem; border-top: 1px solid var(--cc-rand); }
+.cc-pagina-prompt-acties { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 0.5rem 0 0.5rem; }
+.cc-pagina-prompt-let-op { margin: 0 0 0.75rem; color: var(--color-warning, #ab7f2a); }
 .cc-prompt-kort { max-height: 6rem; }
 
 /* Describe in bulk: settings beside the preview of the chosen object (wish Olaf). */
@@ -1044,7 +1087,7 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bulk-beschrijven .cc-bulk-lengte .cc-schuif-kop,
 .cc-bulk-beschrijven .cc-marge > span:first-child,
 .cc-bulk-beschrijven .cc-bulk-prompt > summary .cdx-accordion__header,
-.cc-bulk-beschrijven .cc-bulk-prompt > summary .cdx-accordion__header__title { font-size: 0.9375rem; font-weight: 700; }
+.cc-bulk-beschrijven .cc-bulk-prompt > summary .cdx-accordion__header__title { font-size: 0.875rem; font-weight: 700; }
 .cc-bulk-beschrijven .cdx-field__help-text,
 .cc-bulk-beschrijven .cc-bulk-velden .cc-uitleg,
 .cc-bulk-beschrijven .cc-marge .cc-klein,
@@ -1055,3 +1098,22 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 /* "Select:" before All · None · Invert in the object list (wish Olaf). */
 .cc-objecten-alles { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; column-gap: 0.3rem; }
 .cc-objecten-alles-links { white-space: nowrap; }
+/* A short list inside a small grey explanation (cc-uitleg). */
+.cc-uitleg-lijst { margin: 0.15rem 0 0; padding-left: 1.25rem; }
+.cc-uitleg-lijst li { margin: 0.05rem 0; }
+/* Headings inside AI steering (wish Olaf 13-11-2026), the same in every window that has it (the
+   magnifier, Describe in bulk, asking the description or search terms of the image anew): the lower
+   in the hierarchy, the smaller. "AI-bijsturing" keeps its size; its parts (Aanwijzing, Lengte,
+   Ruimte, Denkniveau, the prompt) get a smaller heading, their help and choices smaller text again,
+   and the content moves in a little. Specific enough to win over Codex in both load orders. */
+details.cc-ai-bijsturing > .cdx-accordion__content { padding-left: 1.25rem; font-size: 0.875rem; line-height: 1.45; }
+details.cc-ai-bijsturing .cdx-field .cdx-label__label__text,
+details.cc-ai-bijsturing .cc-schuif-kop,
+details.cc-ai-bijsturing .cc-marge > span:first-child,
+details.cc-ai-bijsturing details.cc-ai-bijsturing-deel > summary .cdx-accordion__header__title { font-size: 0.875rem; font-weight: 700; }
+details.cc-ai-bijsturing .cdx-label__label__optional-flag,
+details.cc-ai-bijsturing .cdx-field__help-text,
+details.cc-ai-bijsturing .cc-uitleg,
+details.cc-ai-bijsturing details.cc-ai-bijsturing-deel > summary .cdx-accordion__header__description { font-size: 0.8125rem; line-height: 1.4; }
+details.cc-ai-bijsturing .cdx-radio .cdx-label__label__text { font-size: 0.875rem; font-weight: 400; }
+details.cc-ai-bijsturing .cc-schuif-waarde { font-size: 0.8125rem; }

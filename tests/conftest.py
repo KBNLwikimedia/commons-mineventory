@@ -77,6 +77,31 @@ class FixtureFetcher:
         raise FetchError(url, "HTTP 404", status=404)
 
 
+# Fakes for the Meta Model API (requests.Session.post), shared by the detector and
+# description tests: `body` or `response` may be an exception, which is then raised.
+class FakeResponse:
+    def __init__(self, status_code, body):
+        self.status_code = status_code
+        self._body = body
+
+    def json(self):
+        if isinstance(self._body, Exception):
+            raise self._body
+        return self._body
+
+
+class FakeSession:
+    def __init__(self, response):
+        self.response = response
+        self.calls = []
+
+    def post(self, url, json, headers, timeout):
+        self.calls.append({"url": url, "json": json, "headers": headers})
+        if isinstance(self.response, Exception):
+            raise self.response
+        return self.response
+
+
 @pytest.fixture
 def fetcher():
     return FixtureFetcher()
