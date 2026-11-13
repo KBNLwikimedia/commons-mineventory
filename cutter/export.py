@@ -13,7 +13,6 @@ IIIF annotations follow later (backlog).
 
 import csv
 import io
-import json
 import re
 import zipfile
 from datetime import datetime, timezone
@@ -23,6 +22,7 @@ from xml.sax.saxutils import escape
 from PIL import Image
 
 from . import __version__
+from .opslag import read_json, read_store
 
 JPEG_QUALITY = 95
 
@@ -111,13 +111,13 @@ def file_zip(folder, wikitexts=None):
     """
     folder = Path(folder)
     meta_path = folder / "bestand.json"
-    file = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    file = read_json(meta_path, {}, valid=lambda d: isinstance(d, dict))
     wikitexts = wikitexts or {}
     buffer = io.BytesIO()
     count = 0
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for store_path in sorted(folder.glob("pagina_*/objecten.json")):
-            store = json.loads(store_path.read_text(encoding="utf-8"))
+            store = read_store(store_path)  # unreadable: kept aside, nothing of it in the zip
             saved = [o for o in store.get("objecten", []) if o.get("opgeslagen")]
             if not saved:
                 continue

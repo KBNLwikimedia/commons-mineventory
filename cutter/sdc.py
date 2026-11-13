@@ -51,11 +51,13 @@ def parse_entity(entity):
     Returns {"mid", "captions": {lang: text}, "beeldt_af": [...], "auteursrechtstatus":
     [...], …}; every statement is {"verklaring": id, "waarde", "soort", "kwalificatoren"}.
     """
-    entity = entity or {}
+    entity = entity if isinstance(entity, dict) else {}
+    labels = entity.get("labels")
     result = {
         "mid": entity.get("id"),
         "bestaat": "missing" not in entity and bool(entity.get("id")),
-        "captions": {lang: label.get("value") for lang, label in (entity.get("labels") or {}).items()},
+        # Like statements, empty labels can come as [] instead of {}.
+        "captions": {lang: label.get("value") for lang, label in labels.items() if isinstance(label, dict)} if isinstance(labels, dict) else {},
     }
     statements = entity.get("statements") or entity.get("claims") or {}
     if isinstance(statements, list):  # an entity without statements serialises as []
@@ -138,14 +140,29 @@ def summary(parsed, labels=None):
     def label(value):
         return labels.get(value) or {"nl": None, "en": None}
 
+    def readable(names):
+        other = (names.get("andere") or {}).get("waarde")
+        return names.get("nl") or names.get("en") or names.get("mul") or other
+
+    def other_language(names):
+        if names.get("nl") or names.get("en") or names.get("mul"):
+            return None
+        return (names.get("andere") or {}).get("taal")
+
     result = {"captions": parsed.get("captions", {})}
     for key in PROPERTIES.values():
         result[key] = [
             {
                 "waarde": s["waarde"],
                 "soort": s["soort"],
-                "label": (label(s["waarde"]).get("nl") or label(s["waarde"]).get("en") or s["waarde"]) if s["soort"] == "item" else s["waarde"],
-                "label_en": label(s["waarde"]).get("en") if s["soort"] == "item" else None,
+                # A readable name: Dutch, English, the multilingual label, another language, and only
+                # then the Q-id (wish Olaf 13-11-2026).
+                "label": readable(label(s["waarde"])) or s["waarde"] if s["soort"] == "item" else s["waarde"],
+                # The English word for the image detection (SAM reads English): English, else the
+                # multilingual label; None when there is neither (the app then asks for a word).
+                "label_en": (label(s["waarde"]).get("en") or label(s["waarde"]).get("mul")) if s["soort"] == "item" else None,
+                # The language of the name when it is not Dutch or English (e.g. "de"), for a small mark.
+                "label_taal": other_language(label(s["waarde"])) if s["soort"] == "item" else None,
                 **({"positie": (s["kwalificatoren"].get("P2677") or [None])[0]} if key == "beeldt_af" else {}),
             }
             for s in parsed.get(key, [])

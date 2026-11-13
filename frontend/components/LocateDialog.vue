@@ -48,6 +48,7 @@
     <cdx-accordion v-model="steerOpen" class="cc-pagina-prompt cc-ai-bijsturing">
       <template #title>{{ t("pagedescribe.steer_title") }}</template>
       <template #description>{{ changedCount ? t("locate.steer_changed", { n: changedCount }) : t("locate.steer_none") }}</template>
+      <cdx-message v-if="askWord" type="warning" :inline="true" class="cc-pagina-veld">{{ t("locate.no_english") }}</cdx-message>
       <cdx-field class="cc-pagina-veld" :is-fieldset="true">
         <template #label>{{ t("locate.words_label") }}</template>
         <template #help-text>{{ t("locate.words_help") }}</template>
@@ -65,7 +66,7 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
-import { CdxAccordion, CdxDialog, CdxField, CdxRadio, CdxTextInput } from "@wikimedia/codex";
+import { CdxAccordion, CdxDialog, CdxField, CdxMessage, CdxRadio, CdxTextInput } from "@wikimedia/codex";
 import { errorText, get } from "../api.js";
 import { money, useT } from "../i18n.js";
 
@@ -78,6 +79,8 @@ const props = defineProps({
   paid: { type: Boolean, default: false },
   samUsd: { type: Number, default: 0 },
   language: { type: String, default: "nl" },
+  // An item without an English label on Wikidata: open the words at once and ask for an English one.
+  askWord: { type: Boolean, default: false },
 });
 // answer: {prompt, als, fresh} to locate, or null when cancelled.
 const emit = defineEmits(["answer"]);
@@ -133,7 +136,7 @@ watch(
     words.value = [];
     estimate.value = null;
     choice.value = "cache";
-    steerOpen.value = false;
+    steerOpen.value = props.askWord;
     const answer = await estimateNow(props.prompt);
     if (!answer) return;
     terms.value = answer.termen?.plus || [];

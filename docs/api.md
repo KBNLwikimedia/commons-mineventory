@@ -20,7 +20,7 @@ De Commons Mineventory heeft een REST-API onder `/api/v1`. De interface in de br
 | --- | --- | --- |
 | GET | `/bestand?url=…`, `?titel=…` of `?mid=…` | Invoer normaliseren (URL, titel, M-id, curid, upload.wikimedia.org) en het bestand teruggeven: titel, M-id, afmetingen, MIME, SHA-1, licentie, maker, datum, categorieën, SDC-samenvatting, rechtenlabels, paginalijst. `uitsnijden_mogelijk` zegt of uitsneden in volledige resolutie kunnen; `tegels: true` dat het origineel boven `MAX_MEGAPIXELS` ligt en stuk voor stuk met libvips gelezen wordt (sinds 0.21.0). `werk`: het Wikidata-item van het werk, uit `|wikidata=` in het sjabloon of anders uit *digitale weergave van* (P6243) in de SDC (`via`: `wikitekst` of `sdc`), met titel, beschrijving, makers, datum, soort, onderdeel van, beeldt af, materiaal, afmetingen, collectie met inventarisnummers, locatie, plaats van vervaardiging en links, zoals `{{Artwork}}` ze toont (sinds 0.28.0); de SDC-samenvatting heeft daarvoor ook `digitale_weergave_van` |
 | GET | `/bestand/{mid}` | Hetzelfde, op M-id |
-| GET | `/bestand/{mid}/pagina/{n}` | Afmetingen van de pagina (pixels van het origineel), objecten, aantal regio's en notities uit Commons, en `prullenbak_termen`: per zoekterm hoeveel objecten van deze pagina in de prullenbak staan |
+| GET | `/bestand/{mid}/pagina/{n}` | Afmetingen van de pagina (pixels van het origineel), objecten, aantal regio's en notities uit Commons, `prullenbak_termen`: per zoekterm hoeveel objecten van deze pagina in de prullenbak staan, en `beschadigd`: de kopieën die de app bewaarde van een `objecten.json` dat niet te lezen was (`[{bestand, gewijzigd}]`, oudste eerst; meestal leeg) |
 | GET | `/bestand/{mid}/pagina/{n}/afbeelding?w=` | Een verkleinde afbeelding: de dichtstbijzijnde thumbnailstap van Commons van minstens `w` pixels (20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840), gecachet |
 
 Voorbeeld:
@@ -167,5 +167,8 @@ De paden van vóór 0.29.0 (`…/object/{object_id}` en alles daaronder, POST `�
 | `upload_disabled`, `not_confirmed`, `not_implemented` | Uploaden staat uit, is niet bevestigd, of komt in fase 2 |
 | `contributor_not_allowed`, `no_api_key`, `no_mask` | Modelkeuze, configuratie of SAM vond niets |
 | `too_many_terms` | Meer dan 20 zoektermen in één opdracht (sinds 0.26.0) |
+| `corrupt_file`, `bad_image` (502), `bad_mask` (422) | Sinds 0.40.6 (robuustheid): een beschadigd bestand van de app (er blijft een kopie `<naam>.kapot-<hash>` naast staan), een afbeelding die niet te lezen is, of een masker dat niet te lezen is (het kader blijft bruikbaar) |
+| `already_on_page` (409) | Terugzetten uit de prullenbak terwijl een object met dezelfde id al op de pagina staat |
+| `internal_error` (500), `store_busy` (503), `disk_full` (507), `too_large` (413) | Sinds 0.40.6: een onverwachte fout (altijd als JSON, de details in het log), de opslag van de pagina is even bezet, de schijf is vol, of een body groter dan 5 MB |
 | `cross_site` (403), `not_json` (415) | Een verzoek dat iets verandert of geld kost, komt niet van de eigen pagina's van de app, of heeft geen JSON-body (bescherming tegen CSRF, sinds 0.25.0) |
 | `invalid_body`, `invalid_mid`, `no_description` (409), `no_thumbnail`, `method_not_allowed` | Ongeldige body of M-id, nog geen beschrijving, Commons gaf geen verkleinde afbeelding, of een methode die de route niet kent |

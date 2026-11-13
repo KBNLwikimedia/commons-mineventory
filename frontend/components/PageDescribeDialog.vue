@@ -10,24 +10,49 @@
   <cdx-dialog
     :open="open"
     class="cc-pagina-beschrijven"
-    :title="t(key('title'))"
+    :title="text('title')"
     :use-close-button="true"
     :close-button-label="t('actions.close')"
-    :primary-action="{ label: goLabel, actionType: 'progressive', disabled: saving || !info || changed }"
+    :primary-action="{ label: goLabel, actionType: 'progressive', disabled: saving || (steer && !info) || changed }"
     :default-action="{ label: t('actions.cancel') }"
     @primary="go"
     @default="emit('answer', false)"
     @update:open="(value) => !value && emit('answer', false)"
   >
-    <p>{{ t(key("intro"), { level: levelText }) }}</p>
-    <!-- Search terms: how many kinds the AI suggests, chosen here when asking anew (wish Olaf). -->
-    <detail-slider v-if="part === 'zoektermen'" v-model="level" class="cc-pagina-detail" />
-    <p class="cc-bevestig-noot">{{ t(key("note")) }}</p>
+    <!-- The whole first overview: what the AI makes, one point each; the slider under the point
+         it is about, the search terms (wish Olaf 13-11-2026). -->
+    <template v-if="part === 'alles'">
+      <p>{{ text("intro") }}</p>
+      <ul class="cc-pagina-delen">
+        <li>
+          <template v-for="(piece, i) in boldPieces(text('item_description'))" :key="i"><strong v-if="piece.bold">{{ piece.text }}</strong><template v-else>{{ piece.text }}</template></template>
+          <!-- The four lengths as sub-points (wish Olaf 13-11-2026). -->
+          <ul class="cc-pagina-lengtes">
+            <!-- The name of the length in italics, before the colon (wish Olaf). -->
+            <li v-for="length in ['kort', 'normaal', 'caption', 'uitgebreid']" :key="length">
+              <em>{{ text(`length_${length}`).split(":")[0] }}</em>:{{ text(`length_${length}`).split(":").slice(1).join(":") }}
+            </li>
+          </ul>
+        </li>
+        <li><template v-for="(piece, i) in boldPieces(text('item_text'))" :key="i"><strong v-if="piece.bold">{{ piece.text }}</strong><template v-else>{{ piece.text }}</template></template></li>
+        <li>
+          <template v-for="(piece, i) in boldPieces(text('item_terms'))" :key="i"><strong v-if="piece.bold">{{ piece.text }}</strong><template v-else>{{ piece.text }}</template></template>
+          <detail-slider v-model="level" class="cc-pagina-detail" />
+        </li>
+      </ul>
+    </template>
+    <template v-else>
+      <p>{{ text("intro", { level: levelText }) }}</p>
+      <!-- How many kinds of objects the AI suggests as search terms: chosen here, in the window where
+           you also confirm the cost, never in the panel (wish Olaf 13-11-2026). -->
+      <detail-slider v-if="part === 'zoektermen'" v-model="level" class="cc-pagina-detail" />
+      <p class="cc-bevestig-noot">{{ text("note") }}</p>
+    </template>
     <p v-if="costLine"><strong>{{ costLine }}</strong></p>
 
     <!-- AI steering, folded away (wish Olaf 13-11-2026): a hint at the end of the prompt, how hard
          the AI thinks (the price follows), and at the bottom the prompt itself. -->
-    <cdx-accordion v-model="steerOpen" class="cc-pagina-prompt cc-ai-bijsturing">
+    <cdx-accordion v-if="steer" v-model="steerOpen" class="cc-pagina-prompt cc-ai-bijsturing">
       <template #title>{{ t("pagedescribe.steer_title") }}</template>
       <template #description>{{ steerSummary }}</template>
       <cdx-field class="cc-pagina-veld" :optional="true" :optional-flag="t('confirm.optional')">
@@ -98,8 +123,12 @@ const props = defineProps({
   costs: { type: Object, default: () => ({}) },
   // The effort the app uses when you choose nothing (its setting).
   defaultEffort: { type: String, default: "low" },
-  // Which part is asked anew: "beschrijving" or "zoektermen".
+  // What is asked: "beschrijving" or "zoektermen" (anew, or the first terms), or "alles" (the
+  // whole first overview: description and search terms in one call).
   part: { type: String, default: "beschrijving" },
+  // AI steering (hint, effort, prompt): only when asking anew; the first time goes with the app's
+  // prompt (wish Olaf), so then the window has just what happens, the level of detail and the cost.
+  steer: { type: Boolean, default: true },
   // For the search terms: the level of detail (DETAIL_LEVELS), which shapes the app's prompt.
   detail: { type: String, default: "" },
 });
@@ -115,7 +144,11 @@ const saving = ref(false);
 const error = ref("");
 const promptUrl = computed(() => `${props.path}/inventaris/${props.part}/prompt`);
 // The texts of this part: pagedescribe.* (description) or pageterms.* (search terms).
-const key = (name) => `${props.part === "zoektermen" ? "pageterms" : "pagedescribe"}.${name}`;
+const key = (name) => `${{ zoektermen: "pageterms", alles: "pageall" }[props.part] || "pagedescribe"}.${name}`;
+// The texts of this window; the first search terms (no steering) have their own wording.
+// A text with **bold** parts (the key words of the three points, wish Olaf 13-11-2026), as pieces.
+const boldPieces = (value) => String(value || "").split("**").map((piece, i) => ({ text: piece, bold: i % 2 === 1 })).filter((piece) => piece.text);
+const text = (name, params) => t(!props.steer && props.part === "zoektermen" ? `${key(name)}_first` : key(name), params);
 // The level of detail of the search terms, chosen in this window (starts at the panel's).
 const level = ref(props.detail || "normaal");
 const levelText = computed(() => (level.value ? t(`detail.${level.value}`) : ""));
@@ -137,12 +170,12 @@ const steerSummary = computed(() =>
     info.value?.eigen ? t("pagedescribe.steer_own_prompt") : t("pagedescribe.steer_app_prompt"),
   ].join(" · ")
 );
-const goLabel = computed(() => `${t(key("go"))}${price.value ? ` ${price.value}` : ""}`);
+const goLabel = computed(() => `${text("go")}${price.value ? ` ${price.value}` : ""}`);
 
 const promptQueryUrl = () => `${promptUrl.value}${props.part === "zoektermen" ? `?detailniveau=${encodeURIComponent(level.value)}` : ""}`;
 // Another level of detail: the app's prompt follows; a change of your own in the text stays.
 watch(level, async () => {
-  if (!props.open || props.part !== "zoektermen" || !info.value) return;
+  if (!props.open || props.part !== "zoektermen" || !props.steer || !info.value) return;
   try {
     const answer = await get(promptQueryUrl());
     if (changed.value) info.value = { ...info.value, standaard_prompt: answer.standaard_prompt };
@@ -168,8 +201,9 @@ watch(
     steerOpen.value = false;
     hint.value = "";
     effort.value = EFFORTS.includes(props.defaultEffort) ? props.defaultEffort : "low";
+    level.value = props.detail || "normaal";
+    if (!props.steer) return; // no prompt to show the first time
     try {
-      level.value = props.detail || "normaal";
       show(await get(promptQueryUrl()));
     } catch (failure) {
       error.value = errorText(t, failure);
@@ -216,7 +250,7 @@ function go() {
     promptOpen.value = true;
     return;
   }
-  emit("answer", { hint: hint.value.trim(), effort: effort.value, ...(props.part === "zoektermen" ? { detail: level.value } : {}) });
+  emit("answer", { hint: hint.value.trim(), effort: effort.value, ...(props.part !== "beschrijving" ? { detail: level.value } : {}) });
 }
 
 const formatTime = (stamp) => formatStamp(stamp, language);

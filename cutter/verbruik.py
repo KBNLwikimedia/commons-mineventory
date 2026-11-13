@@ -7,6 +7,7 @@ estimated cost of every paid call and, from phase 2, the Commons user name.
 """
 
 import json
+import math
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -21,6 +22,17 @@ def kind_of(entry):
     """"sam" (a detection), "beschrijving" ("Wat staat hierop?") or
     "inventaris" ("Wat staat op deze pagina?")."""
     return entry.get("soort") or "sam"
+
+
+def _readable(entry):
+    """Whether a log line is a call the sums can use: an object with a time, and numbers
+    (not NaN) for images and cost. A line half written by a crash is skipped, never fatal."""
+    if not isinstance(entry, dict) or not isinstance(entry.get("tijd"), str):
+        return False
+    return all(
+        isinstance(entry.get(key, 0), (int, float)) and not isinstance(entry.get(key, 0), bool) and math.isfinite(entry.get(key, 0))
+        for key in ("afbeeldingen", "kosten_usd")
+    )
 
 
 def _kinds():
@@ -162,11 +174,13 @@ class Verbruik:
         if self._cache[0] == key:
             return list(self._cache[1])
         result = []
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             try:
-                result.append(json.loads(line))
+                entry = json.loads(line)
             except ValueError:
                 continue
+            if _readable(entry):
+                result.append(entry)
         self._cache = (key, result)
         return list(result)
 
@@ -223,5 +237,13 @@ class Verbruik:
                 "gebruiker": user,
                 **entry,
             }
-            with open(self.directory / "logboek.jsonl", "a", encoding="utf-8") as log:
-                log.write(json.dumps(record, ensure_ascii=False) + "\n")
+            path = self.directory / "logboek.jsonl"
+            with open(path, "a+b") as log:
+                # A last line cut off by a crash gets its line end first, so this call
+                # is not glued to it (and lost with it).
+                log.seek(0, 2)
+                start = b""
+                if log.tell():
+                    log.seek(-1, 2)
+                    start = b"" if log.read(1) == b"\n" else b"\n"
+                log.write(start + (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8"))

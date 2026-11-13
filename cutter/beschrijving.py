@@ -23,7 +23,6 @@ permission from Olaf.
 import base64
 from contextlib import nullcontext
 import hashlib
-import io
 import json
 import time
 import logging
@@ -31,7 +30,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 
 from . import __version__
 from .detectie.meta_sam import extract_output_text
@@ -40,8 +39,15 @@ from .detectie.basis import INTERNAL_LABELS, DetectionError
 from .detectie.meta_api import MetaClient
 from .export import encode
 from .opruimen import cached_bytes, mark_used, sharded
+from .commons import open_image
+from .opslag import read_json, write_json
 
 logger = logging.getLogger(__name__)
+
+
+def _is_dict(data):
+    return isinstance(data, dict)
+
 
 PROMPT_VERSION = 2  # 1: Dutch and English, wikidata_suggesties (0.1.0); 2: the cut-out's own caption (0.4.0)
 MARGIN = 0.25  # share of the box added on every side, so text around the image comes along
@@ -854,10 +860,18 @@ def parse_answer(text):
 
 
 def usage_tokens(body):
-    """(input, output, reasoning) tokens; reasoning is part of output."""
-    usage = body.get("usage") or {}
-    reasoning = (usage.get("output_tokens_details") or {}).get("reasoning_tokens")
-    return usage.get("input_tokens"), usage.get("output_tokens"), reasoning
+    """(input, output, reasoning) tokens; reasoning is part of output. A count that is no
+    whole number of at least 0 (a string, NaN, a negative) is None: the cost is then estimated."""
+    usage = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+    details = usage.get("output_tokens_details") if isinstance(usage.get("output_tokens_details"), dict) else {}
+
+    def count(value):
+        return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+    input_tokens, output_tokens = count(usage.get("input_tokens")), count(usage.get("output_tokens"))
+    if output_tokens is None:
+        input_tokens = None  # half a count gives half a price: estimate instead
+    return input_tokens, output_tokens, count(details.get("reasoning_tokens"))
 
 
 # ---------------------------------------------------------------------------
@@ -930,7 +944,7 @@ class MetaVision:
         return self.client.session
 
     def describe(self, model, prompt, data_url, obj, effort=None, schema=SCHEMA):
-        return self.client.post(
+        return self.client.post_json(
             "/responses",
             build_request(model, prompt, data_url, effort, schema, "beschrijving" if schema is SCHEMA else "pagina"),
             model,
@@ -938,7 +952,7 @@ class MetaVision:
             no_key_code="no_api_key",
             # Never fall back to the more expensive model silently.
             busy=f"Te veel verzoeken aan '{model}'; probeer het zo opnieuw, of kies Standard.",
-        ).json()
+        )
 
 
 def make_vision(config):
@@ -1048,7 +1062,7 @@ class DescriptionService:
         client = self.objects.client
         if file.get("uitsnijden_mogelijk"):
             return client.original_image(file, n)
-        return Image.open(io.BytesIO(client.page_image(file, n, 3840)))
+        return open_image(client.page_image(file, n, 3840))
 
     def model_preview(self, file, n, object_id, margin=None, max_side=None):
         """JPEG of what the model would see with this margin, the box outlined
@@ -1180,9 +1194,10 @@ class DescriptionService:
         if question["own"]:  # another prompt is another question
             key_hint += f"|eigen prompt: {hashlib.sha1(question['own'].encode()).hexdigest()[:12]}"
         path = self._cache_path(file, n, obj, choice["model"], key_hint, margin, page_text)
-        if self.objects.counts_for_file(file, path) and not again:
+        # A saved answer that went meanwhile, or is unreadable (kept aside), counts as none.
+        description = read_json(path, None, valid=_is_dict) if self.objects.counts_for_file(file, path) and not again else None
+        if description is not None:
             mark_used(path)
-            description = json.loads(path.read_text(encoding="utf-8"))
             description["uit_cache"] = True
             return self._store(file, n, object_id, description, user)
 
@@ -1237,8 +1252,7 @@ class DescriptionService:
                     cost=amount,
                     user=user,
                 )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(description, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_json(path, description)
         description["uit_cache"] = False
         return self._store(file, n, object_id, description, user)
 
@@ -1445,16 +1459,16 @@ class DescriptionService:
         path = self._inventory_cache_path(file, n, choice["model"], part, detail)
         # Asking a part anew may go with a prompt of your own (wish Olaf 13-11-2026).
         own = self._own_page_prompt(file, n, part) if part in PAGE_PROMPT_KEYS else ""
-        if self.objects.counts_for_file(file, path) and not again and part is None:
+        overview = read_json(path, None, valid=_is_dict) if self.objects.counts_for_file(file, path) and not again and part is None else None
+        if overview is not None:
             mark_used(path)
-            overview = json.loads(path.read_text(encoding="utf-8"))
             if (overview.get("beschrijvingen") or {}).get(description_level):
                 show_description_length(overview, description_level)
             return self._store_inventory(file, n, overview, cached=True, user=user)
 
         effort = effort or self._effort()
         with self._booking(user, choice["model"], effort, ESTIMATE_PAGE_INPUT):
-            image = Image.open(io.BytesIO(self.objects.client.page_image(file, n, PAGE_WIDTH))).convert("RGB")
+            image = open_image(self.objects.client.page_image(file, n, PAGE_WIDTH)).convert("RGB")
             if image.width > PAGE_WIDTH:
                 image = image.resize((PAGE_WIDTH, round(image.height * PAGE_WIDTH / image.width)))
             data_url = "data:image/jpeg;base64," + base64.b64encode(encode(image, "JPEG", quality=85)).decode("ascii")
@@ -1520,8 +1534,7 @@ class DescriptionService:
                 retry=True,
                 code="unreadable_answer",
             )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(overview, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_json(path, overview)
         if part is not None:
             return self._store_inventory_part(file, n, part, overview, user=user)
         return self._store_inventory(file, n, overview, cached=False, user=user)

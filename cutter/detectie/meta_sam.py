@@ -9,6 +9,7 @@ text and decoding masks is left to Meta's official `meta-sam-parser`.
 
 import base64
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -96,9 +97,9 @@ def extract_output_text(body):
         return body["output_text"]
     parts = []
     for item in body.get("output") or []:
-        for content in item.get("content") or []:
-            if content.get("type") == "output_text":
-                parts.append(content.get("text", ""))
+        for content in (item.get("content") or []) if isinstance(item, dict) else []:
+            if isinstance(content, dict) and content.get("type") == "output_text" and isinstance(content.get("text"), str):
+                parts.append(content["text"])
     return "".join(parts)
 
 
@@ -189,14 +190,14 @@ class MetaSamDetector(Detector):
         return self.to_objects(records, scale, label, text, size)
 
     def _post(self, body):
-        return self.client.post(
+        return self.client.post_json(
             "/responses",
             body,
             self.model,
             "Geen MODEL_API_KEY ingesteld; live detectie is niet mogelijk.",
             refused="SAM weigerde het verzoek",
             busy="Te veel verzoeken aan de Meta Model API; probeer het zo opnieuw.",
-        ).json()
+        )
 
     def to_objects(self, records, scale, label, prompt, size):
         """Scale records back to native page pixels. Masks stay encoded;
@@ -210,6 +211,14 @@ class MetaSamDetector(Detector):
         }
         objects = []
         for record in records:
+            coords = (record.left, record.top, record.right, record.bottom)
+            if not all(isinstance(c, (int, float)) and math.isfinite(c) for c in coords):
+                logger.warning("SAM record %s without a usable box: skipped", record.object_id)
+                continue
+            # Corners in either order; a confidence that is no number (NaN) is no score.
+            left, right = sorted((record.left, record.right))
+            top, bottom = sorted((record.top, record.bottom))
+            score = record.confidence if isinstance(record.confidence, (int, float)) and math.isfinite(record.confidence) else None
             mask_data = None
             if record.mask is not None:
                 mask_data = {
@@ -222,12 +231,12 @@ class MetaSamDetector(Detector):
                 DetectedObject(
                     id=f"sam-{record.object_id}",
                     label=label,
-                    score=record.confidence,
+                    score=score,
                     box={
-                        "x": round(record.left * scale),
-                        "y": round(record.top * scale),
-                        "w": round((record.right - record.left) * scale),
-                        "h": round((record.bottom - record.top) * scale),
+                        "x": round(left * scale),
+                        "y": round(top * scale),
+                        "w": round((right - left) * scale),
+                        "h": round((bottom - top) * scale),
                     },
                     mask_data=mask_data,
                     herkomst=dict(provenance),

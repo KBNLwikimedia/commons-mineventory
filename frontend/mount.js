@@ -5,6 +5,7 @@ import { smoothAccordions } from "./accordion-motion.js";
 import { readConfig } from "./config.js";
 import { createI18n } from "./i18n.js";
 import { movableDialogs } from "./movable.js";
+import { installSafetyNet } from "./safety.js";
 
 export function mount(component, selector, props = {}) {
   const element = document.querySelector(selector);
@@ -17,6 +18,8 @@ export function mount(component, selector, props = {}) {
   const app = createApp(component, given);
   const i18n = createI18n(config.teksten || {}, config.taal);
   app.use(i18n);
+  // An error nobody caught shows one red message instead of a blank page (and stays in the console).
+  installSafetyNet(app, i18n.t);
   app.provide("config", config);
   app.mount(element);
   smoothAccordions(); // all fold-outs open and close smoothly (once per page)

@@ -11,11 +11,11 @@ The AI search terms are not looked up on Wikidata here: the window does that
 per term (GET /wikidata/zoek, cached), so the window opens at once.
 """
 
-import json
 from datetime import datetime, timezone
 
 from .concept import MAX_CAPTION
 from .detectie.basis import DetectionError
+from .opslag import read_json, write_json
 from .sdc import QID
 
 CAPTION_MAX = MAX_CAPTION
@@ -38,6 +38,13 @@ def _object_items(obj):
     if obj.get("wikidata"):
         return [{"q": obj["wikidata"], "label": obj.get("label_item") or obj.get("label_nl") or obj.get("label") or obj["wikidata"]}]
     return []
+
+
+def _valid_draft(data):
+    """The shape of origineel.json that the app relies on."""
+    return isinstance(data, dict) and isinstance(data.get("beeldt_af", []), list) and all(
+        isinstance(e, dict) and isinstance(e.get("q"), str) for e in data.get("beeldt_af", [])
+    )
 
 
 def draft_path(service, file, n):
@@ -78,7 +85,7 @@ def gather(service, file, n):
                 suggestions.setdefault(key.lower(), {"term": key, "objecten": []})["objecten"].append(short(obj))
 
     path = draft_path(service, file, n)
-    draft = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+    draft = read_json(path, None, valid=_valid_draft)  # unreadable: kept aside, no draft
     return {
         "mid": file["mid"],
         "titel": file.get("titel"),
@@ -168,8 +175,7 @@ def save_draft(service, file, n, body):
         "bewaard_op": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     path = draft_path(service, file, n)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(draft, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_json(path, draft)
     return draft
 
 
@@ -177,7 +183,5 @@ def items_in_draft(service, file, n, object_id):
     """The depicts items the window's draft has for this object (rule 1 of 9.7: one list of
     planned changes per original), to show them in the object's Commons concept."""
     path = draft_path(service, file, n)
-    if not path.exists():
-        return []
-    draft = json.loads(path.read_text(encoding="utf-8"))
+    draft = read_json(path, None, valid=_valid_draft) or {}
     return [e["q"] for e in draft.get("beeldt_af", []) if object_id in (e.get("objecten") or [])]

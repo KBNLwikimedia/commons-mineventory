@@ -10,16 +10,42 @@ from PIL import Image
 
 from ..export import encode
 from ..opruimen import cached_bytes, sharded
+from .basis import DetectionError
+
+MAX_MASK_PIXELS = 200_000_000  # far above any real mask; a larger size is a damaged description
+
+
+class BadMask(DetectionError, ValueError):
+    """A mask that cannot be decoded (wrong size, broken payload): 422, code bad_mask.
+    Also a ValueError, so callers that treat an unreadable mask as the box keep doing so."""
+
+    def __init__(self):
+        super().__init__("Het masker van dit object is beschadigd en kan niet gelezen worden.", status=422, code="bad_mask")
 
 
 def decode_raster(mask_data):
     """Row-major uint8 array (height, width) of 0/1 for a mask description.
 
-    No mask (regions from Commons, manual rectangles) is a full rectangle.
+    No mask (regions from Commons, manual rectangles) is a full rectangle. A mask
+    that does not decode (an odd answer of SAM, a damaged file) raises BadMask.
     """
     if not mask_data:
         return np.ones((1, 1), dtype=np.uint8)
-    width, height = mask_data["width"], mask_data["height"]
+    try:
+        raster = _decode(mask_data)
+    except BadMask:
+        raise
+    except Exception as exc:  # noqa: BLE001 - whatever the decoder trips over, it is a damaged mask
+        raise BadMask() from exc
+    if raster.ndim != 2 or 0 in raster.shape:
+        raise BadMask()
+    return raster
+
+
+def _decode(mask_data):
+    width, height = int(mask_data["width"]), int(mask_data["height"])
+    if width <= 0 or height <= 0 or width * height > MAX_MASK_PIXELS:
+        raise BadMask()
     encoding = mask_data["encoding"]
     if encoding == "png":  # a group (7.4): the union of its members' masks, as a 1-bit PNG
         image = Image.open(io.BytesIO(base64.b64decode(mask_data["payload"]))).convert("L")

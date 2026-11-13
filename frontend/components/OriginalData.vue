@@ -19,6 +19,18 @@
       {{ t("original.intro") }}
       <a :href="commonsUrl" target="_blank" rel="noopener">{{ t("panel.commons_edit_link") }}</a>
     </p>
+    <!-- What can go back, as bullets: here, once you asked for it, not in the panel (wish Olaf
+         13-11-2026). The same list as in the (i) of Naar Commons: one text for both. -->
+    <div class="cc-uitleg cc-naar-commons-uitleg">
+      <p>{{ t("original.help_intro") }}</p>
+      <ul>
+        <li v-for="(item, k) in toCommonsList" :key="k">
+          {{ item.text }}
+          <ul v-if="item.sub.length"><li v-for="(sub, m) in item.sub" :key="m">{{ sub }}</li></ul>
+        </li>
+      </ul>
+      <p>{{ t("original.help_end") }}</p>
+    </div>
     <busy-note v-if="loading" :message="t('original.loading')" />
     <cdx-message v-if="error" type="error">{{ error }}</cdx-message>
 
@@ -210,6 +222,7 @@ import { useT } from "../i18n.js";
 import { itemImage, searchItems } from "../wikidata.js";
 import { movableDialog } from "../movable.js";
 import { commonsFileUrl } from "../state.js";
+import { bulletList } from "../text.js";
 import AiBadge from "./AiBadge.vue";
 import OriginalRow from "./OriginalRow.vue";
 import TickLinks from "./TickLinks.vue";
@@ -229,6 +242,8 @@ const props = defineProps({
 });
 const emit = defineEmits(["close", "ask-caption"]);
 const t = useT();
+// What can go back to Commons, from the same text as the (i) in the panel.
+const toCommonsList = computed(() => bulletList(t("panel.info_tocommons_2")));
 const config = inject("config");
 
 const LANGUAGES = ["nl", "en"];

@@ -160,9 +160,9 @@ function centreOnDoubleClick(dialog, storageKey) {
    confirmations, describe in bulk, locating, … Once per page. Dialogs that do it themselves,
    with a remembered place (the magnifier, the original's data), are left to them (`skip`). The
    others start in the middle each time they open. */
-let watching = false;
+let watching = null;
 export function movableDialogs(labels = {}, skip = ".cc-vergroter, .cc-origineel") {
-  if (watching || typeof MutationObserver === "undefined") return;
+  if (watching || typeof MutationObserver === "undefined") return stopWatching;
   watching = true;
   const wire = (dialog) => {
     if (dialog.dataset.ccVersleepbaar || dialog.matches(skip)) return;
@@ -172,9 +172,18 @@ export function movableDialogs(labels = {}, skip = ".cc-vergroter, .cc-origineel
     makeMovable(dialog, { handle: header, labels });
     header.ondblclick = centreOnDoubleClick(dialog);
   };
-  const scan = () => document.querySelectorAll(".cdx-dialog").forEach(wire);
-  new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+  const scan = () => {
+    if (typeof document !== "undefined") document.querySelectorAll(".cdx-dialog").forEach(wire);
+  };
+  watching = new MutationObserver(scan);
+  watching.observe(document.body, { childList: true, subtree: true });
   scan();
+  return stopWatching;
+}
+// Stops watching (the tests; a page never needs it).
+function stopWatching() {
+  if (watching && watching !== true) watching.disconnect();
+  watching = null;
 }
 
 /* Forget the remembered position and size (the dialog is centred again next time). */

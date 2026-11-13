@@ -26,12 +26,12 @@ the same time is never overwritten with an older copy.
 """
 
 import contextlib
-import json
 import os
 import shutil
 import time
 from pathlib import Path
 
+from .opslag import CorruptFile, read_store, write_atomic, write_json
 from .slot import store_lock
 
 DAY = 86400
@@ -56,12 +56,17 @@ def sharded(directory, key, suffix=""):
 def cached_bytes(path, make):
     """The bytes at `path` (marked used), or `make()`, written there and returned."""
     path = Path(path)
-    if path.exists():
+    try:
+        data = path.read_bytes()
         mark_used(path)
-        return path.read_bytes()
+        return data
+    except FileNotFoundError:
+        pass  # not made yet, or removed by the cleanup just now
     data = make()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    try:
+        write_atomic(path, data)  # never half a preview on disk
+    except OSError:
+        pass  # a full disk or a locked file: the bytes are still returned
     return data
 
 
@@ -95,10 +100,16 @@ class Cleanup:
         return self.now - last_used(path) > self.days[kind] * DAY
 
     def _remove(self, path, kind):
+        """Count (and with `apply` delete) one file. A file that went meanwhile, or that
+        Windows keeps locked, is skipped: the next run gets it; the cleanup goes on."""
+        try:
+            size = path.stat().st_size
+            if self.apply:
+                path.unlink()
+        except OSError:
+            return
         self.report[kind]["bestanden"] += 1
-        self.report[kind]["bytes"] += path.stat().st_size
-        if self.apply:
-            path.unlink()
+        self.report[kind]["bytes"] += size
 
     def _files(self, folder):
         return [p for p in Path(folder).rglob("*") if p.is_file()] if Path(folder).is_dir() else []
@@ -141,7 +152,10 @@ class Cleanup:
 
     def _clean_cutouts(self, page, store_path):
         """Saved cut-outs past BEWAAR_UITSNEDEN_DAGEN; their objects forget them."""
-        store = json.loads(store_path.read_text(encoding="utf-8")) if store_path.exists() else {}
+        try:
+            store = read_store(store_path, corrupt="raise", copy=False)
+        except CorruptFile:
+            return  # unreadable: which files it refers to is unknown, so nothing is removed
         objects = store.get("objecten", []) + store.get("prullenbak", [])
         # Every file an object refers to, before any object forgets its own.
         known = {page.parent / v for o in objects for k, v in (o.get("opgeslagen") or {}).items() if k in ("jpg", "png", "masker")}
@@ -163,9 +177,7 @@ class Cleanup:
                 if path not in known and self._expired(path, "uitsneden"):
                     self._remove(path, "uitsneden")
         if changed and self.apply:  # under the lock (see run)
-            tmp = store_path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(store, ensure_ascii=False, indent=2), encoding="utf-8")
-            tmp.replace(store_path)
+            write_json(store_path, store)
 
     def _remove_empty_dirs(self, root):
         if not Path(root).is_dir():

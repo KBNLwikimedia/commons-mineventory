@@ -18,23 +18,25 @@ the Delpher Uitsnijder without zones, ALTO, captions from OCR and hierarchy.
 import contextlib
 import functools
 import hashlib
-import io
 import json
+import logging
+import math
 import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from PIL import Image
-
 from .. import export, prompts, regios
-from ..commons import public as public_file, snap_width
+from ..commons import open_image, public as public_file, snap_width
+from ..opslag import read_json, read_store, write_atomic
 from .basis import DetectionError
 from ..opruimen import cached_bytes, last_used, mark_used, sharded
 from ..sdc import QID
 from ..slot import store_lock
 from ..verbruik import KOSTEN_PER_AFBEELDING
 from .maskers import MaskCache, decode_raster, union_mask
+
+logger = logging.getLogger(__name__)
 
 MIN_IOU = 0.5
 DUPLICATE_IOU = 0.8
@@ -50,13 +52,6 @@ MAX_HINT = 100  # characters of a hint at Point or Draw
 HINT_MARGIN = 0.1  # room around a drawn rectangle sent with a hint, per side
 STATUSES = ("kandidaat", "geselecteerd", "uitgesloten")
 MODES = ("prompt", "alles", "commons")
-
-
-def _write_atomic(path, text):
-    """Write via a temporary file and a rename: readers see the old or the new file, never half."""
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
 MAX_TERMS_PER_REQUEST = 20  # search terms in one request (each uncached term is one paid SAM call)
 SAVED_META = ("tijdstempel", "breedte", "hoogte")  # in "opgeslagen", next to the file paths
 # Fields made by the user or paid for, kept when a search returns an object again.
@@ -314,26 +309,27 @@ class DetectionService:
         """Objects for one English term: from the cache or from the detector (always the
         detector with `fresh`)."""
         path = self._cache_path(page["id"], term["en"])
-        if path.exists() and not fresh:
+        # A saved answer that went (cleanup) or is unreadable counts as none.
+        stored = None if fresh else read_json(path, None, valid=lambda d: isinstance(d, list), copy=False)
+        if stored is not None:
             mark_used(path)
-            stored = json.loads(path.read_text(encoding="utf-8"))
         else:
             detected = self._detect_paid(
                 file, page["n"], term["en"], user,
                 lambda: self.detector.detect(self._image(file, page, context), term["en"], native_size=(page["breedte"], page["hoogte"])),
             )
             stored = [o.to_dict() for o in detected]
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(stored, ensure_ascii=False), encoding="utf-8")
+            write_atomic(path, json.dumps(stored, ensure_ascii=False))
         return [self._stamp(page, term, o) for o in stored]
 
     def _detect_paid(self, file, n, term, user, call):
         """Run one detector call (`call`): in live mode checked against the limits first
         and registered as used afterwards, under `term`."""
-        if self.detector.betaald:
-            self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
-        detected = call()
-        if self.detector.betaald:
+        if not self.detector.betaald:
+            return call()
+        # Booked while it runs, so parallel requests cannot pass the limits together.
+        with self.verbruik.reservation(1, user=user, cost=KOSTEN_PER_AFBEELDING):
+            detected = call()
             self._register(file, n, term, user)
         return detected
 
@@ -348,8 +344,7 @@ class DetectionService:
         if not self.detector.betaald:
             return None
         if context["image"] is None:
-            data = self.client.page_image(file, page["n"], IMAGE_WIDTH)
-            context["image"] = Image.open(io.BytesIO(data)).convert("RGB")
+            context["image"] = open_image(self.client.page_image(file, page["n"], IMAGE_WIDTH)).convert("RGB")
         return context["image"]
 
     def _stamp(self, page, term, stored):
@@ -466,7 +461,7 @@ class DetectionService:
         crop = None
         if self.detector.betaald:
             width = snap_width(IMAGE_WIDTH * page["breedte"] / area["w"], page["breedte"])
-            image = Image.open(io.BytesIO(self.client.page_image(file, page["n"], width))).convert("RGB")
+            image = open_image(self.client.page_image(file, page["n"], width)).convert("RGB")
             s = image.width / page["breedte"]
             crop = image.crop((round(x0 * s), round(y0 * s), round(x1 * s), round(y1 * s)))
         detected = self._detect_paid(
@@ -570,6 +565,8 @@ class DetectionService:
             x, y, w, h = (float(box[k]) for k in ("x", "y", "w", "h"))
         except (KeyError, TypeError, ValueError):
             raise DetectionError("Geef een rechthoek als {x, y, w, h} in paginapixels.", status=400)
+        if not all(math.isfinite(v) for v in (x, y, w, h, x + w, y + h)):
+            raise DetectionError("Geef een rechthoek als {x, y, w, h} in paginapixels.", status=400)
         if w < 0:
             x, w = x + w, -w
         if h < 0:
@@ -595,10 +592,7 @@ class DetectionService:
             summary["paginas"] += 1
             store_path = folder / "objecten.json"
             if store_path.exists():
-                try:
-                    store = json.loads(store_path.read_text(encoding="utf-8"))
-                except (OSError, ValueError):
-                    store = {}
+                store = read_store(store_path)
                 objects, trash = store.get("objecten", []), store.get("prullenbak", [])
                 summary["objecten"] += len(objects)
                 summary["prullenbak"] += len(trash)
@@ -634,7 +628,7 @@ class DetectionService:
         marker = folder / FRESH_AI_MARKER
         if fresh_ai:
             folder.mkdir(parents=True, exist_ok=True)
-            marker.write_text(json.dumps({"tijd": _now()}), encoding="utf-8")
+            write_atomic(marker, json.dumps({"tijd": _now()}))
         else:
             marker.unlink(missing_ok=True)
         return {**summary, "ai_opnieuw": bool(fresh_ai)}
@@ -660,11 +654,25 @@ class DetectionService:
         path = self._store_path(file, n)
         if path.exists():
             mark_used(path)  # the page's objects count as used (cleanup, 12.1)
-        store = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        store = read_store(path)
         store.setdefault("objecten", [])
         store.setdefault("prullenbak", [])
         _fill_dutch_names(store)
         return store
+
+    def damaged_copies(self, file, n):
+        """The copies kept aside of an unreadable objecten.json of this page (opslag.keep_copy):
+        [{"bestand": name, "gewijzigd": ISO time}], oldest first. The app warns about them once
+        (wish Olaf 13-11-2026): what was on the page then is not lost, but not shown either."""
+        folder = self._store_path(file, n).parent
+        copies = []
+        for path in folder.glob("objecten.json.kapot-*"):
+            try:
+                when = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+            except OSError:
+                continue
+            copies.append({"bestand": path.name, "gewijzigd": when.isoformat(timespec="seconds")})
+        return sorted(copies, key=lambda c: c["gewijzigd"])
 
     def page_objects(self, file, n):
         return self._load_store(file, n)["objecten"]
@@ -680,13 +688,12 @@ class DetectionService:
             mask = obj.get("masker")
             if mask and mask.get("payload"):
                 relative = f"sam/{obj['id']}.json"
-                (path.parent / "sam").mkdir(exist_ok=True)
-                (path.parent / relative).write_text(json.dumps(mask, ensure_ascii=False), encoding="utf-8")
+                write_atomic(path.parent / relative, json.dumps(mask, ensure_ascii=False))
                 obj["masker"] = {k: v for k, v in mask.items() if k != "payload"} | {"bestand": relative}
         clean = {**store, "objecten": [self._without_display(o) for o in store["objecten"]],
                  "prullenbak": [self._without_display(o) for o in store["prullenbak"]]}
-        _write_atomic(path, json.dumps(clean, ensure_ascii=False, indent=2))
-        _write_atomic(self._file_dir(file) / "bestand.json", json.dumps(public_file(file), ensure_ascii=False, indent=2))
+        write_atomic(path, json.dumps(clean, ensure_ascii=False, indent=2))
+        write_atomic(self._file_dir(file) / "bestand.json", json.dumps(public_file(file), ensure_ascii=False, indent=2))
 
     @staticmethod
     def _without_display(obj):
@@ -698,7 +705,10 @@ class DetectionService:
         mask = obj.get("masker")
         if mask and mask.get("bestand") and not mask.get("payload"):
             path = self._store_path(file, n).parent / mask["bestand"]
-            return json.loads(path.read_text(encoding="utf-8"))
+            data = read_json(path, None, valid=lambda d: isinstance(d, dict) and "encoding" in d)
+            if data is None:  # the mask file went or is unreadable: the object is its box
+                logger.warning("Mask file %s missing or unreadable; using the box of %s", path, obj.get("id"))
+            return data
         return mask
 
     def _save(self, file, n, objects):
@@ -1012,6 +1022,11 @@ class DetectionService:
         obj = next((o for o in store["prullenbak"] if o["id"] == object_id), None)
         if obj is None:
             raise DetectionError(f"Object '{object_id}' staat niet in de prullenbak.", status=404)
+        if any(o["id"] == object_id for o in store["objecten"]):
+            raise DetectionError(
+                f"Object '{object_id}' staat al op de pagina; verwijder het exemplaar in de prullenbak definitief als je het niet meer nodig hebt.",
+                status=409, code="already_on_page",
+            )
         store["prullenbak"].remove(obj)
         obj.pop("verwijderd_op", None)
         twin = next((o for o in store["objecten"] if _mergeable(o, obj)), None)
@@ -1026,17 +1041,23 @@ class DetectionService:
     def purge_object(self, file, n, object_id):
         """Delete an object permanently, with its saved files."""
         store = self._load_store(file, n)
-        before = len(store["objecten"]) + len(store["prullenbak"])
-        for obj in store["objecten"] + store["prullenbak"]:
-            if obj["id"] != object_id:
-                continue
-            self._remove_files(file, obj)
-            if (obj.get("masker") or {}).get("bestand"):
-                (self._store_path(file, n).parent / obj["masker"]["bestand"]).unlink(missing_ok=True)
-        store["objecten"] = [o for o in store["objecten"] if o["id"] != object_id]
-        store["prullenbak"] = [o for o in store["prullenbak"] if o["id"] != object_id]
-        if len(store["objecten"]) + len(store["prullenbak"]) == before:
+        # An id both in the trash and on the page (a store edited by hand can have it):
+        # only the copy in the trash goes; files the other copy still uses stay.
+        where = "prullenbak" if any(o["id"] == object_id for o in store["prullenbak"]) else "objecten"
+        gone = [o for o in store[where] if o["id"] == object_id]
+        if not gone:
             raise DetectionError(f"Object '{object_id}' niet gevonden.", status=404)
+        store[where] = [o for o in store[where] if o["id"] != object_id]
+        in_use = {
+            v for o in store["objecten"] + store["prullenbak"]
+            for v in [*(o.get("opgeslagen") or {}).values(), (o.get("masker") or {}).get("bestand")] if isinstance(v, str)
+        }
+        for obj in gone:
+            obj["opgeslagen"] = {k: v for k, v in (obj.get("opgeslagen") or {}).items() if v not in in_use}
+            self._remove_files(file, obj)
+            relative = (obj.get("masker") or {}).get("bestand")
+            if relative and relative not in in_use:
+                (self._store_path(file, n).parent / relative).unlink(missing_ok=True)
         self._write_store(file, n, store)
         return [self.public(file, n, o) for o in store["objecten"]]
 
@@ -1157,9 +1178,13 @@ class DetectionService:
         on the fly (not stored) when the object was not saved yet."""
         obj = self._find(file, n, object_id)
         path = (obj.get("opgeslagen") or {}).get(kind)
-        if path and (self._file_dir(file) / path).exists():
-            mark_used(self._file_dir(file) / path)
-            return (self._file_dir(file) / path).read_bytes()
+        if path:
+            try:
+                data = (self._file_dir(file) / path).read_bytes()
+                mark_used(self._file_dir(file) / path)
+                return data
+            except FileNotFoundError:
+                pass  # gone (cleanup): made anew below
         page = self.client.load_page(file, n)
         image = self.client.original_image(file, n)
         scale = image.width / page["breedte"]
@@ -1175,7 +1200,7 @@ class DetectionService:
         key = json.dumps([file["mid"], n, obj["id"], obj["box"], obj.get("masker"), obj.get("opgeslagen"), kind], sort_keys=True)
         if key not in self._facts:
             data = self.saved_file(file, n, obj["id"], kind)
-            width, height = Image.open(io.BytesIO(data)).size
+            width, height = open_image(data, load=False).size
             if len(self._facts) > 500:
                 self._facts.clear()
             self._facts[key] = {"sha1": hashlib.sha1(data).hexdigest(), "bytes": len(data), "breedte": width, "hoogte": height}
@@ -1187,7 +1212,7 @@ class DetectionService:
         given {"mid", "pagina", "id"} entries. Returns how many were deleted."""
         try:
             wanted = {(str(t["mid"]), int(t["pagina"]), str(t["id"])) for t in targets} if targets is not None else None
-        except (KeyError, TypeError, ValueError):
+        except (KeyError, TypeError, ValueError, OverflowError):
             raise DetectionError("Elk object is {\"mid\", \"pagina\", \"id\"}.", status=400, code="invalid_body") from None
         deleted = 0
         for entry in self.all_objects(trash=True):
@@ -1240,7 +1265,7 @@ class DetectionService:
         page = self.client.load_page(file, n)
         if width and width <= 400:
             needed = width * page["breedte"] / max(1, box["w"])
-            image = Image.open(io.BytesIO(self.client.page_image(file, n, min(needed, page["breedte"]))))
+            image = open_image(self.client.page_image(file, n, min(needed, page["breedte"])))
         else:
             image = self.client.original_image(file, n)
         crop = image.crop(export.rect(box, image.width / page["breedte"]))
@@ -1255,16 +1280,16 @@ class DetectionService:
         its bestand.json). `mid` limits it to one file; `saved` to saved ones."""
         result = []
         for meta_path in self.output_dir.glob("M*/bestand.json"):
-            try:
-                file = json.loads(meta_path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            file = read_json(meta_path, None, valid=lambda d: isinstance(d, dict) and isinstance(d.get("mid"), str))
+            if file is None:
                 continue
             if mid and file.get("mid") != mid:
                 continue
             for store_path in meta_path.parent.glob("pagina_*/objecten.json"):
                 try:
                     n = int(store_path.parent.name.split("_", 1)[1])
-                    store = json.loads(store_path.read_text(encoding="utf-8"))
+                    store = read_store(store_path)
+                    store.setdefault("objecten", [])
                     store.setdefault("prullenbak", [])
                     _fill_dutch_names(store)
                     objects = store["prullenbak"] if trash else store["objecten"]
@@ -1359,10 +1384,15 @@ class DetectionService:
         """When the saved files of a cut-out are removed: BEWAAR_UITSNEDEN_DAGEN
         after their last use (the cleanup, cutter/opruimen.py). {} when unknown."""
         paths = [self._file_dir(file) / saved[k] for k in ("jpg", "png", "masker") if saved.get(k)]
-        present = [p for p in paths if p.exists()]
-        if not present:
+        times = []
+        for path in paths:
+            try:
+                times.append(last_used(path))
+            except OSError:  # not there (any more): the cleanup may have taken it just now
+                continue
+        if not times:
             return {}
-        last = max(last_used(p) for p in present)
+        last = max(times)
         expires = datetime.fromtimestamp(last + self.keep_cutout_days * 86400, timezone.utc)
         return {"laatst_gebruikt": datetime.fromtimestamp(last, timezone.utc).isoformat(timespec="seconds"), "verloopt": expires.isoformat(timespec="seconds")}
 

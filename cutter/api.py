@@ -6,6 +6,7 @@ Conventions from the Delpher Uitsnijder: JSON errors {"fout": …} with a fixed
 never costs money and never changes anything.
 """
 
+import errno
 import hashlib
 import json
 import math
@@ -14,6 +15,8 @@ from datetime import date
 from urllib.parse import quote
 
 from flask import Blueprint, Response, current_app, g, jsonify, request, session
+from PIL import Image, UnidentifiedImageError
+from werkzeug.exceptions import HTTPException
 
 from . import __version__, changelog as changelog_parser, concept, export, i18n, lokaal, origineel, weergave
 from .cache import FetchError
@@ -22,6 +25,7 @@ from .config import ROOT_DIR
 from .detectie.basis import DetectionError
 from .openapi import openapi_spec
 from .sdc import QID
+from .slot import LockTimeout
 from .verbruik import kind_of
 
 api = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -70,10 +74,13 @@ def _text_field(body, key, message, strip=False):
     return value
 
 
-def _optional_text(body, key):
-    """An optional text in the body (missing, null or "" are fine)."""
-    if not isinstance(body.get(key) or "", str):
-        raise DetectionError(f"'{key}' is een tekst.", status=400, code="invalid_body")
+def _optional_text(body, *keys):
+    """Optional texts in the body (missing, null or "" are fine); 400 for anything else
+    (a number, a list, an object), before it reaches code that expects a text."""
+    for key in keys:
+        value = body.get(key)
+        if value is not None and not isinstance(value, str):
+            raise DetectionError(f"'{key}' is een tekst.", status=400, code="invalid_body")
 
 
 def _check_mid(mid):
@@ -107,7 +114,7 @@ def _require_trusted_user():
 
 
 def _file(mid):
-    match = re.fullmatch(r"[Mm](\d+)", mid or "")
+    match = re.fullmatch(r"[Mm](\d{1,12})", mid or "")
     if not match:
         raise CommonsError(f"'{mid}' is geen M-id (bijv. M28830642).", status=400, code="bad_mid")
     return _client().load_file({"pageid": int(match.group(1))})
@@ -153,9 +160,55 @@ def _commons_error(exc):
     return jsonify({"fout": exc.message, "code": exc.code}), exc.status
 
 
+def _budget():
+    """The budget for an error answer; an error answer never fails on it (None then)."""
+    try:
+        return _service().verbruik.status(_user())
+    except Exception:  # noqa: BLE001 - the error itself matters more
+        current_app.logger.exception("Budget not available for an error answer")
+        return None
+
+
 @api.errorhandler(DetectionError)
 def _detection_error(exc):
-    return jsonify({"fout": exc.message, "code": exc.code, "opnieuw": exc.retry, "budget": _service().verbruik.status(_user())}), exc.status
+    return jsonify({"fout": exc.message, "code": exc.code, "opnieuw": exc.retry, "budget": _budget()}), exc.status
+
+
+@api.errorhandler(LockTimeout)
+def _lock_timeout(exc):
+    """The object stores stay locked too long (another worker or the cleanup is stuck)."""
+    current_app.logger.warning("Store lock timeout: %s", exc)
+    return jsonify({"fout": "De opslag is bezet door een andere bewerking (bijv. het opruimen). Probeer het zo opnieuw.", "code": "store_busy", "opnieuw": True}), 503
+
+
+@api.errorhandler(Image.DecompressionBombError)
+def _image_too_large(exc):
+    return jsonify({"fout": "De afbeelding is te groot om veilig te openen.", "code": "too_large"}), 413
+
+
+@api.errorhandler(UnidentifiedImageError)
+def _bad_image(exc):
+    current_app.logger.warning("Unreadable image: %s", exc)
+    return jsonify({"fout": "Een afbeelding is beschadigd of onvolledig en kan niet gelezen worden.", "code": "bad_image"}), 502
+
+
+@api.errorhandler(OSError)
+def _os_error(exc):
+    """A full disk gets its own answer (507); any other OSError is an internal error."""
+    if getattr(exc, "errno", None) in (errno.ENOSPC, getattr(errno, "EDQUOT", errno.ENOSPC)):
+        current_app.logger.error("Disk full: %s", exc)
+        return jsonify({"fout": "De schijf is vol: er kan niets worden opgeslagen. Maak ruimte vrij (bijv. met opruimen) en probeer het opnieuw.", "code": "disk_full"}), 507
+    return _internal_error(exc)
+
+
+@api.errorhandler(Exception)
+def _internal_error(exc):
+    """Anything unforeseen: logged with its stack trace, and a JSON answer in the API's own
+    shape instead of an HTML page with a trace. HTTP errors (404, 405, 413 …) stay themselves."""
+    if isinstance(exc, HTTPException):
+        return exc
+    current_app.logger.exception("Unexpected error in %s %s", request.method, request.path)
+    return jsonify({"fout": "Er ging iets mis in de server. Probeer het opnieuw; blijft het misgaan, meld het dan.", "code": "internal_error"}), 500
 
 
 @api.errorhandler(PermissionError)
@@ -176,6 +229,13 @@ def _fetch_error(exc):
 def _not_found(exc):
     if request.path.startswith("/api/"):
         return jsonify({"fout": "Deze bron bestaat niet in de API. Zie /api/v1/openapi.json.", "code": "not_found"}), 404
+    return exc
+
+
+@api.app_errorhandler(413)
+def _request_too_large(exc):
+    if request.path.startswith("/api/"):
+        return jsonify({"fout": "Het verzoek is te groot.", "code": "too_large"}), 413
     return exc
 
 
@@ -256,6 +316,8 @@ def get_page(mid, n):
             "objecten": objects,
             # Per search term: how many objects of this page are in the trash.
             "prullenbak_termen": trashed,
+            # Copies of an unreadable objecten.json kept aside (the page was read as empty).
+            "beschadigd": _service().damaged_copies(file, n),
         }
     )
 
@@ -335,11 +397,12 @@ def create_detection(mid, n):
         _require_paid_access(paid)
         result = service.refine_mask(file, n, str(body["masker_voor"]), user=_user())
     else:
+        _optional_text(body, "prompt")
         modus = body.get("modus", "prompt")
         if modus != "commons":
-            _require_paid_access(paid and service.plan(file, n, service.terms(body.get("prompt", ""), modus), body.get("vers") is True)["betaald"])
+            _require_paid_access(paid and service.plan(file, n, service.terms(body.get("prompt") or "", modus), body.get("vers") is True)["betaald"])
         result = service.detect(
-            file, n, prompt=body.get("prompt", ""), modus=modus,
+            file, n, prompt=body.get("prompt") or "", modus=modus,
             minscore=_minscore(body.get("minscore")), user=_user(), items=body.get("items"), als=body.get("als"),
             fresh=body.get("vers") is True,  # "vers": true: ask SAM again, not its saved answer (wish Olaf)
         )
@@ -374,7 +437,9 @@ def forget_inventory(mid, n):
 def edit_inventory(mid, n):
     """Change the description of the image by hand: paginasoort, paginasoort_en,
     samenvatting, samenvatting_en, tekst. Free."""
-    return jsonify(_descriptions().edit_inventory(_page_file(mid, n), n, _body()))
+    body = _body()
+    _optional_text(body, "beschrijvingsniveau")
+    return jsonify(_descriptions().edit_inventory(_page_file(mid, n), n, body))
 
 
 @api.get("/bestand/<mid>/pagina/<int:n>/inventaris/geschiedenis")
@@ -454,6 +519,7 @@ def inventory(mid, n):
 
 def _ask_inventory(mid, n, body, again, **extra):
     """Ask Muse Spark about the whole image (inventory), with the model and levels from the body."""
+    _optional_text(body, "model", "detailniveau", "beschrijvingsniveau", "redeneren")
     return jsonify(
         _descriptions().inventory(
             _page_file(mid, n), n, body.get("model"), again=again, user=_user(),
@@ -725,7 +791,7 @@ def describe_object(mid, n, object_id):
     boy"), the margin the share of the box shown around it (0-1); for a group, "alleen_groep":
     false leaves out the instruction to look at its members only."""
     body = _body()
-    _optional_text(body, "aanwijzing")
+    _optional_text(body, "aanwijzing", "model", "beschrijvingsniveau")
     if not isinstance(body.get("alleen_groep", True), bool):
         raise DetectionError("'alleen_groep' is true of false.", status=400, code="invalid_body")
     _require_paid_access(_descriptions().vision.betaald)

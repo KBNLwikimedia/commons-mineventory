@@ -43,6 +43,16 @@ export function normaliseRect(a, b) {
   };
 }
 
+/* A box {x, y, w, h} that can be drawn: numbers only (no NaN or text), a negative width or height
+   turned round. Null for anything else (no box, a missing coordinate), so one broken object from the
+   server is left out instead of stopping the whole drawing. A box of 0 by 0 stays (a point). */
+export function validBox(b) {
+  if (!b || typeof b !== "object") return null;
+  const [x, y, w, h] = [b.x, b.y, b.w, b.h].map((v) => (typeof v === "string" && v.trim() ? Number(v) : v));
+  if (![x, y, w, h].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
+  return { x: w < 0 ? x + w : x, y: h < 0 ? y + h : y, w: Math.abs(w), h: Math.abs(h) };
+}
+
 /* Default tooltip content of an object; the app passes a richer one. */
 function defaultDescribe(obj) {
   return { title: obj.label_nl || obj.label, details: [obj.status], hint: "" };
@@ -103,7 +113,11 @@ export class PageViewer {
 
   /* page: {width, height, src, srcWidth, srcLarge} */
   load(page) {
+    // A page without a usable size (0, negative, missing) is drawn as 1 by 1, never as NaN.
+    const size = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 1);
+    page = { ...page, width: size(page.width), height: size(page.height) };
     this.page = page;
+    this.hoverObject = null;
     this.largeLoaded = false;
     this.stage.style.width = page.width + "px";
     this.stage.style.height = page.height + "px";
@@ -119,9 +133,10 @@ export class PageViewer {
   setZones(zones) {
     this.zoneLayer.replaceChildren();
     zones.forEach((zone) => {
-      zone.rechthoeken.forEach((r) => {
+      (zone.rechthoeken || []).forEach((r) => {
+        if (!validBox(r)) return;
         const rect = document.createElementNS(SVG_NS, "rect");
-        this._setBox(rect, r);
+        this._setBox(rect, validBox(r));
         rect.setAttribute("class", "zone");
         this.zoneLayer.append(rect);
       });
@@ -143,7 +158,19 @@ export class PageViewer {
     this.defs.replaceChildren();
     this.objectElements.clear();
     const fresh = new Set(newIds || []);
-    objects.forEach((obj) => {
+    // Objects without a usable box cannot be drawn: left out (with a box made valid for the rest).
+    const drawable = (objects || []).flatMap((obj) => {
+      const box = validBox(obj?.box);
+      if (!box) return [];
+      const same = ["x", "y", "w", "h"].every((key) => box[key] === obj.box[key]);
+      return [same ? obj : { ...obj, box }]; // a copy: the app's own object stays as it was
+    });
+    // The object under the mouse may be gone (trashed, merged): no tooltip or click on it any more.
+    if (this.hoverObject && !drawable.some((obj) => obj.id === this.hoverObject.id)) {
+      this.hoverObject = null;
+      this.tooltip.hidden = true;
+    }
+    drawable.forEach((obj) => {
       const group = document.createElementNS(SVG_NS, "g");
       group.setAttribute("class", this._classes(obj, fresh.has(obj.id)));
       group.dataset.id = obj.id;
@@ -244,7 +271,8 @@ export class PageViewer {
   }
 
   _addMask(group, obj) {
-    if (group.querySelector(".object-masker")) return;
+    // No address of the shape: only the frame (a mask that fails to load leaves the frame too).
+    if (group.querySelector(".object-masker") || !obj.masker_url) return;
     const b = obj.box;
     const maskId = "masker-" + obj.id;
     const mask = document.createElementNS(SVG_NS, "mask");
@@ -338,7 +366,8 @@ export class PageViewer {
 
   /* Zoom to a box (native pixels). */
   zoomToBox(b, fill = 0.6) {
-    this.fitBox(b.x, b.y, b.w, b.h, fill);
+    const box = validBox(b);
+    if (box) this.fitBox(box.x, box.y, box.w, box.h, fill);
   }
 
   /* Zoom to an object and mark it until another is marked. */
@@ -436,8 +465,9 @@ export class PageViewer {
     const rect = this.el.getBoundingClientRect();
     cx = cx === undefined ? rect.width / 2 : cx;
     cy = cy === undefined ? rect.height / 2 : cy;
-    const minScale = Math.min(rect.width / this.page.width, rect.height / this.page.height) * 0.5 || 0.01;
+    const minScale = Math.min(MAX_SCALE, Math.min(rect.width / this.page.width, rect.height / this.page.height) * 0.5) || 0.01;
     const next = Math.max(minScale, Math.min(MAX_SCALE, this.scale * factor));
+    if (!Number.isFinite(next) || next <= 0) return;
     const k = next / this.scale;
     this.tx = cx - (cx - this.tx) * k;
     this.ty = cy - (cy - this.ty) * k;

@@ -1,6 +1,6 @@
 {
   "name": "commons-mineventory",
-  "version": "0.40.5",
+  "version": "0.40.6",
   "private": true,
   "description": "Commons Mineventory frontend: Vue 3 components with Codex, built by Vite into static/dist/",
   "license": "MIT",

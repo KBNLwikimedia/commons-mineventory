@@ -6,6 +6,14 @@ export function readStart(search) {
   return { url: read("url"), titel: read("titel"), mid: read("mid"), pagina: read("pagina"), object: read("object"), vergroten: read("vergroten") };
 }
 
+/* A page number from an address or the history: a whole number from 1 to `total` (when known);
+   anything else ("abc", 0, -2, 2.5, a page the file no longer has) gives the nearest valid page. */
+export function pageNumber(value, total = Infinity) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, Math.max(1, Number(total) || 1));
+}
+
 // History ("Laatst bezocht"): the files opened in this browser, newest first,
 // with the page that was open. Per browser for now; with a login (phase 2)
 // it can move to the server, per user. The first entry is the file the

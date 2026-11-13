@@ -13,11 +13,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlsplit
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from . import rechten, sdc, tegels, wikitekst
 from .cache import FetchError
 from .opruimen import sharded
+from .opslag import write_atomic
 from .sdc import QID
 
 COMMONS_HOSTS = {"commons.wikimedia.org", "commons.m.wikimedia.org"}
@@ -54,6 +55,32 @@ class CommonsError(Exception):
         self.code = code or {400: "bad_input", 404: "not_found", 415: "unsupported", 422: "not_commons"}.get(status, "error")
 
 
+MAX_PAGEID_DIGITS = 12  # a page id on Commons has far fewer; longer input is no M-id
+
+
+def open_image(data, load=True):
+    """A PIL image from bytes that came from Commons (or a cache). An answer that is no
+    image (an error page), a truncated or broken one, or one too large to decode safely
+    is a CommonsError (502 bad_image, 413 too_large) instead of a crash. With `load` the
+    pixels are read at once, so a truncated file shows here, not halfway through a cut-out."""
+    try:
+        image = Image.open(io.BytesIO(data))
+        if load:
+            image.load()
+    except Image.DecompressionBombError as exc:
+        raise CommonsError("De afbeelding is te groot om veilig te openen.", status=413, code="too_large") from exc
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError, TypeError) as exc:
+        raise CommonsError("De afbeelding van Commons is beschadigd of onvolledig. Probeer het later opnieuw.", status=502, code="bad_image") from exc
+    return image
+
+
+def _pageid(digits):
+    """{"pageid": n} from the digits of an M-id or curid; too many digits is no id (400)."""
+    if len(digits) > MAX_PAGEID_DIGITS:
+        raise CommonsError("Dit is geen geldig M-id of pagina-id (te veel cijfers).", code="bad_mid")
+    return {"pageid": int(digits)}
+
+
 # -- Input ------------------------------------------------------------------------------
 
 
@@ -80,10 +107,10 @@ def parse_input(text):
         raise CommonsError("Geef een Commons-URL, een bestandsnaam of een M-id.", code="empty_input")
     match = re.fullmatch(r"[Mm](\d+)", text)
     if match:
-        return {"pageid": int(match.group(1))}
+        return _pageid(match.group(1))
     match = re.fullmatch(r"(?:curid=)?(\d+)", text)
     if match:
-        return {"pageid": int(match.group(1))}
+        return _pageid(match.group(1))
     if re.match(r"^(https?:)?//", text) or re.match(r"^[\w.-]+\.(org|net)/", text):
         return _parse_url(text if "//" in text else "https://" + text)
     title = _file_title(text.split("#")[0])
@@ -115,7 +142,7 @@ def _parse_url(url):
             raise CommonsError("Uit deze link kan ik geen bestandsnaam halen.")
         return {"titel": _file_title(name)}
     if "curid" in query and query["curid"][0].isdigit():
-        return {"pageid": int(query["curid"][0])}
+        return _pageid(query["curid"][0])
     if "title" in query:
         title = _file_title(query["title"][0])
     elif parts.path.startswith("/wiki/"):
@@ -183,12 +210,27 @@ class CommonsClient:
         base = {"action": "query", "format": "json", "formatversion": "2", "maxlag": "5"}
         return f"{api or self.api}?" + urlencode({**base, **params}, safe="|:")
 
+    def _decode(self, raw, url, form=None):
+        """The JSON object of an API answer. An answer that is no JSON object (an HTML
+        error page of a proxy, a cut-off answer) is a FetchError and is dropped from the
+        cache, so the next try asks Commons again. An API error is a CommonsError."""
+        try:
+            body = json.loads(raw)
+        except (ValueError, TypeError):
+            body = None
+        if not isinstance(body, dict):
+            forget = getattr(self.fetcher, "forget", None)
+            if forget:
+                forget(url, form)
+            raise FetchError(url, "Commons stuurde geen leesbaar antwoord (geen JSON)", status=502)
+        if "error" in body:
+            error = body["error"] if isinstance(body["error"], dict) else {"info": str(body["error"])}
+            raise CommonsError(f"Commons gaf een fout: {error.get('info', error.get('code'))}", status=502, code="commons_error")
+        return body
+
     def _json(self, params, api=None):
         url = self.api_url(params, api)
-        data = json.loads(self.fetcher.get(url, max_age=self._age()))
-        if "error" in data:
-            raise CommonsError(f"Commons gaf een fout: {data['error'].get('info', data['error'].get('code'))}", status=502, code="commons_error")
-        return data
+        return self._decode(self.fetcher.get(url, max_age=self._age()), url)
 
     # -- File --------------------------------------------------------------------------
 
@@ -220,7 +262,9 @@ class CommonsClient:
         pages = query.get("pages") or []
         page = pages[0] if pages else {}
         wanted = ref.get("titel") or f"M{ref.get('pageid')}"
-        if not page or page.get("missing") or page.get("invalid") or "imageinfo" not in page:
+        info = (page.get("imageinfo") or [{}])[0] if page else {}
+        # Deleted, never there, or a file page without its file (filemissing): not found.
+        if not page or page.get("missing") or page.get("invalid") or not page.get("imageinfo") or info.get("filemissing"):
             where = f" (gevonden op {ref['andere_wiki']}, maar niet op Commons)" if ref.get("andere_wiki") else ""
             raise CommonsError(
                 f"Het bestand '{wanted}' bestaat niet op Wikimedia Commons{where}. "
@@ -229,8 +273,7 @@ class CommonsClient:
             )
         if page.get("ns") != 6:
             raise CommonsError(f"'{page.get('title')}' is geen bestand (File:).", status=422, code="not_a_file")
-        redirected = next((r["from"] for r in query.get("redirects") or []), None)
-        info = page["imageinfo"][0]
+        redirected = next((r.get("from") for r in query.get("redirects") or [] if isinstance(r, dict)), None)
         meta = info.get("extmetadata") or {}
         revision = (page.get("revisions") or [{}])[0]
         text = ((revision.get("slots") or {}).get("main") or {}).get("content", "")
@@ -339,7 +382,8 @@ class CommonsClient:
 
     def entity(self, mid):
         """The parsed MediaInfo entity (SDC) of a file; empty when it has none."""
-        data = json.loads(self.fetcher.get(self.api_url({"action": "wbgetentities", "ids": mid}), max_age=self._age()))
+        url = self.api_url({"action": "wbgetentities", "ids": mid})
+        data = self._decode(self.fetcher.get(url, max_age=self._age()), url)
         return sdc.parse_entity((data.get("entities") or {}).get(mid))
 
     def item_image(self, qid, prop="P18"):
@@ -370,13 +414,13 @@ class CommonsClient:
         url = info.get("thumburl") or info.get("url")
         return self.fetcher.get(url) if url else None
 
-    def _wikidata_entities(self, ids, props, pattern=QID, fallback=False):
+    def _wikidata_entities(self, ids, props, pattern=QID, fallback=False, languages="nl|en"):
         """(id, entity) from Wikidata's wbgetentities, 50 ids per request, cached.
         A batch that cannot be fetched is skipped: labels and descriptions are a
         nicety, the id itself stays readable."""
         ids = [i for i in dict.fromkeys(ids) if re.fullmatch(pattern, i or "")]
         for start in range(0, len(ids), 50):
-            params = {"action": "wbgetentities", "ids": "|".join(ids[start : start + 50]), "props": props, "languages": "nl|en"}
+            params = {"action": "wbgetentities", "ids": "|".join(ids[start : start + 50]), "props": props, "languages": languages}
             if fallback:
                 params["languagefallback"] = "1"
             try:
@@ -390,9 +434,24 @@ class CommonsClient:
         """{"nl": …, "en": …} from Wikibase labels or descriptions."""
         return {lang: ((values or {}).get(lang) or {}).get("value") for lang in ("nl", "en")}
 
+    # Besides Dutch and English: the multilingual label ("mul", used more and more for names of
+    # people and places) and a few other languages, so an item without a Dutch or English label
+    # still has a readable name (wish Olaf 13-11-2026), never just its Q-id.
+    OTHER_LABEL_LANGUAGES = ("de", "fr", "es", "it", "la")
+
     def labels(self, ids):
-        """{Q-id: {"nl": label, "en": label}} from Wikidata."""
-        return {qid: self._texts(entity.get("labels")) for qid, entity in self._wikidata_entities(ids, "labels")}
+        """{Q-id: {"nl": label, "en": label, "mul": label, "andere": {"taal", "waarde"} or None}} from
+        Wikidata. First Dutch and English; only for items with neither, a second lookup for the
+        multilingual label and OTHER_LABEL_LANGUAGES ("andere": the first one there is)."""
+        result = {qid: {**self._texts(entity.get("labels")), "mul": None, "andere": None} for qid, entity in self._wikidata_entities(ids, "labels")}
+        missing = [qid for qid, names in result.items() if not names.get("nl") and not names.get("en")]
+        if missing:
+            languages = "|".join(("mul", *self.OTHER_LABEL_LANGUAGES))
+            for qid, entity in self._wikidata_entities(missing, "labels", languages=languages):
+                values = entity.get("labels") if isinstance(entity.get("labels"), dict) else {}
+                result[qid]["mul"] = (values.get("mul") or {}).get("value")
+                result[qid]["andere"] = next(({"taal": lang, "waarde": (values.get(lang) or {}).get("value")} for lang in self.OTHER_LABEL_LANGUAGES if (values.get(lang) or {}).get("value")), None)
+        return result
 
     def item_info(self, ids):
         """{Q-id: {"label": {nl, en}, "beschrijving": {nl, en}}} from Wikidata;
@@ -422,9 +481,7 @@ class CommonsClient:
             "text": text, "title": title, "contentmodel": "wikitext", "prop": "text",
             "pst": "1", "disablelimitreport": "1", "disableeditsection": "1", "preview": "1",
         }
-        body = json.loads(self.fetcher.post(self.api, data, max_age=self._age()))
-        if "error" in body:
-            raise CommonsError(f"Commons gaf een fout: {body['error'].get('info', body['error'].get('code'))}", status=502, code="commons_error")
+        body = self._decode(self.fetcher.post(self.api, data, max_age=self._age()), self.api, data)
         return (body.get("parse") or {}).get("text") or ""
 
     MAKER_PROPERTIES = ("P170", "P50", "P110")  # creator, author, illustrator
@@ -654,16 +711,21 @@ class CommonsClient:
         if file["mime"] in RENDERED:
             page = self.load_page(file, n)
             thumb = self._thumb_info(file, n, page["breedte"])
-            data = self.fetcher.get(thumb.get("thumburl") or thumb["url"])
-            return Image.open(io.BytesIO(data))
+            url = thumb.get("thumburl") or thumb.get("url")
+            if not url:
+                raise CommonsError("Commons levert geen verkleinde afbeelding van dit bestand.", status=502, code="no_thumbnail")
+            return open_image(self.fetcher.get(url), load=False)
         if file.get("tegels"):
             # Too large to decode as a whole: read in pieces from the file on disk.
             return tegels.TiledImage(self._original_path(file) or self._original_bytes(file), page=n - 1)
         data = self._original_bytes(file)
         Image.MAX_IMAGE_PIXELS = max(Image.MAX_IMAGE_PIXELS or 0, int(self.max_megapixels * 1e6 * 1.1))
-        image = Image.open(io.BytesIO(data))
+        image = open_image(data, load=False)  # lazy: only the piece that is cut out is decoded
         if n > 1:
-            image.seek(n - 1)
+            try:
+                image.seek(n - 1)
+            except EOFError:
+                raise CommonsError(f"Pagina {n} zit niet in het originele bestand.", status=404, code="not_found") from None
         return image
 
     def _original_path(self, file):
@@ -683,12 +745,14 @@ class CommonsClient:
         if self.originals_dir is None:
             return self.fetcher.get(file["origineel_url"])
         path = sharded(self.originals_dir, file["sha1"])
-        if path.exists():
+        try:
+            data = path.read_bytes()
             path.touch()  # retention counts from the last use (12.1)
-            return path.read_bytes()
+            return data
+        except FileNotFoundError:
+            pass  # not fetched yet, or just removed by the cleanup
         data = self.fetcher.get(file["origineel_url"], store=False)  # kept here, not in the HTTP cache
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
+        write_atomic(path, data)  # never half an original on disk (a crash, a full disk)
         return data
 
 

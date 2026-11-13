@@ -135,7 +135,7 @@
             <cdx-button action="progressive" weight="quiet" @click="viewFull('png')"><cdx-icon :icon="cdxIconLinkExternal" /> PNG</cdx-button>
           </span>
           <!-- No shape yet (a rectangle): the AI image detection finds the outline, for a transparent PNG. -->
-          <cdx-button action="progressive" v-if="!object.masker" :title="t('magnifier.refine_mask_help')" @click="emit('refine', object)">
+          <cdx-button action="progressive" v-if="!object.masker" :disabled="refineBusy" :title="t('magnifier.refine_mask_help')" @click="emit('refine', object)">
             {{ t("magnifier.refine_mask", { cost: config.betaald ? money(config.sam_usd, config.taal) : t("panel.free").replace(/[()]/g, "") }) }}
           </cdx-button>
           <!-- The outcome of asking for the shape, here and not at the top of the page behind this window (wish Olaf). -->
@@ -544,6 +544,7 @@ import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIco
 import { API, del, errorText, get, objectPath, patch, post, put } from "../api.js";
 import { askConfirm, askRemoval, confirmDeleteVersion, textParts } from "../confirm.js";
 import { formatStamp, money, priceLabel, useT } from "../i18n.js";
+import { cleanText } from "../text.js";
 import VersionCarousel from "./VersionCarousel.vue";
 import VersionEntry from "./VersionEntry.vue";
 import EditPencil from "./EditPencil.vue";
@@ -579,6 +580,8 @@ const props = defineProps({
   startTab: { type: String, default: "" },
   // The object is in the trash (opened from the trash on the Objects page): no trash button.
   inTrash: { type: Boolean, default: false },
+  // A new shape is being asked (paid): its button waits, so a second click asks nothing.
+  refineBusy: { type: Boolean, default: false },
 });
 const emit = defineEmits(["update:open", "changed", "trashed", "refine", "step", "dismiss-notice"]);
 
@@ -851,11 +854,14 @@ watch(
   }
 );
 
+// Both only for the object still shown: an answer about the previous one (← → quickly) is dropped.
 async function loadPlan() {
+  const id = props.object.id;
   try {
-    plan.value = await get(`${base.value}/beschrijving`);
+    const answer = await get(`${base.value}/beschrijving`);
+    if (id === props.object.id) plan.value = answer;
   } catch (e) {
-    error.value = errorText(t, e);
+    if (id === props.object.id) error.value = errorText(t, e);
   }
 }
 loadPlan();
@@ -863,6 +869,7 @@ loadPlan();
 async function describe(again) {
   // Asking again always costs money; a first question may still come from the
   // cache (free), but the estimate is asked to confirm all the same.
+  if (busy.value) return; // a second click while the first question runs: never asked (or paid) twice
   const paid = again || !description.value;
   if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(`${t("confirm.action_describe", { name: name.value })}\n\n${t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) })}`, { title: t("confirm.cost_title") }))) return;
   busy.value = true;
@@ -870,12 +877,15 @@ async function describe(again) {
   ticker = setInterval(() => seconds.value++, 1000);
   error.value = "";
   const path = `${base.value}/beschrijving`;
+  const id = props.object.id;
   const previous = descriptionVersion(description.value); // to put back from the message
   try {
     const body = { opnieuw: again, marge: margin.value, beschrijvingsniveau: descLevel.value };
     if (props.object.groep && !groupOnly.value) body.alleen_groep = false;
     if (hint.value.trim()) body.aanwijzing = hint.value.trim();
     const result = await post(path, body);
+    // Gone to another object meanwhile: the list learns the answer, this window stays on the new one.
+    if (id !== props.object.id) return emit("changed", result.object);
     hint.value = "";
     showDescription(result.object);
     // Green; with an earlier description, a way back to it (a new answer is not "undone": it was paid).
@@ -885,7 +895,7 @@ async function describe(again) {
       describeNote.show("success", t("feedback.described"));
     }
   } catch (e) {
-    error.value = errorText(t, e);
+    if (id === props.object.id) error.value = errorText(t, e);
   } finally {
     busy.value = false;
     clearInterval(ticker);
@@ -896,10 +906,12 @@ async function describe(again) {
 const history = ref([]);
 
 async function loadHistory() {
+  const id = props.object.id;
   try {
-    history.value = (await get(`${base.value}/beschrijving/geschiedenis`)).geschiedenis;
+    const answer = (await get(`${base.value}/beschrijving/geschiedenis`)).geschiedenis;
+    if (id === props.object.id) history.value = answer || [];
   } catch {
-    history.value = [];
+    if (id === props.object.id) history.value = [];
   }
 }
 loadHistory();
@@ -1063,7 +1075,7 @@ async function undoRemoveCaption() {
 // A caption typed but not saved is saved anyway when you leave the tab
 // "Uitsnede", go to another object or close the magnifier: "Wat staat hierop?"
 // then sees it at once.
-const captionDirty = computed(() => caption.value.trim() !== (props.object.bijschrift?.tekst || "").trim());
+const captionDirty = computed(() => cleanText(caption.value) !== cleanText(props.object.bijschrift?.tekst));
 async function saveCaptionIfChanged() {
   if (captionDirty.value) await saveCaption();
 }
@@ -1081,7 +1093,7 @@ async function saveCaption(announce = false) {
   const path = base.value;
   const before = props.object.bijschrift?.tekst || "";
   try {
-    const text = caption.value.trim();
+    const text = cleanText(caption.value); // only spaces or invisible characters: no caption
     const result = await patch(path, { bijschrift: text ? { tekst: text } : null });
     emit("changed", result);
     if (announce === true && text !== before) {
@@ -1174,6 +1186,7 @@ const completionCost = computed(() => priceLabel(config.aanvulling_usd, config.b
 
 // Paid in live mode: first a confirmation with the amount and what it is (invented, not a source).
 async function complete() {
+  if (completing.value) return; // never two paid completions from one double click
   completionError.value = "";
   const again = Boolean(props.object.aangevuld);
   if (config.betaald) {

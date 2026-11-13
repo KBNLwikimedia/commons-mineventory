@@ -22,7 +22,9 @@ from . import __version__
 from .detectie.basis import INTERNAL_LABELS, DetectionError
 from .detectie.meta_api import MetaClient
 from .export import encode
+from .commons import CommonsError, open_image
 from .opruimen import cached_bytes, mark_used, sharded
+from .opslag import write_atomic
 
 MODEL = "muse-image-1.0"
 PRICE_USD = 0.01  # per generated image, whatever the prompt or tools (Meta's price list)
@@ -221,10 +223,12 @@ class CompletionService:
                         cost=PRICE_USD,
                         user=user,
                     )
-            # Always a PNG, whatever came back.
-            image = Image.open(io.BytesIO(result))
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(encode(image.convert("RGB"), "PNG", optimize=True))
+            # Always a PNG, whatever came back; bytes that are no image are a clear error.
+            try:
+                image = open_image(result)
+            except CommonsError as exc:
+                raise DetectionError("Muse Image gaf geen afbeelding terug.", retry=True) from exc
+            write_atomic(path, encode(image.convert("RGB"), "PNG", optimize=True))
         with Image.open(path) as image:
             dimensions = list(image.size)
         note = {

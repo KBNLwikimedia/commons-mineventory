@@ -1,6 +1,6 @@
 """Commons Mineventory: detect and cut out objects in images on Wikimedia Commons (experiment)."""
 
-__version__ = "0.40.5"
+__version__ = "0.40.6"
 
 
 def create_app(config=None, commons_client=None, detector=None, vision=None, image_editor=None):
@@ -30,6 +30,9 @@ def create_app(config=None, commons_client=None, detector=None, vision=None, ima
         static_folder=str(ROOT_DIR / "static"),
     )
     app.config.update(config.as_flask_config())
+    # Requests carry JSON only (no uploads into the app): a body above this is refused with 413
+    # before it is read, so a runaway client cannot fill the memory.
+    app.config.setdefault("MAX_CONTENT_LENGTH", 5 * 1024 * 1024)
     # Without FLASK_SECRET_KEY: a random key per process (sessions do not survive a
     # restart), never a fixed one that anybody could use to sign a session cookie.
     app.secret_key = config.FLASK_SECRET_KEY or secrets.token_hex(32)

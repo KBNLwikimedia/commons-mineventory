@@ -95,6 +95,7 @@
           :busy="busy"
           :busy-elsewhere="busyAt === 'objecten'"
           :inventory="inventory"
+          :page-usd="prices?.page ?? null"
           :objects="objects"
           :trash-terms="trashTerms"
           :last-result="lastResult"
@@ -297,6 +298,7 @@
       @changed="replaceObject"
       @trashed="trashObject($event)"
       @refine="refineMask"
+      :refine-busy="busy"
       :notices="noticesAt('vergroter')"
       @dismiss-notice="dismiss"
     />
@@ -318,6 +320,7 @@
       :open="locate.open"
       :path="locate.path"
       :prompt="locate.prompt"
+      :ask-word="locate.askWord"
       :paid="config.betaald"
       :sam-usd="config.sam_usd"
       :language="config.taal"
@@ -332,6 +335,7 @@
       :default-effort="pageDescribe.defaultEffort"
       :part="pageDescribe.part"
       :detail="pageDescribe.detail"
+      :steer="pageDescribe.steer"
       @answer="answerPageDescribe"
     />
   </div>
@@ -341,11 +345,12 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTab, CdxTabs, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconDownload, cdxIconPrevious, cdxIconSearch, cdxIconTrash, cdxIconUpload } from "@wikimedia/codex-icons";
-import { API, del, errorText, filePath, get, objectPath, pagePath, patch, post, query } from "../api.js";
+import { API, del, errorText, filePath, get, newestOnly, objectPath, pagePath, patch, post, query } from "../api.js";
+import { cleanText, searchWords } from "../text.js";
 import { classColors } from "../class-colors.js";
 import { writeAddress } from "../facets.js";
 import { askConfirm, askConfirmValue, askRemoval } from "../confirm.js";
-import { money, priceLabel, useT } from "../i18n.js";
+import { formatStamp, money, priceLabel, useT } from "../i18n.js";
 import BulkDescribeDialog from "./BulkDescribeDialog.vue";
 import PageDescribeDialog from "./PageDescribeDialog.vue";
 import LocateDialog from "./LocateDialog.vue";
@@ -354,7 +359,7 @@ import ColumnHeader from "./ColumnHeader.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
 import ColumnStrip from "./ColumnStrip.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { addToHistory, appUrl, clearHistory, commonsFileUrl, forgetFileInBrowser, kindsOf, numberedNames, objectName, readHistory, readStart, removeFromHistory, restoreHistory, setAside } from "../state.js";
+import { addToHistory, appUrl, clearHistory, commonsFileUrl, forgetFileInBrowser, kindsOf, numberedNames, objectName, pageNumber, readHistory, readStart, removeFromHistory, restoreHistory, setAside } from "../state.js";
 import { pageDescriptionVersion, versionBack } from "../undo.js";
 import { readStored, writeStored } from "../storage.js";
 import ViewedPanel from "./ViewedPanel.vue";
@@ -514,7 +519,7 @@ function objectText(o) {
     .toLowerCase();
 }
 const visibleObjects = computed(() => {
-  const words = objectQuery.value.toLowerCase().split(/\s+/).filter(Boolean);
+  const words = searchWords(objectQuery.value); // zero-width or only spaces: no search
   if (!words.length) return certainObjects.value;
   return certainObjects.value.filter((o) => {
     const text = objectText(o);
@@ -542,6 +547,22 @@ watch(objects, () => {
 const selectedCount = computed(() => objects.value.filter((o) => o.status === "geselecteerd").length);
 const savedCount = computed(() => objects.value.filter((o) => o.opgeslagen).length);
 const magnified = computed(() => objects.value.find((o) => o.id === magnifiedId.value) || null);
+// The object in the magnifier is gone from the list (trashed or merged in another tab, a group undone):
+// the magnifier closes and says so, instead of vanishing without a word.
+watch(magnified, (now, before) => {
+  if (now || !before || !magnifierOpen.value) return;
+  magnifierOpen.value = false;
+  notify("warning", t("objects.magnified_gone", { name: objectName(before, props.config.taal, t) }), { where: "objecten" });
+});
+
+// -- Answers that arrive late ---------------------------------------------------------------
+// The file and page an action started on. An answer for a page that was left meanwhile (another
+// page, another file from the history) is not put on the new one: it is on the server, and shows
+// when that page is opened again.
+const pageKey = () => `${file.value?.mid || ""}/${pageN.value}`;
+const stillOn = (key) => key === pageKey();
+// The file and page whose objects are shown now ("" before the first page came in).
+let shownPage = "";
 
 // -- Notices --------------------------------------------------------------------------
 
@@ -578,10 +599,42 @@ const topNotices = computed(() => notices.value.filter((n) => !n.where));
 const objectNotices = computed(() => notices.value.filter((n) => n.where === "objecten"));
 const noticesAt = (where) => notices.value.filter((n) => n.where === where);
 function dismiss(id) {
+  const notice = notices.value.find((n) => n.id === id);
+  // A warning that should not come back once read (a damaged store): remembered in this browser.
+  if (notice?.remember) writeStored(SEEN_DAMAGED_KEY, [...new Set([...seenDamaged(), ...notice.remember])], { json: true });
   notices.value = notices.value.filter((n) => n.id !== id);
 }
+// The page's objecten.json could not be read (wish Olaf 13-11-2026): the page shows as empty,
+// what was there is kept aside on the server. A yellow notice in the objects column says so, once
+// per kept copy (closing it remembers that you saw it).
+const SEEN_DAMAGED_KEY = "cc-kapot-gezien";
+const seenDamaged = () => {
+  const list = readStored(SEEN_DAMAGED_KEY, [], { json: true });
+  return Array.isArray(list) ? list : [];
+};
+function warnDamaged(copies) {
+  const seen = seenDamaged();
+  const fresh = (Array.isArray(copies) ? copies : []).filter((c) => c?.bestand && !seen.includes(`${file.value?.mid}/${pageN.value}/${c.bestand}`));
+  if (!fresh.length) return;
+  notify("warning", t("objects.damaged_store", { files: fresh.map((c) => c.bestand).join(", "), when: formatStamp(fresh[fresh.length - 1].gewijzigd, props.config.taal) }), {
+    where: "objecten",
+    remember: fresh.map((c) => `${file.value?.mid}/${pageN.value}/${c.bestand}`),
+  });
+}
 function fail(error, where = undefined) {
-  notify("error", errorText(t, error), where ? { where } : {});
+  // Not found: the object (or page) changed elsewhere, e.g. in another tab. The list is loaded
+  // again, so it shows what is really there, and the message says so.
+  const stale = error?.status === 404 && Boolean(file.value && page.value);
+  notify("error", errorText(t, error) + (stale ? ` ${t("feedback.list_reloaded")}` : ""), where ? { where } : {});
+  if (stale) reloadObjects();
+}
+// The objects of the open page as the server has them now (free).
+async function reloadObjects() {
+  const key = pageKey();
+  const data = await get(pagePath(file.value.mid, pageN.value)).catch(() => null);
+  if (!data || !stillOn(key)) return;
+  objects.value = data.objecten;
+  trashTerms.value = data.prullenbak_termen || {};
 }
 // An error of a bulk action: in the tab, under the button that asked for it (wish Olaf),
 // not at the top of the page.
@@ -620,30 +673,39 @@ async function chooseFreshDetection(action, calls) {
 
 // -- Loading --------------------------------------------------------------------------
 
+// Only the file asked last opens: a slow answer for one asked before does not replace it.
+const fileLoad = newestOnly();
 async function openFile(text) {
+  const current = fileLoad();
   loadingFile.value = true;
   try {
-    const isMid = /^m\d+$/i.test(text.trim());
-    const found = await get(`${API}/bestand${query(isMid ? { mid: text.trim() } : { url: text.trim() })}`);
+    const value = cleanText(text);
+    const isMid = /^m\d+$/i.test(value);
+    const found = await get(`${API}/bestand${query(isMid ? { mid: value } : { url: value })}`);
+    if (!current()) return;
     file.value = found;
     if (found.doorverwezen_van) notify("warning", t("file.redirected", { from: found.doorverwezen_van, to: found.titel }));
-    if (found.ondersteund) await goToPage(start.mid === found.mid && start.pagina ? Number(start.pagina) : 1);
+    if (found.ondersteund) await goToPage(start.mid === found.mid && start.pagina ? start.pagina : 1);
   } catch (error) {
+    if (!current()) return;
     file.value = null;
     page.value = null;
     fail(error);
   } finally {
-    loadingFile.value = false;
+    if (current()) loadingFile.value = false;
   }
 }
 
 // Read the open file from Commons again (the app keeps what it read for a day), e.g.
 // after adding a caption or depicts there. Free; the page and its objects stay.
 async function readAgain() {
-  if (!file.value) return;
+  if (!file.value || busy.value) return;
+  const mid = file.value.mid;
   busy.value = true;
   try {
-    file.value = await post(`${API}/bestand/${file.value.mid}/opnieuw-lezen`, {});
+    const fresh = await post(`${API}/bestand/${mid}/opnieuw-lezen`, {});
+    if (file.value?.mid !== mid) return; // another file was opened meanwhile
+    file.value = fresh;
     await goToPage(pageN.value);
     notify("success", t("panel.commons_read_again_done"), { where: "commons" });
   } catch (error) {
@@ -661,13 +723,24 @@ function openFromHistory(entry) {
   openFile(entry.mid);
 }
 
-async function goToPage(n) {
+// Only the page asked last is shown (page after page quickly, or a page asked while a file opened).
+const pageLoad = newestOnly();
+async function goToPage(asked) {
+  const mid = file.value.mid;
+  const n = pageNumber(asked, file.value.paginas); // "abc", 0 or a page the file no longer has: the nearest
+  const before = pageN.value;
+  const current = pageLoad();
   pageN.value = n;
   try {
-    const data = await get(pagePath(file.value.mid, n));
+    const data = await get(pagePath(mid, n));
+    if (!current() || file.value?.mid !== mid) return;
+    // Another page: the magnifier of the previous one closes first (it is not "gone").
+    if (shownPage !== `${mid}/${n}`) magnifierOpen.value = false;
+    shownPage = `${mid}/${n}`;
     page.value = data;
     objects.value = data.objecten;
     trashTerms.value = data.prullenbak_termen || {};
+    warnDamaged(data.beschadigd);
     newIds.value = [];
     inventory.value = null;
     // Only the parameters of the file and page change; the choices on the page (q, zekerheid, maskers, kaders, uselang) stay.
@@ -676,21 +749,40 @@ async function goToPage(n) {
     const asked = `${file.value.mid}/${n}`;
     get(`${pagePath(file.value.mid, n)}/inventaris`)
       .then((plan) => {
-        if (asked === `${file.value?.mid}/${pageN.value}`) inventory.value = plan.inventaris; // not for a page left meanwhile
+        if (asked !== `${file.value?.mid}/${pageN.value}`) return; // not for a page left meanwhile
+        inventory.value = plan.inventaris;
+        setPrices(plan);
       })
       .catch(() => {});
     if (start.object) {
       const id = start.object;
       const magnify = start.vergroten; // from the eye on the Objects page
+      const key = pageKey();
       start.object = "";
       start.vergroten = "";
       setTimeout(() => {
+        if (!stillOn(key)) return;
+        // An old link: the object was trashed, merged or the image started over since.
+        if (!objects.value.some((o) => o.id === id)) {
+          notify("warning", t("objects.link_missing"), { where: "objecten" });
+          return;
+        }
         focusObject(id);
-        if (magnify && objects.value.some((o) => o.id === id)) openMagnifier(id, magnify === "aangevuld" ? "aangevuld" : "");
+        if (magnify) openMagnifier(id, magnify === "aangevuld" ? "aangevuld" : "");
       }, 300);
     }
   } catch (error) {
-    fail(error);
+    if (!current()) return;
+    // Never the objects of another page or file under this one: back to the page that was shown,
+    // or, when it was another file's, nothing (with the error and a way to try again).
+    if (shownPage.startsWith(`${mid}/`) && page.value) pageN.value = before;
+    else {
+      page.value = null;
+      objects.value = [];
+      inventory.value = null;
+      shownPage = "";
+    }
+    notify("error", errorText(t, error), { actions: [{ label: t("actions.try_again"), run: () => file.value?.mid === mid && goToPage(n) }] });
   }
 }
 
@@ -707,7 +799,7 @@ async function startOver(entry) {
   try {
     kept = await get(base);
   } catch (error) {
-    failInTab(error);
+    fail(error, "bekeken"); // by the list it was asked from (also on the start page, without a file)
     return;
   }
   // What goes, as a list under a heading (wish Olaf); what stays below it.
@@ -748,7 +840,7 @@ async function startOver(entry) {
   try {
     await del(answer.choice === "opnieuw" ? `${base}?ai=opnieuw` : base);
   } catch (error) {
-    failInTab(error);
+    fail(error, "bekeken");
     return;
   }
   forgetFileInBrowser(entry.mid);
@@ -762,10 +854,12 @@ async function startOver(entry) {
 // ignored) also links the object to that item, so it counts there and goes to Commons as its
 // depicts with this box; a link to another depicts item is dropped (wish Olaf: child 3 renamed
 // to doll). With a notice and Undo.
-async function renameObject(id, name) {
+async function renameObject(id, typed) {
+  const name = cleanText(typed); // only spaces or invisible characters: back to the automatic name
   const obj = objects.value.find((o) => o.id === id);
   const mid = file.value.mid;
   const n = pageN.value;
+  const key = pageKey();
   const body = { naam: name || null };
   const before = { naam: obj?.naam || null, item: obj?.wikidata ? { q: obj.wikidata, label: obj.label_item || "" } : null };
   const match = name ? depictsItemFor(name) : null;
@@ -774,7 +868,7 @@ async function renameObject(id, name) {
   else if (name && !match && linkedToDepicts) body.item = null;
   try {
     const changed = await patch(objectPath(mid, n, id), body);
-    replaceObject(changed);
+    if (stillOn(key)) replaceObject(changed);
     const undo = undoAction(() => undoRename(id, n, mid, before), "objecten", t("feedback.name_back"));
     if ("item" in body) {
       const oldLabel = before.item ? depictsItems().find((item) => item.q === before.item.q)?.label || before.item.label || before.item.q : "";
@@ -820,19 +914,26 @@ function replaceObject(changed) {
 const lastResult = ref(null);
 const resultIds = computed(() => lastResult.value?.ids || []);
 
+// Searching: the window first; only after you confirm does the app say it is busy (wish Olaf
+// 13-11-2026: no busy bar behind a window that is not confirmed yet).
+let askingDetect = false;
 async function detect(request) {
+  if (busy.value || askingDetect) return; // one search at a time: a second click never asks (or pays) twice
   lastResult.value = null;
   const asked = request.prompt || ""; // as asked, before any word was changed in the window
   const base = pagePath(file.value.mid, pageN.value);
-  busy.value = true;
+  const key = pageKey();
+  askingDetect = true;
   try {
     if (request.modus === "prompt") {
       // Search words: one window with what is searched, saved answers or SAM anew, the cost, and
       // (folded away) the words themselves to change first (AI steering, wish Olaf 13-11-2026).
-      const answer = await askLocate({ path: base, prompt: request.prompt || "" });
+      // Without an English label on Wikidata the window opens with the words, asking for one.
+      const { askWord, ...asked } = request;
+      const answer = await askLocate({ path: base, prompt: request.prompt || "", askWord: Boolean(askWord) });
       if (!answer) return;
       request = {
-        ...request,
+        ...asked,
         prompt: answer.prompt,
         ...(Object.keys(answer.als).length ? { als: answer.als } : {}),
         ...(answer.fresh ? { vers: true } : {}),
@@ -851,7 +952,9 @@ async function detect(request) {
         if (fresh) request = { ...request, vers: true };
       } else if (!(await confirmCost(calls.betaald, calls.betaald * props.config.sam_usd, action))) return;
     }
+    busy.value = true; // confirmed: now SAM is at work
     const result = await post(`${base}/detecties`, request);
+    if (!stillOn(key)) return; // found on the page left meanwhile: there when it is opened again
     replaceObjects(result.objecten, result.nieuw);
     // The outcome is shown in the panel, under the button that asked for it.
     const fresh = result.objecten.filter((o) => result.nieuw.includes(o.id));
@@ -880,8 +983,10 @@ async function detect(request) {
     };
   } catch (error) {
     // Under the button that asked for it, like a result (wish Olaf), not at the top of the page.
+    if (!stillOn(key)) return fail(error);
     lastResult.value = { fout: errorText(t, error), prompt: request.prompt || "", modus: request.modus, at: Date.now() };
   } finally {
+    askingDetect = false;
     busy.value = false;
   }
 }
@@ -911,7 +1016,7 @@ async function forgetInventory(part = null) {
   const removed = key === "zoektermen" ? "" : pageDescriptionVersion(inventory.value);
   try {
     const result = await del(`${base}${part ? `/${part}` : ""}`);
-    inventory.value = result.inventaris;
+    showInventory(base, result.inventaris); // only while that page is still open
     const where = `ai-${key}`;
     const undo = undoAction(async () => showInventory(base, (await versionBack(`${base}/beschrijving`, "versie", removed)()).inventaris), where, t("feedback.description_back"));
     notify("warning", t(`panel.part_forgotten_${key}`) + (removed && key === "alles" ? ` ${t("feedback.terms_not_back")}` : ""), { where, actions: removed ? [undo] : [] });
@@ -923,11 +1028,16 @@ async function forgetInventory(part = null) {
 // The page overview. With `again` the model is really asked anew (paid);
 // otherwise a stored answer for this page and model comes from the cache, free.
 // With `part` ("beschrijving" or "zoektermen") only that part is asked anew.
+// Asking the overview: the window first, and only after you confirm does the app say it is busy
+// (wish Olaf 13-11-2026: the bar ran behind the window before anything was confirmed).
+let askingInventory = false;
 async function askInventory(again = false, part = null, detail = undefined, descLevel = undefined) {
+  if (busy.value || askingInventory) return; // never two (paid) questions from one double click
   const base = pagePath(file.value.mid, pageN.value);
-  busy.value = true;
+  askingInventory = true;
   try {
     const plan = await get(`${base}/inventaris`);
+    setPrices(plan);
     // The description or the search terms asked anew (there are some already): a window of its
     // own, where the prompt can be changed too (wish Olaf 13-11-2026). The first time goes with
     // the app's prompt.
@@ -945,22 +1055,32 @@ async function askInventory(again = false, part = null, detail = undefined, desc
       });
       if (!answer) return;
       steer = { ...(answer.hint ? { aanwijzing: answer.hint } : {}), redeneren: answer.effort, ...(answer.detail ? { detailniveau: answer.detail } : {}) };
+    } else if (part !== "beschrijving") {
+      // The first search terms, or the whole first overview: the same window, with the level of
+      // detail in it and no steering (wish Olaf 13-11-2026); the first time goes with the app's prompt.
+      const answer = await askPageDescribe({
+        path: base,
+        part: part || "alles",
+        steer: false,
+        detail: "normaal", // the first time always starts at Normal (wish Olaf 13-11-2026)
+        paid: plan.betaald,
+        costs: plan.kosten_per_redeneren || {},
+        defaultEffort: plan.redeneren || "low",
+      });
+      if (!answer) return;
+      if (answer.detail) detail = answer.detail;
     } else {
-    const action =
-      part === "beschrijving"
-        ? t("confirm.action_page_description", { length: t(`descdetail.${descLevel || "normaal"}`) })
-        : part === "zoektermen"
-          ? t("confirm.action_page_terms", { level: t(`detail.${detail || "normaal"}`) })
-          : t("confirm.action_page", { level: t(`detail.${detail || "normaal"}`) });
-    if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd, action))) return;
+      const action = t("confirm.action_page_description", { length: t(`descdetail.${descLevel || "normaal"}`) });
+      if (!(await confirmCost(plan.betaald ? 1 : 0, plan.kosten_schatting_usd, action))) return;
     }
+    busy.value = true; // confirmed: now the AI is at work
     const level = {
       ...(detail && part !== "beschrijving" ? { detailniveau: detail } : {}),
       ...(descLevel && part !== "zoektermen" ? { beschrijvingsniveau: descLevel } : {}),
     };
     const previous = part === "zoektermen" ? "" : pageDescriptionVersion(inventory.value);
     const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? { ...level, ...steer } : { opnieuw: again, ...level });
-    inventory.value = result.inventaris;
+    showInventory(`${base}/inventaris`, result.inventaris); // only while that page is still open
     // Green, under the button that asked (wish Olaf 13-11-2026). A paid answer is not undone, but the
     // description it replaced can be put back (free).
     const where = `ai-${part || "alles"}`;
@@ -970,6 +1090,7 @@ async function askInventory(again = false, part = null, detail = undefined, desc
   } catch (error) {
     fail(error);
   } finally {
+    askingInventory = false;
     busy.value = false;
   }
 }
@@ -1009,10 +1130,12 @@ async function makeGroup(members, body) {
   if (!answer.ok) return null;
   // Some unticked: group just the ticked ones (by id, also when it was "all of one kind").
   const picked = answer.picked.length < members.length ? { objecten: answer.picked.map((i) => members[i].id) } : body;
+  const groupName = cleanText(answer.value);
+  const key = pageKey();
   const grouped = await withMaskWait(t("busy.group"), async () => {
-    const result = await post(`${pagePath(file.value.mid, pageN.value)}/groepen`, { ...picked, ...(answer.value ? { naam: answer.value } : {}) });
+    const result = await post(`${pagePath(file.value.mid, pageN.value)}/groepen`, { ...picked, ...(groupName ? { naam: groupName } : {}) });
     await loadMasks([result.object]);
-    objects.value = result.objecten;
+    if (stillOn(key)) objects.value = result.objecten;
     return { id: result.object.id, n: result.object.groep.aantal, name: objectName(result.object, props.config.taal, t) };
   });
   // Green, above the bulk tabs, with Undo (wish Olaf 13-11-2026): ungroups it again.
@@ -1113,9 +1236,11 @@ async function trashMany(members, name, title) {
   try {
     let result = null;
     for (const id of ids) result = await del(objectPath(mid, n, id));
-    if (magnifierOpen.value && ids.includes(magnifiedId.value)) magnifierOpen.value = false;
-    if (result) objects.value = result.objecten;
-    refreshTrashTerms(n);
+    if (stillOn(`${mid}/${n}`)) {
+      if (magnifierOpen.value && ids.includes(magnifiedId.value)) magnifierOpen.value = false;
+      if (result) objects.value = result.objecten;
+    }
+    refreshTrashTerms(n, mid);
     notify("warning", t(ids.length === 1 ? "panel.bulk_trashed_one" : "panel.bulk_trashed", { n: ids.length, term: name }), {
       where: "bulk",
       actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreMany(ids, n, mid, name) }],
@@ -1219,7 +1344,7 @@ async function ungroupObject(id) {
     await withMaskWait(t("busy.ungroup"), async () => {
       const result = await del(`${pagePath(mid, n)}/groepen/${id}`);
       await loadMasks(result.objecten.filter((o) => members.some((m) => m.id === o.id)));
-      objects.value = result.objecten;
+      if (stillOn(`${mid}/${n}`)) objects.value = result.objecten;
     });
     // Green, near the list, so you see it worked (wish Olaf 13-11-2026); Undo groups the same
     // members again, with the group's own name (its caption or description does not come back).
@@ -1242,10 +1367,14 @@ async function ungroupObject(id) {
 }
 
 async function mergeDuplicates(scope = "alle") {
+  if (busy.value) return; // a double click merges once
   actionResult.value = null;
+  const key = pageKey();
+  busy.value = true;
   try {
     const among = scope === "selectie" ? objects.value.filter((o) => o.status === "geselecteerd") : visibleObjects.value;
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/samenvoegingen`, { objecten: among.map((o) => o.id) });
+    if (!stillOn(key)) return;
     replaceObjects(result.objecten);
     // Which object went into which (wish Olaf): "suitcase → cardboard box".
     const pairs = (result.paren || []).map((pair) => t("detect.merged_pair", { gone: objectName(pair.weg, props.config.taal, t), kept: objectName(pair.in, props.config.taal, t) }));
@@ -1254,6 +1383,8 @@ async function mergeDuplicates(scope = "alle") {
       : { type: "warning", text: t("objects.merged_none") };
   } catch (error) {
     failInTab(error);
+  } finally {
+    busy.value = false;
   }
 }
 
@@ -1263,9 +1394,19 @@ const describeCost = computed(() => costFor(toDescribe.value));
 // Everything visible without a description: "Describe all".
 const toDescribeAll = computed(() => visibleObjects.value.filter((o) => !o.beschrijving).length);
 const describeAllCost = computed(() => costFor(toDescribeAll.value));
+// What Muse Spark costs for THIS file (bug found by Olaf 13-11-2026): a public-domain file without
+// rights labels goes to the cheaper Contributor model, so the general prices in the settings (the
+// standard model) were too high. Taken from the page's plan (GET …/inventaris, free): the price of
+// the whole image as the server estimates it, and per object the price of the model it chose.
+const prices = ref(null);
+function setPrices(plan) {
+  const cheap = plan?.model && plan.model === props.config.muse.rechtenvrij_model;
+  prices.value = plan ? { page: plan.kosten_schatting_usd, object: cheap ? props.config.muse.beschrijving_rechtenvrij_usd : props.config.muse.beschrijving_usd } : null;
+}
+const objectUsd = computed(() => prices.value?.object ?? props.config.muse.beschrijving_usd);
 // The price of describing n objects, as on the buttons.
 function costFor(n) {
-  return priceLabel(props.config.muse.beschrijving_usd * n, props.config.betaald, props.config.taal, t);
+  return priceLabel(objectUsd.value * n, props.config.betaald, props.config.taal, t);
 }
 // The line under the describe button: what it will do with the ticked objects.
 const describeNote = computed(() => {
@@ -1290,7 +1431,7 @@ watch(() => [file.value?.mid, pageN.value], () => { actionResult.value = null; }
 
 // scope: "selectie", "alle" (everything visible) or { term } (the visible objects of one kind).
 async function describeAll(scope = "selectie") {
-  busyAt.value = "objecten";
+  if (busy.value) return; // a second click while describing never describes (and pays) twice
   actionResult.value = null;
   const kind = scope && typeof scope === "object" ? scope.term : null;
   const among = kind
@@ -1312,27 +1453,32 @@ async function describeAll(scope = "selectie") {
     objects: chosen.map((o) => ({ ...shownObject(o), ownPrompt: Boolean(o.prompt_eigen) })),
     paths: chosen.map((o) => objectPath(file.value.mid, pageN.value, o.id)),
     action,
-    unitUsd: props.config.muse.beschrijving_usd,
+    unitUsd: objectUsd.value,
     paid: Boolean(props.config.betaald),
     language: props.config.taal,
   });
-  if (!settings) {
-    busyAt.value = null;
-    return;
-  }
+  if (!settings) return;
+  // The file and page they are on, fixed: going to another page meanwhile does not send the rest there.
+  const mid = file.value.mid;
+  const n = pageN.value;
+  const key = pageKey();
+  const total = chosen.filter((_, i) => settings[i]).length;
   busy.value = true;
+  busyAt.value = "objecten";
+  let done = 0;
   try {
     // Every object with its own settings from the dialog (wish Olaf); an unticked one is skipped.
-    let done = 0;
     for (const [i, obj] of chosen.entries()) {
       if (!settings[i]) continue;
-      const result = await post(`${objectPath(file.value.mid, pageN.value, obj.id)}/beschrijving`, settings[i]);
-      replaceObject(result.object);
+      const result = await post(`${objectPath(mid, n, obj.id)}/beschrijving`, settings[i]);
+      if (stillOn(key)) replaceObject(result.object);
       done += 1;
     }
     actionResult.value = { type: "success", text: t("describe.done", { n: done }) };
   } catch (error) {
-    failInTab(error);
+    // Some were described (and paid) before it went wrong: say how many, so none is asked twice.
+    if (done) actionResult.value = { type: "error", text: t("describe.partly", { done, n: total, error: errorText(t, error) }) };
+    else failInTab(error);
   } finally {
     busy.value = false;
     busyAt.value = null;
@@ -1347,10 +1493,10 @@ function askBulkDescribe(question) {
   return new Promise((resolve) => (bulkDescribeAnswer = resolve));
 }
 // The window of locating: {prompt, als, fresh} to go ahead, null when cancelled.
-const locate = reactive({ open: false, path: "", prompt: "" });
+const locate = reactive({ open: false, path: "", prompt: "", askWord: false });
 let locateAnswer = null;
 function askLocate(question) {
-  Object.assign(locate, question, { open: true });
+  Object.assign(locate, { askWord: false }, question, { open: true });
   return new Promise((resolve) => (locateAnswer = resolve));
 }
 function answerLocate(answer) {
@@ -1359,10 +1505,10 @@ function answerLocate(answer) {
   locateAnswer = null;
 }
 // The window of "… opnieuw laten maken": {hint, effort} to go ahead, false when cancelled.
-const pageDescribe = reactive({ open: false, path: "", paid: false, costs: {}, defaultEffort: "low", part: "beschrijving", detail: "" });
+const pageDescribe = reactive({ open: false, path: "", paid: false, costs: {}, defaultEffort: "low", part: "beschrijving", detail: "", steer: true });
 let pageDescribeAnswer = null;
 function askPageDescribe(question) {
-  Object.assign(pageDescribe, question, { open: true });
+  Object.assign(pageDescribe, { steer: true }, question, { open: true });
   return new Promise((resolve) => (pageDescribeAnswer = resolve));
 }
 function answerPageDescribe(ok) {
@@ -1377,15 +1523,17 @@ function answerBulkDescribe(settings) {
 }
 
 async function onPoint({ x, y }) {
-  if (!pointMode.value) return;
+  if (!pointMode.value || busy.value) return; // a click while the last one is asked: nothing (no second payment)
   lastResult.value = null;
   // Always the price first: only a click on the shape of a known object is free,
   // and the shapes are on the server (a click in a box beside its shape is a new search).
-  const hint = hints.point.trim();
+  const hint = cleanText(hints.point);
+  const key = pageKey();
   if (!(await confirmCost(1, props.config.sam_usd, hint ? t("confirm.action_point_hint", { hint }) : t("confirm.action_point")))) return;
   busy.value = true;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { punt: { x, y }, ...(hint ? { hint } : {}) });
+    if (!stillOn(key)) return;
     // The outcome in the panel, under "Aanwijzen of tekenen": new, already known, or nothing.
     if (!result.object) {
       lastResult.value = { section: "point", modus: "punt", outcome: "niets", hint, at: Date.now() };
@@ -1404,14 +1552,17 @@ async function onPoint({ x, y }) {
 
 async function onRectangle(rect) {
   // The hint only counts with the Draw switch on: a Shift-drag stays free.
-  const hint = drawMode.value ? hints.draw.trim() : "";
+  const hint = drawMode.value ? cleanText(hints.draw) : "";
+  const key = pageKey();
   if (hint) {
+    if (busy.value) return; // paid: one at a time
     lastResult.value = null;
     if (!(await confirmCost(1, props.config.sam_usd, t("confirm.action_draw_hint", { hint })))) return;
     busy.value = true;
   }
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { rechthoek: rect, ...(hint ? { hint } : {}) });
+    if (!stillOn(key) || !result?.object) return;
     objects.value = [...objects.value.filter((o) => o.id !== result.object.id), result.object];
     newIds.value = [result.object.id];
     focusedId.value = result.object.id;
@@ -1443,7 +1594,7 @@ async function undoDrawn(result) {
     if (drawn.mid === file.value?.mid && drawn.n === pageN.value) {
       if (magnifiedId.value === drawn.id) magnifierOpen.value = false;
       objects.value = data.objecten;
-      refreshTrashTerms(drawn.n);
+      refreshTrashTerms(drawn.n, drawn.mid);
     }
     if (lastResult.value === result) lastResult.value = { ...result, undo: null, undone: t("feedback.drawn_undone", { name: result.name }) };
   } catch (error) {
@@ -1454,12 +1605,14 @@ async function undoDrawn(result) {
 }
 
 async function refineMask(obj) {
+  if (busy.value) return; // paid: never twice from one double click
   if (!(await confirmCost(1, props.config.sam_usd, t("confirm.action_mask", { name: listNames.value[obj.id] || objectName(obj, props.config.taal, t) })))) return;
   const n = pageN.value;
   const mid = file.value.mid;
+  busy.value = true;
   try {
     const result = await post(`${pagePath(mid, n)}/detecties`, { masker_voor: obj.id });
-    replaceObject(result.object);
+    if (stillOn(`${mid}/${n}`)) replaceObject(result.object);
     // Undo removes the shape again (free): the object keeps its rectangle.
     const undo = undoAction(async () => {
       const back = await del(`${objectPath(mid, n, obj.id)}/vorm`);
@@ -1468,17 +1621,32 @@ async function refineMask(obj) {
     notify("success", t("detect.mask_done"), { where: "vergroter", actions: [undo] });
   } catch (error) {
     fail(error, "vergroter");
+  } finally {
+    busy.value = false;
   }
 }
 
 // -- Selection and objects ----------------------------------------------------------------
 
+// Ticking shows at once, before the server answers, so a quick second tick builds on the first
+// (it used to send the list without the first one, which then came unticked). Only the answer to
+// the last tick counts; after an error the list shows what the server really has.
+const selectionSave = newestOnly();
 async function setSelection(ids) {
+  const key = pageKey();
+  const chosen = new Set(ids);
+  objects.value = objects.value.map((o) => {
+    const status = chosen.has(o.id) ? "geselecteerd" : o.status === "geselecteerd" ? "kandidaat" : o.status;
+    return status === o.status ? o : { ...o, status };
+  });
+  const current = selectionSave();
   try {
     const result = await patch(`${pagePath(file.value.mid, pageN.value)}/objecten`, { geselecteerd: ids });
-    objects.value = result.objecten;
+    if (current() && stillOn(key)) objects.value = result.objecten;
   } catch (error) {
-    fail(error);
+    if (!stillOn(key)) return;
+    fail(error, "objecten");
+    if (error?.status !== 404 && current()) reloadObjects(); // a 404 reloads already (fail)
   }
 }
 
@@ -1506,9 +1674,10 @@ function hoverObject(id, on) {
 // Remove only the shape SAM gave a rectangle: the object stays, with its own rectangle
 // (for a region: the one on Commons). Free; nothing changes on Commons.
 async function removeShape(id) {
+  const key = pageKey();
   try {
     const result = await del(`${objectPath(file.value.mid, pageN.value, id)}/vorm`);
-    objects.value = objects.value.map((o) => (o.id === id ? result.object : o));
+    if (stillOn(key)) objects.value = objects.value.map((o) => (o.id === id ? result.object : o));
     notify("success", t("objects.shape_removed", { name: objectName(result.object, props.config.taal, t) }), { where: "objecten" });
   } catch (error) {
     fail(error, "objecten");
@@ -1559,8 +1728,9 @@ async function trashObject(id) {
   const at = order.indexOf(id);
   const neighbour = order[at + 1] || order[at - 1] || null;
   try {
-    const result = await del(objectPath(file.value.mid, n, id));
-    if (magnifiedId.value === id) {
+    const result = await del(objectPath(mid, n, id));
+    const here = stillOn(`${mid}/${n}`); // another page meanwhile: its list stays as it is
+    if (here && magnifiedId.value === id) {
       if (neighbour && result.objecten.some((o) => o.id === neighbour)) {
         magnifiedId.value = neighbour; // before the list changes, so the magnifier is not closed in between
         focusedId.value = neighbour;
@@ -1568,8 +1738,8 @@ async function trashObject(id) {
         magnifierOpen.value = false;
       }
     }
-    objects.value = result.objecten;
-    refreshTrashTerms(n);
+    if (here) objects.value = result.objecten;
+    refreshTrashTerms(n, mid);
     notify("warning", t("objects.trashed"), {
       where: "objecten",
       object: shown,
@@ -1591,10 +1761,10 @@ async function restoreObject(id, n, mid = file.value.mid, shown = null) {
 }
 
 // The trash counts per search term, fetched again after a move to or from the trash.
-function refreshTrashTerms(n) {
-  get(pagePath(file.value.mid, n))
+function refreshTrashTerms(n, mid = file.value?.mid) {
+  get(pagePath(mid, n))
     .then((data) => {
-      if (n === pageN.value) trashTerms.value = data.prullenbak_termen || {};
+      if (stillOn(`${mid}/${n}`)) trashTerms.value = data.prullenbak_termen || {};
     })
     .catch(() => {});
 }
@@ -1674,10 +1844,12 @@ function stepMagnifier(step) {
 // -- Saving and export (9.5) ---------------------------------------------------------------
 
 async function saveSelection() {
+  if (busy.value) return;
+  const key = pageKey();
   busy.value = true;
   try {
     const result = await post(`${pagePath(file.value.mid, pageN.value)}/uitsneden`, {});
-    objects.value = result.objecten;
+    if (stillOn(key)) objects.value = result.objecten;
     notify("success", t("save.done", { n: result.opgeslagen.length }), { where: "opslaan" });
   } catch (error) {
     fail(error, "opslaan");

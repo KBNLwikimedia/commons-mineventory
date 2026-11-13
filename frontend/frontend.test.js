@@ -1111,7 +1111,7 @@ describe("every dialog movable", () => {
       return dialog;
     };
     const first = make("cc-bevestig");
-    movableDialogs({ move: "move" });
+    const stop = movableDialogs({ move: "move" });
     expect(first.classList.contains("cc-verplaatsbaar")).toBe(true);
     const later = make("cc-lokaliseren");
     const own = make("cc-vergroter");
@@ -1120,5 +1120,260 @@ describe("every dialog movable", () => {
     expect(later.querySelectorAll(".cc-rand")).toHaveLength(8);
     expect(own.classList.contains("cc-verplaatsbaar")).toBe(false);
     [first, later, own].forEach((d) => d.remove());
+    stop();
   });
+});
+
+// -- Robustness (wish Olaf 13-11-2026): errors, retries, late answers, broken data ----------------
+
+describe("api robustness", async () => {
+  const { GET_TIMEOUT, isAbort, newestOnly, statusCode } = await import("./api.js");
+  const answer = (status, text) => ({ ok: status >= 200 && status < 300, status, text: async () => text });
+  const noWait = { delays: [0, 0] };
+
+  it("tries a GET again when the server cannot be reached, and gives a network error after that", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    const error = await request("GET", "/api/v1/x", undefined, { fetchImpl, ...noWait }).catch((e) => e);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.code).toBe("network");
+  });
+
+  it("never tries a POST, PATCH, PUT or DELETE again (a paid call or a change happens once)", async () => {
+    for (const method of ["POST", "PATCH", "PUT", "DELETE"]) {
+      const fetchImpl = vi.fn(async () => answer(503, "<html>Service Unavailable</html>"));
+      const error = await request(method, "/api/v1/x", {}, { fetchImpl, ...noWait }).catch((e) => e);
+      expect(fetchImpl, method).toHaveBeenCalledTimes(1);
+      expect(error.code).toBe("server_unavailable");
+    }
+  });
+
+  it("gets through when the server is back after a restart (502 with an HTML page, then JSON)", async () => {
+    const replies = [answer(502, "<html>Bad Gateway</html>"), answer(503, ""), answer(200, '{"ok":true}')];
+    const fetchImpl = vi.fn(async () => replies.shift());
+    expect(await request("GET", "/api/v1/x", undefined, { fetchImpl, ...noWait })).toEqual({ ok: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("gives every HTTP status without a code of its own a code, with or without a JSON body", async () => {
+    const cases = { 400: "bad_request", 401: "session_expired", 403: "forbidden", 404: "not_found", 409: "conflict", 410: "gone", 413: "request_too_large", 429: "too_many_requests", 500: "server_error", 503: "server_unavailable" };
+    for (const [status, code] of Object.entries(cases)) {
+      for (const body of ["", "<html>error</html>", '{"fout":"Iets"}']) {
+        const fetchImpl = async () => answer(Number(status), body);
+        const error = await request("POST", "/api/v1/x", {}, { fetchImpl }).catch((e) => e);
+        expect(error.code, `${status} ${body}`).toBe(code);
+        expect(error.status).toBe(Number(status));
+      }
+    }
+    // The server's own code and text win.
+    const own = await request("POST", "/x", {}, { fetchImpl: async () => answer(429, '{"code":"daily_limit","fout":"Op"}') }).catch((e) => e);
+    expect([own.code, own.message]).toEqual(["daily_limit", "Op"]);
+    expect(statusCode(599)).toBe("server_error");
+    expect(statusCode(418)).toBe("error");
+  });
+
+  it("does not take an HTML page for an answer, and an empty one is null", async () => {
+    const html = await request("GET", "/x", undefined, { fetchImpl: async () => answer(200, "<html>Log in</html>") }).catch((e) => e);
+    expect(html.code).toBe("bad_response");
+    expect(await request("DELETE", "/x", undefined, { fetchImpl: async () => answer(204, "") })).toBeNull();
+  });
+
+  it("gives up a GET that does not answer in time, but never times out a POST by default", async () => {
+    const hanging = vi.fn((url, options) => new Promise((resolve, reject) => {
+      options.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+    }));
+    const error = await request("GET", "/x", undefined, { fetchImpl: hanging, timeout: 10, retries: 0 }).catch((e) => e);
+    expect(error.code).toBe("timeout");
+    expect(GET_TIMEOUT).toBeGreaterThanOrEqual(60000);
+    let settled = false;
+    request("POST", "/x", {}, { fetchImpl: hanging }).finally(() => (settled = true)).catch(() => {});
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(settled).toBe(false);
+  });
+
+  it("leaves an abort by the caller an AbortError, not tried again", async () => {
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(async () => {
+      controller.abort();
+      throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    });
+    const error = await request("GET", "/x", undefined, { fetchImpl, signal: controller.signal, ...noWait }).catch((e) => e);
+    expect(isAbort(error)).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("has a Dutch and an English text for every code the client makes itself", () => {
+    const codes = ["network", "timeout", "bad_response", "unexpected", ...[400, 401, 403, 404, 405, 409, 410, 413, 429, 500, 502].map(statusCode)];
+    for (const code of codes) {
+      expect(nl[`error.${code}`], code).toBeTruthy();
+      expect(en[`error.${code}`], code).toBeTruthy();
+    }
+  });
+
+  it("shows no technical English for a fault in the app, and the network text only for a failed fetch", () => {
+    const t = (key) => ({ "meta.language": "en", "error.error": "Something went wrong.", "error.network": "No server." })[key] ?? key;
+    expect(errorText(t, new TypeError("Cannot read properties of undefined (reading 'id')"))).toBe("Something went wrong.");
+    expect(errorText(t, new TypeError("Failed to fetch"))).toBe("No server.");
+    expect(errorText(t, new ApiError(0, { code: "network" }))).toBe("No server.");
+    expect(errorText(t, undefined)).toBe("Something went wrong.");
+  });
+
+  it("lets only the newest of a series count (two quick searches, page after page)", () => {
+    const newest = newestOnly();
+    const first = newest();
+    const second = newest();
+    expect([first(), second()]).toEqual([false, true]);
+  });
+});
+
+describe("typed text and page numbers", async () => {
+  const { cleanText, searchWords } = await import("./text.js");
+  const { pageNumber } = await import("./state.js");
+
+  it("treats a text of only spaces or invisible characters as empty, and keeps emoji and right-to-left text", () => {
+    expect(cleanText("  ​‎﻿ ⁦")).toBe("");
+    expect(cleanText("​boom ")).toBe("boom");
+    expect(cleanText("\u{1F468}‍\u{1F469}‍\u{1F467} family")).toBe("\u{1F468}‍\u{1F469}‍\u{1F467} family"); // the joiners inside the emoji stay
+    expect(cleanText(" שלום world ")).toBe("שלום world");
+    expect(cleanText(null)).toBe("");
+    expect(cleanText(42)).toBe("42");
+    expect(cleanText("x".repeat(10000))).toHaveLength(10000);
+  });
+
+  it("splits a search into clean words, without empty or invisible ones", () => {
+    expect(searchWords(" Hoed ​  JAS ")).toEqual(["hoed", "jas"]);
+    expect(searchWords("​ ‌")).toEqual([]);
+  });
+
+  it("makes any page number from an address or the history a valid one", () => {
+    expect(pageNumber("3", 5)).toBe(3);
+    expect(pageNumber("abc", 5)).toBe(1);
+    expect(pageNumber(0, 5)).toBe(1);
+    expect(pageNumber(-2)).toBe(1);
+    expect(pageNumber(2.7, 5)).toBe(2);
+    expect(pageNumber(9, 4)).toBe(4); // the file has fewer pages now
+    expect(pageNumber(NaN)).toBe(1);
+    expect(pageNumber("7", undefined)).toBe(7);
+  });
+});
+
+describe("stored values of the wrong shape", async () => {
+  const { readStored, writeStored, removeStored, useStoredList } = await import("./storage.js");
+  const { computed } = await import("vue");
+
+  it("gives the fallback when stored JSON is not a list or an object as expected", () => {
+    writeStored("cc-test-vorm", { a: 1 }, { json: true });
+    expect(readStored("cc-test-vorm", [], { json: true })).toEqual([]);
+    writeStored("cc-test-vorm", [1, 2], { json: true });
+    expect(readStored("cc-test-vorm", {}, { json: true })).toEqual({});
+    window.localStorage.setItem("cc-test-vorm", "null");
+    expect(readStored("cc-test-vorm", {}, { json: true })).toEqual({});
+    expect(readStored("cc-test-vorm", null, { json: true })).toBeNull();
+    removeStored("cc-test-vorm");
+  });
+
+  it("reads a list kept per file as a list, also when something else was stored under its key", () => {
+    window.localStorage.setItem("cc-test-lijst", '"tekst"');
+    const { list, toggle } = useStoredList(computed(() => "cc-test-lijst"));
+    expect(list.value).toEqual([]);
+    toggle("hoed");
+    expect(readStored("cc-test-lijst", [], { json: true })).toEqual(["hoed"]);
+    removeStored("cc-test-lijst");
+  });
+});
+
+describe("PageViewer with broken data", async () => {
+  const { validBox } = await import("./viewer/viewer.js");
+
+  it("accepts only boxes of numbers, and turns a negative width or height round", () => {
+    expect(validBox({ x: 10, y: 20, w: -5, h: 8 })).toEqual({ x: 5, y: 20, w: 5, h: 8 });
+    expect(validBox({ x: "1", y: "2", w: "3", h: "4" })).toEqual({ x: 1, y: 2, w: 3, h: 4 });
+    expect(validBox({ x: 0, y: 0, w: 0, h: 0 })).toEqual({ x: 0, y: 0, w: 0, h: 0 });
+    for (const bad of [null, undefined, {}, { x: NaN, y: 0, w: 1, h: 1 }, { x: 0, y: 0, w: Infinity, h: 1 }, { x: "", y: 0, w: 1, h: 1 }, "box"]) expect(validBox(bad)).toBeNull();
+  });
+
+  it("draws the good objects and leaves out those without a usable box, without throwing", () => {
+    const { host, viewer } = viewerWithPage();
+    const broken = [
+      ...objects,
+      { id: "c", status: "kandidaat", bron: "dummy" },
+      { id: "d", status: "kandidaat", bron: "dummy", box: { x: NaN, y: 1, w: 2, h: 2 } },
+      { id: "e", status: "kandidaat", bron: "dummy", box: { x: 50, y: 50, w: -20, h: 10 } },
+      // A shape without its address: only the frame, no request for "undefined".
+      { id: "f", status: "geselecteerd", bron: "dummy", box: { x: 1, y: 1, w: 5, h: 5 }, masker: { breedte: 1 } },
+    ];
+    expect(() => viewer.setObjects(broken, ["c"])).not.toThrow();
+    expect([...host.querySelectorAll("g.object")].map((g) => g.dataset.id)).toEqual(["a", "b", "e", "f"]);
+    expect(host.querySelector('g[data-id="e"] rect.object-rand').getAttribute("x")).toBe("30");
+    expect(broken[4].box.w).toBe(-20); // the app's own object is not changed
+    expect(host.querySelector('g[data-id="f"] .object-masker')).toBeNull();
+    expect(viewer.focusObject("c")).toBe(false);
+  });
+
+  it("forgets the object under the mouse once it is gone, so a double-click does not open it", () => {
+    const { viewer } = viewerWithPage();
+    viewer.setObjects(objects);
+    viewer.hoverObject = objects[0];
+    viewer.tooltip.hidden = false;
+    viewer.setObjects([objects[1]]);
+    expect(viewer.hoverObject).toBeNull();
+    expect(viewer.tooltip.hidden).toBe(true);
+    const opened = [];
+    viewer.on("object-open", (o) => opened.push(o));
+    viewer.el.dispatchEvent(new MouseEvent("dblclick"));
+    expect(opened).toEqual([]);
+  });
+
+  it("never gets NaN in its transform: a page of size 0, a NaN box to zoom to, a viewer of size 0", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const viewer = new PageViewer(host);
+    viewer.load({ width: 0, height: undefined, src: "data:,", srcWidth: 0 });
+    viewer.zoomToBox({ x: NaN, y: 0, w: 1, h: 1 });
+    viewer.zoomStep(1);
+    viewer.zoomBy(2);
+    viewer.fit();
+    expect(viewer.stage.style.transform).not.toMatch(/NaN|Infinity/);
+    expect(Number.isFinite(viewer.scale) && viewer.scale > 0).toBe(true);
+  });
+});
+
+describe("the safety net", async () => {
+  const { installSafetyNet, reportUnexpected, resetSafetyNet, safetyNotices } = await import("./safety.js");
+  const { createApp, h, nextTick } = await import("vue");
+  const t = (key, params = {}) => (key === "error.unexpected" ? `Onverwacht: ${params.detail}` : key === "error.error" ? "Er ging iets mis." : key === "error.network" ? "Geen server." : key);
+
+  it("shows one red message for an error nobody caught, keeps it in the console, and ignores an abort", async () => {
+    resetSafetyNet();
+    const target = document.createElement("div");
+    document.body.append(target);
+    const listeners = {};
+    const win = { addEventListener: (type, fn) => (listeners[type] = fn) };
+    const log = { error: vi.fn() };
+    const app = createApp({ render: () => h("p") });
+    installSafetyNet(app, t, { target, win, log });
+    app.config.errorHandler(new TypeError("x is undefined"), null, "watcher callback");
+    expect(log.error).toHaveBeenCalled();
+    expect(safetyNotices.map((n) => [n.type, n.text])).toEqual([["error", "Onverwacht: Er ging iets mis."]]);
+    listeners.unhandledrejection({ reason: new ApiError(0, { code: "network" }) });
+    expect(safetyNotices).toHaveLength(1); // one at a time: the newest
+    expect(safetyNotices[0].text).toBe("Onverwacht: Geen server.");
+    expect(reportUnexpected(t, Object.assign(new Error("stop"), { name: "AbortError" }))).toBe(false);
+    await nextTick();
+    expect(target.textContent).toContain("Onverwacht");
+    resetSafetyNet();
+  });
+});
+
+it("bulletList reads bullets and sub-bullets, and nothing else", async () => {
+  const { bulletList } = await import("./text.js");
+  const text = ["Intro", "- Beeldt af", "  - items", "  - objecten", "- Bijschriften", "slot"].join(String.fromCharCode(10));
+  expect(bulletList(text)).toEqual([
+    { text: "Beeldt af", sub: ["items", "objecten"] },
+    { text: "Bijschriften", sub: [] },
+  ]);
+  expect(bulletList("  - zonder kop")).toEqual([]);
+  expect(bulletList(null)).toEqual([]);
 });

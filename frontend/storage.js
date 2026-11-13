@@ -5,15 +5,24 @@
 import { ref, watch } from "vue";
 
 /* The stored text for `key`, or `fallback` when there is none (or it is empty).
-   With {json: true} the text is parsed; text that does not parse gives `fallback`. */
+   With {json: true} the text is parsed; text that does not parse, or JSON of another shape than
+   the fallback (a list where a list is expected, an object where an object is), gives `fallback`. */
 export function readStored(key, fallback = null, { json = false } = {}) {
   try {
     const raw = window.localStorage.getItem(key);
     if (raw === null || raw === "") return fallback;
-    return json ? JSON.parse(raw) : raw;
+    if (!json) return raw;
+    const value = JSON.parse(raw);
+    return sameShape(value, fallback) ? value : fallback;
   } catch {
     return fallback;
   }
+}
+
+function sameShape(value, fallback) {
+  if (Array.isArray(fallback)) return Array.isArray(value);
+  if (fallback && typeof fallback === "object") return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  return true;
 }
 
 /* Store `value` under `key`: as is (as text), or with {json: true} as JSON. */

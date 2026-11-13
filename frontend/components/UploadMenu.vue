@@ -102,7 +102,9 @@ async function runCheck() {
 }
 
 async function upload() {
+  if (busy.value) return; // one upload at a time, never twice from one double click
   busy.value = true;
+  error.value = "";
   try {
     await post(`${filePath(props.mid)}/commons/uploads`, { bevestigd: true, objecten: chosen.value.map((i) => ({ pagina: i.pagina, id: i.id })) });
   } catch (e) {

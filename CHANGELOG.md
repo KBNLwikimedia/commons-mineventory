@@ -5,6 +5,29 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.40.6] - 2026-11-13
+
+### Toegevoegd
+
+- **Robuustheid** (wens Olaf): de foutafhandeling in de hele app nagelopen en uitgebreid, met tests voor elke verbetering en voor randgevallen (backend 83 nieuwe tests in `tests/test_robuustheid.py`, frontend 21 nieuwe tests). Een fuzz-test die alle API-routes met rare invoer bestookt, vond eerst 89 crashes en nu geen.
+  - Backend: één gedeelde, atomische manier van lezen en schrijven (`cutter/opslag.py`): nooit meer half geschreven bestanden; een beschadigd `objecten.json` of cachebestand maakt de pagina niet onbruikbaar (er blijft een kopie `.kapot-…` bewaard); vreemde antwoorden van Commons (HTML, lege imageinfo) en van de Meta-API (geen JSON, NaN, vreemde kaders, rare tokens) geven een duidelijke fout; beschadigde of enorme afbeeldingen, gekke invoer (te lange ids, oneindige getallen, lijsten waar tekst hoort) geven een 400 in plaats van een crash; elke onverwachte fout komt als JSON (`internal_error`), met aparte codes voor een volle schijf, een bezette opslag en te grote verzoeken (5 MB); betaalde SAM-aanroepen reserveren nu ook vooraf; een id die zowel op de pagina als in de prullenbak staat wordt correct behandeld.
+  - Frontend: `api.js` met duidelijke foutcodes ook bij HTML- of lege antwoorden, een time-out en herhaling voor GET-verzoeken (nooit voor betaalde of wijzigende verzoeken); een vangnet dat een onverwachte fout als één rode melding toont; antwoorden die binnenkomen nadat je naar een ander bestand of een andere pagina ging, komen niet meer op de verkeerde plek; geen dubbele betaalde aanroepen meer door dubbelklikken; snel achter elkaar aanvinken klopt; een object dat elders verwijderd is, ververst de lijst; de viewer slaat kapotte kaders over; onzichtbare tekens tellen niet als invoer.
+- **Gele melding bij een beschadigd objectenbestand** (besluit Olaf): kon de app het `objecten.json` van een pagina niet lezen, dan opent de pagina leeg en blijft een kopie `objecten.json.kapot-…` op de server. De pagina (`GET …/pagina/{n}`) noemt die kopieën nu (`beschadigd`), en de app zegt het met een gele melding boven de objecten, met de naam van de kopie en het tijdstip. Wegklikken onthoudt de app in deze browser, per kopie.
+- In het backlog: dezelfde robuustheidstests op Toolforge en met meerdere gebruikers (18a), en de *Testlijst robuustheid* die Olaf nog moet doorlopen (18b).
+- **Leesbare namen voor items zonder Nederlands of Engels label** (wens Olaf): *Beeldt af, zonder regio* toont dan het meertalige label (`mul`), anders een label in een andere taal met een taalmerkje (bijv. *Flugzeug* `de`), en pas als laatste het Q-nummer. Zonder Engels label krijgt de knop een ⚠: een klik opent het venster met *Zoekwoorden voor SAM* open en vraagt om een Engels zoekwoord (SAM zoekt in het Engels), zodat er nooit op een Nederlands woord of een Q-nummer betaald wordt.
+
+### Gewijzigd
+
+- **Naar Commons**: de korte uitleg in het paneel zegt nu concreet wat de knop doet (bij *Beeldt af* de Wikidata-items van de objecten, waar mogelijk met hun plek, en een bijschrift in het Nederlands en Engels; jij kiest en keurt goed). De lijst van wat terug kan staat niet meer in het paneel, maar bovenaan het venster dat de knop opent (wens Olaf). Eén hulpfunctie voor zo'n lijst met opsommingen (`bulletList` in `text.js`).
+- De uitleg bovenaan *AI-suggesties voor deze afbeelding* staat, zodra de AI heeft gekeken, in de verleden tijd en zegt wat er werkelijk is: een beschrijving in vier (of minder) lengtes of geen, wel of geen tekst uit de afbeelding, het aantal zoektermen of geen, en of daarmee al objecten gevonden zijn (wens Olaf).
+- De schuif **Detailniveau** staat niet meer in het paneel, maar altijd in het venster waar je de kosten bevestigt: bij *Wat staat op deze pagina?* (de eerste keer, beschrijving en zoektermen samen), bij *Zoektermen laten maken* en bij *Zoektermen opnieuw laten maken*. De eerste keer zonder *AI-bijsturing*: dan gaat altijd de prompt van de app mee, en staat de schuif op *Normaal* (wens Olaf). *Wat staat op deze pagina?* noemt in drie punten wat de AI maakt: de beschrijving in vier lengtes, de tekst in of rond de afbeelding, en de zoektermen, met de schuif onder dat laatste punt. De uitleg bovenaan *AI-suggesties voor deze afbeelding* noemt dezelfde drie punten.
+
+### Opgelost
+
+- Na het bevestigen van *Zoektermen laten maken* (en de andere knoppen met een kostenvenster in het paneel) liep er geen bezig-balk bij de knop, alleen de knop werd grijs: het paneel koppelde de balk alleen aan een klik van minder dan 1,5 seconde geleden, en het venster zat ertussen. Nu hoort de eerste bezig-periode na een klik bij die klik (gevonden door Olaf).
+- Bij *Wat staat op deze pagina?*, *Zoektermen/Beschrijving opnieuw laten maken* en het lokaliseren liep de bezig-balk al achter het venster, voordat je iets bevestigd had. Nu verschijnt die pas na je bevestiging (gevonden door Olaf); de andere acties met een venster deden het al zo.
+- De bedragen bij de beschrijving in het paneel (*Wat staat op deze pagina?*, *Beschrijving/Zoektermen opnieuw laten maken*) en bij *Beschrijven* in bulk gingen uit van het standaardmodel. Bij een publiek-domeinbestand zonder rechtenlabels gebruikt de app het goedkopere model Contributor, dus het bedrag in het paneel (bijv. US$ 0,0114) week af van dat in het venster (US$ 0,0007). Nu nemen ze het bedrag dat de server voor dit bestand opgeeft (gevonden door Olaf).
+
 ## [0.40.5] - 2026-11-13
 
 ### Gewijzigd

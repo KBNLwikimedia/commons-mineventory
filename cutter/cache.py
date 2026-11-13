@@ -9,6 +9,7 @@ under the same URL and are kept until cleaned up.
 
 import hashlib
 import json
+import logging
 import threading
 import time
 from pathlib import Path
@@ -16,6 +17,9 @@ from pathlib import Path
 import requests
 
 from .opruimen import sharded
+from .opslag import write_atomic
+
+logger = logging.getLogger(__name__)
 
 
 class FetchError(Exception):
@@ -40,18 +44,26 @@ class FileCache:
     def get(self, key, max_age=None):
         """The cached bytes, or None when absent or older than `max_age` seconds."""
         path = self._path(key)
-        if not path.exists():
+        try:
+            if max_age is not None and self._clock() - path.stat().st_mtime > max_age:
+                return None
+            return path.read_bytes()
+        except FileNotFoundError:  # not there, or removed (cleanup) between stat and read
             return None
-        if max_age is not None and self._clock() - path.stat().st_mtime > max_age:
-            return None
-        return path.read_bytes()
 
     def set(self, key, data):
-        path = self._path(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_bytes(data)
-        tmp.replace(path)
+        """Keep the bytes (atomically). A cache that cannot be written (a full disk, a
+        locked file) is no reason to fail the request: the answer is still returned."""
+        try:
+            write_atomic(self._path(key), data)
+        except OSError as exc:
+            logger.warning("Cache not written (%s): %s", key[:120], exc)
+
+    def forget(self, key):
+        try:
+            self._path(key).unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 class RateLimiter:
@@ -80,7 +92,7 @@ class CachedFetcher:
 
     Only successful responses are cached. `max_age` (seconds) per call lets API
     answers expire; None keeps them until the cache is cleaned up. A `maxlag`
-    answer from MediaWiki (HTTP 200 with error code "maxlag", or 503 with
+    answer from MediaWiki (HTTP 200 with error code "maxlag", or 503 or 429 with
     Retry-After) is retried a few times after the advised wait.
     """
 
@@ -106,7 +118,7 @@ class CachedFetcher:
                 response = self.session.get(url, timeout=self.timeout)
             except requests.RequestException as exc:
                 raise FetchError(url, f"Wikimedia niet bereikbaar: {exc.__class__.__name__}") from exc
-            lagged = response.status_code == 503 or (
+            lagged = response.status_code in (429, 503) or (
                 response.status_code == 200 and b'"maxlag"' in response.content[:300]
             )
             if lagged and attempt < self.MAXLAG_RETRIES:
@@ -122,7 +134,7 @@ class CachedFetcher:
     def post(self, url, data, max_age=None):
         """POST a form (for a read whose text is too long for a URL, such as
         action=parse), cached by URL and form content; rate limited like get."""
-        key = url + "#" + hashlib.sha256(json.dumps(data, sort_keys=True).encode("utf-8")).hexdigest()
+        key = self._post_key(url, data)
         cached = self.cache.get(key, max_age)
         if cached is not None:
             return cached
@@ -135,6 +147,14 @@ class CachedFetcher:
             raise FetchError(url, f"HTTP {response.status_code}", status=response.status_code)
         self.cache.set(key, response.content)
         return response.content
+
+    @staticmethod
+    def _post_key(url, data):
+        return url + "#" + hashlib.sha256(json.dumps(data, sort_keys=True).encode("utf-8")).hexdigest()
+
+    def forget(self, url, data=None):
+        """Drop a cached answer (of a GET, or of a POST with form `data`) that turned out unusable."""
+        self.cache.forget(url if data is None else self._post_key(url, data))
 
 
 def _retry_after(response):

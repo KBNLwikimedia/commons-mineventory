@@ -92,6 +92,9 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-melding-acties { margin-left: 0.75rem; display: inline-flex; gap: 1rem; }
 .cc-meldingen { display: grid; gap: 0.5rem; margin: 0.5rem 0; }
 .cc-meldingen:empty { display: none; }
+/* The safety net (safety.js): an error nobody caught, one red message on top of everything. */
+.cc-vangnet { position: fixed; top: 0.5rem; left: 50%; transform: translateX(-50%); z-index: 10000; width: min(40rem, calc(100vw - 2rem)); pointer-events: none; }
+.cc-vangnet .cdx-message { pointer-events: auto; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
 /* The message after a change, with Undo (UndoMessage.vue): close to the button that asked for it. */
 .cc-undo-melding.cdx-message { margin: 0.5rem 0; }
 .cc-zoek { display: flex; gap: 0.4rem; align-items: flex-start; }
@@ -1043,10 +1046,17 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-pagina-beschrijven .cc-pagina-prompt .cdx-accordion__header__description .cc-eigen-prompt { font-weight: normal; font-size: 0.8125rem; color: var(--cc-tekst-zacht, #54595d); }
 .cc-pagina-veld { margin: 0.25rem 0 0.75rem; }
 .cc-pagina-detail { margin: 0 0 0.75rem; }
+.cc-pagina-delen { margin: 0 0 0.75rem; padding-left: 1.25rem; }
+.cc-pagina-delen li + li { margin-top: 0.4rem; }
+.cc-pagina-delen .cc-pagina-detail { margin: 0.4rem 0 0; }
+.cc-pagina-lengtes { margin: 0.2rem 0 0; padding-left: 1.25rem; list-style: circle; }
 /* Locating: the words as a list; in AI steering one field per word (wish Olaf). */
 .cc-lokaliseren.cdx-dialog { max-width: 36rem; }
 .cc-lokaliseren-termen { margin: 0 0 0.6rem; padding-left: 1.25rem; }
 .cc-lokaliseren-woord { display: grid; gap: 0.1rem; margin: 0.35rem 0; }
+/* A depicts item without an English label (SAM needs one), and the language of a name in another language. */
+.cc-geen-engels { color: var(--color-warning, #ab7f2a); margin-right: 0.2rem; }
+.cc-label-taal { font-size: 0.75em; color: var(--cc-tekst-zacht, #54595d); }
 /* "Prompt aanpassen" inside AI steering: a fold-out within the fold-out (wish Olaf). */
 .cc-pagina-prompt .cc-pagina-prompt, .cc-prompt-uitklap { margin-top: 0.5rem; border-top: 1px solid var(--cc-rand); }
 .cc-pagina-prompt-acties { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 0.5rem 0 0.5rem; }

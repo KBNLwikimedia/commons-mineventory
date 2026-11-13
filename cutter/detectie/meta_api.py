@@ -52,3 +52,15 @@ class MetaClient:
             busy = busy or f"Te veel verzoeken aan '{model}'; probeer het zo opnieuw."
             raise DetectionError(busy, status=429, retry=True)
         raise DetectionError(f"De Meta Model API gaf een fout (HTTP {status}).", retry=True)
+
+    def post_json(self, path, body, model, no_key, **messages):
+        """Like post(), and the answer as a JSON object. An answer that is not one (an
+        HTML page of a proxy, a cut-off body) is a DetectionError (502, unreadable_answer)."""
+        response = self.post(path, body, model, no_key, **messages)
+        try:
+            data = response.json()
+        except ValueError:
+            data = None
+        if not isinstance(data, dict):
+            raise DetectionError("De Meta Model API gaf een onleesbaar antwoord. Probeer het opnieuw.", status=502, retry=True, code="unreadable_answer")
+        return data

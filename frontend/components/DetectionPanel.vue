@@ -92,9 +92,10 @@
               size="small"
               :disabled="busy"
               :title="itemTitle(item)"
-              @click="act('commons-depicts', 'detect', { modus: 'prompt', prompt: itemWord(item), items: { [itemWord(item)]: item.q } })"
+              @click="act('commons-depicts', 'detect', { modus: 'prompt', prompt: itemWord(item), items: { [itemWord(item)]: item.q }, ...(item.noEnglish ? { askWord: true } : {}) })"
             >
-              {{ item.label }}
+              <span v-if="item.noEnglish" class="cc-geen-engels" :title="t('panel.no_english_label')" aria-hidden="true">⚠</span>
+              {{ item.label }}<span v-if="item.taal" class="cc-label-taal" :title="t('panel.label_language', { lang: item.taal })"> {{ item.taal }}</span>
               <span v-if="itemCount(item) || wasSearched(itemWord(item))" class="cc-term-aantal">{{ itemCount(item) }}</span>
             </cdx-button>
           </span>
@@ -125,11 +126,20 @@
       <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /> <section-lock v-bind="lockProps('suggestions')" /></template>
       <!-- What this section is for, in one or two sentences (wish Olaf), as in From Commons. -->
       <!-- What the AI makes, one bullet each (wish Olaf 13-11-2026). -->
-      <div class="cc-uitleg cc-sectie-intro">
+      <!-- Once the AI has looked, in the past tense and as it is: what it made, and what is not
+           there (wish Olaf 13-11-2026). -->
+      <div v-if="!inventory" class="cc-uitleg cc-sectie-intro">
         {{ t("panel.suggestions_intro") }}
         <ul class="cc-uitleg-lijst">
           <li>{{ t("panel.suggestions_intro_description") }}</li>
+          <li>{{ t("panel.suggestions_intro_text") }}</li>
           <li>{{ t("panel.suggestions_intro_terms") }}</li>
+        </ul>
+      </div>
+      <div v-else class="cc-uitleg cc-sectie-intro">
+        {{ t("panel.suggestions_done") }}
+        <ul class="cc-uitleg-lijst">
+          <li v-for="line in madeLines" :key="line">{{ line }}</li>
         </ul>
       </div>
       <!-- In the order of the work: (1) ask the AI what is on the image (one call), (2) its
@@ -141,8 +151,7 @@
       <!-- Removing everything, or a part whose place is gone with it: the outcome on top of this section. -->
       <notice-list :notices="inventory ? noticesAt('ai-alles') : notices.filter((n) => String(n.where || '').startsWith('ai-'))" @dismiss="emit('dismiss-notice', $event)" />
       <template v-if="!inventory">
-        <p class="cc-uitleg">{{ t("panel.inventory_help") }} {{ museCost(config.muse.pagina_usd) }}</p>
-        <detail-slider v-model="detail" :disabled="busy" />
+        <p class="cc-uitleg">{{ t("panel.inventory_help") }} {{ museCost(pageUsd ?? config.muse.pagina_usd) }}</p>
         <div class="cc-knoppen">
           <cdx-button action="progressive" weight="primary" :disabled="busy" @click="act('inventory', 'inventory', { detailniveau: detail })">{{ t("panel.inventory") }}</cdx-button>
         </div>
@@ -158,7 +167,7 @@
           :n="page.n"
           :inventory="inventory"
           :busy="busy"
-          :cost="museCost(config.muse.pagina_usd)"
+          :cost="museCost(pageUsd ?? config.muse.pagina_usd)"
           @changed="emit('inventory-changed', $event)"
           @again="act('beschrijving', 'inventory', { deel: 'beschrijving', beschrijvingsniveau: $event })"
           @forget="act('beschrijving', 'forget-inventory', { deel: 'beschrijving' })"
@@ -174,13 +183,10 @@
         <!-- First what makes the search terms (the level of detail, asking anew, removing), compact
              on one line; under it the terms themselves, the result of that (wish Olaf). -->
         <div class="cc-termen-bron">
-          <!-- The level of detail here only before the first search terms; asking them anew, it is
-               in the window of "Zoektermen opnieuw laten maken" (wish Olaf 13-11-2026). -->
-          <detail-slider v-if="!inventory.zoektermen?.length" v-model="detail" :disabled="busy" compact />
           <!-- Always side by side, under the slider: ask anew, and remove all. -->
           <div class="cc-termen-knoppen">
           <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="`${t('panel.part_again_help_zoektermen')} ${t('panel.parts_help')}`" @click="act('zoektermen', 'inventory', { deel: 'zoektermen', detailniveau: detail })">
-            {{ t(inventory.zoektermen?.length ? "panel.part_again_zoektermen" : "panel.part_ask_zoektermen") }} <span class="cc-kosten">{{ museCost(config.muse.pagina_usd) }}</span>
+            {{ t(inventory.zoektermen?.length ? "panel.part_again_zoektermen" : "panel.part_ask_zoektermen") }} <span class="cc-kosten">{{ museCost(pageUsd ?? config.muse.pagina_usd) }}</span>
           </cdx-button>
           <cdx-button v-if="inventory.zoektermen?.length" action="destructive" weight="quiet" size="small" :disabled="busy" @click="act('zoektermen', 'forget-inventory', { deel: 'zoektermen' })">
             <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("panel.part_forget_zoektermen_button") }}
@@ -275,7 +281,7 @@
       <p class="cc-uitleg cc-sectie-intro">{{ t("panel.search_intro") }}</p>
       <form class="cc-zoek" @submit.prevent="search">
         <cdx-text-input clearable v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
-        <cdx-button type="submit" action="progressive" :disabled="busy || !prompt.trim()">{{ t("panel.search_button") }}</cdx-button>
+        <cdx-button type="submit" action="progressive" :disabled="busy || !cleanText(prompt)">{{ t("panel.search_button") }}</cdx-button>
       </form>
       <busy-note v-if="busy && where === 'search'" :message="t('busy.sam')" />
       <result-message v-if="lastResult && resultAt === 'search' && !busy" v-bind="resultProps(lastResult)" :busy="busy" :other-ways="isNone(lastResult)" :search-link="false" @try-point="tryPoint" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" />
@@ -338,18 +344,7 @@
         </cdx-button>
         <p v-if="file.paginas > 1" class="cc-uitleg">{{ t("original.button_pages") }}</p>
         <p v-else-if="!somethingToAdd" class="cc-uitleg cc-niets-toe-te-voegen">{{ t("original.button_nothing") }}</p>
-        <!-- What can go back, as bullets (wish Olaf). -->
-        <div v-else class="cc-uitleg cc-naar-commons-uitleg">
-          <p>{{ t("original.help_intro") }}</p>
-          <!-- The same list as in the (i), with its sub-bullets (wish Olaf): one text for both. -->
-          <ul>
-            <li v-for="(item, k) in toCommonsList" :key="k">
-              {{ item.text }}
-              <ul v-if="item.sub.length"><li v-for="(sub, m) in item.sub" :key="m">{{ sub }}</li></ul>
-            </li>
-          </ul>
-          <p>{{ t("original.help_end") }}</p>
-        </div>
+        <!-- The list of what can go back is in the window this button opens (wish Olaf 13-11-2026). -->
       </div>
       <original-data
         v-if="originalOpen"
@@ -358,7 +353,7 @@
         :page="page"
         :inventory="inventory"
         :busy="busy"
-        :cost="museCost(config.muse.pagina_usd)"
+        :cost="museCost(pageUsd ?? config.muse.pagina_usd)"
         @ask-caption="emit('inventory', { deel: 'beschrijving', beschrijvingsniveau: 'caption' })"
         @close="originalOpen = false"
       />
@@ -379,9 +374,9 @@ import { START_SUGGESTIONS, commonsFileUrl } from "../state.js";
 import { readStored, removeStored, useStoredList, writeStored } from "../storage.js";
 import { get, pagePath } from "../api.js";
 import { objectsWithTerm } from "../facets.js";
+import { cleanText } from "../text.js";
 import AiBadge from "./AiBadge.vue";
 import BusyNote from "./BusyNote.vue";
-import DetailSlider from "./DetailSlider.vue";
 import PageDescription from "./PageDescription.vue";
 import InfoDialog from "./InfoDialog.vue";
 import OriginalData from "./OriginalData.vue";
@@ -390,6 +385,9 @@ import NoticeList from "./NoticeList.vue";
 // Read once when the app starts (module scope), so a panel built again still knows it.
 const SUGGESTIONS_FOR = START_SUGGESTIONS;
 const props = defineProps({
+  // What asking Muse Spark about the whole image costs for this file (from the page's plan; the
+  // cheaper Contributor model for public-domain files). null: not known yet, the general price.
+  pageUsd: { type: Number, default: null },
   // Busy with something in the objects column (describe, group): its note shows there, not here.
   busyElsewhere: { type: Boolean, default: false },
   file: { type: Object, required: true },
@@ -503,14 +501,6 @@ const originalOpen = ref(false);
 // lazily, so commonsCaptions (defined below) is ready when it is read.
 const somethingToAdd = computed(() => props.objects.length > 0 || Boolean(props.inventory?.zoektermen?.length || props.inventory?.samenvatting || props.inventory?.paginasoort) || commonsCaptions.value.length > 0);
 // The "- " and "  - " lines of the (i) of To Commons, as a list with sub-items.
-const toCommonsList = computed(() => {
-  const items = [];
-  for (const line of t("panel.info_tocommons_2").split("\n")) {
-    if (line.startsWith("- ")) items.push({ text: line.slice(2), sub: [] });
-    else if (line.startsWith("  - ") && items.length) items[items.length - 1].sub.push(line.slice(4));
-  }
-  return items;
-});
 
 // What the file already has on Commons (backlog 26): captions and depicts without a
 // position. Read with the file, free. Like the regions, only on page 1.
@@ -531,8 +521,12 @@ const commonsDepicts = computed(() => {
   const seen = new Map();
   for (const statement of statements) {
     if (statement.soort !== "item" || withRegion.has(statement.waarde) || seen.has(statement.waarde)) continue;
-    const en = statement.label_en || statement.label || statement.waarde;
-    seen.set(statement.waarde, { q: statement.waarde, label: config.taal === "en" ? en : statement.label || en, en });
+    // A readable name (Dutch/English, the multilingual label, another language, the Q-id last); the
+    // English word for SAM, or, without one, the name (the server's dictionary may translate it) and
+    // a request to give an English word first (wish Olaf 13-11-2026).
+    const english = statement.label_en || "";
+    const name = config.taal === "en" ? english || statement.label || statement.waarde : statement.label || english || statement.waarde;
+    seen.set(statement.waarde, { q: statement.waarde, label: name, taal: statement.label_taal || "", en: english || statement.label || statement.waarde, noEnglish: !english });
   }
   return [...seen.values()];
 });
@@ -589,14 +583,21 @@ const depictsLabel = computed(() => {
   if (locatedItems.value.length) return all ? "panel.commons_depicts_all_again" : "panel.commons_depicts_chosen_again";
   return all ? "panel.commons_depicts_all" : "panel.commons_depicts_chosen";
 });
-const itemsRequest = (items) => ({ modus: "prompt", prompt: items.map(itemWord).join(", "), items: Object.fromEntries(items.map((item) => [itemWord(item), item.q])) });
+const itemsRequest = (items) => ({
+  modus: "prompt",
+  prompt: items.map(itemWord).join(", "),
+  items: Object.fromEntries(items.map((item) => [itemWord(item), item.q])),
+  ...(items.some((item) => item.noEnglish) ? { askWord: true } : {}),
+});
 const locateItems = (items) => act("commons-depicts", "detect", itemsRequest(items));
 // What a set of items really costs: the server knows which words are in the cache (free GET,
 // the same estimate as the confirmation). Until it answers, every word counts.
+// Per file and page: the same words can be free on one page (saved answers) and paid on another.
 const paidCalls = ref({});
+const estimateKey = (mid, n, prompt) => `${mid}/${n}|${prompt}`;
 const itemsCost = (items) => {
-  const prompt = itemsRequest(items).prompt;
-  return cost(prompt in paidCalls.value ? paidCalls.value[prompt] : items.length);
+  const key = estimateKey(props.file.mid, props.page.n, itemsRequest(items).prompt);
+  return cost(key in paidCalls.value ? paidCalls.value[key] : items.length);
 };
 let estimateTimer = null;
 watch(
@@ -608,7 +609,7 @@ watch(
       for (const prompt of new Set(prompts.filter(Boolean))) {
         try {
           const estimate = await get(`${pagePath(mid, n)}/detecties/raming?modus=prompt&prompt=${encodeURIComponent(prompt)}`);
-          paidCalls.value = { ...paidCalls.value, [prompt]: estimate.aanroepen.betaald };
+          paidCalls.value = { ...paidCalls.value, [estimateKey(mid, n, prompt)]: estimate.aanroepen.betaald };
         } catch {
           // No estimate: the button keeps the full amount; the confirmation asks again.
         }
@@ -659,6 +660,8 @@ const museCost = (usd) => priceLabel(usd, config.betaald, config.taal, t);
 // a click in the image (point mode) shows it under Aanwijzen.
 const where = ref("top");
 let clicked = { section: "top", at: 0 };
+// How long a click waits for its work to start (time to read and confirm the cost window).
+const CLICK_WAITS_MS = 5 * 60 * 1000;
 // How many objects on the image came from a suggested term (not those in the trash).
 // The objects found with a word: also under a merged word ("ook") and inside a group (wish Olaf).
 const termIds = (term) => objectsWithTerm(props.objects, term);
@@ -715,6 +718,20 @@ function termTitle(term) {
   return parts.join(" · ");
 }
 
+// What the AI made for this image, as it is now (a part can have been removed, or the AI found
+// no text): one line each for the description, the text and the search terms.
+const LENGTHS = ["kort", "normaal", "caption", "uitgebreid"];
+const madeLines = computed(() => {
+  const inv = props.inventory || {};
+  const lengths = LENGTHS.filter((level) => inv.beschrijvingen?.[level]).length || (inv.samenvatting || inv.paginasoort ? 1 : 0);
+  const description = lengths === 4 ? t("panel.suggestions_done_description") : lengths ? t("panel.suggestions_done_description_some", { n: lengths }) : t("panel.suggestions_done_no_description");
+  const text = inv.tekst ? t("panel.suggestions_done_text") : t("panel.suggestions_done_no_text");
+  const n = inv.zoektermen?.length || 0;
+  const terms = !n
+    ? t("panel.suggestions_done_no_terms")
+    : `${n === 1 ? t("panel.suggestions_done_terms_one") : t("panel.suggestions_done_terms", { n })} ${t(suggestionTotals.value.found ? "panel.suggestions_done_terms_found" : "panel.suggestions_done_terms_none_found")}`;
+  return [description, text, terms];
+});
 const suggestionTotals = computed(() => {
   const terms = newTerms.value;
   const found = terms.map((term) => termObjectIds(term));
@@ -734,8 +751,12 @@ watch(
   () => props.busy,
   (busy) => {
     if (!busy) return;
-    const recent = Date.now() - clicked.at < 1500;
+    // The click counts until the work it asked for starts, also when a window to confirm the cost
+    // came in between (the busy bar starts only after confirming; bug found by Olaf 13-11-2026):
+    // the first busy after a click is that click's, within a few minutes. Used once.
+    const recent = clicked.at && Date.now() - clicked.at < CLICK_WAITS_MS;
     where.value = recent ? clicked.section : props.pointMode ? "point" : props.drawMode ? "draw" : "top";
+    clicked = { ...clicked, at: 0 };
   }
 );
 
@@ -850,6 +871,7 @@ async function tryPoint(mode = "point") {
 }
 
 function search() {
-  if (prompt.value.trim()) act("search", "detect", { modus: "prompt", prompt: prompt.value.trim() });
+  const words = cleanText(prompt.value); // only spaces or invisible characters: nothing to search
+  if (words) act("search", "detect", { modus: "prompt", prompt: words });
 }
 </script>
