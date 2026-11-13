@@ -9,17 +9,13 @@
       <slot name="search" />
       <span v-if="objects.length" class="cc-objecten-alles">
         <span class="cc-objecten-selecteer">{{ t("objects.select_label") }}</span>
-        <span class="cc-objecten-alles-links">
-        <button type="button" class="cc-link" :title="t('objects.tick_all_help')" @click="emit('select', objects.filter((o) => o.status !== 'uitgesloten').map((o) => o.id))">
-          {{ t("objects.all") }}
-        </button>
-        ·
-        <button type="button" class="cc-link" :title="t('objects.tick_none_help')" @click="emit('select', [])">{{ t("objects.none") }}</button>
-        ·
-        <button type="button" class="cc-link" :title="t('objects.tick_invert_help')" @click="emit('select', objects.filter((o) => o.status !== 'uitgesloten' && o.status !== 'geselecteerd').map((o) => o.id))">
-          {{ t("objects.invert") }}
-        </button>
-        </span>
+        <tick-links
+          class="cc-objecten-alles-links"
+          :titles="{ all: t('objects.tick_all_help'), none: t('objects.tick_none_help'), invert: t('objects.tick_invert_help') }"
+          @all="emit('select', objects.filter((o) => o.status !== 'uitgesloten').map((o) => o.id))"
+          @none="emit('select', [])"
+          @invert="emit('select', objects.filter((o) => o.status !== 'uitgesloten' && o.status !== 'geselecteerd').map((o) => o.id))"
+        />
       </span>
       </div>
     </header>
@@ -120,6 +116,7 @@ import { objectPath } from "../api.js";
 import { useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
 import AlsoFoundAs from "./AlsoFoundAs.vue";
+import TickLinks from "./TickLinks.vue";
 import { numberedNames, objectName } from "../state.js";
 import { classColor, classKey } from "../class-colors.js";
 import { readStored, removeStored, writeStored } from "../storage.js";

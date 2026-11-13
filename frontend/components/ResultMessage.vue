@@ -7,6 +7,8 @@
 <template>
   <cdx-message :type="type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-zoekresultaat" @user-dismissed="emit('dismiss')">
     {{ text }}
+    <!-- Undo of a drawn rectangle: the new object goes to the trash (wish Olaf 13-11-2026). -->
+    <span v-if="result.undo" class="cc-melding-acties"><button type="button" class="cc-link" :disabled="busy" @click="emit('undo')">↶ {{ t("magnifier.undo") }}</button></span>
     <p v-if="also" class="cc-melding-alinea">
       {{ also }}<template v-if="result.trashIds?.length"> <button type="button" class="cc-link" :disabled="busy" @click="emit('restore-trash')">↶ {{ t("panel.result_restore_trash") }}</button></template>
     </p>
@@ -41,6 +43,6 @@ defineProps({
   otherWays: { type: Boolean, default: false },
   searchLink: { type: Boolean, default: true },
 });
-const emit = defineEmits(["dismiss", "restore-trash", "try-search", "try-point"]);
+const emit = defineEmits(["dismiss", "restore-trash", "try-search", "try-point", "undo"]);
 const t = useT();
 </script>

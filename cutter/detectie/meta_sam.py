@@ -12,12 +12,12 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-import requests
 from meta_sam_parser import CompletedOutcome, image_segmentation_format
 
 from .. import __version__
 from ..export import encode
-from .basis import DetectedObject, DetectionError, Detector
+from .basis import DetectedObject, Detector
+from .meta_api import MetaClient
 
 logger = logging.getLogger(__name__)
 
@@ -143,13 +143,14 @@ class MetaSamDetector(Detector):
         session=None,
         parse=parse_output,
     ):
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
+        self.client = MetaClient(api_key, base_url, timeout, session)
         self.model = model
         self.max_width = max_width
-        self.timeout = timeout
-        self.session = session or requests.Session()
         self._parse = parse
+
+    @property
+    def session(self):
+        return self.client.session
 
     # -- Public ---------------------------------------------------------------
 
@@ -188,34 +189,14 @@ class MetaSamDetector(Detector):
         return self.to_objects(records, scale, label, text, size)
 
     def _post(self, body):
-        if not self.api_key:
-            raise DetectionError("Geen MODEL_API_KEY ingesteld; live detectie is niet mogelijk.", status=503)
-        try:
-            response = self.session.post(
-                f"{self.base_url}/responses",
-                json=body,
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=self.timeout,
-            )
-        except requests.RequestException as exc:
-            raise DetectionError("De Meta Model API is niet bereikbaar.", retry=True) from exc
-
-        if response.status_code == 200:
-            return response.json()
-        try:
-            detail = (response.json().get("error") or {}).get("message", "")
-        except ValueError:
-            detail = ""
-        status = response.status_code
-        if status == 400:
-            raise DetectionError(f"SAM weigerde het verzoek: {detail}".rstrip(": "), status=400)
-        if status in (401, 403):
-            raise DetectionError("De API-sleutel voor de Meta Model API wordt niet geaccepteerd.", status=503)
-        if status == 404:
-            raise DetectionError(f"Model '{self.model}' niet gevonden of geen toegang.", status=503)
-        if status == 429:
-            raise DetectionError("Te veel verzoeken aan de Meta Model API; probeer het zo opnieuw.", status=429, retry=True)
-        raise DetectionError(f"De Meta Model API gaf een fout (HTTP {status}).", retry=True)
+        return self.client.post(
+            "/responses",
+            body,
+            self.model,
+            "Geen MODEL_API_KEY ingesteld; live detectie is niet mogelijk.",
+            refused="SAM weigerde het verzoek",
+            busy="Te veel verzoeken aan de Meta Model API; probeer het zo opnieuw.",
+        ).json()
 
     def to_objects(self, records, scale, label, prompt, size):
         """Scale records back to native page pixels. Masks stay encoded;

@@ -31,13 +31,13 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-import requests
 from PIL import Image, ImageDraw
 
 from . import __version__
 from .detectie.meta_sam import extract_output_text
 from .concept import MAX_CAPTION
 from .detectie.basis import INTERNAL_LABELS, DetectionError
+from .detectie.meta_api import MetaClient
 from .export import encode
 from .opruimen import cached_bytes, mark_used, sharded
 
@@ -154,6 +154,35 @@ An image detector (SAM) found this object when searching for "{term}" (certainty
 CLUE_TERM_UNSURE = """
 
 An image detector (SAM) found this object when searching for "{term}", but it was unsure (certainty {pct}%). It may be (part of) what "{term}" describes, or something else entirely; describe what you actually see."""
+# The other words it was found with ("Also found as", wish Olaf 13-11-2026), after the clue.
+CLUE_ALSO = """ The image detector also found it when searching for {words}."""
+
+
+def also_found(obj):
+    """The other words the image detection found this object with ("Also found as"): the
+    English word that was searched, with the highest certainty, without its own term and
+    without clicks or drawn boxes. [(word, score or None)], in the order found."""
+    own = {str(obj.get(k) or "").strip().lower() for k in ("zoekterm", "label")}
+    words = {}
+    for entry in obj.get("ook") or []:
+        word = " ".join(str(entry.get("label") or entry.get("zoekterm") or "").split())[:80]
+        key = word.lower()
+        if not word or key in own or key in INTERNAL_LABELS:
+            continue
+        score = entry.get("score")
+        if key not in words or (score is not None and (words[key][1] is None or score > words[key][1])):
+            words[key] = (word, score)
+    return list(words.values())
+
+
+def also_found_sentence(obj):
+    """CLUE_ALSO for the words in also_found, or "" when there are none."""
+    found = also_found(obj)
+    if not found:
+        return ""
+    parts = [f'"{word}" (certainty {round(score * 100)}%)' if score is not None else f'"{word}"' for word, score in found]
+    words = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return CLUE_ALSO.format(words=words)
 
 
 def detection_clue(obj):
@@ -163,13 +192,14 @@ def detection_clue(obj):
     name there is none for a group (its members are named already), a drawn box or a click."""
     name = " ".join(str(obj.get("naam") or "").split())[:120]
     is_group = obj.get("bron") == "groep" or bool(obj.get("groep"))
+    also = "" if is_group else also_found_sentence(obj)  # "Also found as" goes along (wish Olaf)
     if name:
-        return (CLUE_GROUP_NAME if is_group else CLUE_NAME).format(name=name), "naam"
+        return (CLUE_GROUP_NAME if is_group else CLUE_NAME).format(name=name) + also, "naam"
     if is_group:
         return "", None
     if obj.get("bron") == "commons":
         label = " ".join(str(obj.get("label_item") or obj.get("label") or "").split())[:120]
-        return (CLUE_COMMONS.format(name=label), "commons") if label else ("", None)
+        return (CLUE_COMMONS.format(name=label) + also, "commons") if label else ("", None)
     # A box drawn by hand ("rechthoek") or a click ("klik") has no real search term.
     if obj.get("bron") == "handmatig":
         return "", None
@@ -178,9 +208,9 @@ def detection_clue(obj):
         return "", None
     score = obj.get("score")
     if score is None:
-        return CLUE_TERM.format(term=term, pct="unknown").replace(" (certainty unknown%)", ""), "zoekterm"
+        return CLUE_TERM.format(term=term, pct="unknown").replace(" (certainty unknown%)", "") + also, "zoekterm"
     template = CLUE_TERM if score >= CLUE_SURE else CLUE_TERM_UNSURE
-    return template.format(term=term, pct=round(score * 100)), "zoekterm"
+    return template.format(term=term, pct=round(score * 100)) + also, "zoekterm"
 
 
 # A group (7.4): its box also shows what lies between its members, so the question
@@ -893,42 +923,22 @@ class MetaVision:
     betaald = True
 
     def __init__(self, api_key, base_url="https://api.meta.ai/v1", timeout=90, session=None):
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
-        self.session = session or requests.Session()
+        self.client = MetaClient(api_key, base_url, timeout, session)
+
+    @property
+    def session(self):
+        return self.client.session
 
     def describe(self, model, prompt, data_url, obj, effort=None, schema=SCHEMA):
-        if not self.api_key:
-            raise DetectionError("Geen MODEL_API_KEY ingesteld; een beschrijving is niet mogelijk.", status=503, code="no_api_key")
-        try:
-            response = self.session.post(
-                f"{self.base_url}/responses",
-                json=build_request(model, prompt, data_url, effort, schema, "beschrijving" if schema is SCHEMA else "pagina"),
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=self.timeout,
-            )
-        except requests.RequestException as exc:
-            raise DetectionError("De Meta Model API is niet bereikbaar.", retry=True) from exc
-        if response.status_code == 200:
-            return response.json()
-        try:
-            detail = (response.json().get("error") or {}).get("message", "")
-        except ValueError:
-            detail = ""
-        status = response.status_code
-        if status == 400:
-            raise DetectionError(f"Het model weigerde het verzoek: {detail}".rstrip(": "), status=400)
-        if status in (401, 403):
-            raise DetectionError("De API-sleutel voor de Meta Model API wordt niet geaccepteerd.", status=503)
-        if status == 404:
-            raise DetectionError(f"Model '{model}' niet gevonden of geen toegang.", status=503)
-        if status == 429:
+        return self.client.post(
+            "/responses",
+            build_request(model, prompt, data_url, effort, schema, "beschrijving" if schema is SCHEMA else "pagina"),
+            model,
+            "Geen MODEL_API_KEY ingesteld; een beschrijving is niet mogelijk.",
+            no_key_code="no_api_key",
             # Never fall back to the more expensive model silently.
-            raise DetectionError(
-                f"Te veel verzoeken aan '{model}'; probeer het zo opnieuw, of kies Standard.", status=429, retry=True
-            )
-        raise DetectionError(f"De Meta Model API gaf een fout (HTTP {status}).", retry=True)
+            busy=f"Te veel verzoeken aan '{model}'; probeer het zo opnieuw, of kies Standard.",
+        ).json()
 
 
 def make_vision(config):
@@ -1107,10 +1117,8 @@ class DescriptionService:
     def _set_own_prompt(self, file, n, object_id, text):
         """Make `text` the prompt of your own (None or "": back to the app's prompt); the
         one before goes on top of the history, each text once, at most MAX_PROMPT_HISTORY."""
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
-            apply_own_prompt(self.objects._find_in(store, object_id), text)
-            self.objects._write_store(file, n, store)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
+            apply_own_prompt(obj, text)
 
     def save_prompt(self, file, n, object_id, text):
         """Your own prompt for this object (free; nothing goes to the model)."""
@@ -1129,11 +1137,26 @@ class DescriptionService:
         obj = self.objects._find(file, n, object_id)
         if not any(h.get("bewaard_op") == version for h in obj.get("prompt_geschiedenis") or []):
             raise DetectionError("Deze eerdere prompt bestaat niet (meer).", status=404, code="not_found")
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
-            obj = self.objects._find_in(store, object_id)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
             obj["prompt_geschiedenis"] = [h for h in obj.get("prompt_geschiedenis") or [] if h.get("bewaard_op") != version]
-            self.objects._write_store(file, n, store)
+
+    def _booking(self, user, model, effort, input_tokens=None):
+        """A paid call books its estimated cost while it runs (Verbruik.reservation):
+        parallel requests cannot together pass the daily limit or budget."""
+        if not self.vision.betaald:
+            return nullcontext()
+        return self.objects.verbruik.reservation(1, user=user, cost=estimate(model, effort, input_tokens))
+
+    def _tokens_and_cost(self, body, model, effort, input_tokens=None):
+        """The tokens of an answer and what it cost: by the tokens, or else the estimate (free: 0)."""
+        tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
+        if not self.vision.betaald:
+            amount = 0.0
+        elif tokens_in is not None:
+            amount = cost(model, tokens_in, tokens_out)
+        else:
+            amount = estimate(model, effort, input_tokens)
+        return {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning}, amount
 
     def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None, group_focus=True, description_level=None):
         """Describe an object (paid in live mode) and store the answer on it.
@@ -1164,20 +1187,13 @@ class DescriptionService:
             return self._store(file, n, object_id, description, user)
 
         effort = self._effort()
-        # A paid call books its cost while it runs (Verbruik.reservation): parallel
-        # requests cannot together pass the daily limit or budget.
-        booking = self.objects.verbruik.reservation(1, user=user, cost=estimate(choice["model"], effort)) if self.vision.betaald else nullcontext()
-        with booking:
+        with self._booking(user, choice["model"], effort):
             page = self.objects.client.load_page(file, n)
             data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
             prompt = question["prompt"]
 
             body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
-            tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
-            if self.vision.betaald:
-                amount = cost(choice["model"], tokens_in, tokens_out) if tokens_in is not None else estimate(choice["model"], effort)
-            else:
-                amount = 0.0
+            tokens, amount = self._tokens_and_cost(body, choice["model"], effort)
             answer = parse_answer(output_text(body))
             if description_level == "caption":  # never longer than a caption on Commons may be
                 for key in ("beschrijving", "beschrijving_en"):
@@ -1192,7 +1208,7 @@ class DescriptionService:
                 "model_reden_labels": choice["labels"],
                 "rechtenvrij": choice["rechtenvrij"],
                 "redeneren": effort,
-                "tokens": {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning},
+                "tokens": tokens,
                 "kosten_usd": amount,
                 "verstuurde_afmetingen": list(size),
                 "promptversie": PROMPT_VERSION,
@@ -1303,15 +1319,12 @@ class DescriptionService:
         The current description cannot be deleted this way. Free."""
         if not any(e["versie"] == version for e in self.history(file, n, object_id)):
             raise DetectionError("Die eerdere versie bestaat niet (meer).", status=404, code="not_found")
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
-            obj = self.objects._find_in(store, object_id)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
             obj["beschrijving_geschiedenis"] = [h for h in obj.get("beschrijving_geschiedenis", []) if self.version(h) != version]
             hidden = obj.setdefault("beschrijving_verborgen", [])
             if version not in hidden:
                 hidden.append(version)
             del hidden[:-200]  # the most recent 200 are plenty
-            self.objects._write_store(file, n, store)
         return self.history(file, n, object_id)
 
     def restore(self, file, n, object_id, timestamp=None, edited=None, version=None):
@@ -1328,25 +1341,19 @@ class DescriptionService:
         if not candidates:
             raise DetectionError("Die eerdere beschrijving bestaat niet (meer).", status=404, code="not_found")
         chosen = candidates[0]
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
-            obj = self.objects._find_in(store, object_id)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
             self._keep_in_history(obj)
             chosen = {k: v for k, v in chosen.items() if k != "versie"}
             obj["beschrijving_geschiedenis"] = [h for h in obj.get("beschrijving_geschiedenis", []) if not self._same(h, chosen)]
             obj["beschrijving"] = chosen
-            self.objects._write_store(file, n, store)
         return self.objects.public(file, n, obj)
 
     def _store(self, file, n, object_id, description, user=None):
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
-            obj = self.objects._find_in(store, object_id)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
             new = {k: v for k, v in description.items() if k != "uit_cache"}
             if not self._same(obj.get("beschrijving"), new):
                 self._keep_in_history(obj)
             obj["beschrijving"] = new
-            self.objects._write_store(file, n, store)
         result = self.objects.public(file, n, obj)
         return {"object": result, "uit_cache": description["uit_cache"], "budget": self.objects.verbruik.status(user)}
 
@@ -1377,12 +1384,9 @@ class DescriptionService:
     def remove(self, file, n, object_id):
         """Forget the stored description (the cached answer stays, so asking
         again with the same model is free)."""
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
-            obj = self.objects._find_in(store, object_id)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
             self._keep_in_history(obj)  # removed, but it can be chosen again
             obj.pop("beschrijving", None)
-            self.objects._write_store(file, n, store)
         return self.objects.public(file, n, obj)
 
     # -- Page overview ("Wat staat op deze pagina?") ---------------------------
@@ -1449,10 +1453,7 @@ class DescriptionService:
             return self._store_inventory(file, n, overview, cached=True, user=user)
 
         effort = effort or self._effort()
-        # A paid call books its cost while it runs (Verbruik.reservation): parallel
-        # requests cannot together pass the daily limit or budget.
-        booking = self.objects.verbruik.reservation(1, user=user, cost=estimate(choice["model"], effort, ESTIMATE_PAGE_INPUT)) if self.vision.betaald else nullcontext()
-        with booking:
+        with self._booking(user, choice["model"], effort, ESTIMATE_PAGE_INPUT):
             image = Image.open(io.BytesIO(self.objects.client.page_image(file, n, PAGE_WIDTH))).convert("RGB")
             if image.width > PAGE_WIDTH:
                 image = image.resize((PAGE_WIDTH, round(image.height * PAGE_WIDTH / image.width)))
@@ -1462,11 +1463,7 @@ class DescriptionService:
                 prompt += HINT_INSTRUCTION.format(hint=hint)
 
             body = self.vision.describe(choice["model"], prompt, data_url, None, effort, schema=inventory_schema(part))
-            tokens_in, tokens_out, tokens_reasoning = usage_tokens(body)
-            if self.vision.betaald:
-                amount = cost(choice["model"], tokens_in, tokens_out) if tokens_in is not None else estimate(choice["model"], effort, ESTIMATE_PAGE_INPUT)
-            else:
-                amount = 0.0
+            tokens, amount = self._tokens_and_cost(body, choice["model"], effort, ESTIMATE_PAGE_INPUT)
             parsed = parse_inventory(output_text(body), DETAIL_LEVELS[detail][0])
             # An answer that is not JSON, or a description without any text, is no answer: the
             # call is booked (it was made), but nothing is stored or cached, so asking again
@@ -1493,7 +1490,7 @@ class DescriptionService:
                 "model": choice["model"],
                 "model_reden": choice["reden"],
                 "redeneren": effort,
-                "tokens": {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning},
+                "tokens": tokens,
                 "kosten_usd": amount,
                 "verstuurde_afmetingen": list(image.size),
                 "versie": INVENTORY_VERSION,
@@ -1578,10 +1575,8 @@ class DescriptionService:
 
     def _set_page_prompt(self, file, n, part, text):
         key, history_key = self._prompt_keys(part)
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
+        with self.objects.editing_store(file, n) as store:
             apply_own_prompt(store, text, key, history_key)
-            self.objects._write_store(file, n, store)
         return self.page_prompt_preview(file, n, part)
 
     def save_page_prompt(self, file, n, text, part="beschrijving"):
@@ -1598,13 +1593,11 @@ class DescriptionService:
     def forget_page_prompt_version(self, file, n, version, part="beschrijving"):
         """Remove an earlier prompt from the history; `version` is its "bewaard_op" (free)."""
         _key, history_key = self._prompt_keys(part)
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
+        with self.objects.editing_store(file, n) as store:
             history = store.get(history_key) or []
             if not any(h.get("bewaard_op") == version for h in history):
                 raise DetectionError("Deze eerdere prompt bestaat niet (meer).", status=404, code="not_found")
             store[history_key] = [h for h in history if h.get("bewaard_op") != version]
-            self.objects._write_store(file, n, store)
         return self.page_prompt_preview(file, n, part)
 
     def forget_inventory(self, file, n, part=None):
@@ -1647,8 +1640,7 @@ class DescriptionService:
         meta = {k: v for k, v in answer.items() if k not in fields}
         own_prompt = meta.pop("prompt_eigen", False)  # kept per part, under "delen"
         part_hint = meta.pop("aanwijzing", "")
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
+        with self.objects.editing_store(file, n) as store:
             current = dict(store.get("inventaris") or {})
             if part == "beschrijving":
                 self._keep_page_description(store)
@@ -1664,16 +1656,13 @@ class DescriptionService:
             if "beschrijvingsniveau" in answer:  # the description asked anew at another length
                 overview["beschrijvingsniveau"] = answer["beschrijvingsniveau"]
             store["inventaris"] = overview
-            self.objects._write_store(file, n, store)
         return {"inventaris": overview, "uit_cache": False, "budget": self.objects.verbruik.status(user)}
 
     def _store_inventory(self, file, n, overview, cached, user=None):
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
+        with self.objects.editing_store(file, n) as store:
             if page_description_version(store.get("inventaris")) != page_description_version(overview):
                 self._keep_page_description(store)
             store["inventaris"] = overview
-            self.objects._write_store(file, n, store)
         return {"inventaris": overview, "uit_cache": cached, "budget": self.objects.verbruik.status(user)}
 
     # -- The description of the whole image: by hand, and its earlier versions --
@@ -1739,8 +1728,7 @@ class DescriptionService:
     def restore_inventory(self, file, n, version):
         """Make an earlier description of the image the current one again; the
         current one goes into the history. The search terms stay. Free."""
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
+        with self.objects.editing_store(file, n) as store:
             chosen = next((h for h in store.get("inventaris_geschiedenis", []) if h.get("versie") == version), None)
             if chosen is None:
                 raise DetectionError("Die eerdere beschrijving bestaat niet (meer).", status=404, code="not_found")
@@ -1761,16 +1749,13 @@ class DescriptionService:
             overview.setdefault("tijdstempel", chosen.get("tijdstempel"))
             store["inventaris"] = overview
             store["inventaris_geschiedenis"] = [h for h in store["inventaris_geschiedenis"] if h.get("versie") != version]
-            self.objects._write_store(file, n, store)
         return {"inventaris": overview, "geschiedenis": self.inventory_history(file, n)}
 
     def forget_inventory_version(self, file, n, version):
         """Delete one earlier description of the image. Free."""
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
+        with self.objects.editing_store(file, n) as store:
             history = store.get("inventaris_geschiedenis", [])
             if not any(h.get("versie") == version for h in history):
                 raise DetectionError("Die eerdere beschrijving bestaat niet (meer).", status=404, code="not_found")
             store["inventaris_geschiedenis"] = [h for h in history if h.get("versie") != version]
-            self.objects._write_store(file, n, store)
         return {"geschiedenis": self.inventory_history(file, n)}

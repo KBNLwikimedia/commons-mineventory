@@ -20,6 +20,8 @@
     @update:open="(value) => !value && emit('answer', false)"
   >
     <p>{{ t(key("intro"), { level: levelText }) }}</p>
+    <!-- Search terms: how many kinds the AI suggests, chosen here when asking anew (wish Olaf). -->
+    <detail-slider v-if="part === 'zoektermen'" v-model="level" class="cc-pagina-detail" />
     <p class="cc-bevestig-noot">{{ t(key("note")) }}</p>
     <p v-if="costLine"><strong>{{ costLine }}</strong></p>
 
@@ -58,6 +60,8 @@
           <button v-else-if="info?.eigen" type="button" class="cc-link" :disabled="saving" @click="backToApp">{{ t("describe.prompt_back") }}</button>
         </div>
         <p v-if="changed" class="cc-klein cc-pagina-prompt-let-op">{{ t(key("prompt_unsaved")) }}</p>
+        <!-- What saving or using a prompt did, with Undo (wish Olaf 13-11-2026). -->
+        <undo-message :note="note" />
         <template v-if="info?.geschiedenis?.length">
           <p class="cc-versie-label">{{ t("describe.prompt_history", { n: info.geschiedenis.length }) }}</p>
           <version-carousel :items="info.geschiedenis" item-key="bewaard_op" :label="t('describe.prompt_history_short')" :disabled="saving" @use="useEarlier" @delete="deleteEarlier">
@@ -80,6 +84,9 @@ import { del, errorText, get, put } from "../api.js";
 import { confirmDeleteVersion } from "../confirm.js";
 import { formatStamp, money, useT } from "../i18n.js";
 import VersionCarousel from "./VersionCarousel.vue";
+import DetailSlider from "./DetailSlider.vue";
+import UndoMessage from "./UndoMessage.vue";
+import { promptBack, useUndoMessage } from "../undo.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -109,7 +116,9 @@ const error = ref("");
 const promptUrl = computed(() => `${props.path}/inventaris/${props.part}/prompt`);
 // The texts of this part: pagedescribe.* (description) or pageterms.* (search terms).
 const key = (name) => `${props.part === "zoektermen" ? "pageterms" : "pagedescribe"}.${name}`;
-const levelText = computed(() => (props.detail ? t(`detail.${props.detail}`) : ""));
+// The level of detail of the search terms, chosen in this window (starts at the panel's).
+const level = ref(props.detail || "normaal");
+const levelText = computed(() => (level.value ? t(`detail.${level.value}`) : ""));
 // Every keystroke counts as a change, also a space at the end (wish Olaf 13-11-2026); saving tidies
 // spaces at the ends, and the tidy text then shows.
 const changed = computed(() => Boolean(info.value) && draft.value !== (info.value.prompt || ""));
@@ -130,6 +139,18 @@ const steerSummary = computed(() =>
 );
 const goLabel = computed(() => `${t(key("go"))}${price.value ? ` ${price.value}` : ""}`);
 
+const promptQueryUrl = () => `${promptUrl.value}${props.part === "zoektermen" ? `?detailniveau=${encodeURIComponent(level.value)}` : ""}`;
+// Another level of detail: the app's prompt follows; a change of your own in the text stays.
+watch(level, async () => {
+  if (!props.open || props.part !== "zoektermen" || !info.value) return;
+  try {
+    const answer = await get(promptQueryUrl());
+    if (changed.value) info.value = { ...info.value, standaard_prompt: answer.standaard_prompt };
+    else show(answer);
+  } catch (failure) {
+    error.value = errorText(t, failure);
+  }
+});
 function show(answer) {
   info.value = answer;
   draft.value = answer.prompt || "";
@@ -143,22 +164,29 @@ watch(
     draft.value = "";
     error.value = "";
     promptOpen.value = false;
+    note.clear();
     steerOpen.value = false;
     hint.value = "";
     effort.value = EFFORTS.includes(props.defaultEffort) ? props.defaultEffort : "low";
     try {
-      show(await get(`${promptUrl.value}${props.part === "zoektermen" && props.detail ? `?detailniveau=${encodeURIComponent(props.detail)}` : ""}`));
+      level.value = props.detail || "normaal";
+      show(await get(promptQueryUrl()));
     } catch (failure) {
       error.value = errorText(t, failure);
     }
   }
 );
 
-async function change(request) {
+// The message after a change of the prompt (undo.js): Undo goes back to the prompt before.
+const note = useUndoMessage(t);
+// `done`: the message afterwards; with `undoable` it gets Undo.
+async function change(request, done, undoable = true) {
   saving.value = true;
   error.value = "";
+  const back = promptBack(promptUrl.value, info.value);
   try {
     show(await request());
+    note.show("success", done, undoable ? async () => show(await back()) : null);
     return true;
   } catch (failure) {
     error.value = errorText(t, failure);
@@ -168,18 +196,18 @@ async function change(request) {
   }
 }
 // The app's prompt typed back in is no prompt of your own: then back to the app's.
-const saveDraft = () =>
-  draft.value.trim() === (info.value?.standaard_prompt || "").trim() ? del(promptUrl.value) : put(promptUrl.value, { prompt: draft.value });
-const save = () => change(saveDraft);
-const backToApp = () => change(() => del(promptUrl.value));
+const typedApp = () => draft.value.trim() === (info.value?.standaard_prompt || "").trim();
+const saveDraft = () => (typedApp() ? del(promptUrl.value) : put(promptUrl.value, { prompt: draft.value }));
+const save = () => change(saveDraft, t(typedApp() ? "feedback.prompt_app" : "feedback.prompt_saved"));
+const backToApp = () => change(() => del(promptUrl.value), t("feedback.prompt_app"));
 // An earlier prompt was saved before: "Use this one" makes it the prompt at once, so
 // "Beschrijvingen maken" can go straight away (wish Olaf 13-11-2026); only a change of your own
 // still needs "Prompt bewaren".
-const useEarlier = (entry) => change(() => put(promptUrl.value, { prompt: entry.tekst }));
+const useEarlier = (entry) => change(() => put(promptUrl.value, { prompt: entry.tekst }), t("feedback.prompt_used"));
 const undoChange = () => (draft.value = info.value?.prompt || "");
 async function deleteEarlier(entry) {
   if (!(await confirmDeleteVersion(t("describe.prompt_history_delete_confirm"), t, entry.tekst))) return;
-  await change(() => del(`${promptUrl.value}/geschiedenis/${encodeURIComponent(entry.bewaard_op)}`));
+  await change(() => del(`${promptUrl.value}/geschiedenis/${encodeURIComponent(entry.bewaard_op)}`), t("feedback.version_deleted"), false);
 }
 // Describe anew, with the saved prompt (the button is off while a change is not saved).
 function go() {
@@ -188,7 +216,7 @@ function go() {
     promptOpen.value = true;
     return;
   }
-  emit("answer", { hint: hint.value.trim(), effort: effort.value });
+  emit("answer", { hint: hint.value.trim(), effort: effort.value, ...(props.part === "zoektermen" ? { detail: level.value } : {}) });
 }
 
 const formatTime = (stamp) => formatStamp(stamp, language);

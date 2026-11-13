@@ -57,6 +57,30 @@ def _user():
     return (current_app.debug and current_app.config.get("LOKALE_GEBRUIKER")) or None
 
 
+def _allowed_users():
+    """The access list: the allowed users and the first administrators."""
+    return set(current_app.config["TOEGESTANE_GEBRUIKERS"]) | set(current_app.config["BEHEERDERS_START"])
+
+
+def _text_field(body, key, message, strip=False):
+    """A required, non-empty text in the body (with `strip`: not only spaces); 400 with `message` otherwise."""
+    value = body.get(key)
+    if not isinstance(value, str) or not (value.strip() if strip else value):
+        raise DetectionError(message, status=400, code="invalid_body")
+    return value
+
+
+def _optional_text(body, key):
+    """An optional text in the body (missing, null or "" are fine)."""
+    if not isinstance(body.get(key) or "", str):
+        raise DetectionError(f"'{key}' is een tekst.", status=400, code="invalid_body")
+
+
+def _check_mid(mid):
+    if not MID.fullmatch(mid):
+        raise DetectionError(f"'{mid}' is geen M-id.", status=400, code="invalid_mid")
+
+
 def _require_paid_access(paid):
     """Paid calls only for logged-in users on the access list (8.3). In dummy
     mode nothing is paid, so nothing is checked."""
@@ -65,8 +89,7 @@ def _require_paid_access(paid):
     user = _user()
     if not user:
         raise DetectionError("Log in met je Commons-account om betaalde aanroepen te doen.", status=401, code="login_required")
-    allowed = set(current_app.config["TOEGESTANE_GEBRUIKERS"]) | set(current_app.config["BEHEERDERS_START"])
-    if user not in allowed:
+    if user not in _allowed_users():
         raise DetectionError(
             "Je staat niet op de toegangslijst voor betaalde aanroepen. Vraag toegang aan.", status=403, code="not_on_access_list"
         )
@@ -79,8 +102,7 @@ def _require_trusted_user():
     if current_app.debug or current_app.testing:
         return
     user = _user()
-    allowed = set(current_app.config["TOEGESTANE_GEBRUIKERS"]) | set(current_app.config["BEHEERDERS_START"])
-    if not user or user not in allowed:
+    if not user or user not in _allowed_users():
         raise DetectionError("Alleen voor ingelogde gebruikers op de toegangslijst.", status=403, code="not_on_access_list")
 
 
@@ -318,7 +340,7 @@ def create_detection(mid, n):
             _require_paid_access(paid and service.plan(file, n, service.terms(body.get("prompt", ""), modus), body.get("vers") is True)["betaald"])
         result = service.detect(
             file, n, prompt=body.get("prompt", ""), modus=modus,
-            minscore=_minscore(body.get("minscore")), user=_user(), items=body.get("items"),
+            minscore=_minscore(body.get("minscore")), user=_user(), items=body.get("items"), als=body.get("als"),
             fresh=body.get("vers") is True,  # "vers": true: ask SAM again, not its saved answer (wish Olaf)
         )
     return jsonify(result), 201
@@ -373,10 +395,8 @@ def put_inventory_part(mid, n, deel):
     (only the part "beschrijving" has versions). Free."""
     if deel != "beschrijving":
         raise DetectionError("Alleen de beschrijving heeft eerdere versies.", status=404, code="not_found")
-    body = _body()
-    if not isinstance(body.get("versie"), str) or not body["versie"]:
-        raise DetectionError("Geef de 'versie' uit de geschiedenis.", status=400, code="invalid_body")
-    return jsonify(_descriptions().restore_inventory(_page_file(mid, n), n, body["versie"]))
+    version = _text_field(_body(), "versie", "Geef de 'versie' uit de geschiedenis.")
+    return jsonify(_descriptions().restore_inventory(_page_file(mid, n), n, version))
 
 
 @api.get("/bestand/<mid>/pagina/<int:n>/inventaris/<deel>/prompt")
@@ -421,13 +441,7 @@ def inventory_part(mid, n, deel):
     hint = body.get("aanwijzing")
     if hint is not None and not isinstance(hint, str):
         raise DetectionError("'aanwijzing' moet een tekst zijn.", status=400, code="invalid_body")
-    return jsonify(
-        _descriptions().inventory(
-            _page_file(mid, n), n, body.get("model"), again=True, user=_user(), part=deel,
-            detail=body.get("detailniveau"), description_level=body.get("beschrijvingsniveau"),
-            hint=hint, effort=body.get("redeneren"),
-        )
-    )
+    return _ask_inventory(mid, n, body, again=True, part=deel, hint=hint, effort=body.get("redeneren"))
 
 
 @api.post("/bestand/<mid>/pagina/<int:n>/inventaris")
@@ -435,8 +449,16 @@ def inventory(mid, n):
     """Ask Muse Spark what is on the page (paid in live mode, cached)."""
     body = _body()
     _require_paid_access(_descriptions().vision.betaald)
+    return _ask_inventory(mid, n, body, again=bool(body.get("opnieuw")))
+
+
+def _ask_inventory(mid, n, body, again, **extra):
+    """Ask Muse Spark about the whole image (inventory), with the model and levels from the body."""
     return jsonify(
-        _descriptions().inventory(_page_file(mid, n), n, body.get("model"), again=bool(body.get("opnieuw")), user=_user(), detail=body.get("detailniveau"), description_level=body.get("beschrijvingsniveau"))
+        _descriptions().inventory(
+            _page_file(mid, n), n, body.get("model"), again=again, user=_user(),
+            detail=body.get("detailniveau"), description_level=body.get("beschrijvingsniveau"), **extra,
+        )
     )
 
 
@@ -627,8 +649,7 @@ def completion_make(mid, n, object_id):
     result is invented: never a source."""
     _require_paid_access(_completions().editor.betaald)
     body = _body()
-    if not isinstance(body.get("prompt") or "", str):
-        raise DetectionError("'prompt' is een tekst.", status=400, code="invalid_body")
+    _optional_text(body, "prompt")
     result = _completions().complete(_page_file(mid, n), n, object_id, again=bool(body.get("opnieuw")), user=_user(), prompt=body.get("prompt"))
     return jsonify(result), 201
 
@@ -636,9 +657,7 @@ def completion_make(mid, n, object_id):
 @api.put("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/aanvulling")
 def completion_use(mid, n, object_id):
     """An earlier AI-completed version becomes the current one again: {"sleutel": "…"}. Free."""
-    key = _body().get("sleutel")
-    if not isinstance(key, str) or not key:
-        raise DetectionError("Geef 'sleutel' van een eerdere versie.", status=400, code="invalid_body")
+    key = _text_field(_body(), "sleutel", "Geef 'sleutel' van een eerdere versie.")
     return jsonify({"object": _completions().use_version(_page_file(mid, n), n, object_id, key)})
 
 
@@ -665,9 +684,7 @@ def also_drop(mid, n, object_id, woord):
 @api.post("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/ook")
 def also_restore(mid, n, object_id):
     """Put a removed word back: {"woord": "…"} (Undo). Free."""
-    word = _body().get("woord")
-    if not isinstance(word, str) or not word.strip():
-        raise DetectionError("Geef het woord: {\"woord\": \"…\"}.", status=400, code="invalid_body")
+    word = _text_field(_body(), "woord", "Geef het woord: {\"woord\": \"…\"}.", strip=True)
     return jsonify({"object": _service().drop_also(_page_file(mid, n), n, object_id, word, restore=True)}), 201
 
 
@@ -708,8 +725,7 @@ def describe_object(mid, n, object_id):
     boy"), the margin the share of the box shown around it (0-1); for a group, "alleen_groep":
     false leaves out the instruction to look at its members only."""
     body = _body()
-    if not isinstance(body.get("aanwijzing") or "", str):
-        raise DetectionError("'aanwijzing' is een tekst.", status=400, code="invalid_body")
+    _optional_text(body, "aanwijzing")
     if not isinstance(body.get("alleen_groep", True), bool):
         raise DetectionError("'alleen_groep' is true of false.", status=400, code="invalid_body")
     _require_paid_access(_descriptions().vision.betaald)
@@ -739,10 +755,8 @@ def delete_description_version(mid, n, object_id, versie):
 def put_description(mid, n, object_id):
     """Make an earlier version from the history the current description:
     {"versie": …}. The current one goes into the history. Free."""
-    body = _body()
-    if not isinstance(body.get("versie"), str) or not body["versie"]:
-        raise DetectionError("Geef de 'versie' uit de geschiedenis.", status=400, code="invalid_body")
-    return jsonify(_descriptions().restore(_page_file(mid, n), n, object_id, version=body["versie"]))
+    version = _text_field(_body(), "versie", "Geef de 'versie' uit de geschiedenis.")
+    return jsonify(_descriptions().restore(_page_file(mid, n), n, object_id, version=version))
 
 
 def _prompt_answer(mid, n, object_id):
@@ -813,16 +827,7 @@ def delete_description(mid, n, object_id):
 def item_thumbnail(q):
     """A small thumbnail of the image (P18) of a Wikidata item, through the server (the
     browser loads nothing from Wikimedia). ?w= 60, 120 or 240. 404 without an image. Free."""
-    if not QID.fullmatch(q or ""):
-        raise CommonsError("Geef een Q-id, bijv. Q144.", status=400, code="bad_qid")
-    width = {"60": 60, "240": 240}.get(request.args.get("w", ""), 120)
-    data = _client().item_thumbnail(q, width)
-    if not data:
-        raise CommonsError("Dit item heeft geen afbeelding (P18).", status=404, code="not_found")
-    kind = "image/png" if data[:4] == b"\x89PNG" else "image/jpeg"
-    response = _image(data, kind)
-    response.headers["Cache-Control"] = "private, max-age=86400"
-    return response
+    return _item_image(q, "P18", {"60": 60, "240": 240}, 120, "Dit item heeft geen afbeelding (P18).")
 
 
 @api.get("/wikidata/<q>/logo")
@@ -830,13 +835,24 @@ def item_logo(q):
     """The logo (P154) of a Wikidata item, e.g. of the collection or location of a work (wish
     Olaf), as a small PNG through the server (the browser loads nothing from Wikimedia). ?w= 32,
     64 or 120. 404 without a logo. Free."""
+    return _item_image(q, "P154", {"32": 32, "120": 120}, 64, "Dit item heeft geen logo (P154).", svg=True)
+
+
+def _item_image(q, prop, widths, default_width, missing, svg=False):
+    """The image in `prop` of a Wikidata item through the server, at the width ?w= picks
+    from `widths`; 404 with `missing` without one. With `svg` an SVG passes as SVG."""
     if not QID.fullmatch(q or ""):
         raise CommonsError("Geef een Q-id, bijv. Q144.", status=400, code="bad_qid")
-    width = {"32": 32, "120": 120}.get(request.args.get("w", ""), 64)
-    data = _client().item_thumbnail(q, width, prop="P154")
+    width = widths.get(request.args.get("w", ""), default_width)
+    data = _client().item_thumbnail(q, width, prop=prop)
     if not data:
-        raise CommonsError("Dit item heeft geen logo (P154).", status=404, code="not_found")
-    kind = "image/png" if data[:4] == b"\x89PNG" else "image/svg+xml" if data.lstrip()[:1] == b"<" else "image/jpeg"
+        raise CommonsError(missing, status=404, code="not_found")
+    if data[:4] == b"\x89PNG":
+        kind = "image/png"
+    elif svg and data.lstrip()[:1] == b"<":
+        kind = "image/svg+xml"
+    else:
+        kind = "image/jpeg"
     response = _image(data, kind)
     response.headers["Cache-Control"] = "private, max-age=86400"
     return response
@@ -1060,8 +1076,7 @@ def export_file(mid):
 def work(mid):
     """What is kept for a file (all pages): objects, trash, saved cut-outs, AI suggestions,
     drafts for Commons. Free; reads only (for the confirmation of starting over)."""
-    if not MID.fullmatch(mid):
-        raise DetectionError(f"'{mid}' is geen M-id.", status=400, code="invalid_mid")
+    _check_mid(mid)
     return jsonify(_service().work_summary({"mid": mid}))
 
 
@@ -1070,8 +1085,7 @@ def start_over(mid):
     """Start an image over (wish Olaf): remove all objects, the trash, saved cut-outs, AI
     suggestions and drafts of the file. The cache stays; nothing changes on Commons. Free."""
     _require_trusted_user()
-    if not MID.fullmatch(mid):
-        raise DetectionError(f"'{mid}' is geen M-id.", status=400, code="invalid_mid")
+    _check_mid(mid)
     fresh = request.args.get("ai") == "opnieuw"  # ?ai=opnieuw: earlier AI answers no longer count
     return jsonify({"verwijderd": _service().start_over({"mid": mid}, fresh_ai=fresh)})
 
@@ -1104,8 +1118,7 @@ def empty_trash():
 
 @api.delete("/prullenbak/<mid>/<int:n>/<object_id>")
 def purge_from_trash(mid, n, object_id):
-    if not MID.fullmatch(mid):
-        raise DetectionError(f"'{mid}' is geen M-id.", status=400, code="invalid_mid")
+    _check_mid(mid)
     file = {"mid": mid}
     service = _service()
     if not service.in_trash(file, n, object_id):

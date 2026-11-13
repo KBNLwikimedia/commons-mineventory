@@ -79,17 +79,13 @@
     </div>
     <p v-else class="cc-uitleg">{{ t("panel.part_none_beschrijving") }}</p>
 
-    <p v-if="inventory.bewerkt || undoTexts" class="cc-klein cc-tekst-acties">
-      <template v-if="inventory.bewerkt">
-        <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
-        <button type="button" class="cc-link" :disabled="busy" @click="backToAi">{{ t("describe.back_to_ai") }}</button>
-      </template>
-      <template v-if="undoTexts">
-        {{ t("describe.saved_edit") }}
-        <button type="button" class="cc-link" :disabled="busy" @click="undo">↶ {{ t("magnifier.undo") }}</button>
-      </template>
+    <p v-if="inventory.bewerkt" class="cc-klein cc-tekst-acties">
+      <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
+      <button type="button" class="cc-link" :disabled="busy" @click="backToAi">{{ t("describe.back_to_ai") }}</button>
     </p>
     <cdx-message v-if="error" type="error" :inline="true">{{ error }}</cdx-message>
+    <!-- What the last change did (texts saved, an earlier version used or deleted), with Undo. -->
+    <undo-message :note="note" />
 
     <!-- Earlier descriptions of the image, to use again or to delete (free). -->
     <cdx-accordion v-if="history.length" v-model="historyOpen" class="cc-beschrijving-blok">
@@ -98,16 +94,7 @@
       <!-- One version at a time: Previous / Next, "2 of 5" and dots (VersionCarousel.vue). -->
       <version-carousel :items="history" item-key="versie" :label="t('describe.history_short')" :disabled="busy" @use="use" @delete="remove">
         <template #default="{ item: entry }">
-          <div
-            class="cc-geschiedenis-tekstblok"
-            :class="{ open: expanded[entry.versie] }"
-            role="button"
-            tabindex="0"
-            :aria-expanded="expanded[entry.versie] ? 'true' : 'false'"
-            :title="expanded[entry.versie] ? '' : fullText(entry)"
-            @click="expanded[entry.versie] = !expanded[entry.versie]"
-            @keydown.enter.space.prevent="expanded[entry.versie] = !expanded[entry.versie]"
-          >
+          <version-entry v-model:open="expanded[entry.versie]" :title="fullText(entry)" :meta="meta(entry)">
             <div class="cc-versie-veld">
               <span class="cc-versie-label">{{ t("version.kind") }}</span>
               <strong>{{ language === "en" ? entry.paginasoort_en || entry.paginasoort : entry.paginasoort || entry.paginasoort_en }}</strong>
@@ -120,9 +107,7 @@
               <span class="cc-versie-label">{{ t("page.field_tekst") }}</span>
               <span class="cc-geschiedenis-beschrijving">{{ readLines(entry.tekst) }}</span>
             </div>
-            <span class="cc-klein cc-geschiedenis-meta">{{ meta(entry) }}</span>
-            <span class="cc-link cc-klein cc-geschiedenis-meer">{{ expanded[entry.versie] ? t("describe.history_less") : t("describe.history_more") }}</span>
-          </div>
+          </version-entry>
         </template>
       </version-carousel>
     </cdx-accordion>
@@ -141,8 +126,11 @@ import { formatStamp, useT } from "../i18n.js";
 import { readStored, writeStored } from "../storage.js";
 import DetailSlider from "./DetailSlider.vue";
 import VersionCarousel from "./VersionCarousel.vue";
+import VersionEntry from "./VersionEntry.vue";
 import AiBadge from "./AiBadge.vue";
 import EditPencil from "./EditPencil.vue";
+import UndoMessage from "./UndoMessage.vue";
+import { pageDescriptionVersion, useUndoMessage, versionBack } from "../undo.js";
 
 const props = defineProps({
   mid: { type: String, required: true },
@@ -180,7 +168,7 @@ async function showLength(level) {
   error.value = "";
   try {
     const result = await patch(base.value, { beschrijvingsniveau: level });
-    undoTexts.value = null;
+    note.clear();
     emit("changed", result.inventaris);
   } catch (e) {
     error.value = errorText(t, e);
@@ -235,22 +223,23 @@ function save() {
   if (changed.value && !captionTooLong.value) saveTexts({ ...draft.value });
 }
 
-// "Ongedaan maken": the texts as they were before the last change.
-const undoTexts = ref(null);
+// The message after a change (undo.js); "Ongedaan maken" puts back the texts as they were.
+const note = useUndoMessage(t);
+watch(() => [props.mid, props.n], () => note.clear());
 const current = () => Object.fromEntries(FIELDS.map((f) => [f, props.inventory[f] || ""]));
-async function saveTexts(texts, { undoable = true } = {}) {
+async function saveTexts(texts) {
   const before = current();
+  const path = base.value;
   error.value = "";
   try {
-    emit("changed", (await patch(base.value, texts)).inventaris);
+    emit("changed", (await patch(path, texts)).inventaris);
     cancel();
-    undoTexts.value = undoable ? before : null;
+    note.show("success", t("describe.saved_edit"), async () => emit("changed", (await patch(path, before)).inventaris));
   } catch (e) {
     error.value = errorText(t, e);
   }
 }
 const backToAi = () => saveTexts({ ...current(), ...props.inventory.ai_origineel });
-const undo = () => saveTexts(undoTexts.value, { undoable: false });
 
 // Earlier descriptions: reloaded whenever the overview changes (free).
 const history = ref([]);
@@ -264,12 +253,15 @@ async function loadHistory() {
 }
 watch(() => [props.mid, props.n, props.inventory], loadHistory, { immediate: true });
 
+// An earlier version made current; Undo puts back the one it replaced (or removes it again
+// when there was none: DELETE on the same path).
 async function use(entry) {
   error.value = "";
+  const path = `${base.value}/beschrijving`;
+  const back = versionBack(path, "versie", pageDescriptionVersion(props.inventory));
   try {
-    const result = await put(`${base.value}/beschrijving`, { versie: entry.versie });
-    undoTexts.value = null;
-    emit("changed", result.inventaris);
+    emit("changed", (await put(path, { versie: entry.versie })).inventaris);
+    note.show("success", t("feedback.version_used"), async () => emit("changed", (await back()).inventaris));
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -281,6 +273,7 @@ async function remove(entry) {
   error.value = "";
   try {
     history.value = (await del(`${base.value}/geschiedenis/${encodeURIComponent(entry.versie)}`)).geschiedenis;
+    note.show("success", t("feedback.version_deleted"));
   } catch (e) {
     error.value = errorText(t, e);
   }

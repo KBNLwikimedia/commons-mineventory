@@ -52,13 +52,17 @@
             {{ t(`legend.${item}`) }} <span class="cc-soort-aantal">({{ statusCounts[item] || 0 }})</span>
           </cdx-checkbox>
         </li>
-        <li v-if="statusItems.length > 1" class="cc-soorten-alles">
-          <button type="button" class="cc-link" :disabled="!hiddenStatuses.length" @click="hiddenStatuses = []">{{ t("objects.all") }}</button>
-          <span class="cc-punt" aria-hidden="true">·</span>
-          <button type="button" class="cc-link" :disabled="hiddenStatuses.length === statusItems.length" @click="hiddenStatuses = [...statusItems]">{{ t("objects.none") }}</button>
-          <span class="cc-punt" aria-hidden="true">·</span>
-          <button type="button" class="cc-link" @click="hiddenStatuses = shownStatuses">{{ t("objects.invert") }}</button>
-        </li>
+        <tick-links
+          v-if="statusItems.length > 1"
+          tag="li"
+          class="cc-soorten-alles"
+          dots
+          :disabled-all="!hiddenStatuses.length"
+          :disabled-none="hiddenStatuses.length === statusItems.length"
+          @all="hiddenStatuses = []"
+          @none="hiddenStatuses = [...statusItems]"
+          @invert="hiddenStatuses = shownStatuses"
+        />
         <!-- New and thicker are no status of their own: only explained. -->
         <li v-for="item in legend.filter((i) => !FRAME_KEYS.includes(i))" :key="item"><span :class="['cc-legenda-staal', `cc-legenda-${item}`]"></span>{{ t(`legend.${item}`) }}</li>
       </ul>
@@ -76,13 +80,16 @@
               {{ kind }} <span class="cc-soort-aantal">({{ kindCounts[kind] || 0 }})</span>
             </cdx-checkbox>
           </li>
-          <li class="cc-soorten-alles">
-            <button type="button" class="cc-link" :disabled="!hiddenKinds.length" @click="hiddenKinds = []">{{ t("objects.all") }}</button>
-            <span class="cc-punt" aria-hidden="true">·</span>
-            <button type="button" class="cc-link" :disabled="hiddenKinds.length === kinds.length" @click="hiddenKinds = kinds.map(([kind]) => kind)">{{ t("objects.none") }}</button>
-            <span class="cc-punt" aria-hidden="true">·</span>
-            <button type="button" class="cc-link" @click="hiddenKinds = shownKinds">{{ t("objects.invert") }}</button>
-          </li>
+          <tick-links
+            tag="li"
+            class="cc-soorten-alles"
+            dots
+            :disabled-all="!hiddenKinds.length"
+            :disabled-none="hiddenKinds.length === kinds.length"
+            @all="hiddenKinds = []"
+            @none="hiddenKinds = kinds.map(([kind]) => kind)"
+            @invert="hiddenKinds = shownKinds"
+          />
         </ul>
       </div>
     </cdx-accordion>
@@ -107,6 +114,7 @@ import { readStored, writeStored } from "../storage.js";
 import { PageViewer } from "../viewer/viewer.js";
 import BusyNote from "./BusyNote.vue";
 import InfoDialog from "./InfoDialog.vue";
+import TickLinks from "./TickLinks.vue";
 import { FRAME_KEYS, classKeys, frameKey, kindsWithQuery } from "../class-colors.js";
 import { readAddress, writeAddress } from "../facets.js";
 

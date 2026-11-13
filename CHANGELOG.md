@@ -5,6 +5,26 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.40.3] - 2026-11-13
+
+### Toegevoegd
+
+- In *Objecten laten beschrijven* (bulk) staat vooraan elke rij een **vinkje**, standaard aan: zo laat je één object toch weg (wens Olaf). *Alle · Geen · Omkeren* staat boven de tabel. De knop *Beschrijven (n)* en het bedrag tellen mee; zonder vinkje staat de knop uit. De tabel toont nu ongeveer zes rijen voor hij scrolt. De kolommen staan in dezelfde volgorde als de velden onder *AI-bijsturing*: aanwijzing, lengte, ruimte. Dezelfde vinkjes staan in de andere bulkvensters (de knop staat uit tot er genoeg aangevinkt zijn): *Groeperen* (minstens twee), *naar de prullenbak* (selectie, alles, per soort) en op de pagina *Objecten* *naar de prullenbak* en *definitief verwijderen* van wat de filters tonen; de zin en de knop tellen mee.
+- **Ook gevonden als gaat mee naar de AI** (wens Olaf): de woorden waarmee SAM een object ook vond (bijv. *sailor hat* bij een hoed) staan in de prompt van *Wat staat hierop?*, in de zin over de detectie, met hun zekerheid. Onder *AI-bijsturing* in de vergroter staat welke woorden meegaan. Een weggehaald woord gaat niet mee. Omdat de prompt verandert, is de volgende vraag over zo'n object een nieuwe vraag.
+- **AI-bijsturing bij het lokaliseren** (wens Olaf): het venster voor het zoeken met de AI-beelddetectie (SAM) heeft, dichtgeklapt, *Zoekwoorden voor SAM*: je past elk Engels zoekwoord aan voor je zoekt (bijv. 'white sailor hat' in plaats van 'sailor hat'). SAM kent geen prompt of denkniveau; het woord is zijn opdracht. Wat een aangepast woord vindt, telt onder de oorspronkelijke zoekterm (`zoekterm` blijft, het woord staat in `label` en `zoekwoord`), dus de knop van die term houdt zijn aantal, en een *beeldt af*-item blijft gekoppeld. Het bedrag rekent mee met de woorden. Het venster verschijnt nu bij elke zoekopdracht met woorden, ook in de proefmodus. In de API: `als` ({zoekwoord: zoekterm}) bij POST `…/detecties`.
+
+### Gewijzigd
+
+- De schuif *Detailniveau* staat alleen in het paneel zolang er nog geen zoektermen zijn; bij *Zoektermen opnieuw laten maken* staat hij in het venster, en de uitleg en de prompt van de app volgen hem daar (wens Olaf).
+- Na **groeperen** een groene melding ("8 objecten zijn gegroepeerd tot ‘…’") met *Ongedaan maken*, die de groep weer opheft (wens Olaf). Ook *Groep opheffen* in de lijst geeft een groene melding.
+- Meldingen verdwijnen niet meer vanzelf: ook een groene blijft staan tot je hem met het kruisje wegklikt (eerst verdween hij na 4 seconden; wens Olaf).
+- Elke melding van de vier bulkacties (beschrijven, ontdubbelen, groeperen met *Ongedaan maken*, naar de prullenbak met *Ongedaan maken*) staat nu op één plek: onder de tabbladen van de bulkacties, één tegelijk, tot je hem wegklikt (wens Olaf). Eerder stonden die van de prullenbak bovenaan de kolom.
+- *Alle zoektermen verwijderen* toont de zoektermen die weggaan als losse punten (bij meer dan 8 in twee kolommen, bij meer dan 16 in drie), en zegt dat de beschrijving van de hele afbeelding blijft staan (wens Olaf).
+
+### Opgelost
+
+- Na een dubbelklik op de kop (terug naar het midden) was een verplaatsbaar venster, zoals *Gestructureerde gegevens van deze afbeelding*, niet meer groter of kleiner te maken tot je het versleepte (gevonden door Olaf).
+
 ## [0.40.2] - 2026-11-13
 
 ### Toegevoegd

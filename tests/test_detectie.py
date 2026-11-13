@@ -287,3 +287,17 @@ def test_rectangle_with_a_hint_and_nothing_found_stays_a_named_rectangle(service
     result = service.rectangle(album, 1, {"x": 10, "y": 10, "w": 300, "h": 200}, hint="car")
     assert result["gevonden"] is False and result["object"]["bron"] == "handmatig"
     assert result["object"]["zoekterm"] == "car" and result["object"]["masker"] is None
+
+
+def test_changed_search_word_counts_under_its_term(service, album):
+    """A word changed before locating (wish Olaf 13-11-2026): SAM gets the new word, but what it
+    finds counts under the AI term, so that term's button keeps its count."""
+    result = service.detect(album, 1, "white sailor hat", als={"white sailor hat": "sailor hat"})
+    found = [o for o in result["objecten"] if o["id"] in result["nieuw"]]
+    assert found and all(o["zoekterm"] == "sailor hat" and o["label"] == "white sailor hat" for o in found)
+    assert all(o.get("zoekwoord") == "white sailor hat" for o in found)
+    # The same word as the term: nothing changes.
+    plain = service.detect(album, 1, "wapen", als={"wapen": "wapen"})
+    assert all("zoekwoord" not in o for o in plain["objecten"] if o["id"] in plain["nieuw"])
+    with pytest.raises(DetectionError):
+        service.detect(album, 1, "wapen", als=["wapen"])

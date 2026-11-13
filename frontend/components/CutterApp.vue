@@ -15,8 +15,9 @@
       <div class="cc-skelet cc-skelet-werkblad" aria-hidden="true"></div>
     </section>
 
-    <section v-if="!file && !loadingFile && visited.length" class="cc-start-geschiedenis">
+    <section v-if="!file && !loadingFile && (visited.length || noticesAt('bekeken').length)" class="cc-start-geschiedenis">
       <h2>{{ t("history.title") }}</h2>
+      <notice-list :notices="noticesAt('bekeken')" @dismiss="dismiss" />
       <viewed-panel :entries="visited" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" @open="openFromHistory" @start-over="startOver" :work="workKept" />
     </section>
 
@@ -49,6 +50,8 @@
       <aside class="cc-historie cc-kolom" :class="{ dicht: closed.historie }" :aria-label="t('layout.history_title')">
         <div class="cc-kolom-inhoud">
           <column-header column="history" closable side="left" @close="setClosed('historie', true)" />
+          <!-- What removing from the list or starting over did, with Undo where it can (wish Olaf). -->
+          <notice-list :notices="noticesAt('bekeken')" @dismiss="dismiss" />
           <viewed-panel :entries="visited" :current="file.mid" @aside="setAsideEntry" @remove="forget" @clear="forgetAll" @open="openFromHistory" @start-over="startOver" :work="workKept" />
         </div>
         <column-strip v-if="closed.historie" :name="t('layout.history_title')" :count="visited.length" side="left" @open="setClosed('historie', false)" />
@@ -96,6 +99,7 @@
           :trash-terms="trashTerms"
           :last-result="lastResult"
           @dismiss-result="lastResult = null"
+          @undo-result="undoDrawn"
           @restore-trash="restoreFound"
           @read-again="readAgain"
           :point-mode="pointMode"
@@ -251,6 +255,10 @@
             </cdx-tabs>
             <!-- The outcome of the last action, directly under the tabs that asked for it;
                  red when nothing could be done. -->
+            <!-- Every outcome of the four bulk actions here, under the tabs (wish Olaf 13-11-2026): the result
+                 of describing and merging, and the notices of grouping and the trash (with Undo);
+                 one at a time, until you close it. -->
+            <notice-list :notices="noticesAt('bulk')" @dismiss="dismiss" />
             <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}<ul v-if="actionResult.list?.length" class="cc-melding-lijst"><li v-for="line in actionResult.list" :key="line">{{ line }}</li></ul></cdx-message>
           </div>
           <busy-note v-if="busy && busyAt === 'objecten'" :message="maskWait || t('busy.describe')" />
@@ -303,8 +311,20 @@
       :objects="bulkDescribe.objects"
       :paths="bulkDescribe.paths"
       :action="bulkDescribe.action"
-      :cost-line="bulkDescribe.costLine"
+      :unit-usd="bulkDescribe.unitUsd"
+      :paid="bulkDescribe.paid"
+      :language="bulkDescribe.language"
       @answer="answerBulkDescribe"
+    />
+    <!-- Locating: what is searched, the cost, and (folded away) the search words (wish Olaf). -->
+    <locate-dialog
+      :open="locate.open"
+      :path="locate.path"
+      :prompt="locate.prompt"
+      :paid="config.betaald"
+      :sam-usd="config.sam_usd"
+      :language="config.taal"
+      @answer="answerLocate"
     />
     <!-- Describe the whole image anew: what happens, the cost, and (folded away) the prompt (wish Olaf). -->
     <page-describe-dialog
@@ -331,12 +351,14 @@ import { askConfirm, askConfirmValue, askRemoval } from "../confirm.js";
 import { money, priceLabel, useT } from "../i18n.js";
 import BulkDescribeDialog from "./BulkDescribeDialog.vue";
 import PageDescribeDialog from "./PageDescribeDialog.vue";
+import LocateDialog from "./LocateDialog.vue";
 import BusyNote from "./BusyNote.vue";
 import ColumnHeader from "./ColumnHeader.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
 import ColumnStrip from "./ColumnStrip.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { addToHistory, appUrl, clearHistory, commonsFileUrl, forgetFileInBrowser, kindsOf, numberedNames, objectName, readHistory, readStart, removeFromHistory, setAside } from "../state.js";
+import { addToHistory, appUrl, clearHistory, commonsFileUrl, forgetFileInBrowser, kindsOf, numberedNames, objectName, readHistory, readStart, removeFromHistory, restoreHistory, setAside } from "../state.js";
+import { pageDescriptionVersion, versionBack } from "../undo.js";
 import { readStored, writeStored } from "../storage.js";
 import ViewedPanel from "./ViewedPanel.vue";
 import DetectionPanel from "./DetectionPanel.vue";
@@ -532,12 +554,30 @@ let noticeId = 0;
 /* Colours of messages (Codex, decision Olaf 12-11-2026): "error" (red) only when something went
    wrong; "warning" (yellow) for anything to note or to undo (to the trash, nothing found, merged);
    "success" (green) when it worked; "notice" (grey) only for fixed explanations, not as a message. */
+// One message per place (wish Olaf 13-11-2026): a new one with a `where` replaces the one there.
 function notify(type, text, extra = {}) {
-  notices.value = [...notices.value.slice(-3), { id: ++noticeId, type, text, ...extra }];
+  if (extra.where === "bulk") actionResult.value = null; // one message under the bulk tabs
+  const kept = extra.where ? notices.value.filter((n) => n.where !== extra.where) : notices.value;
+  notices.value = [...kept.slice(-3), { id: ++noticeId, type, text, ...extra }];
+}
+// The Undo button of a notice (actions): runs `run`, then says so in green at the same place, or the
+// error in red. `label` replaces "↶ Ongedaan maken" (e.g. "Vorige versie terugzetten").
+function undoAction(run, where, done = t("feedback.undone"), label = "") {
+  return {
+    label: label || `↶ ${t("magnifier.undo")}`,
+    run: async () => {
+      try {
+        await run();
+        notify("success", done, { where });
+      } catch (error) {
+        fail(error, where);
+      }
+    },
+  };
 }
 // Only what is about the whole file goes on top; the outcome of an action shows near the button that
 // asked for it (wish Olaf), with `where`: commons, ai-beschrijving, ai-zoektermen, ai-alles,
-// vergroter, opslaan, objecten.
+// vergroter, opslaan, objecten, bulk (just above the bulk tabs).
 const topNotices = computed(() => notices.value.filter((n) => !n.where));
 const objectNotices = computed(() => notices.value.filter((n) => n.where === "objecten"));
 const noticesAt = (where) => notices.value.filter((n) => n.where === where);
@@ -718,6 +758,7 @@ async function startOver(entry) {
   forgetFileInBrowser(entry.mid);
   workKept.value = { ...workKept.value, [entry.mid]: false };
   if (file.value?.mid === entry.mid) window.location.reload();
+  else notify("success", t("feedback.started_over", { name: entry.naam || entry.mid }), { where: "bekeken" });
 }
 
 // Your own name for an object (from the list); "" goes back to the automatic name.
@@ -738,14 +779,14 @@ async function renameObject(id, name) {
   try {
     const changed = await patch(objectPath(mid, n, id), body);
     replaceObject(changed);
+    const undo = undoAction(() => undoRename(id, n, mid, before), "objecten", t("feedback.name_back"));
     if ("item" in body) {
       const oldLabel = before.item ? depictsItems().find((item) => item.q === before.item.q)?.label || before.item.label || before.item.q : "";
       const text = body.item ? t("objects.renamed_linked", { item: match.label, q: match.q }) : t("objects.renamed_unlinked", { item: oldLabel });
-      notify("warning", text, {
-        where: "objecten",
-        object: shownObject(changed, n),
-        actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => undoRename(id, n, mid, before) }],
-      });
+      notify("warning", text, { where: "objecten", object: shownObject(changed, n), actions: [undo] });
+    } else {
+      // A plain rename: green, with Undo (wish Olaf 13-11-2026).
+      notify("success", t("feedback.renamed"), { where: "objecten", object: shownObject(changed, n), actions: [undo] });
     }
   } catch (error) {
     fail(error, "objecten");
@@ -753,12 +794,8 @@ async function renameObject(id, name) {
 }
 
 async function undoRename(id, n, mid, before) {
-  try {
-    const changed = await patch(objectPath(mid, n, id), before);
-    if (file.value?.mid === mid && pageN.value === n) replaceObject(changed);
-  } catch (error) {
-    fail(error, "objecten");
-  }
+  const changed = await patch(objectPath(mid, n, id), before);
+  if (file.value?.mid === mid && pageN.value === n) replaceObject(changed);
 }
 
 // The depicts items of this file on Commons ({q, label, words}): their labels in both languages.
@@ -789,10 +826,22 @@ const resultIds = computed(() => lastResult.value?.ids || []);
 
 async function detect(request) {
   lastResult.value = null;
+  const asked = request.prompt || ""; // as asked, before any word was changed in the window
   const base = pagePath(file.value.mid, pageN.value);
   busy.value = true;
   try {
-    if (request.modus !== "commons") {
+    if (request.modus === "prompt") {
+      // Search words: one window with what is searched, saved answers or SAM anew, the cost, and
+      // (folded away) the words themselves to change first (AI steering, wish Olaf 13-11-2026).
+      const answer = await askLocate({ path: base, prompt: request.prompt || "" });
+      if (!answer) return;
+      request = {
+        ...request,
+        prompt: answer.prompt,
+        ...(Object.keys(answer.als).length ? { als: answer.als } : {}),
+        ...(answer.fresh ? { vers: true } : {}),
+      };
+    } else if (request.modus !== "commons") {
       const { items, ...asked } = request; // items (Q-ids) do not change the cost
       const estimate = await get(`${base}/detecties/raming${query(asked)}`);
       // The terms as a list (scrolls when long, wish Olaf): one per line.
@@ -828,7 +877,8 @@ async function detect(request) {
       // Which ones, so the message can offer to restore them (wish Olaf, 12-11-2026).
       trashIds: elders.in_prullenbak || [],
       holders: holders.map((id) => listNames.value[id] || objectName(result.objecten.find((o) => o.id === id) || {}, props.config.taal, t)).filter(Boolean),
-      prompt: request.prompt || "",
+      // The words as asked, so the panel marks those terms as searched (also when a word was changed).
+      prompt: asked || request.prompt || "",
       modus: request.modus,
       at: Date.now(),
     };
@@ -856,14 +906,19 @@ async function forgetInventory(part = null) {
     fields.push({ label: t("panel.part_forget_item_text"), help: t("panel.part_forget_item_text_help"), value: String(overview.tekst || "").split(/\s*\|\s*/).join("\n") });
   }
   if (key !== "beschrijving") {
-    fields.push({ label: t("panel.part_forget_item_terms"), value: (overview.zoektermen || []).map((term) => (en ? term.en : term.nl || term.en)).join(", ") });
+    fields.push({ label: t("panel.part_forget_item_terms"), items: (overview.zoektermen || []).map((term) => (en ? term.en : term.nl || term.en)) });
   }
   const [question, ...rest] = t(`panel.part_forget_confirm_${key}`).split(/\n\s*\n/);
   if (!(await askConfirm(question, { title: t(`panel.part_forget_title_${key}`), go: t(key === "zoektermen" ? "panel.part_forget_zoektermen_button" : key === "beschrijving" ? "panel.part_forget_beschrijving_go" : "panel.part_forget"), destructive: true, fields, fieldsTitle: t("panel.part_forget_goes"), note: rest.join("\n\n") }))) return;
+  const base = `${pagePath(file.value.mid, pageN.value)}/inventaris`;
+  // The description goes into its history, so Undo puts it back (the search terms do not come back).
+  const removed = key === "zoektermen" ? "" : pageDescriptionVersion(inventory.value);
   try {
-    const result = await del(`${pagePath(file.value.mid, pageN.value)}/inventaris${part ? `/${part}` : ""}`);
+    const result = await del(`${base}${part ? `/${part}` : ""}`);
     inventory.value = result.inventaris;
-    notify("success", t(`panel.part_forgotten_${key}`), { where: `ai-${key}` });
+    const where = `ai-${key}`;
+    const undo = undoAction(async () => showInventory(base, (await versionBack(`${base}/beschrijving`, "versie", removed)()).inventaris), where, t("feedback.description_back"));
+    notify("warning", t(`panel.part_forgotten_${key}`) + (removed && key === "alles" ? ` ${t("feedback.terms_not_back")}` : ""), { where, actions: removed ? [undo] : [] });
   } catch (error) {
     fail(error, `ai-${key}`);
   }
@@ -893,7 +948,7 @@ async function askInventory(again = false, part = null, detail = undefined, desc
         defaultEffort: plan.redeneren || "low",
       });
       if (!answer) return;
-      steer = { ...(answer.hint ? { aanwijzing: answer.hint } : {}), redeneren: answer.effort };
+      steer = { ...(answer.hint ? { aanwijzing: answer.hint } : {}), redeneren: answer.effort, ...(answer.detail ? { detailniveau: answer.detail } : {}) };
     } else {
     const action =
       part === "beschrijving"
@@ -907,13 +962,25 @@ async function askInventory(again = false, part = null, detail = undefined, desc
       ...(detail && part !== "beschrijving" ? { detailniveau: detail } : {}),
       ...(descLevel && part !== "zoektermen" ? { beschrijvingsniveau: descLevel } : {}),
     };
+    const previous = part === "zoektermen" ? "" : pageDescriptionVersion(inventory.value);
     const result = await post(part ? `${base}/inventaris/${part}` : `${base}/inventaris`, part ? { ...level, ...steer } : { opnieuw: again, ...level });
     inventory.value = result.inventaris;
+    // Green, under the button that asked (wish Olaf 13-11-2026). A paid answer is not undone, but the
+    // description it replaced can be put back (free).
+    const where = `ai-${part || "alles"}`;
+    const replaced = previous && previous !== pageDescriptionVersion(result.inventaris);
+    const back = undoAction(async () => showInventory(`${base}/inventaris`, (await versionBack(`${base}/inventaris/beschrijving`, "versie", previous)()).inventaris), where, t("feedback.previous_restored"), t("feedback.previous_back"));
+    notify("success", t(`feedback.made_${part || "alles"}`), { where, actions: replaced ? [back] : [] });
   } catch (error) {
     fail(error);
   } finally {
     busy.value = false;
   }
+}
+
+// An overview from an Undo: shown only while its page is still open.
+function showInventory(base, overview) {
+  if (base === `${pagePath(file.value?.mid, pageN.value)}/inventaris`) inventory.value = overview;
 }
 
 // -- Groups (7.4): many small objects as one; free ------------------------------------------
@@ -938,16 +1005,44 @@ async function makeGroup(members, body) {
     title: t("objects.group_title"),
     go: t("objects.group_go"),
     objects: members.map((o) => shownObject(o)),
+    // Leave one out after all; a group needs at least two (wish Olaf 13-11-2026).
+    pick: { min: 2, text: (n) => t("objects.group_confirm", { n }) },
     note: t("objects.group_note"),
     input: { label: t("objects.group_name"), placeholder, help: t("objects.group_name_help") },
   });
   if (!answer.ok) return null;
-  return withMaskWait(t("busy.group"), async () => {
-    const result = await post(`${pagePath(file.value.mid, pageN.value)}/groepen`, { ...body, ...(answer.value ? { naam: answer.value } : {}) });
+  // Some unticked: group just the ticked ones (by id, also when it was "all of one kind").
+  const picked = answer.picked.length < members.length ? { objecten: answer.picked.map((i) => members[i].id) } : body;
+  const grouped = await withMaskWait(t("busy.group"), async () => {
+    const result = await post(`${pagePath(file.value.mid, pageN.value)}/groepen`, { ...picked, ...(answer.value ? { naam: answer.value } : {}) });
     await loadMasks([result.object]);
     objects.value = result.objecten;
-    return { n: result.object.groep.aantal, name: objectName(result.object, props.config.taal, t) };
+    return { id: result.object.id, n: result.object.groep.aantal, name: objectName(result.object, props.config.taal, t) };
   });
+  // Green, above the bulk tabs, with Undo (wish Olaf 13-11-2026): ungroups it again.
+  const n = pageN.value;
+  const mid = file.value.mid;
+  notify("success", t("panel.grouped", { n: grouped.n, name: grouped.name }), {
+    where: "bulk",
+    actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => undoGroup(grouped.id, n, mid, grouped.n) }],
+  });
+  return grouped;
+}
+
+// Undo a grouping from its notice: the group is undone and its members come back as they were.
+async function undoGroup(id, n, mid, count) {
+  try {
+    await withMaskWait(t("busy.ungroup"), async () => {
+      const result = await del(`${pagePath(mid, n)}/groepen/${id}`);
+      if (mid === file.value?.mid && n === pageN.value) {
+        await loadMasks(result.objecten.filter((o) => o.groep_van === id || !objects.value.some((x) => x.id === o.id)));
+        objects.value = result.objecten;
+      }
+    });
+    notify("success", t("panel.ungrouped", { n: count }), { where: "bulk" });
+  } catch (error) {
+    fail(error, "bulk");
+  }
 }
 
 /* Grouping and ungrouping take a moment: the server joins (or splits) the masks, then the image
@@ -1011,10 +1106,13 @@ async function trashMany(members, name, title) {
   const one = members.length === 1;
   const text = t(one ? "panel.bulk_trash_confirm_one" : "panel.bulk_trash_confirm", { n: members.length, term: name });
   const note = [t(one ? "panel.bulk_trash_note_one" : "panel.bulk_trash_note"), fromCommons ? t("objects.trash_confirm_commons") : ""].filter(Boolean).join("\n\n");
-  if (!(await askConfirm(text, { title, go: t("panel.bulk_trash_go", { n: members.length }), destructive: true, links, objects: members.map((o) => shownObject(o)), note }))) return;
+  // Each object a tick box: leave one out after all (wish Olaf 13-11-2026).
+  const pick = { min: 1, text: (k) => t(k === 1 ? "panel.bulk_trash_confirm_one" : "panel.bulk_trash_confirm", { n: k, term: name }), go: (k) => t("panel.bulk_trash_go", { n: k }) };
+  const answer = await askConfirmValue(text, { title, go: t("panel.bulk_trash_go", { n: members.length }), destructive: true, links, objects: members.map((o) => shownObject(o)), note, pick: members.length > 1 ? pick : null });
+  if (!answer.ok) return;
   const n = pageN.value;
   const mid = file.value.mid;
-  const ids = members.map((o) => o.id);
+  const ids = answer.picked.map((i) => members[i].id);
   busy.value = true;
   try {
     let result = null;
@@ -1023,7 +1121,7 @@ async function trashMany(members, name, title) {
     if (result) objects.value = result.objecten;
     refreshTrashTerms(n);
     notify("warning", t(ids.length === 1 ? "panel.bulk_trashed_one" : "panel.bulk_trashed", { n: ids.length, term: name }), {
-      where: "objecten",
+      where: "bulk",
       actions: [{ label: `↶ ${t("magnifier.undo")}`, run: () => restoreMany(ids, n, mid, name) }],
       link: { href: "/objecten?tab=prullenbak", label: t("objects.to_trash") },
     });
@@ -1070,9 +1168,9 @@ async function restoreIds(ids, n, mid) {
 async function restoreMany(ids, n, mid, name) {
   try {
     await restoreIds(ids, n, mid);
-    notify("success", t(ids.length === 1 ? "panel.bulk_restored_one" : "panel.bulk_restored", { n: ids.length, term: name }), { where: "objecten" });
+    notify("success", t(ids.length === 1 ? "panel.bulk_restored_one" : "panel.bulk_restored", { n: ids.length, term: name }), { where: "bulk" });
   } catch (error) {
-    fail(error);
+    fail(error, "bulk");
   }
 }
 
@@ -1081,7 +1179,7 @@ async function groupSelected() {
   actionResult.value = null;
   try {
     const members = objects.value.filter((o) => o.status === "geselecteerd");
-    // The confirmation said what happens; the group shows in the list (no extra notice).
+    // The confirmation said what happens; a notice with Undo says it happened.
     await makeGroup(members, { objecten: members.map((o) => o.id) });
   } catch (error) {
     failInTab(error);
@@ -1119,12 +1217,29 @@ async function ungroupObject(id) {
   const note = t("objects.ungroup_note") + (loses ? `\n\n${t("objects.ungroup_confirm")}` : "");
   const shown = members.map((m) => ({ image: `${objectPath(file.value.mid, pageN.value, m.id)}/uitsnede.jpg?w=96`, name: objectName(m, props.config.taal, t) })); // the same name as in the list
   if (!(await askConfirm(text, { title: t("objects.ungroup"), go: t("objects.ungroup"), destructive: Boolean(loses), objects: shown, note }))) return;
+  const n = pageN.value;
+  const mid = file.value.mid;
   try {
     await withMaskWait(t("busy.ungroup"), async () => {
-      const result = await del(`${pagePath(file.value.mid, pageN.value)}/groepen/${id}`);
+      const result = await del(`${pagePath(mid, n)}/groepen/${id}`);
       await loadMasks(result.objecten.filter((o) => members.some((m) => m.id === o.id)));
       objects.value = result.objecten;
     });
+    // Green, near the list, so you see it worked (wish Olaf 13-11-2026); Undo groups the same
+    // members again, with the group's own name (its caption or description does not come back).
+    const name = group.groep?.naam;
+    const regroup = undoAction(
+      () => withMaskWait(t("busy.group"), async () => {
+        const result = await post(`${pagePath(mid, n)}/groepen`, { objecten: members.map((m) => m.id), ...(name ? { naam: name } : {}) });
+        if (mid === file.value?.mid && n === pageN.value) {
+          await loadMasks([result.object]);
+          objects.value = result.objecten;
+        }
+      }),
+      "objecten",
+      t("feedback.regrouped")
+    );
+    notify("success", t("panel.ungrouped", { n: members.length }) + (loses ? ` ${t("feedback.ungroup_undo_loses")}` : ""), { where: "objecten", actions: [regroup] });
   } catch (error) {
     fail(error);
   }
@@ -1169,6 +1284,9 @@ const describeNote = computed(() => {
 const busyAt = ref(null);
 // The outcome of the last describe or merge, shown under those buttons.
 const actionResult = ref(null);
+watch(actionResult, (result) => {
+  if (result) notices.value = notices.value.filter((n) => n.where !== "bulk"); // one message under the bulk tabs
+});
 watch(() => [file.value?.mid, pageN.value], () => { actionResult.value = null; });
 
 // scope: "selectie", "alle" (everything visible) or { term } (the visible objects of one kind).
@@ -1186,7 +1304,6 @@ async function describeAll(scope = "selectie") {
     actionResult.value = { type: "warning", text: t("describe.nothing_to_do") };
     return;
   }
-  const usd = props.config.muse.beschrijving_usd * chosen.length;
   // The objects as a list with small cut-outs, as when grouping, and the AI settings (wish Olaf).
   const kindName = kind ? describableTerms.value.find((item) => item.term === kind)?.name || kind : "";
   const action = kind
@@ -1196,7 +1313,9 @@ async function describeAll(scope = "selectie") {
     objects: chosen.map((o) => ({ ...shownObject(o), ownPrompt: Boolean(o.prompt_eigen) })),
     paths: chosen.map((o) => objectPath(file.value.mid, pageN.value, o.id)),
     action,
-    costLine: props.config.betaald ? t("confirm.cost", { n: chosen.length, amount: money(usd, props.config.taal) }) : t("bulkdescribe.free"),
+    unitUsd: props.config.muse.beschrijving_usd,
+    paid: Boolean(props.config.betaald),
+    language: props.config.taal,
   });
   if (!settings) {
     busyAt.value = null;
@@ -1204,12 +1323,15 @@ async function describeAll(scope = "selectie") {
   }
   busy.value = true;
   try {
-    // Every object with its own settings from the dialog (wish Olaf).
+    // Every object with its own settings from the dialog (wish Olaf); an unticked one is skipped.
+    let done = 0;
     for (const [i, obj] of chosen.entries()) {
+      if (!settings[i]) continue;
       const result = await post(`${objectPath(file.value.mid, pageN.value, obj.id)}/beschrijving`, settings[i]);
       replaceObject(result.object);
+      done += 1;
     }
-    actionResult.value = { type: "success", text: t("describe.done", { n: chosen.length }) };
+    actionResult.value = { type: "success", text: t("describe.done", { n: done }) };
   } catch (error) {
     failInTab(error);
   } finally {
@@ -1219,11 +1341,23 @@ async function describeAll(scope = "selectie") {
 }
 
 // The dialog of Describe in bulk: resolves with the settings per object, or null when cancelled.
-const bulkDescribe = reactive({ open: false, objects: [], paths: [], action: "", costLine: "" });
+const bulkDescribe = reactive({ open: false, objects: [], paths: [], action: "", unitUsd: 0, paid: false, language: "nl" });
 let bulkDescribeAnswer = null;
 function askBulkDescribe(question) {
   Object.assign(bulkDescribe, question, { open: true });
   return new Promise((resolve) => (bulkDescribeAnswer = resolve));
+}
+// The window of locating: {prompt, als, fresh} to go ahead, null when cancelled.
+const locate = reactive({ open: false, path: "", prompt: "" });
+let locateAnswer = null;
+function askLocate(question) {
+  Object.assign(locate, question, { open: true });
+  return new Promise((resolve) => (locateAnswer = resolve));
+}
+function answerLocate(answer) {
+  locate.open = false;
+  locateAnswer?.(answer);
+  locateAnswer = null;
 }
 // The window of "… opnieuw laten maken": {hint, effort} to go ahead, false when cancelled.
 const pageDescribe = reactive({ open: false, path: "", paid: false, costs: {}, defaultEffort: "low", part: "beschrijving", detail: "" });
@@ -1282,7 +1416,17 @@ async function onRectangle(rect) {
     objects.value = [...objects.value.filter((o) => o.id !== result.object.id), result.object];
     newIds.value = [result.object.id];
     focusedId.value = result.object.id;
-    lastResult.value = { section: "point", modus: "rechthoek", outcome: "nieuw", hint, gevonden: result.gevonden, name: listNames.value[result.object.id] || objectName(result.object, props.config.taal, t), at: Date.now() };
+    lastResult.value = {
+      section: "point",
+      modus: "rechthoek",
+      outcome: "nieuw",
+      hint,
+      gevonden: result.gevonden,
+      name: listNames.value[result.object.id] || objectName(result.object, props.config.taal, t),
+      // Undo in the message (to the trash): drawn without a hint, or with one that found the object.
+      undo: !hint || result.gevonden ? { id: result.object.id, mid: file.value.mid, n: pageN.value } : null,
+      at: Date.now(),
+    };
   } catch (error) {
     fail(error);
   } finally {
@@ -1290,12 +1434,39 @@ async function onRectangle(rect) {
   }
 }
 
+// Undo of a drawn rectangle, from its message: the object goes to the trash (free).
+async function undoDrawn(result) {
+  const drawn = result?.undo;
+  if (!drawn || busy.value) return;
+  busy.value = true;
+  try {
+    const data = await del(objectPath(drawn.mid, drawn.n, drawn.id));
+    if (drawn.mid === file.value?.mid && drawn.n === pageN.value) {
+      if (magnifiedId.value === drawn.id) magnifierOpen.value = false;
+      objects.value = data.objecten;
+      refreshTrashTerms(drawn.n);
+    }
+    if (lastResult.value === result) lastResult.value = { ...result, undo: null, undone: t("feedback.drawn_undone", { name: result.name }) };
+  } catch (error) {
+    if (lastResult.value === result) lastResult.value = { ...result, restoreError: errorText(t, error) };
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function refineMask(obj) {
   if (!(await confirmCost(1, props.config.sam_usd, t("confirm.action_mask", { name: listNames.value[obj.id] || objectName(obj, props.config.taal, t) })))) return;
+  const n = pageN.value;
+  const mid = file.value.mid;
   try {
-    const result = await post(`${pagePath(file.value.mid, pageN.value)}/detecties`, { masker_voor: obj.id });
+    const result = await post(`${pagePath(mid, n)}/detecties`, { masker_voor: obj.id });
     replaceObject(result.object);
-    notify("success", t("detect.mask_done"), { where: "vergroter" });
+    // Undo removes the shape again (free): the object keeps its rectangle.
+    const undo = undoAction(async () => {
+      const back = await del(`${objectPath(mid, n, obj.id)}/vorm`);
+      if (mid === file.value?.mid && n === pageN.value) replaceObject(back.object);
+    }, "vergroter", t("feedback.shape_back"));
+    notify("success", t("detect.mask_done"), { where: "vergroter", actions: [undo] });
   } catch (error) {
     fail(error, "vergroter");
   }
@@ -1458,13 +1629,28 @@ async function forget(mid) {
     mid: { href: appUrl(mid, entry?.pagina || 1), label: mid, sameTab: true, class: "cc-mid-link" },
   };
   const image = { image: `/api/v1/bestand/${mid}/pagina/1/afbeelding?w=120`, name };
-  if (await askRemoval(t("history.remove_confirm", { name }), { title: t("history.remove"), go: t("history.remove"), destructive: true, links }, { objects: [image] })) {
-    visited.value = removeFromHistory(mid);
-  }
+  if (!(await askRemoval(t("history.remove_confirm", { name }), { title: t("history.remove"), go: t("history.remove"), destructive: true, links }, { objects: [image] }))) return;
+  const index = visited.value.findIndex((e) => e.mid === mid);
+  visited.value = removeFromHistory(mid);
+  // Undo puts the entry back at its place (only in this browser; nothing else was removed).
+  const undo = undoAction(() => {
+    const list = readHistory().filter((e) => e.mid !== mid);
+    if (entry) list.splice(Math.min(index, list.length), 0, entry);
+    visited.value = restoreHistory(list);
+  }, "bekeken", t("feedback.viewed_back_one", { name }));
+  notify("warning", t("feedback.viewed_removed_one", { name }), { where: "bekeken", actions: [undo] });
 }
 
 async function forgetAll() {
-  if (await askConfirm(t("history.clear_confirm"), { title: t("history.clear"), go: t("history.clear"), destructive: true, links: objectsLinks() })) visited.value = clearHistory();
+  if (!(await askConfirm(t("history.clear_confirm"), { title: t("history.clear"), go: t("history.clear"), destructive: true, links: objectsLinks() }))) return;
+  const before = readHistory();
+  visited.value = clearHistory();
+  // Undo: the list as it was, after what was opened since.
+  const undo = undoAction(() => {
+    const now = readHistory();
+    visited.value = restoreHistory([...now, ...before.filter((e) => !now.some((x) => x.mid === e.mid))]);
+  }, "bekeken", t("feedback.viewed_back_all"));
+  notify("warning", t("feedback.viewed_cleared", { n: before.length }), { where: "bekeken", actions: [undo] });
 }
 
 // `tab`: the tab to open on ("aangevuld" from the eye on the Objects page); else the cut-out.

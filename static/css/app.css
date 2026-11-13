@@ -92,6 +92,8 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-melding-acties { margin-left: 0.75rem; display: inline-flex; gap: 1rem; }
 .cc-meldingen { display: grid; gap: 0.5rem; margin: 0.5rem 0; }
 .cc-meldingen:empty { display: none; }
+/* The message after a change, with Undo (UndoMessage.vue): close to the button that asked for it. */
+.cc-undo-melding.cdx-message { margin: 0.5rem 0; }
 .cc-zoek { display: flex; gap: 0.4rem; align-items: flex-start; }
 .cc-zoek .cdx-text-input { flex: 1; min-width: 0; }
 .cc-zoek .cdx-button { flex-shrink: 0; }
@@ -725,6 +727,8 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bevestig-veld-naam { font-size: 0.875rem; }
 .cc-bevestig-waarde { display: block; padding: 0.4rem 0.6rem; background: var(--background-color-interactive-subtle, #f8f9fa); border-left: 3px solid var(--cc-rand); font-size: 0.875rem; line-height: 1.4; white-space: pre-line; max-height: 9rem; overflow-y: auto; }
 .cc-bevestig-waarde.leeg { color: var(--cc-tekst-zacht, #54595d); }
+.cc-bevestig-waarde-lijst { margin: 0; padding: 0.4rem 0.6rem 0.4rem 1.6rem; max-height: none; white-space: normal; column-gap: 2rem; }
+.cc-bevestig-waarde-lijst li { margin: 0; break-inside: avoid; }
 .cc-bevestig-velden + .cc-bevestig-noot { margin-top: 0.75rem; }
 .cc-bevestig-kop { display: block; margin-bottom: 0.15rem; }
 .cc-bevestig-blok p { margin: 0; }
@@ -811,6 +815,10 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bevestig-objecten li { display: flex; align-items: center; gap: 0.5rem; }
 .cc-bevestig-objecten img { width: 2rem; height: 2rem; object-fit: cover; border: 1px solid var(--cc-rand); background: var(--background-color-interactive-subtle, #f8f9fa); flex: none; }
 /* One thing in the question (one object, one image): larger, so you see what goes (wish Olaf). */
+/* Bulk actions: a tick box per object; an unticked one is greyed out (wish Olaf). */
+.cc-bevestig-vinkjes { margin: 0.5rem 0 0; font-size: 0.8125rem; }
+.cc-bevestig-objecten.cc-bevestig-kiezen li .cdx-checkbox { margin: 0; flex: none; }
+.cc-bevestig-objecten li.cc-bevestig-uit img, .cc-bevestig-objecten li.cc-bevestig-uit span { opacity: 0.45; }
 .cc-bevestig-objecten.cc-bevestig-een img { width: auto; height: 6rem; max-width: 60%; object-fit: contain; }
 .cc-bevestig-veld { margin-top: 0.75rem; }
 
@@ -1034,6 +1042,11 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-pagina-beschrijven .cc-pagina-prompt .cdx-accordion__header__description,
 .cc-pagina-beschrijven .cc-pagina-prompt .cdx-accordion__header__description .cc-eigen-prompt { font-weight: normal; font-size: 0.8125rem; color: var(--cc-tekst-zacht, #54595d); }
 .cc-pagina-veld { margin: 0.25rem 0 0.75rem; }
+.cc-pagina-detail { margin: 0 0 0.75rem; }
+/* Locating: the words as a list; in AI steering one field per word (wish Olaf). */
+.cc-lokaliseren.cdx-dialog { max-width: 36rem; }
+.cc-lokaliseren-termen { margin: 0 0 0.6rem; padding-left: 1.25rem; }
+.cc-lokaliseren-woord { display: grid; gap: 0.1rem; margin: 0.35rem 0; }
 /* "Prompt aanpassen" inside AI steering: a fold-out within the fold-out (wish Olaf). */
 .cc-pagina-prompt .cc-pagina-prompt, .cc-prompt-uitklap { margin-top: 0.5rem; border-top: 1px solid var(--cc-rand); }
 .cc-pagina-prompt-acties { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 0.5rem 0 0.5rem; }
@@ -1055,7 +1068,15 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 .cc-bulk-lengte > .cc-schuif { flex: 1 1 16rem; }
 .cc-bulk-lengte > .cc-wikidata-schakelaar { flex: none; margin-top: 0.1rem; }
 /* Describe in bulk: the objects as a table with their AI parameters (wish Olaf). */
-.cc-bulk-tabel-houder { max-height: 12rem; overflow-y: auto; margin: 0.25rem 0 0.5rem; }
+/* About six rows before it scrolls (wish Olaf 13-11-2026). */
+.cc-bulk-tabel-houder { max-height: 21rem; overflow-y: auto; margin: 0.25rem 0 0.5rem; }
+/* A tick box in front of each row (wish Olaf): an unticked object is greyed out. */
+.cc-bulk-tabel .cc-kol-vinkje { width: 2.25rem; }
+.cc-bulk-tabel .cc-bulk-vinkje { padding-right: 0; }
+.cc-bulk-tabel .cc-bulk-vinkje .cdx-checkbox { margin: 0; }
+.cc-bulk-tabel tr.cc-bulk-uit td:not(.cc-bulk-vinkje) { opacity: 0.45; }
+.cc-bulk-vinkjes { margin: 0.5rem 0 0; font-size: 0.8125rem; }
+.cc-verborgen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .cc-bulk-tabel { border-collapse: collapse; width: 100%; font-size: 0.875rem; table-layout: fixed; }
 .cc-bulk-tabel .cc-kol-object { width: 26%; }
 .cc-bulk-tabel .cc-kol-lengte { width: 24%; }

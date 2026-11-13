@@ -16,11 +16,11 @@ from contextlib import nullcontext
 from datetime import datetime, timezone
 
 import numpy as np
-import requests
 from PIL import Image, ImageDraw
 
 from . import __version__
 from .detectie.basis import INTERNAL_LABELS, DetectionError
+from .detectie.meta_api import MetaClient
 from .export import encode
 from .opruimen import cached_bytes, mark_used, sharded
 
@@ -75,43 +75,25 @@ class MetaImageEditor:
     betaald = True
 
     def __init__(self, api_key, base_url="https://api.meta.ai/v1", timeout=180, session=None):
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
-        self.session = session or requests.Session()
+        self.client = MetaClient(api_key, base_url, timeout, session)
+
+    @property
+    def session(self):
+        return self.client.session
 
     def edit(self, model, prompt, png, size):
-        if not self.api_key:
-            raise DetectionError("Geen MODEL_API_KEY ingesteld; aanvullen is niet mogelijk.", status=503, code="no_api_key")
         data_url = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+        response = self.client.post(
+            "/images/edits",
+            build_request(model, prompt, data_url, size),
+            model,
+            "Geen MODEL_API_KEY ingesteld; aanvullen is niet mogelijk.",
+            no_key_code="no_api_key",
+        )
         try:
-            response = self.session.post(
-                f"{self.base_url}/images/edits",
-                json=build_request(model, prompt, data_url, size),
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=self.timeout,
-            )
-        except requests.RequestException as exc:
-            raise DetectionError("De Meta Model API is niet bereikbaar.", retry=True) from exc
-        status = response.status_code
-        if status == 200:
-            try:
-                return base64.b64decode(response.json()["data"][0]["b64_json"])
-            except (ValueError, KeyError, IndexError, TypeError) as exc:
-                raise DetectionError("Muse Image gaf geen afbeelding terug.", retry=True) from exc
-        try:
-            detail = (response.json().get("error") or {}).get("message", "")
-        except ValueError:
-            detail = ""
-        if status == 400:
-            raise DetectionError(f"Het model weigerde het verzoek: {detail}".rstrip(": "), status=400)
-        if status in (401, 403):
-            raise DetectionError("De API-sleutel voor de Meta Model API wordt niet geaccepteerd.", status=503)
-        if status == 404:
-            raise DetectionError(f"Model '{model}' niet gevonden of geen toegang.", status=503)
-        if status == 429:
-            raise DetectionError(f"Te veel verzoeken aan '{model}'; probeer het zo opnieuw.", status=429, retry=True)
-        raise DetectionError(f"De Meta Model API gaf een fout (HTTP {status}).", retry=True)
+            return base64.b64decode(response.json()["data"][0]["b64_json"])
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise DetectionError("Muse Image gaf geen afbeelding terug.", retry=True) from exc
 
 
 def make_image_editor(config):
@@ -263,9 +245,7 @@ class CompletionService:
     def _set_current(self, file, n, object_id, note):
         """Make `note` the current version (None: none); the one before goes on top of
         the history, each version once, at most MAX_HISTORY."""
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
-            obj = self.objects._find_in(store, object_id)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
             previous = obj.get("aangevuld")
             keep = {note["sleutel"]} if note else set()
             history = [h for h in obj.get("aangevuld_geschiedenis") or [] if h.get("sleutel") not in keep]
@@ -273,8 +253,7 @@ class CompletionService:
                 history = [previous] + [h for h in history if h.get("sleutel") != previous.get("sleutel")]
             obj["aangevuld"] = note
             obj["aangevuld_geschiedenis"] = history[:MAX_HISTORY]
-            self.objects._write_store(file, n, store)
-            return self.objects.public(file, n, obj)
+        return self.objects.public(file, n, obj)
 
     def _version(self, file, n, object_id, key):
         """The note of a version: the current one or one from the history; 404 otherwise."""
@@ -294,12 +273,9 @@ class CompletionService:
     def delete_version(self, file, n, object_id, key):
         """Remove an earlier version from the history (the image stays in the cache)."""
         self._version(file, n, object_id, key)
-        with self.objects.lock:
-            store = self.objects._load_store(file, n)
-            obj = self.objects._find_in(store, object_id)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
             obj["aangevuld_geschiedenis"] = [h for h in obj.get("aangevuld_geschiedenis") or [] if h.get("sleutel") != key]
-            self.objects._write_store(file, n, store)
-            return self.objects.public(file, n, obj)
+        return self.objects.public(file, n, obj)
 
     def _completed_path(self, file, n, object_id, key=None):
         note = self._version(file, n, object_id, key) if key else self.objects._find(file, n, object_id).get("aangevuld")

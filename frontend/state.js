@@ -62,6 +62,13 @@ export function clearHistory(store = storage()) {
   return writeHistory([], store);
 }
 
+/* Write a list back (Undo after removing or clearing): only valid entries, at most MAX_HISTORY. */
+export function restoreHistory(list, store = storage()) {
+  const valid = (Array.isArray(list) ? list : []).filter((entry) => entry && /^M\d+$/.test(entry.mid));
+  const seen = new Set();
+  return writeHistory(valid.filter((entry) => !seen.has(entry.mid) && seen.add(entry.mid)).slice(0, MAX_HISTORY), store);
+}
+
 /* The URL of the file that was open last, or null. */
 export function lastFileUrl(store = storage()) {
   const [last] = readHistory(store);

@@ -29,12 +29,10 @@
           </cdx-button>
           <view-switch v-model="view" :buttons="viewButtons" storage-key="cc-weergave-objecten" :use-stored="!viewInAddress" />
         </div>
-        <cdx-message v-if="undo" type="warning" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" @user-dismissed="undo = null">
-          {{ t("objects.trashed_n", { n: undo.length }) }}
-          <button type="button" class="cc-link" :disabled="busy" @click="restoreMany(undo)">↶ {{ t("magnifier.undo") }}</button>
-          <span aria-hidden="true"> · </span>
-          <button type="button" class="cc-link" @click="tab = 'prullenbak'">{{ t("objects.to_trash") }}</button>
-        </cdx-message>
+        <!-- To the trash: yellow, with Undo and the way to the trash (undo.js). -->
+        <undo-message :note="objectsNote">
+          <button v-if="objectsNote.message?.undo" type="button" class="cc-link" @click="tab = 'prullenbak'">{{ t("objects.to_trash") }}</button>
+        </undo-message>
         <p v-if="!shown.length" class="cc-leeg">{{ t("objects.none_found") }}</p>
         <objects-table v-if="view === 'lijst' && shown.length" :objects="shown" :name="name" :saved-url="savedUrl" link-images v-model:sort="sortParam" @sorted="sortedObjects = $event" @show-in-folder="showInFolder">
           <template #actions="{ object: obj }">
@@ -80,6 +78,8 @@
         </div>
       </cdx-tab>
       <cdx-tab name="prullenbak" :label="t('objects.tab_trash', { n: trash.length })">
+        <!-- Back from the trash (with Undo) or deleted for good: green (wish Olaf 13-11-2026). -->
+        <undo-message :note="trashNote" />
         <p v-if="!trash.length" class="cc-leeg">{{ t("objects.trash_empty") }}</p>
         <!-- The same facets as the objects, with their own choice (wish Olaf). -->
         <div v-else class="cc-objecten-indeling">
@@ -191,7 +191,7 @@ import { computed, inject, onMounted, reactive, ref, watch } from "vue";
 import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxTab, CdxTabs } from "@wikimedia/codex";
 import { cdxIconEye, cdxIconRestore, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post } from "../api.js";
-import { askConfirm, askRemoval } from "../confirm.js";
+import { askConfirm, askConfirmValue, askRemoval } from "../confirm.js";
 import { useT } from "../i18n.js";
 import SavedLabel from "./SavedLabel.vue";
 import ColumnSplitter from "./ColumnSplitter.vue";
@@ -205,6 +205,8 @@ import ViewSwitch from "./ViewSwitch.vue";
 import ZoomImage from "./ZoomImage.vue";
 import { applyFacets, emptyFilters, fileImage, readAddress, writeAddress } from "../facets.js";
 import RetentionInfo from "./RetentionInfo.vue";
+import UndoMessage from "./UndoMessage.vue";
+import { useUndoMessage } from "../undo.js";
 import { fileName, objectName } from "../state.js";
 
 const t = useT();
@@ -228,8 +230,9 @@ const objectFilters = reactive(tab.value === "objecten" ? fromAddress() : emptyF
 const trashFilters = reactive(tab.value === "prullenbak" ? fromAddress() : emptyFilters());
 const error = ref("");
 const busy = ref(false);
-// The objects of the last move to the trash, for Undo.
-const undo = ref(null);
+// The message of each tab after a change (undo.js): to the trash, back, or deleted for good.
+const objectsNote = useUndoMessage(t);
+const trashNote = useUndoMessage(t);
 
 // The eye opens the object in the magnifier; with the facet AI-augmented on, straight at its
 // AI-augmented version (wish Olaf).
@@ -287,23 +290,43 @@ function openFromAddress() {
   magnifierOpen.value = true;
 }
 
-// To the trash, one by one on the server (each is a small, locked change).
-async function trashMany(list) {
+// To the trash and back, one by one on the server (each is a small, locked change); `done` collects
+// the ones that went, so a failure halfway still offers Undo for those.
+async function toTrash(list, done = []) {
+  for (const obj of list) {
+    await del(objectPath(obj.mid, obj.pagina, obj.id));
+    done.push(obj);
+  }
+}
+async function fromTrash(list, done = []) {
+  for (const obj of list) {
+    await patch(objectPath(obj.mid, obj.pagina, obj.id), { prullenbak: false });
+    done.push(obj);
+  }
+}
+// The work of a bulk button: busy meanwhile, an error in red, the lists loaded again afterwards.
+async function working(work) {
   busy.value = true;
   error.value = "";
-  const done = [];
   try {
-    for (const obj of list) {
-      await del(objectPath(obj.mid, obj.pagina, obj.id));
-      done.push(obj);
-    }
+    await work();
   } catch (e) {
     error.value = errorText(t, e);
   } finally {
-    undo.value = done.length ? done : null;
     busy.value = false;
     await load();
   }
+}
+
+async function trashMany(list) {
+  const done = [];
+  await working(() => toTrash(list, done));
+  if (!done.length) return;
+  // Yellow, with Undo: back from the trash (green afterwards).
+  objectsNote.show("warning", t("objects.trashed_n", { n: done.length }), async () => {
+    await fromTrash(done);
+    await load();
+  }, { done: t("feedback.restored_n", { n: done.length }) });
 }
 
 // One object from its card: first a confirmation, like every move to the trash (wish Olaf).
@@ -322,31 +345,25 @@ async function trashShown() {
   const text = t(filtered.value ? "objects.trash_shown_confirm" : "objects.trash_all_confirm", { n });
   // The thumbnails too, as long as the list stays readable.
   const objects = n <= 40 ? shown.value.map((o) => ({ image: `${o.uitsnede_url}?w=96`, name: name(o) })) : [];
-  if (!(await askConfirm(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true, objects, note: t("objects.trash_many_note") }))) return;
-  await trashMany([...shown.value]);
+  // Each object a tick box (wish Olaf 13-11-2026): leave one out after all.
+  const pick = n > 1 && objects.length ? { min: 1, text: (k) => t(filtered.value || k < n ? "objects.trash_shown_confirm" : "objects.trash_all_confirm", { n: k }) } : null;
+  const answer = await askConfirmValue(text, { title: t("objects.trash"), go: t("objects.trash"), destructive: true, objects, note: t("objects.trash_many_note"), pick });
+  if (!answer.ok) return;
+  await trashMany(objects.length ? answer.picked.map((i) => shown.value[i]) : [...shown.value]);
 }
 
+// Back from the trash: green, with Undo (to the trash again).
 async function restoreMany(list) {
-  busy.value = true;
-  try {
-    for (const obj of list) await patch(objectPath(obj.mid, obj.pagina, obj.id), { prullenbak: false });
-    undo.value = null;
-  } catch (e) {
-    error.value = errorText(t, e);
-  } finally {
-    busy.value = false;
+  const done = [];
+  await working(() => fromTrash(list, done));
+  if (!done.length) return;
+  trashNote.show("success", t("feedback.restored_n", { n: done.length }), async () => {
+    await toTrash(done);
     await load();
-  }
+  }, { done: t("objects.trashed_n", { n: done.length }) });
 }
 
-async function restore(obj) {
-  try {
-    await patch(objectPath(obj.mid, obj.pagina, obj.id), { prullenbak: false });
-    await load();
-  } catch (e) {
-    error.value = errorText(t, e);
-  }
-}
+const restore = (obj) => restoreMany([obj]);
 
 async function purge(obj) {
   const objects = [{ image: `${obj.uitsnede_url}?w=96`, name: name(obj) }];
@@ -354,6 +371,7 @@ async function purge(obj) {
   try {
     await del(`${API}/prullenbak/${obj.mid}/${obj.pagina}/${encodeURIComponent(obj.id)}`);
     await load();
+    trashNote.show("success", t("feedback.deleted_n", { n: 1 }));
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -366,16 +384,18 @@ async function restoreShown() {
 async function purgeShown() {
   const list = [...shownTrash.value];
   const objects = list.length <= 40 ? list.map((o) => ({ image: `${o.uitsnede_url}?w=96`, name: name(o) })) : [];
-  if (!(await askConfirm(t("objects.delete_shown_confirm", { n: list.length }), { go: t("objects.delete_forever"), destructive: true, objects, note: t("objects.cannot_undo") }))) return;
-  busy.value = true;
-  try {
-    for (const obj of list) await del(`${API}/prullenbak/${obj.mid}/${obj.pagina}/${encodeURIComponent(obj.id)}`);
-  } catch (e) {
-    error.value = errorText(t, e);
-  } finally {
-    busy.value = false;
-    await load();
-  }
+  const pick = list.length > 1 && objects.length ? { min: 1, text: (k) => t("objects.delete_shown_confirm", { n: k }) } : null;
+  const answer = await askConfirmValue(t("objects.delete_shown_confirm", { n: list.length }), { go: t("objects.delete_forever"), destructive: true, objects, note: t("objects.cannot_undo"), pick });
+  if (!answer.ok) return;
+  const chosen = objects.length ? answer.picked.map((i) => list[i]) : list;
+  let gone = 0;
+  await working(async () => {
+    for (const obj of chosen) {
+      await del(`${API}/prullenbak/${obj.mid}/${obj.pagina}/${encodeURIComponent(obj.id)}`);
+      gone += 1;
+    }
+  });
+  if (gone) trashNote.show("success", t("feedback.deleted_n", { n: gone }));
 }
 
 async function emptyTrash() {
@@ -387,6 +407,7 @@ async function emptyTrash() {
   try {
     await del(`${API}/prullenbak`);
     await load();
+    trashNote.show("success", t("feedback.deleted_n", { n }));
   } catch (e) {
     error.value = errorText(t, e);
   }

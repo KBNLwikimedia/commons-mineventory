@@ -609,3 +609,19 @@ def test_part_anew_with_hint_and_effort(objects, album, tmp_path):
     with pytest.raises(DetectionError):
         service.inventory(album, 1, effort="high")  # only when asking one part
 
+
+def test_also_found_words_go_into_the_clue():
+    """The words an object was also found with go along in the clue (wish Olaf 13-11-2026)."""
+    obj = {"bron": "sam", "zoekterm": "hat", "label": "hat", "score": 0.77,
+           "ook": [{"zoekterm": "sailor hat", "label": "sailor hat", "score": 0.81},
+                   {"zoekterm": "sailor hat", "label": "sailor hat", "score": 0.6},
+                   {"zoekterm": "hat", "label": "hat", "score": 0.5},
+                   {"zoekterm": "klik", "label": "klik", "score": None}]}
+    clue, source = beschrijving.detection_clue(obj)
+    assert source == "zoekterm" and clue.endswith('also found it when searching for "sailor hat" (certainty 81%).')
+    named, _ = beschrijving.detection_clue({**obj, "naam": "matrozenpet"})
+    assert '"matrozenpet"' in named and '"sailor hat"' in named
+    assert "also found" not in beschrijving.detection_clue({**obj, "ook": []})[0]
+    two = beschrijving.also_found_sentence({**obj, "ook": [{"label": "cap", "score": 0.5}, {"label": "beret", "score": None}]})
+    assert two.endswith('"cap" (certainty 50%) and "beret".')
+

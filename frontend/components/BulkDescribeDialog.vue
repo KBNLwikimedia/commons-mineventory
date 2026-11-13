@@ -14,7 +14,7 @@
     :title="t('bulkdescribe.title')"
     :use-close-button="true"
     :close-button-label="t('actions.close')"
-    :primary-action="{ label: t('bulkdescribe.go', { n: objects.length }), actionType: 'progressive' }"
+    :primary-action="{ label: t('bulkdescribe.go', { n: count }), actionType: 'progressive', disabled: !count }"
     :default-action="{ label: t('actions.cancel') }"
     @primary="answer(true)"
     @default="answer(false)"
@@ -23,27 +23,34 @@
     <p>{{ action }}</p>
     <!-- A table: each object with the AI parameters it will be asked with. Click "All objects"
          to change them for all, or one object to change only that one (wish Olaf). -->
+    <!-- All · None · Invert for the tick boxes (wish Olaf 13-11-2026); one always stays ticked,
+         or there would be nothing to describe. -->
+    <tick-links tag="p" class="cc-bulk-vinkjes" :label="t('objects.select_label')" :disabled-all="count === objects.length" :disabled-none="count === 0" @all="tickAll" @none="tickNone" @invert="tickInvert" />
     <div class="cc-bulk-tabel-houder">
       <!-- Fixed column widths: they do not move when the settings change (wish Olaf). -->
       <table class="cc-bulk-tabel">
         <colgroup>
+          <col class="cc-kol-vinkje" />
           <col class="cc-kol-object" />
+          <col class="cc-kol-aanwijzing" />
           <col class="cc-kol-lengte" />
           <col class="cc-kol-ruimte" />
-          <col class="cc-kol-aanwijzing" />
           <col class="cc-kol-prompt" />
         </colgroup>
         <thead>
           <tr>
+            <th><span class="cc-verborgen">{{ t("bulkdescribe.col_include") }}</span></th>
             <th>{{ t("bulkdescribe.col_object") }}</th>
+            <!-- The same order as the fields under AI steering (wish Olaf 13-11-2026). -->
+            <th>{{ t("bulkdescribe.col_hint") }}</th>
             <th>{{ t("objdetail.label") }}</th>
             <th>{{ t("bulkdescribe.col_space") }}</th>
-            <th>{{ t("bulkdescribe.col_hint") }}</th>
             <th>{{ t("bulkdescribe.col_prompt") }}</th>
           </tr>
         </thead>
         <tbody>
           <tr class="cc-bulk-alle" :class="{ 'cc-gekozen': current === ALL }">
+            <td class="cc-bulk-vinkje"></td>
             <td colspan="5">
               <button type="button" class="cc-bulk-object" :aria-pressed="current === ALL" @click="current = ALL">
                 <strong>{{ t("bulkdescribe.all_objects", { n: objects.length }) }}</strong>
@@ -52,16 +59,20 @@
               <button type="button" class="cc-link cc-bulk-standaard" :disabled="allDefault" :title="t('bulkdescribe.reset_help')" @click="resetDefaults">{{ t("bulkdescribe.reset") }}</button>
             </td>
           </tr>
-          <tr v-for="(obj, i) in objects" :key="i" :class="{ 'cc-gekozen': i === current }">
+          <tr v-for="(obj, i) in objects" :key="i" :class="{ 'cc-gekozen': i === current, 'cc-bulk-uit': !included[i] }">
+            <!-- One object left out after all (wish Olaf 13-11-2026): on by default. -->
+            <td class="cc-bulk-vinkje">
+              <cdx-checkbox v-model="included[i]" :aria-label="t('bulkdescribe.include_one', { name: obj.name })" />
+            </td>
             <td>
               <button type="button" class="cc-bulk-object" :aria-pressed="i === current" :title="t('bulkdescribe.show_object', { name: obj.name })" @click="current = i">
                 <img v-if="obj.image" :src="obj.image" alt="" loading="lazy" />
                 <span>{{ obj.name }}</span>
               </button>
             </td>
+            <td :title="perObject[i]?.hint.trim()">{{ perObject[i]?.hint.trim() || "–" }}</td>
             <td>{{ t(`bulkdescribe.param_${perObject[i]?.level}`) }}</td>
             <td>{{ Math.round((perObject[i]?.margin || 0) * 100) }}%</td>
-            <td :title="perObject[i]?.hint.trim()">{{ perObject[i]?.hint.trim() || "–" }}</td>
             <td>{{ obj.ownPrompt ? t("bulkdescribe.param_own_prompt") : t("bulkdescribe.param_app_prompt") }}</td>
           </tr>
         </tbody>
@@ -139,13 +150,14 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxCheckbox, CdxDialog, CdxField, CdxIcon, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
 import CommonsLogo from "./CommonsLogo.vue";
 import { cdxIconEye, cdxIconNext, cdxIconPrevious } from "@wikimedia/codex-icons";
 import CutoutPreview from "./CutoutPreview.vue";
 import { errorText, get } from "../api.js";
-import { useT } from "../i18n.js";
+import { money, useT } from "../i18n.js";
 import DetailSlider from "./DetailSlider.vue";
+import TickLinks from "./TickLinks.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -153,8 +165,10 @@ const props = defineProps({
   objects: { type: Array, default: () => [] },
   paths: { type: Array, default: () => [] },
   action: { type: String, default: "" },
-  // "This takes n paid call(s), about $…" or "free".
-  costLine: { type: String, default: "" },
+  // What one description costs (USD, estimate) and whether it is paid: the cost line follows the ticks.
+  unitUsd: { type: Number, default: 0 },
+  paid: { type: Boolean, default: false },
+  language: { type: String, default: "nl" },
 });
 const emit = defineEmits(["answer"]);
 const t = useT();
@@ -163,6 +177,14 @@ const t = useT();
 const LEVELS = ["kort", "normaal", "caption", "uitgebreid"];
 // The starting values for every object (0% space, a Commons caption, no hint; wish Olaf).
 const START = () => ({ level: "caption", margin: 0, hint: "" });
+// Which objects go along (all, to start with), how many, and what that costs.
+const included = ref([]);
+const count = computed(() => included.value.filter(Boolean).length);
+// All · None · Invert; with nothing ticked "Beschrijven" is off (wish Olaf 13-11-2026).
+const tickAll = () => (included.value = props.objects.map(() => true));
+const tickNone = () => (included.value = props.objects.map(() => false));
+const tickInvert = () => (included.value = included.value.map((on) => !on));
+const costLine = computed(() => (props.paid ? t("confirm.cost", { n: count.value, amount: money(props.unitUsd * count.value, props.language) }) : t("bulkdescribe.free")));
 // The settings of each object, and which one you are changing: ALL (every object) or one index.
 const ALL = -1;
 const perObject = ref([]);
@@ -204,6 +226,7 @@ watch(
   (open) => {
     if (!open) return;
     perObject.value = props.objects.map(() => START());
+    included.value = props.objects.map(() => true);
     current.value = ALL;
     settingsOpen.value = false;
     promptOpen.value = false;
@@ -237,8 +260,10 @@ watch([promptOpen, level, margin, hint, shown], () => {
 });
 
 // Per object, in the order of the list, the body of its question.
+// One body per object, null for an object you unticked (it is not described).
 function bodies() {
-  return perObject.value.map((s) => {
+  return perObject.value.map((s, i) => {
+    if (!included.value[i]) return null;
     const body = { beschrijvingsniveau: s.level, marge: s.margin };
     if (s.hint.trim()) body.aanwijzing = s.hint.trim();
     return body;

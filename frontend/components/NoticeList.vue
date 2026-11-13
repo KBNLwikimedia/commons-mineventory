@@ -1,4 +1,5 @@
-<!-- Messages as Codex Message (notice, warning, error, success), functional design 10.4. -->
+<!-- Messages as Codex Message (notice, warning, error, success), functional design 10.4. They stay
+     until you close them with the cross, also a green one (wish Olaf 13-11-2026): never by themselves. -->
 <template>
   <div class="cc-meldingen" aria-live="polite">
     <cdx-message
@@ -8,9 +9,7 @@
       :class="{ 'cc-melding-compact': notice.object }"
       :allow-user-dismiss="true"
       :dismiss-button-label="t('actions.close')"
-      :auto-dismiss="notice.type === 'success' ? 4000 : false"
       @user-dismissed="emit('dismiss', notice.id)"
-      @auto-dismissed="emit('dismiss', notice.id)"
     >
       <!-- Optionally the object it is about: on one line, a small cut-out and its name
            (the description as a tooltip), then the text and the actions. -->

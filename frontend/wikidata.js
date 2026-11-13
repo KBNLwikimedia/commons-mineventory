@@ -13,6 +13,9 @@ export function menuItem(hit) {
   return { value: hit.q, label: hit.label, description: [hit.q, hit.beschrijving].filter(Boolean).join(" · "), hit };
 }
 
+/* The image (P18) of a Wikidata item, through our own server. */
+export const itemImage = (q, width = 120) => `${API}/wikidata/${q}/afbeelding?w=${width}`;
+
 export async function searchItems(term, language) {
   return (await get(`${API}/wikidata/zoek${query({ q: term, taal: language })}`)).resultaten;
 }

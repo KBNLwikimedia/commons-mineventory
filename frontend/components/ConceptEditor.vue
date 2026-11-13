@@ -38,6 +38,8 @@
     <div class="cc-knoppen">
       <cdx-button action="progressive" :disabled="saving" @click="reset">{{ t("concept.reset") }}</cdx-button>
     </div>
+    <!-- After "reset": green, with Undo (the concept as it was, wish Olaf 13-11-2026). -->
+    <undo-message :note="resetNote" />
     <p class="cc-klein cc-opslagstatus" role="status">{{ saving ? t("concept.saving") : t("concept.autosave") }}</p>
     <cdx-message v-if="message" :type="messageType" :inline="true">{{ message }}</cdx-message>
 
@@ -223,10 +225,14 @@ import CutoutPreview from "./CutoutPreview.vue";
 import RightsLabel from "./RightsLabel.vue";
 import SdcPreview from "./SdcPreview.vue";
 import SourceNote from "./SourceNote.vue";
+import UndoMessage from "./UndoMessage.vue";
+import { useUndoMessage } from "../undo.js";
 
 const props = defineProps({ mid: { type: String, required: true }, n: { type: Number, required: true }, objectId: { type: String, required: true } });
 const emit = defineEmits(["saved", "texts-changed"]);
 const t = useT();
+// The message after "reset", with Undo (undo.js).
+const resetNote = useUndoMessage(t);
 const language = inject("language", "nl");
 const concept = ref(null);
 const draft = ref(null);
@@ -492,6 +498,7 @@ watch(path, (now, before) => {
   draft.value = null;
   concept.value = null; // "loading…" until the new object's concept is there
   Object.keys(undoValues).forEach((key) => delete undoValues[key]);
+  resetNote.clear();
   renderedHtml.value = "";
   renderedText = null;
   reload();
@@ -517,10 +524,12 @@ async function send(body, { announce = false, target = path.value } = {}) {
       messageType.value = "success";
     }
     emit("saved", concept.value);
+    return true;
   } catch (e) {
     if (target === path.value) lastSaved = before; // not saved: a later change tries again
     message.value = errorText(t, e);
     messageType.value = "error";
+    return false;
   } finally {
     saving.value = false;
   }
@@ -536,13 +545,21 @@ function save() {
 
 // Throws away the user's changes (texts, categories, chosen Wikidata items) and
 // puts back the draft the app composes itself; so it asks first.
+// Afterwards a green message with Undo: the concept as it was (taken before), saved again.
 async function reset() {
   const ok = await askConfirm(t("concept.reset_confirm"), { title: t("concept.reset"), go: t("concept.reset_go"), destructive: true });
-  if (ok) {
-    Object.keys(undoValues).forEach((key) => delete undoValues[key]);
-    clearTimeout(saveTimer);
-    return send({ herstel: true }, { announce: true });
-  }
+  if (!ok) return;
+  const target = path.value;
+  const before = draft.value ? JSON.parse(JSON.stringify(bodyOf(draft.value))) : null;
+  Object.keys(undoValues).forEach((key) => delete undoValues[key]);
+  clearTimeout(saveTimer);
+  if (!(await send({ herstel: true }))) return;
+  resetNote.show("success", t("feedback.concept_reset"), before ? async () => {
+    const data = await patch(target, before);
+    if (target !== path.value) return; // another object meanwhile: only the server changes
+    fill(data);
+    emit("saved", concept.value);
+  } : null);
 }
 
 // Back to what "Wat staat hierop?" (the AI image description) said, per field.

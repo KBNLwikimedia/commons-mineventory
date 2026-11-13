@@ -7,13 +7,18 @@ export const confirmState = reactive({
   // Optional: objects the question is about ({image, name}), shown as a list with thumbnails;
   // and a text field ({label, placeholder, help}) whose value askConfirmValue() returns.
   objects: [], objectsFirst: false, input: null, inputValue: "",
+  // Optional: the objects as tick boxes, all on, so one can still be left out (bulk actions, wish
+  // Olaf 13-11-2026); at least `pick.min` stay ticked. The text and button follow the count
+  // (`pick.text(n)`, `pick.go(n)`); askConfirmValue() returns the ticked indexes as `picked`.
+  pick: null, picked: [],
   // Optional: what else to know (wish Olaf 13-11-2026), as a paragraph after the objects; the
   // text itself says first, and briefly, what the action does.
   note: "",
   // Optional: a text the question is about, shown as it is in a block of its own after the
   // question (e.g. the earlier prompt that would be deleted; wish Olaf 13-11-2026).
   quote: "",
-  // Optional: what goes as labelled fields ([{label, help, value}]): the label in bold, its value
+  // Optional: what goes as labelled fields ([{label, help, value}] or with `items` a list, shown
+  // as bullets): the label in bold, its value
   // in a block of its own, a little smaller (wish Olaf 13-11-2026), after the question.
   fields: [],
   fieldsTitle: "",
@@ -55,8 +60,9 @@ export function askConfirm(text, options = {}) {
 }
 
 // Resolves to {ok, value}: with `input`, value is what was typed in the field ("" if nothing).
-export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], objectsFirst = false, input = null, choices = [], note = "", quote = "", fields = [], fieldsTitle = "", store = session() } = {}) {
-  if (skipped(dontAsk, store)) return Promise.resolve({ ok: true, value: "", choice: choices[0]?.value || "" });
+export function askConfirmValue(text, { title = "", go = "", destructive = false, links = {}, dontAsk = "", objects = [], objectsFirst = false, input = null, choices = [], note = "", quote = "", fields = [], fieldsTitle = "", pick = null, store = session() } = {}) {
+  const all = objects.map((_, i) => i);
+  if (skipped(dontAsk, store)) return Promise.resolve({ ok: true, value: "", choice: choices[0]?.value || "", picked: all });
   if (confirmState.resolve) confirmState.resolve(false); // a newer question replaces an open one
   return new Promise((resolve) => {
     Object.assign(confirmState, {
@@ -74,6 +80,8 @@ export function askConfirmValue(text, { title = "", go = "", destructive = false
       quote,
       fields,
       fieldsTitle,
+      pick: pick && objects.length ? { min: 1, ...pick } : null,
+      picked: objects.map(() => true),
       input,
       inputValue: "",
       choices,
@@ -89,9 +97,10 @@ export function askConfirmValue(text, { title = "", go = "", destructive = false
         }
         const value = confirmState.input ? confirmState.inputValue.trim() : "";
         const choice = confirmState.choices.length ? confirmState.choice : "";
+        const picked = confirmState.pick ? confirmState.picked.flatMap((on, i) => (on ? [i] : [])) : all;
         confirmState.open = false;
         confirmState.resolve = null;
-        resolve({ ok: answer, value, choice });
+        resolve({ ok: answer, value, choice, picked });
       },
     });
   });

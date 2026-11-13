@@ -8,6 +8,8 @@ import { createI18n, money, translate } from "./i18n.js";
 import { appUrl, objectName, readStart } from "./state.js";
 import { nextZoomStep, normaliseRect, PageViewer, ZOOM_STEPS } from "./viewer/viewer.js";
 import ObjectList from "./components/ObjectList.vue";
+import TickLinks from "./components/TickLinks.vue";
+import { invertedIn, toggledIn } from "./storage.js";
 import ChangelogFacets from "./components/ChangelogFacets.vue";
 import ListFacets from "./components/ListFacets.vue";
 import ObjectsTable from "./components/ObjectsTable.vue";
@@ -288,6 +290,31 @@ describe("history of opened files", async () => {
     clearHistory(store);
     expect(readHistory(store)).toEqual([]);
     expect(lastFileUrl(store)).toBeNull();
+  });
+
+  it("writes a list back for Undo: valid entries once each, capped", async () => {
+    const { restoreHistory } = await import("./state.js");
+    const store = memory();
+    addToHistory({ mid: "M1", naam: "a.jpg", pagina: 2 }, store);
+    const before = readHistory(store);
+    clearHistory(store);
+    expect(restoreHistory(before, store)).toEqual(before);
+    expect(readHistory(store)).toEqual(before);
+    const messy = [{ mid: "M2" }, { mid: "kapot" }, null, { mid: "M2" }, { mid: "M3" }];
+    expect(restoreHistory(messy, store).map((e) => e.mid)).toEqual(["M2", "M3"]);
+    const many = Array.from({ length: MAX_HISTORY + 3 }, (_, i) => ({ mid: `M${i}` }));
+    expect(restoreHistory(many, store)).toHaveLength(MAX_HISTORY);
+    expect(restoreHistory("geen lijst", store)).toEqual([]);
+  });
+
+  it("puts back the versions an Undo needs (undo.js)", async () => {
+    const { descriptionVersion, pageDescriptionVersion } = await import("./undo.js");
+    expect(descriptionVersion({ tijdstempel: "t1" })).toBe("t1");
+    expect(descriptionVersion({ tijdstempel: "t1", bewerkt_op: "b1" })).toBe("b1");
+    expect(descriptionVersion(null)).toBe("");
+    expect(pageDescriptionVersion({ samenvatting: "x", tijdstempel: "t0", delen: { beschrijving: { tijdstempel: "t2" } } })).toBe("t2");
+    expect(pageDescriptionVersion({ samenvatting: "x", tijdstempel: "t0", bewerkt_op: "b2" })).toBe("b2");
+    expect(pageDescriptionVersion({ zoektermen: [{ nl: "hoed" }], tijdstempel: "t0" })).toBe("");
   });
 
   it("is capped and survives broken or missing storage", () => {
@@ -1022,5 +1049,51 @@ describe("askRemoval", () => {
     expect(confirmState.quote).toBe("");
     answerConfirm(false);
     await image;
+  });
+});
+
+describe("ticking objects in a bulk question", () => {
+  it("returns the ticked ones and follows the count (wish Olaf)", async () => {
+    const { askConfirmValue, answerConfirm, confirmState } = await import("./confirm.js");
+    const asked = askConfirmValue("Group these 3?", {
+      objects: [{ name: "a" }, { name: "b" }, { name: "c" }],
+      pick: { min: 2, text: (n) => `Group these ${n}?` },
+    });
+    expect(confirmState.picked).toEqual([true, true, true]);
+    expect(confirmState.pick.min).toBe(2);
+    confirmState.picked = [true, false, true];
+    answerConfirm(true);
+    expect((await asked).picked).toEqual([0, 2]);
+    const plain = askConfirmValue("Sure?", { objects: [{ name: "a" }, { name: "b" }] });
+    expect(confirmState.pick).toBe(null);
+    answerConfirm(true);
+    expect((await plain).picked).toEqual([0, 1]);
+  });
+});
+
+describe("tick boxes", () => {
+  it("toggles one value and inverts a list", () => {
+    expect(toggledIn(["a", "b"], "a")).toEqual(["b"]);
+    expect(toggledIn(["b"], "a")).toEqual(["b", "a"]);
+    expect(invertedIn(["a", "b", "c"], ["b"])).toEqual(["a", "c"]);
+    expect(invertedIn(["a"], [])).toEqual(["a"]);
+  });
+
+  it("shows All · None · Invert with the given keys and emits the choice", async () => {
+    const wrapper = mount(TickLinks, {
+      props: { label: "Kies:", keys: { all: "x.all", none: "x.none", invert: "x.invert" }, disabledNone: true, titles: { all: "help" } },
+      global: { provide: { t: (key) => key } },
+    });
+    expect(wrapper.text()).toBe("Kies: x.all · x.none · x.invert");
+    const [all, none, invert] = wrapper.findAll("button");
+    expect(all.attributes("title")).toBe("help");
+    expect(none.attributes("disabled")).toBeDefined();
+    await all.trigger("click");
+    await invert.trigger("click");
+    expect(Object.keys(wrapper.emitted())).toEqual(expect.arrayContaining(["all", "invert"]));
+    const legend = mount(TickLinks, { props: { tag: "li", dots: true }, global: { provide: { t: (key) => key } } });
+    expect(legend.element.tagName).toBe("LI");
+    expect(legend.findAll(".cc-punt")).toHaveLength(2);
+    expect(legend.find("button").text()).toBe("objects.all");
   });
 });

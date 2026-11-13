@@ -131,7 +131,20 @@ export function movableDialog(selector, { storageKey, labels, min } = {}) {
     header.ondblclick = (event) => {
       if (event.target.closest("button")) return;
       forgetPlacement(storageKey);
+      // Back to the middle, as Codex places it, but fixed there again: without a position of its
+      // own the edges no longer resize it (bug found by Olaf 13-11-2026).
       dialog.removeAttribute("style");
+      const box = dialog.getBoundingClientRect();
+      Object.assign(dialog.style, {
+        position: "fixed",
+        margin: "0",
+        left: `${box.left}px`,
+        top: `${box.top}px`,
+        width: `${box.width}px`,
+        height: `${box.height}px`,
+        maxWidth: "none",
+        maxHeight: "none",
+      });
     };
   }
   return { enable, disable };

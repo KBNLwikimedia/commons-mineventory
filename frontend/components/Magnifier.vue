@@ -117,7 +117,8 @@
                 <cdx-icon :icon="cdxIconTrash" size="small" />
               </cdx-button>
             </span>
-            <cdx-button action="progressive" size="small" :disabled="caption === (object.bijschrift?.tekst || '')" @click="saveCaption">{{ t("actions.save_short") }}</cdx-button>
+            <cdx-button action="progressive" size="small" :disabled="caption === (object.bijschrift?.tekst || '')" @click="saveCaption(true)">{{ t("actions.save_short") }}</cdx-button>
+            <undo-message :note="captionNote" />
           </dd>
           </template>
         </dl>
@@ -214,6 +215,8 @@
           </template>
           <busy-note v-if="completing" :message="t('completion.busy')" />
           <cdx-message v-if="completionError" type="error" :inline="true">{{ completionError }}</cdx-message>
+          <!-- What removing or using a version did, with Undo (wish Olaf 13-11-2026). -->
+          <undo-message :note="completionNote" />
           <!-- Earlier versions, one at a time, with their prompt: use one again (free, from
                the cache) or remove it, as with the descriptions (wish Olaf). -->
           <template v-if="completionHistory.length">
@@ -313,15 +316,14 @@
                       <cdx-info-chip>{{ t("describe.edited") }}</cdx-info-chip>
                       <button type="button" class="cc-link" @click="backToAi">{{ t("describe.back_to_ai") }}</button>
                     </template>
-                    <span v-if="undoTexts" class="cc-klein">
-                      {{ t("describe.saved_edit") }}
-                      <button type="button" class="cc-link" @click="undoEdit">↶ {{ t("magnifier.undo") }}</button>
-                    </span>
                     <cdx-button class="cc-rechts-uitlijnen" size="small" weight="quiet" action="destructive" :disabled="busy" @click="removeDescription">
                       <cdx-icon :icon="cdxIconTrash" size="small" /> {{ t("describe.remove") }}
                     </cdx-button>
                   </div>
                 </section>
+                <!-- What the last change of the description did (asked, edited, removed, an earlier
+                     version used), with Undo where it can be undone (wish Olaf 13-11-2026). -->
+                <undo-message :note="describeNote" />
                 </div>
                 <!-- The image moves to the AI modifiers while they are open, beside the slider (see glidePreview). -->
                 <cutout-preview v-if="!previewInModifiers" class="cc-ai-voorbeeld" :src="modelInputUrl" :caption="t('describe.model_sees')" :large="largeInputUrl" :lightbox-title="name" :texts="readTexts" @save-text="saveTexts({ [$event.key]: $event.value })" />
@@ -334,6 +336,8 @@
                   <template #title>{{ t("describe.modifiers") }}</template>
                   <template #description>{{ modifiersSummary || t("describe.modifiers_default") }}</template>
                   <p class="cc-klein">{{ t("describe.modifiers_help") }}</p>
+                  <!-- The other words SAM found it with go along in the prompt (wish Olaf 13-11-2026). -->
+                  <p v-if="alsoFoundText && !promptInfo?.eigen" class="cc-klein cc-ook-mee">{{ t("describe.also_found_goes", { words: alsoFoundText }) }}</p>
                   <div class="cc-concept-kop cc-ai-sturing">
                     <div class="cc-concept-links">
                       <!-- An optional hint, e.g. "only the boy"; not the caption, not for Commons. -->
@@ -402,6 +406,7 @@
                     <p class="cc-uitleg">{{ promptInfo?.eigen ? t("describe.prompt_own_group") : t("describe.group_prompt_help") }}</p>
                   </div>
                   <cdx-message v-if="ownPromptError" type="error" :inline="true">{{ ownPromptError }}</cdx-message>
+                  <undo-message :note="promptNote" />
                   <!-- Your earlier prompts, one at a time: use one again or remove it (free). -->
                   <template v-if="promptInfo?.geschiedenis?.length">
                     <h4 class="cc-commons-kop">{{ t("describe.prompt_history", { n: promptInfo.geschiedenis.length }) }}</h4>
@@ -436,16 +441,7 @@
                   <!-- One version at a time: Previous / Next, "2 of 5" and dots (VersionCarousel.vue). -->
                   <version-carousel :items="history" item-key="versie" :label="t('describe.history_short')" :disabled="busy" @use="restoreDescription" @delete="deleteVersion">
                     <template #default="{ item: entry }">
-                      <div
-                        class="cc-geschiedenis-tekstblok"
-                        :class="{ open: expanded[entry.versie] }"
-                        role="button"
-                        tabindex="0"
-                        :aria-expanded="expanded[entry.versie] ? 'true' : 'false'"
-                        :title="expanded[entry.versie] ? '' : fullText(entry)"
-                        @click="expanded[entry.versie] = !expanded[entry.versie]"
-                        @keydown.enter.space.prevent="expanded[entry.versie] = !expanded[entry.versie]"
-                      >
+                      <version-entry v-model:open="expanded[entry.versie]" :title="fullText(entry)" :meta="historyMeta(entry)">
                         <!-- Labelled fields, like the earlier versions of the page description (wish Olaf). -->
                         <div class="cc-versie-veld">
                           <span class="cc-versie-label">{{ t("version.subject") }}</span>
@@ -463,9 +459,7 @@
                           <span class="cc-versie-label">{{ t("describe.field_tekst_rond_beeld") }}</span>
                           <span class="cc-geschiedenis-beschrijving">{{ entry.tekst_rond_beeld }}</span>
                         </div>
-                        <span class="cc-klein cc-geschiedenis-meta">{{ historyMeta(entry) }}</span>
-                        <span class="cc-link cc-klein cc-geschiedenis-meer">{{ expanded[entry.versie] ? t("describe.history_less") : t("describe.history_more") }}</span>
-                      </div>
+                      </version-entry>
                     </template>
                   </version-carousel>
                 </cdx-accordion>
@@ -543,6 +537,7 @@
 </template>
 
 <script setup>
+import { isPlaceholderTerm } from "../class-colors.js";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxLookup, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconNext, cdxIconPrevious, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
@@ -550,6 +545,7 @@ import { API, del, errorText, get, objectPath, patch, post, put } from "../api.j
 import { askConfirm, askRemoval, confirmDeleteVersion, textParts } from "../confirm.js";
 import { formatStamp, money, priceLabel, useT } from "../i18n.js";
 import VersionCarousel from "./VersionCarousel.vue";
+import VersionEntry from "./VersionEntry.vue";
 import EditPencil from "./EditPencil.vue";
 import DetailSlider from "./DetailSlider.vue";
 import BusyNote from "./BusyNote.vue";
@@ -557,6 +553,8 @@ import ZoomImage from "./ZoomImage.vue";
 import SavedLabel from "./SavedLabel.vue";
 import AlsoFoundAs from "./AlsoFoundAs.vue";
 import NoticeList from "./NoticeList.vue";
+import UndoMessage from "./UndoMessage.vue";
+import { descriptionVersion, promptBack, useUndoMessage, versionBack } from "../undo.js";
 import { movableDialog } from "../movable.js";
 import { fileName, objectName, savedLabel } from "../state.js";
 import { searchItems, wikidataSearcher } from "../wikidata.js";
@@ -616,6 +614,22 @@ const hint = ref("");
 // Folded away until wanted: the AI modifiers and the earlier descriptions.
 const openModifiers = ref(false);
 const openPrompt = ref(false);
+// The words "Also found as" (as the server puts them in the prompt, also_found in beschrijving.py):
+// the English word searched, with its highest certainty, not its own term, no clicks or boxes.
+const alsoFoundText = computed(() => {
+  const obj = props.object || {};
+  if (obj.bron === "groep" || obj.groep) return "";
+  const own = new Set([obj.zoekterm, obj.label].map((w) => String(w || "").trim().toLowerCase()));
+  const words = new Map();
+  for (const entry of obj.ook || []) {
+    const word = String(entry.label || entry.zoekterm || "").split(/\s+/).filter(Boolean).join(" ");
+    const key = word.toLowerCase();
+    if (!word || own.has(key) || isPlaceholderTerm(key) || key === "regio") continue;
+    const score = entry.score;
+    if (!words.has(key) || (score != null && (words.get(key).score == null || score > words.get(key).score))) words.set(key, { word, score });
+  }
+  return [...words.values()].map(({ word, score }) => (score != null ? `${word} (${Math.round(score * 100)}%)` : word)).join(", ");
+});
 const openHistory = ref(false);
 
 // Where the preview sits: beside the slider while the AI modifiers are open.
@@ -702,6 +716,12 @@ watch(margin, (value) => {
 });
 const hits = ref([]);
 const editor = ref(null);
+// The messages after a change, with Undo (undo.js): per place in the magnifier, one at a time.
+const captionNote = useUndoMessage(t);
+const describeNote = useUndoMessage(t);
+const completionNote = useUndoMessage(t);
+const promptNote = useUndoMessage(t);
+const clearNotes = () => [captionNote, describeNote, completionNote, promptNote].forEach((note) => note.clear());
 
 // Move by the title bar, resize at the edges; double-click the title bar to
 // centre it again. Codex renders the dialog elsewhere in the page (teleport).
@@ -818,7 +838,7 @@ watch(
     shownMargin.value = margin.value;
     loadHistory();
     cancelEditing();
-    undoTexts.value = null;
+    clearNotes();
     hits.value = [];
     // Nothing of the previous object's search or errors stays in view.
     lookupSearcher.stop();
@@ -849,17 +869,21 @@ async function describe(again) {
   seconds.value = 0;
   ticker = setInterval(() => seconds.value++, 1000);
   error.value = "";
+  const path = `${base.value}/beschrijving`;
+  const previous = descriptionVersion(description.value); // to put back from the message
   try {
     const body = { opnieuw: again, marge: margin.value, beschrijvingsniveau: descLevel.value };
     if (props.object.groep && !groupOnly.value) body.alleen_groep = false;
     if (hint.value.trim()) body.aanwijzing = hint.value.trim();
-    const result = await post(`${base.value}/beschrijving`, body);
-    emit("changed", result.object);
+    const result = await post(path, body);
     hint.value = "";
-    cancelEditing();
-    undoTexts.value = null;
-    editor.value?.reload();
-    loadHistory();
+    showDescription(result.object);
+    // Green; with an earlier description, a way back to it (a new answer is not "undone": it was paid).
+    if (previous && previous !== descriptionVersion(result.object.beschrijving)) {
+      describeNote.show("success", t("feedback.described"), async () => showDescription(await versionBack(path, "versie", previous)()), { label: t("feedback.previous_back"), done: t("feedback.previous_restored") });
+    } else {
+      describeNote.show("success", t("feedback.described"));
+    }
   } catch (e) {
     error.value = errorText(t, e);
   } finally {
@@ -879,6 +903,17 @@ async function loadHistory() {
   }
 }
 loadHistory();
+
+// A description changed on the server (asked, used again, removed, put back): show it everywhere.
+function showDescription(changed) {
+  if (changed.id !== props.object.id) return; // an Undo after going to another object: only the server changes
+  emit("changed", changed);
+  cancelEditing();
+  margin.value = changed.beschrijving?.marge ?? margin.value;
+  editor.value?.reload();
+  loadPlan();
+  loadHistory();
+}
 
 // Earlier versions: unfolded ones (by versie), and the whole text for the hover popup.
 const expanded = reactive({});
@@ -910,6 +945,7 @@ async function deleteVersion(entry) {
   error.value = "";
   try {
     history.value = (await del(`${base.value}/beschrijving/geschiedenis/${encodeURIComponent(entry.versie)}`)).geschiedenis;
+    describeNote.show("success", t("feedback.version_deleted"));
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -918,14 +954,11 @@ async function deleteVersion(entry) {
 // Make an earlier description current again; the current one goes into the history.
 async function restoreDescription(entry) {
   error.value = "";
+  const path = `${base.value}/beschrijving`;
+  const replaced = descriptionVersion(description.value); // the current one, back with Undo
   try {
-    const changed = await put(`${base.value}/beschrijving`, { versie: entry.versie });
-    emit("changed", changed);
-    cancelEditing();
-    undoTexts.value = null;
-    margin.value = changed.beschrijving?.marge ?? DEFAULT_MARGIN;
-    editor.value?.reload();
-    loadHistory();
+    showDescription(await put(path, { versie: entry.versie }));
+    describeNote.show("success", t("feedback.version_used"), async () => showDescription(await versionBack(path, "versie", replaced)()));
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -942,13 +975,11 @@ function descriptionQuote(entry) {
 // Forget the description; the answer stays in the cache, so asking again is free.
 async function removeDescription() {
   if (!(await askRemoval(t("describe.remove_confirm"), { go: t("describe.remove"), destructive: true }, descriptionQuote(description.value)))) return;
+  const path = `${base.value}/beschrijving`;
+  const removed = descriptionVersion(description.value); // it goes into the history: Undo puts it back
   try {
-    emit("changed", await del(`${base.value}/beschrijving`));
-    cancelEditing();
-    undoTexts.value = null;
-    editor.value?.reload();
-    loadPlan();
-    loadHistory();
+    showDescription(await del(path));
+    describeNote.show("warning", t("feedback.description_removed"), removed ? async () => showDescription(await versionBack(path, "versie", removed)()) : null);
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -968,7 +999,6 @@ const TEXT_GROUPS = [
 ];
 const editingGroup = ref(null);
 const fieldDraft = ref({});
-const undoTexts = ref(null);
 
 function currentTexts() {
   return Object.fromEntries(EDITABLE.map((field) => [field, description.value?.[field] || ""]));
@@ -996,14 +1026,14 @@ function saveEditing() {
   if (fieldChanged.value) saveTexts({ ...fieldDraft.value });
 }
 
-async function saveTexts(texts, { undoable = true } = {}) {
+// Saved texts: a green message with Undo, which puts back the texts as they were before
+// (the version before the edit is in Eerdere beschrijvingen as well).
+async function saveTexts(texts) {
   const before = currentTexts();
+  const path = `${base.value}/beschrijving`;
   try {
-    emit("changed", await patch(`${base.value}/beschrijving`, texts));
-    cancelEditing();
-    loadHistory(); // the version before this edit is now in Eerdere beschrijvingen
-    undoTexts.value = undoable ? before : null;
-    editor.value?.reload();
+    showDescription(await patch(path, texts));
+    describeNote.show("success", t("describe.saved_edit"), async () => showDescription(await patch(path, before)));
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -1011,10 +1041,6 @@ async function saveTexts(texts, { undoable = true } = {}) {
 
 function backToAi() {
   saveTexts({ ...currentTexts(), ...description.value.ai_origineel });
-}
-
-function undoEdit() {
-  saveTexts(undoTexts.value, { undoable: false });
 }
 
 // Empty the caption and remove it from the object at once (no Opslaan needed);
@@ -1049,11 +1075,23 @@ async function step(direction) {
   emit("step", direction);
 }
 
-async function saveCaption() {
+// `announce` (the Save button): a green message with Undo when the text really changed; saving
+// by itself on leaving the tab or the object says nothing.
+async function saveCaption(announce = false) {
+  const path = base.value;
+  const before = props.object.bijschrift?.tekst || "";
   try {
     const text = caption.value.trim();
-    const result = await patch(base.value, { bijschrift: text ? { tekst: text } : null });
+    const result = await patch(path, { bijschrift: text ? { tekst: text } : null });
     emit("changed", result);
+    if (announce === true && text !== before) {
+      captionNote.show("success", t("feedback.caption_saved"), async () => {
+        const back = await patch(path, { bijschrift: before ? { tekst: before } : null });
+        if (back.id !== props.object.id) return;
+        emit("changed", back);
+        caption.value = before;
+      });
+    }
   } catch (e) {
     error.value = errorText(t, e);
   }
@@ -1162,8 +1200,11 @@ async function complete() {
 async function forgetCompletion() {
   const image = { image: `${base.value}/aangevuld.png?v=${props.object.aangevuld?.sleutel || ""}`, name: t("completion.tab") };
   if (!(await askRemoval(t("completion.remove_confirm", { days: config.bewaren?.uitsneden ?? 30 }), { title: t("completion.remove"), go: t("completion.remove"), destructive: true }, { objects: [image] }))) return;
+  const path = `${base.value}/aanvulling`;
+  const removed = props.object.aangevuld?.sleutel; // it goes to the earlier versions: Undo uses it again
   try {
-    emit("changed", (await del(`${base.value}/aanvulling`)).object);
+    showCompletion((await del(path)).object);
+    completionNote.show("warning", t("feedback.completion_removed"), removed ? async () => showCompletion((await versionBack(path, "sleutel", removed)()).object) : null);
   } catch (failure) {
     completionError.value = errorText(t, failure);
   }
@@ -1184,10 +1225,18 @@ async function resetPrompt() {
   }
 }
 const completionHistory = computed(() => props.object.aangevuld_geschiedenis || []);
+// An AI-completed version from the server: shown, unless an Undo came after going to another object.
+function showCompletion(changed) {
+  if (changed.id === props.object.id) emit("changed", changed);
+}
 async function useCompletion(entry) {
   completionError.value = "";
+  const path = `${base.value}/aanvulling`;
+  const replaced = props.object.aangevuld?.sleutel;
   try {
-    emit("changed", (await put(`${base.value}/aanvulling`, { sleutel: entry.sleutel })).object);
+    showCompletion((await put(path, { sleutel: entry.sleutel })).object);
+    // Undo: the version that was current (410 when its image is no longer kept: the message says so).
+    completionNote.show("success", t("feedback.completion_used"), async () => showCompletion((await versionBack(path, "sleutel", replaced)()).object));
   } catch (failure) {
     completionError.value = errorText(t, failure);
   }
@@ -1196,7 +1245,8 @@ async function deleteCompletion(entry) {
   const image = { image: `${base.value}/aangevuld.png?sleutel=${entry.sleutel}`, name: formatTime(entry.tijdstempel) };
   if (!(await confirmDeleteVersion(t("completion.history_delete_confirm"), t, { objects: [image] }))) return;
   try {
-    emit("changed", (await del(`${base.value}/aanvulling/geschiedenis/${encodeURIComponent(entry.sleutel)}`)).object);
+    showCompletion((await del(`${base.value}/aanvulling/geschiedenis/${encodeURIComponent(entry.sleutel)}`)).object);
+    completionNote.show("success", t("feedback.version_deleted"));
   } catch (failure) {
     completionError.value = errorText(t, failure);
   }
@@ -1241,25 +1291,34 @@ function startOwnPrompt() {
   ownDraft.value = currentPromptText.value || promptInfo.value?.standaard_prompt || "";
   editingOwnPrompt.value = true;
 }
-async function changeOwnPrompt(request) {
+// `done`: the message afterwards; with `undoable` it gets Undo, back to the prompt before.
+async function changeOwnPrompt(request, done, undoable = true) {
   ownPromptError.value = "";
+  const path = `${base.value}/beschrijving/prompt${promptQuery()}`;
+  const back = promptBack(path, promptInfo.value);
+  const id = props.object.id;
   try {
-    promptInfo.value = await request();
+    showPromptInfo(await request(path), id);
     editingOwnPrompt.value = false;
-    // The object in the app knows it too, so e.g. "Describe selected" says "own prompt" at once
-    // (bug found by Olaf 13-11-2026: it still said "from the app" until the page was reloaded).
-    const { prompt_eigen: _old, ...rest } = props.object;
-    emit("changed", promptInfo.value.eigen ? { ...rest, prompt_eigen: promptInfo.value.eigen_prompt } : rest);
+    promptNote.show("success", done, undoable ? async () => showPromptInfo(await back(), id) : null);
   } catch (failure) {
     ownPromptError.value = errorText(t, failure);
   }
 }
-const saveOwnPrompt = () => changeOwnPrompt(() => put(`${base.value}/beschrijving/prompt${promptQuery()}`, { prompt: ownDraft.value }));
-const resetOwnPrompt = () => changeOwnPrompt(() => del(`${base.value}/beschrijving/prompt${promptQuery()}`));
-const useOwnPrompt = (entry) => changeOwnPrompt(() => put(`${base.value}/beschrijving/prompt${promptQuery()}`, { prompt: entry.tekst }));
+function showPromptInfo(info, id) {
+  if (id !== props.object.id) return; // an Undo after going to another object: only the server changes
+  promptInfo.value = info;
+  // The object in the app knows it too, so e.g. "Describe selected" says "own prompt" at once
+  // (bug found by Olaf 13-11-2026: it still said "from the app" until the page was reloaded).
+  const { prompt_eigen: _old, ...rest } = props.object;
+  emit("changed", info.eigen ? { ...rest, prompt_eigen: info.eigen_prompt } : rest);
+}
+const saveOwnPrompt = () => changeOwnPrompt((path) => put(path, { prompt: ownDraft.value }), t("feedback.prompt_saved"));
+const resetOwnPrompt = () => changeOwnPrompt((path) => del(path), t("feedback.prompt_app"));
+const useOwnPrompt = (entry) => changeOwnPrompt((path) => put(path, { prompt: entry.tekst }), t("feedback.prompt_used"));
 async function deleteOwnPrompt(entry) {
   if (!(await confirmDeleteVersion(t("describe.prompt_history_delete_confirm"), t, entry.tekst))) return;
-  await changeOwnPrompt(() => del(`${base.value}/beschrijving/prompt/geschiedenis/${encodeURIComponent(entry.bewaard_op)}${promptQuery()}`));
+  await changeOwnPrompt(() => del(`${base.value}/beschrijving/prompt/geschiedenis/${encodeURIComponent(entry.bewaard_op)}${promptQuery()}`), t("feedback.version_deleted"), false);
 }
 
 const formatTime = (stamp) => formatStamp(stamp, language);

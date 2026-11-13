@@ -15,6 +15,7 @@ the Delpher Uitsnijder without zones, ALTO, captions from OCR and hierarchy.
 - Paid calls are checked against the limits first and logged.
 """
 
+import contextlib
 import functools
 import hashlib
 import io
@@ -62,10 +63,15 @@ SAVED_META = ("tijdstempel", "breedte", "hoogte")  # in "opgeslagen", next to th
 KEPT_ON_UPDATE = ("bijschrift", "ook", "ook_weg", "beschrijving", "commons", "masker", "masker_herkomst", "status", "wikidata", "label_item", "prompt_eigen", "prompt_geschiedenis")
 
 
-def iou(a, b):
+def _intersection(a, b):
+    """The area two boxes have in common (0 when they do not overlap)."""
     ix = max(0, min(a["x"] + a["w"], b["x"] + b["w"]) - max(a["x"], b["x"]))
     iy = max(0, min(a["y"] + a["h"], b["y"] + b["h"]) - max(a["y"], b["y"]))
-    inter = ix * iy
+    return ix * iy
+
+
+def iou(a, b):
+    inter = _intersection(a, b)
     union = a["w"] * a["h"] + b["w"] * b["h"] - inter
     return inter / union if union else 0.0
 
@@ -77,10 +83,8 @@ def same_picture(a, b):
     overlap = iou(a, b)
     if overlap >= DUPLICATE_IOU:
         return True
-    ix = max(0, min(a["x"] + a["w"], b["x"] + b["w"]) - max(a["x"], b["x"]))
-    iy = max(0, min(a["y"] + a["h"], b["y"] + b["h"]) - max(a["y"], b["y"]))
     smaller = min(a["w"] * a["h"], b["w"] * b["h"])
-    return overlap >= 0.5 and smaller > 0 and ix * iy / smaller >= 0.9
+    return overlap >= 0.5 and smaller > 0 and _intersection(a, b) / smaller >= 0.9
 
 
 def _mergeable(a, b):
@@ -205,13 +209,19 @@ class DetectionService:
     # -- Detection ---------------------------------------------------------------
 
     @_locked
-    def detect(self, file, n, prompt="", modus="prompt", minscore=0.0, dry_run=False, user=None, items=None, fresh=False):
+    def detect(self, file, n, prompt="", modus="prompt", minscore=0.0, dry_run=False, user=None, items=None, fresh=False, als=None):
         """`items` ({English term: Q-id}, backlog 26): a search for a depicts item that is
         already on Commons; what is found gets that item, so its depicts is known. `fresh`: ask
         the detector again for every term instead of using its saved answer (paid; the new
-        answer replaces the saved one)."""
+        answer replaces the saved one). `als` ({search word: term}, wish Olaf 13-11-2026): a
+        word you changed before locating (e.g. "white sailor hat" for the AI term "sailor hat");
+        what it finds counts under that term, so the term's button keeps its count."""
         terms = self.terms(prompt, modus)
         items = self._check_items(items)
+        for term in terms["plus"] + terms["min"]:
+            stands_for = self._check_als(als).get(term["term"].strip().lower())
+            if stands_for and stands_for.strip().lower() != term["term"].strip().lower():
+                term["als"] = stands_for.strip()
         page = self.client.load_page(file, n)
         fresh = bool(fresh) and modus != "commons"
         plan = self.plan(file, n, terms, fresh)
@@ -234,7 +244,7 @@ class DetectionService:
             found = []
             for term in terms["plus"]:
                 hits = self._run_term(file, page, term, context, user, fresh)
-                q = items.get(term["en"].strip().lower()) or items.get(term["term"].strip().lower())
+                q = items.get(term["en"].strip().lower()) or items.get(term["term"].strip().lower()) or items.get(term.get("als", "").lower())
                 if q:
                     self._link_item(file, hits, q)
                 found += hits
@@ -279,6 +289,15 @@ class DetectionService:
         return checked
 
     @staticmethod
+    def _check_als(als):
+        """{search word (lower case): the term it stands for} from the request; a 400 for anything else."""
+        if not als:
+            return {}
+        if not isinstance(als, dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip() for k, v in als.items()):
+            raise DetectionError("'als' is een object {zoekwoord: zoekterm}.", status=400, code="invalid_body")
+        return {k.strip().lower(): v for k, v in als.items()}
+
+    @staticmethod
     def _link_item(file, hits, q):
         """Give found objects the depicts item they were searched for, with its labels."""
         # The label as the file shows it (sdc summary: Dutch, else English); the raw
@@ -299,17 +318,24 @@ class DetectionService:
             mark_used(path)
             stored = json.loads(path.read_text(encoding="utf-8"))
         else:
-            if self.detector.betaald:
-                self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
-            detected = self.detector.detect(
-                self._image(file, page, context), term["en"], native_size=(page["breedte"], page["hoogte"])
+            detected = self._detect_paid(
+                file, page["n"], term["en"], user,
+                lambda: self.detector.detect(self._image(file, page, context), term["en"], native_size=(page["breedte"], page["hoogte"])),
             )
             stored = [o.to_dict() for o in detected]
-            if self.detector.betaald:
-                self._register(file, page["n"], term["en"], user)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(stored, ensure_ascii=False), encoding="utf-8")
         return [self._stamp(page, term, o) for o in stored]
+
+    def _detect_paid(self, file, n, term, user, call):
+        """Run one detector call (`call`): in live mode checked against the limits first
+        and registered as used afterwards, under `term`."""
+        if self.detector.betaald:
+            self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
+        detected = call()
+        if self.detector.betaald:
+            self._register(file, n, term, user)
+        return detected
 
     def _register(self, file, n, term, user):
         self.verbruik.register(
@@ -331,8 +357,11 @@ class DetectionService:
         obj = dict(stored)
         digest = hashlib.sha1(f"{page['id']}|{obj['herkomst'].get('model')}|{term['en']}|{obj['id']}".encode())
         obj["id"] = "obj-" + digest.hexdigest()[:10]
-        obj["zoekterm"] = term["term"]
+        # A changed search word counts under the term it stands for; the word itself is the label.
+        obj["zoekterm"] = term.get("als") or term["term"]
         obj["label"] = term["en"]
+        if term.get("als"):
+            obj["zoekwoord"] = term["term"]
         return obj
 
     @classmethod
@@ -397,22 +426,18 @@ class DetectionService:
             return {"object": self.public(file, n, best), "nieuw": False, "budget": self.verbruik.status(user)}
 
         page = self.client.load_page(file, n)
-        if self.detector.betaald:
-            self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
-        detected = self.detector.detect_point(
-            self._image(file, page, {"image": None}), x, y, native_size=(page["breedte"], page["hoogte"])
+        detected = self._detect_paid(
+            file, n, f"punt {int(x)},{int(y)}", user,
+            lambda: self.detector.detect_point(self._image(file, page, {"image": None}), x, y, native_size=(page["breedte"], page["hoogte"])),
         )
-        if self.detector.betaald:
-            self._register(file, n, f"punt {int(x)},{int(y)}", user)
         if not detected:
             return {"object": None, "nieuw": False, "budget": self.verbruik.status(user)}
         term = {"term": "klik", "en": f"punt {int(x)},{int(y)}"}
         obj = self._stamp(page, term, detected[0].to_dict())
         obj["label"] = "klik"
         obj["status"] = "kandidaat"
-        objects = self._merge_into_page(file, n, [obj])
-        result = next((o for o in objects if obj["id"] in _ids(o)), obj)
-        return {"object": self.public(file, n, result), "nieuw": result["id"] == obj["id"], "budget": self.verbruik.status(user)}
+        shown, new = self._add_one(file, n, obj)
+        return {"object": shown, "nieuw": new, "budget": self.verbruik.status(user)}
 
     def _point_with_hint(self, file, n, x, y, term, user):
         """One search for the hint (its saved answer when the word was searched before:
@@ -426,9 +451,8 @@ class DetectionService:
             return result
         obj = min(hits, key=lambda o: o["box"]["w"] * o["box"]["h"])
         obj["status"] = "kandidaat"  # as any click
-        objects = self._merge_into_page(file, n, [obj])
-        found = next((o for o in objects if obj["id"] in _ids(o)), obj)
-        result.update(object=self.public(file, n, found), nieuw=found["id"] == obj["id"] and obj["id"] not in before)
+        shown, new = self._add_one(file, n, obj)
+        result.update(object=shown, nieuw=new and obj["id"] not in before)
         return result
 
     def _hint_in_box(self, file, page, box, term, user):
@@ -445,19 +469,17 @@ class DetectionService:
             image = Image.open(io.BytesIO(self.client.page_image(file, page["n"], width))).convert("RGB")
             s = image.width / page["breedte"]
             crop = image.crop((round(x0 * s), round(y0 * s), round(x1 * s), round(y1 * s)))
-        if self.detector.betaald:
-            self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
-        detected = self.detector.detect(crop, term["en"], native_size=(area["w"], area["h"]))
-        if self.detector.betaald:
-            self._register(file, page["n"], f"{term['en']} in box {box}", user)
+        detected = self._detect_paid(
+            file, page["n"], f"{term['en']} in box {box}", user,
+            lambda: self.detector.detect(crop, term["en"], native_size=(area["w"], area["h"])),
+        )
         best, best_overlap = None, 0
         for found in detected:
             obj = found.to_dict()
             obj["box"] = {"x": obj["box"]["x"] + x0, "y": obj["box"]["y"] + y0, "w": obj["box"]["w"], "h": obj["box"]["h"]}
-            ix = max(0, min(obj["box"]["x"] + obj["box"]["w"], box["x"] + box["w"]) - max(obj["box"]["x"], box["x"]))
-            iy = max(0, min(obj["box"]["y"] + obj["box"]["h"], box["y"] + box["h"]) - max(obj["box"]["y"], box["y"]))
-            if ix * iy > best_overlap:
-                best, best_overlap = obj, ix * iy
+            overlap = _intersection(obj["box"], box)
+            if overlap > best_overlap:
+                best, best_overlap = obj, overlap
         if best is None:
             return None
         digest = hashlib.sha1(f"{page['id']}|{best['herkomst'].get('model')}|hint|{term['en']}|{box}".encode())
@@ -476,9 +498,8 @@ class DetectionService:
         if term:
             found = self._hint_in_box(file, page, box, term, user)
             if found is not None:
-                objects = self._merge_into_page(file, n, [found])
-                result = next((o for o in objects if found["id"] in _ids(o)), found)
-                return {"object": self.public(file, n, result), "nieuw": result["id"] == found["id"], "hint": term["term"], "gevonden": True, "budget": self.verbruik.status(user)}
+                shown, new = self._add_one(file, n, found)
+                return {"object": shown, "nieuw": new, "hint": term["term"], "gevonden": True, "budget": self.verbruik.status(user)}
         key = f"{page['id']}|handmatig|{box['x']},{box['y']},{box['w']},{box['h']}"
         obj = {
             "id": "obj-" + hashlib.sha1(key.encode()).hexdigest()[:10],
@@ -491,9 +512,8 @@ class DetectionService:
             "status": "geselecteerd",
             "herkomst": {"model": "handmatig", "prompt": None, "tijdstempel": _now()},
         }
-        objects = self._merge_into_page(file, n, [obj])
-        result = next((o for o in objects if obj["id"] in _ids(o)), obj)
-        answer = {"object": self.public(file, n, result), "nieuw": result["id"] == obj["id"], "budget": self.verbruik.status(user)}
+        shown, new = self._add_one(file, n, obj)
+        answer = {"object": shown, "nieuw": new, "budget": self.verbruik.status(user)}
         if term:
             answer.update(hint=term["term"], gevonden=False)
         return answer
@@ -508,13 +528,10 @@ class DetectionService:
         if obj is None:
             raise DetectionError(f"Object '{object_id}' niet gevonden.", status=404)
         page = self.client.load_page(file, n)
-        if self.detector.betaald:
-            self.verbruik.check(1, user=user, cost=KOSTEN_PER_AFBEELDING)
-        detected = self.detector.detect_box(
-            self._image(file, page, {"image": None}), obj["box"], native_size=(page["breedte"], page["hoogte"])
+        detected = self._detect_paid(
+            file, n, f"box {obj['box']}", user,
+            lambda: self.detector.detect_box(self._image(file, page, {"image": None}), obj["box"], native_size=(page["breedte"], page["hoogte"])),
         )
-        if self.detector.betaald:
-            self._register(file, n, f"box {obj['box']}", user)
         if not detected or not detected[0].mask_data:
             raise DetectionError("SAM vond in deze rechthoek geen object.", status=404, code="no_mask")
         found = detected[0]
@@ -726,6 +743,13 @@ class DetectionService:
         self._write_store(file, n, store)
         return objects
 
+    def _add_one(self, file, n, obj):
+        """Merge one new object into the page; returns (the object it became, public,
+        whether it is a new object of its own rather than merged into one already there)."""
+        objects = self._merge_into_page(file, n, [obj])
+        result = next((o for o in objects if obj["id"] in _ids(o)), obj)
+        return self.public(file, n, result), result["id"] == obj["id"]
+
     def _absorb(self, file, n, a, b, keep_first=False):
         """Merge two objects showing the same picture into one (see _preference);
         the other is listed under "ook". Status, caption, description and the
@@ -914,16 +938,14 @@ class DetectionService:
     @_locked
     def set_caption(self, file, n, object_id, value):
         """Change an object's caption: {"tekst": ...} sets it, None removes it."""
-        store = self._load_store(file, n)
-        obj = self._find_in(store, object_id)
-        if value is None:
-            obj["bijschrift"] = None
-        elif isinstance(value, dict) and isinstance(value.get("tekst"), str):
-            text = " ".join(value["tekst"].split())
-            obj["bijschrift"] = {"tekst": text, "bron": "handmatig"} if text else None
-        else:
-            raise DetectionError('Geef bijschrift als {"tekst": "..."} of null.', status=400)
-        self._write_store(file, n, store)
+        with self.editing(file, n, object_id) as (_store, obj):
+            if value is None:
+                obj["bijschrift"] = None
+            elif isinstance(value, dict) and isinstance(value.get("tekst"), str):
+                text = " ".join(value["tekst"].split())
+                obj["bijschrift"] = {"tekst": text, "bron": "handmatig"} if text else None
+            else:
+                raise DetectionError('Geef bijschrift als {"tekst": "..."} of null.', status=400)
         return self.public(file, n, obj)
 
     @_locked
@@ -933,14 +955,12 @@ class DetectionService:
         not for Commons."""
         if value is not None and not isinstance(value, str):
             raise DetectionError("'naam' is een tekst of null.", status=400, code="invalid_body")
-        store = self._load_store(file, n)
-        obj = self._find_in(store, object_id)
-        name = " ".join((value or "").split())[:120]
-        if name:
-            obj["naam"] = name
-        else:
-            obj.pop("naam", None)
-        self._write_store(file, n, store)
+        with self.editing(file, n, object_id) as (_store, obj):
+            name = " ".join((value or "").split())[:120]
+            if name:
+                obj["naam"] = name
+            else:
+                obj.pop("naam", None)
         return self.public(file, n, obj)
 
     @_locked
@@ -950,30 +970,26 @@ class DetectionService:
         counts for that item and goes to Commons as its depicts with this bounding box."""
         if value is not None and not (isinstance(value, dict) and isinstance(value.get("q"), str) and QID.fullmatch(value["q"])):
             raise DetectionError('Geef item als {"q": "Q…", "label": "…"} of null.', status=400, code="invalid_body")
-        store = self._load_store(file, n)
-        obj = self._find_in(store, object_id)
-        if value is None:
-            obj.pop("wikidata", None)
-            obj.pop("label_item", None)
-            obj.get("herkomst", {}).pop("item", None)
-        else:
-            obj["wikidata"] = value["q"]
-            label = value.get("label")
-            if isinstance(label, str) and label.strip() and label.strip() != value["q"]:
-                obj["label_item"] = " ".join(label.split())[:120]
-            else:
+        with self.editing(file, n, object_id) as (_store, obj):
+            if value is None:
+                obj.pop("wikidata", None)
                 obj.pop("label_item", None)
-            obj.setdefault("herkomst", {})["item"] = value["q"]
-        self._write_store(file, n, store)
+                obj.get("herkomst", {}).pop("item", None)
+            else:
+                obj["wikidata"] = value["q"]
+                label = value.get("label")
+                if isinstance(label, str) and label.strip() and label.strip() != value["q"]:
+                    obj["label_item"] = " ".join(label.split())[:120]
+                else:
+                    obj.pop("label_item", None)
+                obj.setdefault("herkomst", {})["item"] = value["q"]
         return self.public(file, n, obj)
 
     @_locked
     def set_field(self, file, n, object_id, key, value):
         """Store a field on an object (e.g. the Commons concept) and return it."""
-        store = self._load_store(file, n)
-        obj = self._find_in(store, object_id)
-        obj[key] = value
-        self._write_store(file, n, store)
+        with self.editing(file, n, object_id) as (_store, obj):
+            obj[key] = value
         return self.public(file, n, obj)
 
     @_locked
@@ -1184,6 +1200,22 @@ class DetectionService:
 
     def _find(self, file, n, object_id):
         return self._find_in(self._load_store(file, n), object_id)
+
+    @contextlib.contextmanager
+    def editing_store(self, file, n):
+        """Change a page's store as one locked step: yields the store and writes it
+        when the block ends normally; after an exception nothing is written."""
+        with self.lock:
+            store = self._load_store(file, n)
+            yield store
+            self._write_store(file, n, store)
+
+    @contextlib.contextmanager
+    def editing(self, file, n, object_id):
+        """Like editing_store, for one object (found as by _find_in: on the page, in
+        the trash or in a group): yields (store, object)."""
+        with self.editing_store(file, n) as store:
+            yield store, self._find_in(store, object_id)
 
     @staticmethod
     def _find_in(store, object_id):

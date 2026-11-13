@@ -19,8 +19,8 @@
     <!-- From Commons comes first (wish Olaf, 6-11-2026): what people already put on Commons
          goes before new AI suggestions, and it is free to read. Only when the file has
          captions, depicts, regions or notes (they always refer to page 1). Backlog 26. -->
-    <cdx-accordion v-if="hasCommonsData" :model-value="open.commons" data-sectie="commons" @update:model-value="setOpen('commons', $event)" :class="{ 'cc-uitklap-vast': isLocked('commons') }" @click.capture="guard('commons', $event)">
-      <template #title>{{ t("panel.from_commons") }} <info-dialog v-bind="info('commons', 'panel.from_commons')" /> <section-lock :locked="isLocked('commons')" :label="lockLabel('commons')" @toggle="toggleLock('commons')" /></template>
+    <cdx-accordion v-if="hasCommonsData" v-bind="sectionProps('commons')">
+      <template #title>{{ t("panel.from_commons") }} <info-dialog v-bind="info('commons', 'panel.from_commons')" /> <section-lock v-bind="lockProps('commons')" /></template>
       <p class="cc-uitleg">{{ t("panel.from_commons_intro") }} <a :href="sdcLink" target="_blank" rel="noopener">{{ t("panel.commons_edit_link") }}</a></p>
       <!-- What the app read is kept a day: read again after adding something on Commons. -->
       <p class="cc-uitleg">
@@ -112,14 +112,7 @@
             {{ t(depictsLabel, { n: includedItems.length }) }}
             <span class="cc-kosten">{{ itemsCost(includedItems) }}</span>
           </cdx-button>
-          <span class="cc-termen-alles">
-            {{ t("objects.select_label") }}
-                <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems([])">{{ t("panel.terms_all") }}</button>
-                ·
-                <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems(commonsDepicts.map((item) => item.q))">{{ t("panel.terms_none") }}</button>
-                ·
-                <button type="button" class="cc-link" :disabled="busy" @click="setExcludedItems(commonsDepicts.map((item) => item.q).filter((q) => !excludedItems.includes(q)))">{{ t("panel.terms_invert") }}</button>
-          </span>
+          <tick-links class="cc-termen-alles" :label="t('objects.select_label')" :keys="TERM_LINKS" :disabled="busy" @all="setExcludedItems([])" @none="setExcludedItems(commonsDepicts.map((item) => item.q))" @invert="invertItems(commonsDepicts.map((item) => item.q))" />
           </div>
         </div>
         <busy-note v-if="busy && where === 'commons-depicts'" :message="t('busy.sam')" />
@@ -128,8 +121,8 @@
     </cdx-accordion>
 
     <!-- Then the AI suggestions: they fit this image, unlike a fixed list. -->
-    <cdx-accordion id="cc-ai-suggesties" :model-value="open.suggestions" data-sectie="suggestions" @update:model-value="setOpen('suggestions', $event)" :class="{ 'cc-uitklap-vast': isLocked('suggestions') }" @click.capture="guard('suggestions', $event)">
-      <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /> <section-lock :locked="isLocked('suggestions')" :label="lockLabel('suggestions')" @toggle="toggleLock('suggestions')" /></template>
+    <cdx-accordion id="cc-ai-suggesties" v-bind="sectionProps('suggestions')">
+      <template #title>{{ t("panel.suggestions") }} <info-dialog v-bind="info('suggestions', 'panel.suggestions')" /> <section-lock v-bind="lockProps('suggestions')" /></template>
       <!-- What this section is for, in one or two sentences (wish Olaf), as in From Commons. -->
       <!-- What the AI makes, one bullet each (wish Olaf 13-11-2026). -->
       <div class="cc-uitleg cc-sectie-intro">
@@ -181,7 +174,9 @@
         <!-- First what makes the search terms (the level of detail, asking anew, removing), compact
              on one line; under it the terms themselves, the result of that (wish Olaf). -->
         <div class="cc-termen-bron">
-          <detail-slider v-model="detail" :disabled="busy" compact />
+          <!-- The level of detail here only before the first search terms; asking them anew, it is
+               in the window of "Zoektermen opnieuw laten maken" (wish Olaf 13-11-2026). -->
+          <detail-slider v-if="!inventory.zoektermen?.length" v-model="detail" :disabled="busy" compact />
           <!-- Always side by side, under the slider: ask anew, and remove all. -->
           <div class="cc-termen-knoppen">
           <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="`${t('panel.part_again_help_zoektermen')} ${t('panel.parts_help')}`" @click="act('zoektermen', 'inventory', { deel: 'zoektermen', detailniveau: detail })">
@@ -254,14 +249,7 @@
               {{ t(termsLabel, { n: includedTerms.length }) }}
               <span class="cc-kosten">{{ cost(includedTerms.length) }}</span>
             </cdx-button>
-            <span class="cc-termen-alles">
-              {{ t("objects.select_label") }}
-              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded([])">{{ t("panel.terms_all") }}</button>
-              ·
-              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(newTerms.map((term) => term.en))">{{ t("panel.terms_none") }}</button>
-              ·
-              <button type="button" class="cc-link" :disabled="busy" @click="setExcluded(newTerms.map((term) => term.en).filter((term) => !excluded.includes(term)))">{{ t("panel.terms_invert") }}</button>
-            </span>
+            <tick-links class="cc-termen-alles" :label="t('objects.select_label')" :keys="TERM_LINKS" :disabled="busy" @all="setExcluded([])" @none="setExcluded(newTerms.map((term) => term.en))" @invert="invertTerms(newTerms.map((term) => term.en))" />
             </div>
           </div>
           <!-- Not right, or something else: the places for that (wish Olaf). -->
@@ -282,8 +270,8 @@
       </template>
     </cdx-accordion>
 
-    <cdx-accordion :model-value="open.search" data-sectie="search" @update:model-value="setOpen('search', $event)" :class="{ 'cc-uitklap-vast': isLocked('search') }" @click.capture="guard('search', $event)">
-      <template #title>{{ t("panel.search") }} <info-dialog v-bind="info('search', 'panel.search')" /> <section-lock :locked="isLocked('search')" :label="lockLabel('search')" @toggle="toggleLock('search')" /></template>
+    <cdx-accordion v-bind="sectionProps('search')">
+      <template #title>{{ t("panel.search") }} <info-dialog v-bind="info('search', 'panel.search')" /> <section-lock v-bind="lockProps('search')" /></template>
       <p class="cc-uitleg cc-sectie-intro">{{ t("panel.search_intro") }}</p>
       <form class="cc-zoek" @submit.prevent="search">
         <cdx-text-input clearable v-model="prompt" :placeholder="t('panel.search_placeholder')" :aria-label="t('panel.search')" />
@@ -297,8 +285,8 @@
     </cdx-accordion>
 
     <!-- Point or draw: two ways to choose one object yourself; one of the two switches at a time. -->
-    <cdx-accordion :model-value="open.point" data-sectie="point" @update:model-value="setOpen('point', $event)" class="cc-sectie-aanwijzen" :class="{ 'cc-uitklap-vast': isLocked('point') }" @click.capture="guard('point', $event)">
-      <template #title>{{ t("panel.point_or_draw") }} <info-dialog v-bind="info('point', 'panel.point_or_draw')" /> <section-lock :locked="isLocked('point')" :label="lockLabel('point')" @toggle="toggleLock('point')" /></template>
+    <cdx-accordion v-bind="sectionProps('point')" class="cc-sectie-aanwijzen">
+      <template #title>{{ t("panel.point_or_draw") }} <info-dialog v-bind="info('point', 'panel.point_or_draw')" /> <section-lock v-bind="lockProps('point')" /></template>
       <p class="cc-uitleg cc-sectie-intro">{{ t("panel.point_or_draw_intro") }}</p>
       <!-- Two ways, each folding away on its own, as in the AI suggestions (wish Olaf). -->
       <cdx-accordion v-model="open.aanwijzen" class="cc-deel-uitklap">
@@ -330,15 +318,15 @@
         </label>
         <p class="cc-uitleg">{{ t("panel.draw_help") }} <template v-if="hints.draw.trim()">{{ t("panel.draw_hint_help", { hint: hints.draw.trim() }) }} {{ cost(1) }}</template><template v-else>{{ t("panel.free") }}</template></p>
         <busy-note v-if="busy && where === 'draw'" :message="t('busy.sam')" />
-        <result-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'rechthoek'" v-bind="resultProps(lastResult)" :busy="busy" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" />
+        <result-message v-if="lastResult && resultAt === 'point' && !busy && lastResult.modus === 'rechthoek'" v-bind="resultProps(lastResult)" :busy="busy" @dismiss="emit('dismiss-result')" @restore-trash="emit('restore-trash', lastResult)" @undo="emit('undo-result', lastResult)" />
       </div>
       </cdx-accordion>
     </cdx-accordion>
 
     <!-- To Commons: the last step, for all work on the image, not only the AI suggestions (wish
          Olaf): depicts from Commons items, found objects and search terms, and the caption. -->
-    <cdx-accordion :model-value="open.tocommons" data-sectie="tocommons" @update:model-value="setOpen('tocommons', $event)" class="cc-naar-commons" :class="{ 'cc-uitklap-vast': isLocked('tocommons') }" @click.capture="guard('tocommons', $event)">
-      <template #title>{{ t("panel.to_commons") }} <info-dialog v-bind="info('tocommons', 'panel.to_commons')" /> <section-lock :locked="isLocked('tocommons')" :label="lockLabel('tocommons')" @toggle="toggleLock('tocommons')" /></template>
+    <cdx-accordion v-bind="sectionProps('tocommons')" class="cc-naar-commons">
+      <template #title>{{ t("panel.to_commons") }} <info-dialog v-bind="info('tocommons', 'panel.to_commons')" /> <section-lock v-bind="lockProps('tocommons')" /></template>
       <p class="cc-uitleg cc-sectie-intro">{{ t("panel.to_commons_intro") }}</p>
       <!-- Depicts and captions for the whole image (FO 9.7), in a window of its own. Blue but
            not filled: detecting stays the main action. Disabled for files with more pages, where
@@ -383,11 +371,12 @@ import { computed, inject, nextTick, reactive, ref, watch } from "vue";
 import { CdxAccordion, CdxButton, CdxIcon, CdxMessage, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconTrash } from "@wikimedia/codex-icons";
 import SectionLock from "./SectionLock.vue";
+import TickLinks from "./TickLinks.vue";
 import ResultMessage from "./ResultMessage.vue";
 import { textParts } from "../confirm.js";
 import { priceLabel, useT } from "../i18n.js";
 import { START_SUGGESTIONS, commonsFileUrl } from "../state.js";
-import { readStored, removeStored, writeStored } from "../storage.js";
+import { readStored, removeStored, useStoredList, writeStored } from "../storage.js";
 import { get, pagePath } from "../api.js";
 import { objectsWithTerm } from "../facets.js";
 import AiBadge from "./AiBadge.vue";
@@ -420,9 +409,11 @@ const props = defineProps({
   notices: { type: Array, default: () => [] },
 });
 const noticesAt = (place) => props.notices.filter((n) => n.where === place);
-const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode", "dismiss-result", "read-again", "dismiss-notice", "restore-trash", "hint"]);
+const emit = defineEmits(["detect", "inventory", "inventory-changed", "forget-inventory", "point-mode", "draw-mode", "dismiss-result", "read-again", "dismiss-notice", "restore-trash", "hint", "undo-result"]);
 const t = useT();
 const config = inject("config");
+// The tick-box links of the depicts items and the AI terms ("Alle termen" …).
+const TERM_LINKS = { all: "panel.terms_all", none: "panel.terms_none", invert: "panel.terms_invert" };
 // The two models in the live-mode line link to Meta's own pages. Muse Spark
 // has no homepage of its own; its section in the model overview is the closest.
 const modelLinks = {
@@ -493,6 +484,17 @@ function guard(key, event) {
   const summary = event.target.closest("summary");
   if (summary && summary.parentElement === event.currentTarget) event.preventDefault();
 }
+// What each of the five sections carries (v-bind): its state through setOpen, its name for the
+// lookup in setOpen (data-sectie), the look of a locked section and the guard on its title.
+const sectionProps = (key) => ({
+  modelValue: open[key],
+  "data-sectie": key,
+  "onUpdate:modelValue": (value) => setOpen(key, value),
+  class: { "cc-uitklap-vast": isLocked(key) },
+  onClickCapture: (event) => guard(key, event),
+});
+// The lock pin in the title of such a section.
+const lockProps = (key) => ({ locked: isLocked(key), label: lockLabel(key), onToggle: () => toggleLock(key) });
 const regionCount = computed(() => props.page.regio_aantal + props.page.notitie_aantal);
 // The window "Gegevens van deze afbeelding" (9.7).
 const originalOpen = ref(false);
@@ -578,18 +580,7 @@ function itemTitle(item) {
   return [t("panel.commons_depicts_item", { label: item.label, q: item.q }), t("panel.term_found", { n: itemCount(item) })].join(" · ");
 }
 // Items left out of "Detect all", like the terms (per file, this browser only).
-const excludedItems = ref([]);
-const excludedItemsKey = computed(() => `cc-items-uit:${props.file.mid}`);
-watch(
-  excludedItemsKey,
-  (key) => (excludedItems.value = readStored(key, [], { json: true })),
-  { immediate: true }
-);
-function setExcludedItems(list) {
-  excludedItems.value = [...new Set(list)];
-  writeStored(excludedItemsKey.value, excludedItems.value, { json: true });
-}
-const toggleItem = (q) => setExcludedItems(excludedItems.value.includes(q) ? excludedItems.value.filter((x) => x !== q) : [...excludedItems.value, q]);
+const { list: excludedItems, set: setExcludedItems, toggle: toggleItem, invert: invertItems } = useStoredList(computed(() => `cc-items-uit:${props.file.mid}`));
 const includedItems = computed(() => commonsDepicts.value.filter((item) => !excludedItems.value.includes(item.q)));
 // The first round or a later one: does an item have a linked object on the image already?
 const locatedItems = computed(() => commonsDepicts.value.filter((item) => itemCount(item)));
@@ -680,20 +671,13 @@ const termLabel = (term) => (config.taal === "nl" ? term.nl : term.en);
 // Which search words were looked for on this page (wish Olaf): a chip with results is
 // green, one that was searched but found nothing is grey with a 0. Remembered in this
 // browser per file and page; what is on the image decides "found".
-const searched = ref([]);
-const searchedKey = computed(() => `cc-gezocht:${props.file.mid}:${props.page.n}`);
-watch(
-  searchedKey,
-  (key) => (searched.value = readStored(key, [], { json: true })),
-  { immediate: true }
-);
+const { list: searched, set: setSearched } = useStoredList(computed(() => `cc-gezocht:${props.file.mid}:${props.page.n}`));
 watch(
   () => props.lastResult,
   (result) => {
     if (!result || result.modus !== "prompt" || !result.prompt) return;
     const words = result.prompt.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
-    searched.value = [...new Set([...searched.value, ...words])];
-    writeStored(searchedKey.value, searched.value, { json: true });
+    setSearched([...searched.value, ...words]);
   }
 );
 const wasSearched = (word) => searched.value.includes(String(word || "").toLowerCase());
@@ -715,20 +699,7 @@ watch(
 
 // Terms left out of "Detect all" (by their English term), per file and page,
 // remembered in this browser only (a convenience; nothing is stored on the server).
-const excluded = ref([]);
-const storageKey = computed(() => `cc-termen-uit:${props.file.mid}:${props.page.n}`);
-watch(
-  storageKey,
-  (key) => (excluded.value = readStored(key, [], { json: true })),
-  { immediate: true }
-);
-function setExcluded(terms) {
-  excluded.value = [...new Set(terms)];
-  writeStored(storageKey.value, excluded.value, { json: true });
-}
-function toggleTerm(term) {
-  setExcluded(excluded.value.includes(term) ? excluded.value.filter((t2) => t2 !== term) : [...excluded.value, term]);
-}
+const { list: excluded, set: setExcluded, toggle: toggleTerm, invert: invertTerms } = useStoredList(computed(() => `cc-termen-uit:${props.file.mid}:${props.page.n}`));
 const includedTerms = computed(() => newTerms.value.filter((term) => !excluded.value.includes(term.en)));
 // Once the ticked terms were looked for, the button says "again", like for the depicts items (wish Olaf).
 const termsLabel = computed(() => {
@@ -781,6 +752,7 @@ watch(() => [props.file.mid, props.page.n], () => (resultAt.value = null));
 // the trash, hidden), yellow when nothing was found at all.
 function resultType(result) {
   if (result.fout) return "error";
+  if (result.undone) return "success"; // Undo worked: the drawn object went to the trash
   // Pointing and drawing: about one object; a warning when nothing came of the click or the hint.
   if (result.modus === "punt") return result.outcome === "niets" ? "warning" : "success";
   if (result.modus === "rechthoek") return result.hint && !result.gevonden ? "warning" : "success";
@@ -791,6 +763,7 @@ function resultType(result) {
 
 function resultText(result) {
   if (result.fout) return result.fout; // the request failed: its reason, here under the button
+  if (result.undone) return result.undone;
   // Pointing and drawing: about one object.
   if (result.modus === "punt") {
     if (result.outcome === "niets") return result.hint ? t("panel.result_point_none_hint", { hint: result.hint }) : t("panel.result_point_none");

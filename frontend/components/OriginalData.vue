@@ -47,31 +47,26 @@
         <!-- The proposals, with an (i) that explains a row, and All · None · Invert (wish Olaf). -->
         <div class="cc-origineel-kop">
           <h4 class="cc-commons-kop">{{ t("original.proposals") }} <info-dialog :title="t('original.proposals')" :label="t('panel.info_label', { section: t('original.proposals') })" :paragraphs="proposalsInfo" /></h4>
-          <span v-if="proposalRows.length" class="cc-klein cc-origineel-selectie">
-            <button type="button" class="cc-link" @click="proposalRows.forEach((row) => (row.checked = true))">{{ t("objects.all") }}</button>
-            ·
-            <button type="button" class="cc-link" @click="proposalRows.forEach((row) => (row.checked = false))">{{ t("objects.none") }}</button>
-            ·
-            <button type="button" class="cc-link" @click="proposalRows.forEach((row) => (row.checked = !row.checked))">{{ t("objects.invert") }}</button>
-          </span>
+          <tick-links
+            v-if="proposalRows.length"
+            class="cc-klein cc-origineel-selectie"
+            @all="proposalRows.forEach((row) => (row.checked = true))"
+            @none="proposalRows.forEach((row) => (row.checked = false))"
+            @invert="proposalRows.forEach((row) => (row.checked = !row.checked))"
+          />
         </div>
         <busy-note v-if="resolving" :message="t('original.resolving')" />
         <p v-if="!proposalRows.length && !resolving" class="cc-uitleg">{{ t("original.proposals_none") }}</p>
         <ul class="cc-origineel-rijen">
-          <li v-for="row in proposalRows" :key="row.key" class="cc-origineel-rij">
-            <input v-model="row.checked" type="checkbox" :aria-label="t('original.include', { item: row.label })" />
-            <!-- The item's own image (P18) on Wikidata, where it has one: helps to see whether it is the right item. -->
-            <span :key="row.q" class="cc-item-beeld-kader"><img class="cc-item-beeld" :src="itemImage(row.q)" :alt="t('original.item_image', { item: row.label })" :title="t('original.item_image', { item: row.label })" loading="lazy" @mouseenter="showZoom($event, row.q)" @mouseleave="hideZoom" @error="noImage" /><span class="cc-geen-beeld">{{ t("original.no_image") }}</span></span>
-            <div class="cc-origineel-item">
-              <div>
-                <a :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
-                <span class="cc-klein"> ({{ row.q }})</span>
-                <ai-badge v-if="row.ai" kind="beschrijving" :model="''" />
-                <cdx-button v-if="row.terms.length || row.bronnen.includes('eigen')" action="progressive" weight="quiet" size="small" :aria-label="t('original.other_item')" :title="t('original.other_item')" @click="startOther(row)">
-                  <cdx-icon :icon="cdxIconEdit" size="small" />
-                </cdx-button>
-              </div>
-              <div v-if="row.beschrijving" class="cc-klein">{{ row.beschrijving }}</div>
+          <original-row
+            v-for="row in proposalRows"
+            :key="row.key"
+            v-bind="rowProps(row)"
+            :ai="row.ai"
+            :changeable="Boolean(row.terms.length || row.bronnen.includes('eigen'))"
+            v-on="rowEvents(row)"
+          >
+            <template #source>
               <div class="cc-klein cc-origineel-bron">
                 {{ row.bronnen.map((b) => t(`original.source_${b}`)).join(" · ") }}<template v-if="row.terms.length"> ({{ row.terms.join(", ") }})</template>
                 <template v-if="row.objecten.length"> · {{ t("original.objects", { n: row.objecten.length }) }}</template>
@@ -81,19 +76,7 @@
               <div v-if="row.objecten.some((o) => o.upload)" class="cc-klein cc-origineel-upload">
                 {{ t("original.with_upload", { n: row.objecten.filter((o) => o.upload).length, names: row.objecten.filter((o) => o.upload).map((o) => o.naam).join(", ") }) }}
               </div>
-              <!-- Another item for this row: search Wikidata (free) and pick. -->
-              <div v-if="otherFor === row.key" class="cc-origineel-zoek">
-                <cdx-text-input clearable v-model="otherText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOther" />
-                <ul class="cc-origineel-treffers">
-                  <li v-for="hit in otherHits" :key="hit.q">
-                    <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
-                    <button type="button" class="cc-link" @click="chooseOther(row, hit)">{{ hit.label }}</button>
-                    <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
-                  </li>
-                </ul>
-                <button type="button" class="cc-link" @click="otherFor = null">{{ t("actions.cancel") }}</button>
-              </div>
-            </div>
+            </template>
             <!-- "With place", with an (i) that explains it for this very row (wish Olaf). -->
             <span v-if="row.objecten.length && !data.meerdere_paginas" class="cc-origineel-met-positie">
               <!-- The property links to Wikidata (a link inside a label does not tick the box). -->
@@ -113,48 +96,22 @@
                 ]"
               />
             </span>
-            <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('original.hide_row', { item: row.label })" :title="t('original.hide_row', { item: row.label })" @click="hideRow(row)">
-              <cdx-icon :icon="cdxIconTrash" size="small" />
-            </cdx-button>
-          </li>
+          </original-row>
         </ul>
         <!-- Search terms without a found object: under their own heading, only along when ticked. -->
         <div v-if="emptyRows.length" class="cc-origineel-leeg">
           <h4 class="cc-commons-kop">{{ t("original.terms_without_objects", { n: emptyRows.length }) }}</h4>
           <ul class="cc-origineel-rijen">
-            <li v-for="row in emptyRows" :key="row.key" class="cc-origineel-rij">
-              <input v-model="row.checked" type="checkbox" :aria-label="t('original.include', { item: row.label })" />
-              <!-- As the proposals above (wish Olaf): the item's image, its description, another item. -->
-              <span :key="row.q" class="cc-item-beeld-kader"><img class="cc-item-beeld" :src="itemImage(row.q)" :alt="t('original.item_image', { item: row.label })" :title="t('original.item_image', { item: row.label })" loading="lazy" @mouseenter="showZoom($event, row.q)" @mouseleave="hideZoom" @error="noImage" /><span class="cc-geen-beeld">{{ t("original.no_image") }}</span></span>
-              <div class="cc-origineel-item">
-                <div>
-                  <a :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
-                  <span class="cc-klein"> ({{ row.q }})</span>
-                  <ai-badge kind="beschrijving" :model="''" />
-                  <cdx-button action="progressive" weight="quiet" size="small" :aria-label="t('original.other_item')" :title="t('original.other_item')" @click="startOther(row)">
-                    <cdx-icon :icon="cdxIconEdit" size="small" />
-                  </cdx-button>
-                </div>
-                <div v-if="row.beschrijving" class="cc-klein">{{ row.beschrijving }}</div>
+            <!-- As the proposals above (wish Olaf): the item's image, its description, another item. -->
+            <original-row v-for="row in emptyRows" :key="row.key" v-bind="rowProps(row)" ai changeable v-on="rowEvents(row)">
+              <template #source>
                 <div class="cc-klein cc-origineel-bron">{{ t("original.source_zoekterm") }} ({{ row.terms.join(", ") }}) · {{ t("original.no_objects") }}</div>
-                <div v-if="otherFor === row.key" class="cc-origineel-zoek">
-                  <cdx-text-input clearable v-model="otherText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOther" />
-                  <ul class="cc-origineel-treffers">
-                    <li v-for="hit in otherHits" :key="hit.q">
-                      <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
-                      <button type="button" class="cc-link" @click="chooseOther(row, hit)">{{ hit.label }}</button>
-                      <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
-                    </li>
-                  </ul>
-                  <button type="button" class="cc-link" @click="otherFor = null">{{ t("actions.cancel") }}</button>
-                </div>
-              </div>
-              <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('original.hide_row', { item: row.label })" :title="t('original.hide_row', { item: row.label })" @click="hideRow(row)">
-                <cdx-icon :icon="cdxIconTrash" size="small" />
-              </cdx-button>
-            </li>
+              </template>
+            </original-row>
           </ul>
         </div>
+        <!-- A row removed with the bin: yellow, with Undo (wish Olaf 13-11-2026). -->
+        <undo-message :note="rowNote" />
         <p v-if="hidden.length" class="cc-klein">
           {{ t("original.hidden_rows", { n: hidden.length }) }}
           <button type="button" class="cc-link" @click="hidden = []">{{ t("original.hidden_show") }}</button>
@@ -247,16 +204,19 @@
 
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
-import { CdxButton, CdxDialog, CdxIcon, CdxMessage, CdxRadio, CdxTab, CdxTabs, CdxTextArea, CdxTextInput } from "@wikimedia/codex";
-import { cdxIconEdit, cdxIconTrash } from "@wikimedia/codex-icons";
-import { API, errorText, get, pagePath, put } from "../api.js";
+import { CdxButton, CdxDialog, CdxMessage, CdxRadio, CdxTab, CdxTabs, CdxTextArea, CdxTextInput } from "@wikimedia/codex";
+import { errorText, get, pagePath, put } from "../api.js";
 import { useT } from "../i18n.js";
-import { searchItems } from "../wikidata.js";
+import { itemImage, searchItems } from "../wikidata.js";
 import { movableDialog } from "../movable.js";
 import { commonsFileUrl } from "../state.js";
 import AiBadge from "./AiBadge.vue";
+import OriginalRow from "./OriginalRow.vue";
+import TickLinks from "./TickLinks.vue";
 import InfoDialog from "./InfoDialog.vue";
 import BusyNote from "./BusyNote.vue";
+import UndoMessage from "./UndoMessage.vue";
+import { useUndoMessage } from "../undo.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -283,8 +243,7 @@ const savedAt = ref("");
 const rows = ref([]);
 const addPosition = ref([]);
 const captions = reactive({});
-// The image (P18) of a Wikidata item, through our own server; hidden when there is none.
-const itemImage = (q, width = 120) => `${API}/wikidata/${q}/afbeelding?w=${width}`;
+// The image (P18) of a Wikidata item (itemImage); hidden when there is none.
 const hideImage = (event) => (event.target.style.visibility = "hidden");
 // A larger view beside the thumbnail, kept on screen; only for a thumbnail that loaded.
 const ZOOM_SIZE = 260;
@@ -299,8 +258,6 @@ function showZoom(event, q) {
   Object.assign(zoom, { show: true, src: itemImage(q, 240), x, y });
 }
 const hideZoom = () => (zoom.show = false);
-// Without an image: a grey square that says so, so the rows stay aligned (wish Olaf).
-const noImage = (event) => event.target.parentElement?.classList.add("cc-zonder-beeld");
 const commonsUrl = computed(() => commonsFileUrl(props.file.titel, "P180"));
 
 // -- Loading and building the rows ---------------------------------------------------------
@@ -451,9 +408,20 @@ const onCommons = computed(() => new Set(commonsItems.value.map((item) => item.q
 const proposalsInfo = computed(() => [1, 2, 3, 4, 5].map((n) => t(`original.info_${n}`)));
 // Rows you removed with the bin (wish Olaf): out of view and unticked; kept in the draft.
 const hidden = ref([]);
+// Undo (only here, nothing was saved yet): the row back in view, ticked again when it was.
+const rowNote = useUndoMessage(t);
 function hideRow(row) {
+  const q = row.q;
+  const wasChecked = row.checked;
   row.checked = false;
-  if (!hidden.value.includes(row.q)) hidden.value = [...hidden.value, row.q];
+  if (!hidden.value.includes(q)) hidden.value = [...hidden.value, q];
+  rowNote.show("warning", t("feedback.row_hidden", { item: row.label || q }), () => {
+    hidden.value = hidden.value.filter((h) => h !== q);
+    if (wasChecked) {
+      const back = merged.value.find((r) => r.q === q);
+      if (back) back.checked = true;
+    }
+  }, { done: t("feedback.row_back", { item: row.label || q }) });
 }
 const visibleRows = computed(() => merged.value.filter((row) => !onCommons.value.has(row.q) && !hidden.value.includes(row.q)));
 const proposalRows = computed(() => visibleRows.value.filter((row) => row.objecten.length || !row.bronnen.every((b) => b === "zoekterm")));
@@ -477,6 +445,18 @@ async function searchOther(text) {
   const hits = await searchItems(text.trim(), config.taal).catch(() => []);
   if (mine === otherAsked) otherHits.value = hits;
 }
+// What a row (OriginalRow.vue) shows of the search for another item, and what it can ask.
+const rowProps = (row) => ({ row, searching: otherFor.value === row.key, text: otherText.value, hits: otherHits.value });
+const rowEvents = (row) => ({
+  other: () => startOther(row),
+  "update:text": (text) => (otherText.value = text),
+  search: searchOther,
+  choose: (hit) => chooseOther(row, hit),
+  cancel: () => (otherFor.value = null),
+  hide: () => hideRow(row),
+  zoom: showZoom,
+  unzoom: hideZoom,
+});
 function chooseOther(row, hit) {
   for (const member of row.members) Object.assign(member, { q: hit.q, label: hit.label, beschrijving: hit.beschrijving || "", checked: true });
   otherFor.value = null;

@@ -6,7 +6,7 @@
     :title="state.title || t('confirm.title')"
     :use-close-button="true"
     :close-button-label="t('actions.close')"
-    :primary-action="{ label: chosen?.go || state.go || t('confirm.go'), actionType: (chosen ? chosen.destructive : state.destructive) ? 'destructive' : 'progressive' }"
+    :primary-action="{ label: chosen?.go || (state.pick?.go ? state.pick.go(pickedCount) : state.go) || t('confirm.go'), actionType: (chosen ? chosen.destructive : state.destructive) ? 'destructive' : 'progressive', disabled: Boolean(state.pick) && pickedCount < state.pick.min }"
     :default-action="{ label: t('actions.cancel') }"
     @primary="answerConfirm(true)"
     @default="answerConfirm(false)"
@@ -28,15 +28,27 @@
       <strong v-if="state.fieldsTitle" class="cc-bevestig-kop">{{ state.fieldsTitle }}</strong>
       <div v-for="(field, i) in state.fields" :key="i" class="cc-bevestig-veld-waarde">
         <span class="cc-bevestig-veld-naam"><strong>{{ field.label }}</strong>{{ field.help ? ` ${field.help}` : "" }}</span>
-        <span class="cc-bevestig-waarde" :class="{ leeg: !field.value }">{{ field.value || t("confirm.empty") }}</span>
+        <!-- A list (e.g. the search terms) as bullets, one per item; a long list in two or three
+             columns, at most 8 per column (wish Olaf 13-11-2026). -->
+        <ul v-if="field.items?.length" class="cc-bevestig-waarde cc-bevestig-waarde-lijst" :style="{ columnCount: Math.min(3, Math.ceil(field.items.length / 8)) }">
+          <li v-for="(item, k) in field.items" :key="k">{{ item }}</li>
+        </ul>
+        <span v-else class="cc-bevestig-waarde" :class="{ leeg: !field.value }">{{ field.value || t("confirm.empty") }}</span>
       </div>
     </div>
-    <ul v-else-if="section.objects" class="cc-bevestig-objecten" :class="{ 'cc-bevestig-een': state.objects.length === 1 }">
-      <li v-for="(obj, i) in state.objects" :key="i">
+    <template v-else-if="section.objects">
+    <!-- Bulk actions: each object a tick box, all on; All · None · Invert. The button is off while
+         fewer than `min` are ticked (wish Olaf 13-11-2026). -->
+    <p v-if="state.pick && pickedCount < state.pick.min" class="cc-klein cc-bevestig-te-weinig">{{ t("confirm.pick_too_few", { n: state.pick.min }) }}</p>
+    <tick-links v-if="state.pick" tag="p" class="cc-bevestig-vinkjes" :label="t('objects.select_label')" :disabled-all="pickedCount === state.objects.length" :disabled-none="pickedCount === 0" @all="pickAll" @none="pickNone" @invert="pickInvert" />
+    <ul class="cc-bevestig-objecten" :class="{ 'cc-bevestig-een': state.objects.length === 1, 'cc-bevestig-kiezen': state.pick }">
+      <li v-for="(obj, i) in state.objects" :key="i" :class="{ 'cc-bevestig-uit': state.pick && !state.picked[i] }">
+        <cdx-checkbox v-if="state.pick" v-model="state.picked[i]" :aria-label="obj.name" />
         <img v-if="obj.image" :src="obj.image" alt="" loading="lazy" />
         <span v-if="obj.name">{{ obj.name }}</span>
       </li>
     </ul>
+    </template>
     <template v-else>
     <div v-for="(block, b) in section.blocks" :key="b" class="cc-bevestig-blok" :class="{ 'cc-bevestig-noot': section.key === 'note' }">
       <strong v-if="block.heading" class="cc-bevestig-kop">{{ block.heading }}</strong>
@@ -82,6 +94,7 @@ import { computed } from "vue";
 import { CdxCheckbox, CdxDialog, CdxField, CdxRadio, CdxTextInput } from "@wikimedia/codex";
 import { answerConfirm, confirmState as state, textParts } from "../confirm.js";
 import { useT } from "../i18n.js";
+import TickLinks from "./TickLinks.vue";
 
 const t = useT();
 const chosen = computed(() => (state.choices || []).find((option) => option.value === state.choice) || null);
@@ -100,12 +113,17 @@ const blocksOf = (text) =>
     .filter((block) => block.heading || block.items || block.text);
 // In order: the text, the objects (unless they are on top), the note.
 const sections = computed(() => [
-  { key: "text", blocks: blocksOf(state.text) },
+  { key: "text", blocks: blocksOf(state.pick?.text ? state.pick.text(pickedCount.value) : state.text) },
   ...(state.quote ? [{ key: "quote", quote: true }] : []),
   ...(state.fields?.length ? [{ key: "fields", fields: true }] : []),
   ...(state.objects?.length && !state.objectsFirst ? [{ key: "objects", objects: true }] : []),
   { key: "note", blocks: blocksOf(state.note) },
 ]);
+// Bulk actions: how many objects are ticked; All · None · Invert (the button wants at least `min`).
+const pickedCount = computed(() => (state.picked || []).filter(Boolean).length);
+const pickAll = () => (state.picked = state.objects.map(() => true));
+const pickNone = () => (state.picked = state.objects.map(() => false));
+const pickInvert = () => (state.picked = state.picked.map((on) => !on));
 // Links ({name} placeholders) and **bold** inside a line.
 function parts(text) {
   return textParts(text, state.links).flatMap((part) =>
