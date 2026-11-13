@@ -201,6 +201,10 @@
           <template #title>{{ t("bulk.title") }}</template>
           <!-- What this section is for, in one or two sentences (wish Olaf). -->
           <p class="cc-uitleg cc-sectie-intro">{{ t("bulk.intro") }}</p>
+          <!-- Every outcome of the four bulk actions in one fixed place, above the tabs, so it is always in
+               view (wish Olaf 13-11-2026): describing, merging, grouping and the trash (with Undo), the
+               same kind of message, one at a time, until you close it or a newer one replaces it. -->
+          <notice-list :notices="noticesAt('bulk')" @dismiss="dismiss" />
           <div class="cc-acties-rij cc-bulk">
             <cdx-tabs v-model:active="bulkTab" :framed="true">
               <cdx-tab name="beschrijven" :label="t('bulk.tab_describe', { n: toDescribe })">
@@ -253,13 +257,6 @@
                 <p class="cc-uitleg">{{ t("panel.bulk_trash_help") }}</p>
               </cdx-tab>
             </cdx-tabs>
-            <!-- The outcome of the last action, directly under the tabs that asked for it;
-                 red when nothing could be done. -->
-            <!-- Every outcome of the four bulk actions here, under the tabs (wish Olaf 13-11-2026): the result
-                 of describing and merging, and the notices of grouping and the trash (with Undo);
-                 one at a time, until you close it. -->
-            <notice-list :notices="noticesAt('bulk')" @dismiss="dismiss" />
-            <cdx-message v-if="actionResult && !busy" :type="actionResult.type" :allow-user-dismiss="true" :dismiss-button-label="t('actions.close')" class="cc-acties-melding" @user-dismissed="actionResult = null">{{ actionResult.text }}<ul v-if="actionResult.list?.length" class="cc-melding-lijst"><li v-for="line in actionResult.list" :key="line">{{ line }}</li></ul></cdx-message>
           </div>
           <busy-note v-if="busy && busyAt === 'objecten'" :message="maskWait || t('busy.describe')" />
           </cdx-accordion>
@@ -556,7 +553,6 @@ let noticeId = 0;
    "success" (green) when it worked; "notice" (grey) only for fixed explanations, not as a message. */
 // One message per place (wish Olaf 13-11-2026): a new one with a `where` replaces the one there.
 function notify(type, text, extra = {}) {
-  if (extra.where === "bulk") actionResult.value = null; // one message under the bulk tabs
   const kept = extra.where ? notices.value.filter((n) => n.where !== extra.where) : notices.value;
   notices.value = [...kept.slice(-3), { id: ++noticeId, type, text, ...extra }];
 }
@@ -1284,8 +1280,11 @@ const describeNote = computed(() => {
 const busyAt = ref(null);
 // The outcome of the last describe or merge, shown under those buttons.
 const actionResult = ref(null);
+// The outcome of describing or merging in bulk shows as the bulk notice (one kind, one place).
 watch(actionResult, (result) => {
-  if (result) notices.value = notices.value.filter((n) => n.where !== "bulk"); // one message under the bulk tabs
+  if (!result) return;
+  notify(result.type, result.text, { where: "bulk", ...(result.list?.length ? { list: result.list } : {}) });
+  actionResult.value = null;
 });
 watch(() => [file.value?.mid, pageN.value], () => { actionResult.value = null; });
 

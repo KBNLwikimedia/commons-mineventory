@@ -18,6 +18,8 @@
         <strong>{{ notice.object.name }}</strong>
       </span>
       {{ notice.text }}
+      <!-- Optionally a list (e.g. which objects were merged into which). -->
+      <ul v-if="notice.list?.length" class="cc-melding-lijst"><li v-for="line in notice.list" :key="line">{{ line }}</li></ul>
       <span v-if="notice.actions?.length || notice.link" class="cc-melding-acties">
         <button v-for="action in notice.actions || []" :key="action.label" type="button" class="cc-link" @click="action.run(); emit('dismiss', notice.id)">
           {{ action.label }}

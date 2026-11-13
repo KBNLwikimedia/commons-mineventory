@@ -5,6 +5,12 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.40.4] - 2026-11-13
+
+### Gewijzigd
+
+- Alle meldingen van de bulkacties (beschrijven, ontdubbelen, groeperen, prullenbak) staan nu op één vaste plek **boven** de tabbladen, zodat ze altijd in beeld zijn, en zien er allemaal hetzelfde uit (wens Olaf).
+
 ## [0.40.3] - 2026-11-13
 
 ### Toegevoegd
