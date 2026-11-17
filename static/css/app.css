@@ -1253,3 +1253,6 @@ details.cc-ai-bijsturing .cc-schuif-waarde { font-size: 0.8125rem; }
 /* Bulk actions always in view under the list, no fold-out (wish Olaf 17-11-2026). */
 .cc-bulk-blok { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color-subtle, #c8ccd1); }
 .cc-bulk-blok .cc-bulk-kop { margin: 0 0 0.25rem; font-size: 1rem; }
+/* A cut-out: level of detail and reasoning effort in AI steering; search terms from the description (wish Olaf 17-11-2026). */
+.cc-ai-sturing .cc-denkniveau { margin: 0.5rem 0; }
+.cc-object-termen { margin: 0.5rem 0 0.75rem; }

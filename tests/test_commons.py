@@ -204,18 +204,20 @@ def test_titles_exist_and_sha1(client, album):
 def test_item_info_labels_and_descriptions(tmp_path):
     client = CommonsClient(FixtureFetcher(), cache_dir=tmp_path)
     url = client.api_url(
-        {"action": "wbgetentities", "ids": "Q104526|Q1420", "props": "labels|descriptions", "languages": "nl|en"},
+        {"action": "wbgetentities", "ids": "Q104526|Q1420", "props": "labels|descriptions", "languages": "nl|en|mul|de|fr|es|it|la"},
         api=client.wikidata_api,
     )
     client.fetcher.extra = {
         url: {
             "entities": {
                 "Q104526": {"labels": {"en": {"value": "pipe"}}, "descriptions": {"en": {"value": "device for smoking"}}},
-                "Q1420": {"labels": {"nl": {"value": "auto"}}, "descriptions": {}},
+                "Q1420": {"labels": {"nl": {"value": "auto"}}, "descriptions": {"de": {"value": "Kraftfahrzeug"}}},
             }
         }
     }
     info = client.item_info(["Q104526", "Q1420", "Q104526", "x"])
-    assert info["Q104526"]["beschrijving"] == {"nl": None, "en": "device for smoking"}
-    assert info["Q1420"]["beschrijving"] == {"nl": None, "en": None} and info["Q1420"]["label"]["nl"] == "auto"
+    assert info["Q104526"]["beschrijving"] == {"nl": None, "en": "device for smoking", "andere": None}
+    # Neither Dutch nor English: another language, so the interface still shows something (wish Olaf 17-11-2026).
+    assert info["Q1420"]["beschrijving"] == {"nl": None, "en": None, "andere": {"taal": "de", "waarde": "Kraftfahrzeug"}}
+    assert info["Q1420"]["label"]["nl"] == "auto"
     assert client.item_info(["Q999"]) == {}  # not reachable: left out, no error

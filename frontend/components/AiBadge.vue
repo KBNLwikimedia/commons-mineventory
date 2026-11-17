@@ -1,7 +1,8 @@
 <!--
   A small "AI" mark beside a text that a language model wrote: the subject
   and description from "Wat staat hierop?" (kind "beschrijving"), its kind and certainty (kind "soort"), the page
-  overview with its search terms (kind "pagina"), or an object found by the
+  overview with its search terms (kind "pagina"), the proposals for 'depicts' (kind "beeldtaf",
+  once in the heading of their list), or an object found by the
   AI image detection (kind "detectie"). A click opens a short
   explanation of what that means and what to check. It may sit in an
   accordion title, so the click does not toggle the accordion.
@@ -63,6 +64,8 @@ const TEXTS = {
   detectie: { what: "ai.what_detection", risk: "ai.risk_detection", check: "ai.check_detection" },
   soort: { what: "ai.what_kind", risk: "ai.risk", check: "ai.check_kind" },
   aanvulling: { what: "ai.what_completion", risk: "ai.risk_completion", check: "ai.check_completion" },
+  // Once, in the heading of the proposals for 'depicts': for all rows from an AI term (wish Olaf 17-11-2026).
+  beeldtaf: { what: "ai.what_depicts", risk: "ai.risk_depicts", check: "ai.check_depicts" },
 };
 const texts = computed(() => TEXTS[props.kind] || TEXTS.beschrijving);
 // The model name links to Meta's page about it (as in the live-mode line).

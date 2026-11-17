@@ -660,3 +660,30 @@ def test_also_found_words_go_into_the_clue():
     two = beschrijving.also_found_sentence({**obj, "ook": [{"label": "cap", "score": 0.5}, {"label": "beret", "score": None}]})
     assert two.endswith('"cap" (certainty 50%) and "beret".')
 
+
+
+def test_object_steering_detail_effort_and_terms_from_text(objects, album, tmp_path):
+    """AI steering for a cut-out as for the whole image (wish Olaf 17-11-2026): how many search
+    terms (level of detail) and the reasoning effort; and search terms from the description
+    that is there, without the image."""
+    obj = objects.detect(album, 1, "wapen")["objecten"][0]
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    preview = service.prompt_preview(album, 1, obj["id"], detail="hoofdonderwerp")
+    assert "(at most 1)" in preview["prompt"] and "only the one main subject of this cut-out." in preview["prompt"]
+    assert "(at most 20)" in service.prompt_preview(album, 1, obj["id"], detail="details")["prompt"]
+    with pytest.raises(DetectionError):
+        service.prompt_preview(album, 1, obj["id"], detail="alles")
+    one = service.describe(album, 1, obj["id"], detail="hoofdonderwerp", effort="high")["object"]["beschrijving"]
+    assert one["detailniveau"] == "hoofdonderwerp" and one["redeneren"] == "high" and len(one["wikidata_suggesties"]) == 1
+    with pytest.raises(DetectionError):
+        service.describe(album, 1, obj["id"], effort="max")
+    plan = service.plan(album, 1, obj["id"])
+    assert set(plan["kosten_per_redeneren"]) == {"low", "medium", "high"} and set(plan["kosten_zoektermen_per_redeneren"]) == {"low", "medium", "high"}
+    version = service.version(one)
+    terms = service.terms_from_description(album, 1, obj["id"], detail="hoofdzaken")
+    after = terms["object"]["beschrijving"]
+    assert after["wikidata_suggesties"] == ["flying boat", "propeller", "traveller"] and after["zoektermen_uit_tekst"]["detailniveau"] == "hoofdzaken"
+    assert service.version(after) == version and after["beschrijving"] == one["beschrijving"]
+    assert service.terms_from_description(album, 1, obj["id"], detail="hoofdzaken")["uit_cache"]
+    request = beschrijving.build_request("m", "p", None, schema=beschrijving.terms_schema())
+    assert request["input"][0]["content"] == [{"type": "input_text", "text": "p"}] and beschrijving.schema_name(beschrijving.terms_schema()) == "zoektermen"

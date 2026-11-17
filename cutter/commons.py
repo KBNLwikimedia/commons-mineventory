@@ -454,11 +454,21 @@ class CommonsClient:
         return result
 
     def item_info(self, ids):
-        """{Q-id: {"label": {nl, en}, "beschrijving": {nl, en}}} from Wikidata;
-        items that cannot be fetched are left out."""
+        """{Q-id: {"label": {nl, en, mul, andere}, "beschrijving": {nl, en, andere}}} from Wikidata,
+        in one request per 50 items; items that cannot be fetched are left out. "andere" is
+        {"taal", "waarde"} of the first of OTHER_LABEL_LANGUAGES that has one (or None): the
+        interface shows the other of nl/en, then that, when its own language has none (wish Olaf
+        17-11-2026)."""
+        languages = "|".join(("nl", "en", "mul", *self.OTHER_LABEL_LANGUAGES))
+
+        def texts(values, mul=False):
+            values = values if isinstance(values, dict) else {}
+            other = next(({"taal": lang, "waarde": (values.get(lang) or {}).get("value")} for lang in self.OTHER_LABEL_LANGUAGES if (values.get(lang) or {}).get("value")), None)
+            return {**self._texts(values), **({"mul": (values.get("mul") or {}).get("value")} if mul else {}), "andere": other}
+
         return {
-            qid: {"label": self._texts(entity.get("labels")), "beschrijving": self._texts(entity.get("descriptions"))}
-            for qid, entity in self._wikidata_entities(ids, "labels|descriptions")
+            qid: {"label": texts(entity.get("labels"), mul=True), "beschrijving": texts(entity.get("descriptions"))}
+            for qid, entity in self._wikidata_entities(ids, "labels|descriptions", languages=languages)
         }
 
     def entity_labels(self, ids):

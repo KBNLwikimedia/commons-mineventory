@@ -16,6 +16,15 @@ export function menuItem(hit) {
 /* The image (P18) of a Wikidata item, through our own server. */
 export const itemImage = (q, width = 120) => `${API}/wikidata/${q}/afbeelding?w=${width}`;
 
+// A Wikidata label or description ({nl, en, mul?, andere?: {taal, waarde}}) in the language of the
+// interface; without one the other of nl/en, then the multilingual label, then another language
+// (wish Olaf 17-11-2026: never empty when Wikidata has something). "" when there is nothing.
+export function inLanguage(texts, language) {
+  if (!texts) return "";
+  const other = language === "en" ? "nl" : "en";
+  return texts[language] || texts[other] || texts.mul || texts.andere?.waarde || "";
+}
+
 // The best Wikidata hit for a search term: the label exactly as the term first ("lemon" the
 // fruit, not "LemON" the band), then the same letters in another case, then a label containing
 // it, else the first hit. Shared by the window for the whole image and that of a cut-out.

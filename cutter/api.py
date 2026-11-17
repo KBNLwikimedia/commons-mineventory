@@ -791,7 +791,7 @@ def describe_object(mid, n, object_id):
     boy"), the margin the share of the box shown around it (0-1); for a group, "alleen_groep":
     false leaves out the instruction to look at its members only."""
     body = _body()
-    _optional_text(body, "aanwijzing", "model", "beschrijvingsniveau")
+    _optional_text(body, "aanwijzing", "model", "beschrijvingsniveau", "detailniveau", "redeneren")
     if not isinstance(body.get("alleen_groep", True), bool):
         raise DetectionError("'alleen_groep' is true of false.", status=400, code="invalid_body")
     _require_paid_access(_descriptions().vision.betaald)
@@ -800,7 +800,22 @@ def describe_object(mid, n, object_id):
         _descriptions().describe(
             file, n, object_id, body.get("model"), again=bool(body.get("opnieuw")), user=_user(),
             hint=body.get("aanwijzing"), margin=body.get("marge"), group_focus=body.get("alleen_groep", True),
-            description_level=body.get("beschrijvingsniveau"),
+            description_level=body.get("beschrijvingsniveau"), detail=body.get("detailniveau"), effort=body.get("redeneren"),
+        )
+    )
+
+
+@api.post("/bestand/<mid>/pagina/<int:n>/objecten/<object_id>/beschrijving/zoektermen")
+def description_terms(mid, n, object_id):
+    """Search terms for 'depicts' from the description that is there (its longest length), without
+    the image (paid in live mode, cached). Body: {"detailniveau": "hoofdonderwerp|hoofdzaken|normaal|details",
+    "redeneren": "low|medium|high", "opnieuw": false}. Replaces the description's wikidata_suggesties."""
+    body = _body()
+    _optional_text(body, "detailniveau", "redeneren")
+    _require_paid_access(_descriptions().vision.betaald)
+    return jsonify(
+        _descriptions().terms_from_description(
+            _page_file(mid, n), n, object_id, user=_user(), detail=body.get("detailniveau"), effort=body.get("redeneren"), again=bool(body.get("opnieuw")),
         )
     )
 
@@ -830,6 +845,7 @@ def _prompt_answer(mid, n, object_id):
         _page_file(mid, n), n, object_id, hint=request.args.get("aanwijzing"), margin=request.args.get("marge"),
         group_focus=request.args.get("alleen_groep", "true") != "false",
         description_level=request.args.get("beschrijvingsniveau") or None,
+        detail=request.args.get("detailniveau") or None,
     )
 
 
@@ -936,8 +952,9 @@ def search_wikidata():
 
 @api.get("/wikidata/items")
 def wikidata_items():
-    """Label and description (nl, en) of up to 50 items (free, cached): the window for the
-    whole image shows the description of the item a row has now (wish Olaf 15-11-2026)."""
+    """Label and description (nl, en, and "andere": another language when neither has one) of up
+    to 50 items (free, cached): the window for the whole image shows the description of the item
+    a row has now (wish Olaf 15-11-2026)."""
     ids = [q for q in dict.fromkeys((request.args.get("ids") or "").split("|")) if QID.fullmatch(q)][:50]
     info = _client().item_info(ids) if ids else {}
     return jsonify({"items": {q: {"label": v.get("label") or {}, "beschrijving": v.get("beschrijving") or {}} for q, v in info.items()}})

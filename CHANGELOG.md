@@ -5,6 +5,19 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-17
+
+### Toegevoegd
+
+- *Wat staat hierop?* van een uitsnede: in *AI-bijsturing* nu ook het *Detailniveau* van de zoektermen voor *beeldt af* (alleen het hoofdonderwerp, tot 3, tot 10, tot 20) en het *Denkniveau* (laag, middel, hoog, elk met zijn prijs), zoals bij de afbeelding als geheel (wens Olaf). API: `detailniveau` en `redeneren` bij `POST …/objecten/{id}/beschrijving`, `kosten_per_redeneren` in de GET.
+- Tabblad *Beeldt af (P180)*: de knop *Zoektermen uit de beschrijving halen* laat de AI uit de uitgebreide beschrijving die er al is de zoektermen halen, met het aantal van de schuif. Alleen de tekst gaat mee, geen afbeelding, dus goedkoper dan opnieuw beschrijven (betaald, met bevestiging). API: `POST …/objecten/{id}/beschrijving/zoektermen`.
+
+### Gewijzigd
+
+- Beschrijvingen van Wikidata-items tonen in de taal van de interface, anders in de andere van Nederlands en Engels, anders in een andere taal (de, fr, es, it, la); labels ook met het meertalige label (wens Olaf). Geldt voor *Naar Commons* en het tabblad *Beeldt af (P180)*.
+- Eén AI-merkje in de kop *Voorstellen voor 'beeldt af'*, met uitleg over alle voorstellen, in plaats van een merkje bij elk item (wens Olaf).
+- *Bulkacties*: "Doe iets met meerdere objecten tegelijk" (was "veel"; wens Olaf).
+
 ## [0.42.0] - 2026-11-17
 
 ### Toegevoegd

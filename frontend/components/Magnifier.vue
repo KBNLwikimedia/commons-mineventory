@@ -355,6 +355,16 @@
                         <template #help-text>{{ t("describe.hint_help") }}</template>
                         <cdx-text-input clearable v-model="hint" :placeholder="t('describe.hint_placeholder')" :maxlength="300" @keydown.enter="describe(Boolean(description))" />
                       </cdx-field>
+                      <!-- How many search terms for 'depicts', and how hard the AI thinks: as for the whole
+                           image (wish Olaf 17-11-2026). -->
+                      <detail-slider v-model="termLevel" :disabled="busy" :levels="TERM_LEVELS" prefix="objterms" />
+                      <cdx-field class="cc-denkniveau" :is-fieldset="true">
+                        <template #label>{{ t("pagedescribe.effort_label") }}</template>
+                        <template #help-text>{{ t("pagedescribe.effort_help") }}</template>
+                        <cdx-radio v-for="level in EFFORTS" :key="level" v-model="effort" name="cc-object-redeneren" :input-value="level" :disabled="busy">
+                          {{ t(`pagedescribe.effort_${level}`) }}<span v-if="plan?.betaald" class="cc-kosten"> ({{ money(plan.kosten_per_redeneren?.[level] ?? 0, language) }})</span>
+                        </cdx-radio>
+                      </cdx-field>
                       <label class="cc-marge">
                         <span>{{ t("describe.margin", { pct: Math.round(margin * 100) }) }}</span>
                         <input v-model.number="margin" type="range" min="0" max="1" step="0.05" :aria-label="t('describe.margin_label')" />
@@ -497,6 +507,8 @@
                   <h3 class="cc-blok-kop">
                     {{ t("describe.suggestions") }}
                     (<a href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">P180</a>)
+                    <!-- One AI mark for all proposals, not one per row (wish Olaf 17-11-2026). -->
+                    <ai-badge kind="beeldtaf" />
                   </h3>
                   <p class="cc-uitleg">{{ t("describe.suggestions_help") }}</p>
                   <!-- Search Wikidata yourself (free, only reading). -->
@@ -526,6 +538,18 @@
                       <small><a :href="`https://www.wikidata.org/wiki/${hit.q}`" target="_blank" rel="noopener">{{ hit.q }}</a> · {{ hit.beschrijving }}</small>
                     </li>
                   </ul>
+                  <!-- Search terms from the description that is there, without the image (paid, cheaper than
+                       describing anew), with the same level of detail as in AI steering (wish Olaf 17-11-2026). -->
+                  <div v-if="description" class="cc-termen-bron cc-object-termen">
+                    <detail-slider v-model="termLevel" :disabled="busy || termsBusy" :levels="TERM_LEVELS" prefix="objterms" compact />
+                    <div class="cc-termen-knoppen">
+                      <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy || termsBusy" :title="t('describe.terms_from_text_help')" @click="termsFromDescription">
+                        {{ t("describe.terms_from_text") }} <span class="cc-kosten">{{ termsCostLabel }}</span>
+                      </cdx-button>
+                    </div>
+                    <busy-note v-if="termsBusy" :message="t('describe.terms_busy')" />
+                    <p class="cc-uitleg cc-termen-uitleg">{{ t("describe.terms_from_text_help") }}</p>
+                  </div>
                   <!-- Ready-made proposals, as for the whole image (wish Olaf 17-11-2026): from the name of
                        the cut-out, an item it has, and the AI description (also what its longest length
                        names), each already looked up on Wikidata, with the item's image. A tick puts the
@@ -574,7 +598,7 @@
 <script setup>
 import { isPlaceholderTerm } from "../class-colors.js";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxLookup, CdxMessage, CdxProgressBar, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup, CdxToggleSwitch } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxDialog, CdxField, CdxIcon, CdxInfoChip, CdxLookup, CdxMessage, CdxProgressBar, CdxRadio, CdxTab, CdxTabs, CdxTextArea, CdxTextInput, CdxToggleButtonGroup, CdxToggleSwitch } from "@wikimedia/codex";
 import { cdxIconClose, cdxIconDownload, cdxIconEdit, cdxIconLinkExternal, cdxIconNext, cdxIconPrevious, cdxIconSearch, cdxIconTrash } from "@wikimedia/codex-icons";
 import { API, del, errorText, get, objectPath, patch, post, put } from "../api.js";
 import { askConfirm, askRemoval, confirmDeleteVersion, textParts } from "../confirm.js";
@@ -594,7 +618,8 @@ import UndoMessage from "./UndoMessage.vue";
 import { descriptionVersion, promptBack, useUndoMessage, versionBack } from "../undo.js";
 import { movableDialog } from "../movable.js";
 import { fileName, objectName, savedLabel } from "../state.js";
-import { bestHit, itemImage, itemInfo, searchItems, wikidataSearcher } from "../wikidata.js";
+import { bestHit, inLanguage, itemImage, itemInfo, searchItems, wikidataSearcher } from "../wikidata.js";
+import DetailSlider from "./DetailSlider.vue";
 import { useItemZoom } from "../zoom.js";
 import ItemZoom from "./ItemZoom.vue";
 import OriginalRow from "./OriginalRow.vue";
@@ -740,11 +765,24 @@ const margin = ref(props.object.beschrijving?.marge ?? DEFAULT_MARGIN);
 // description, else the last one chosen in this browser. The AI makes all four at once.
 const OBJ_DESC_KEY = "cc-object-beschrijvingsniveau";
 const descLevel = ref(props.object.beschrijving?.beschrijvingsniveau || readStored(OBJ_DESC_KEY, "normaal"));
+// How many search terms for 'depicts' the AI gives (as for the whole image) and how hard it thinks:
+// what the last answer used, else "normaal"; the effort the app's setting, else low.
+const TERM_LEVELS = ["hoofdonderwerp", "hoofdzaken", "normaal", "details"];
+const EFFORTS = ["low", "medium", "high"];
+const termLevel = ref(props.object.beschrijving?.detailniveau || "normaal");
+const chosenEffort = ref(null);
+const effort = computed({
+  get: () => chosenEffort.value || (EFFORTS.includes(plan.value?.redeneren) ? plan.value.redeneren : "low"),
+  set: (value) => (chosenEffort.value = value),
+});
+const defaultEffort = () => (EFFORTS.includes(plan.value?.redeneren) ? plan.value.redeneren : "low");
 // What the next question will use besides the defaults, in a few words
 // (shown beside the button and on the folded AI modifiers).
 const modifiersSummary = computed(() => {
   const parts = [];
   if (props.object.groep && !groupOnly.value) parts.push(t("describe.history_group_off"));
+  if (termLevel.value !== "normaal") parts.push(t("describe.history_detail", { level: t(`objterms.${termLevel.value}`) }));
+  if (effort.value !== defaultEffort()) parts.push(t(`pagedescribe.effort_${effort.value}`));
   if (Math.round(margin.value * 100) !== Math.round(DEFAULT_MARGIN * 100)) parts.push(t("describe.history_margin", { pct: Math.round(margin.value * 100) }));
   if (hint.value.trim()) parts.push(t("describe.history_hint", { hint: hint.value.trim() }));
   if (promptInfo.value?.eigen) parts.push(t("pagedescribe.steer_own_prompt"));
@@ -829,7 +867,11 @@ const reasonLinks = {
   contributor: { href: "https://dev.meta.ai/docs/pricing-rate-limits#contributor-mode", label: t("describe.contributor_link") },
 };
 // The cost on the buttons: an estimate in live mode, free with the dummy.
-const costLabel = computed(() => (plan.value?.betaald ? `± ${money(plan.value.kosten_schatting_usd, language)}` : t("describe.free_short")));
+// The price of the next question at the chosen reasoning effort.
+const describeAmount = computed(() => plan.value?.kosten_per_redeneren?.[effort.value] ?? plan.value?.kosten_schatting_usd ?? 0);
+const costLabel = computed(() => (plan.value?.betaald ? `± ${money(describeAmount.value, language)}` : t("describe.free_short")));
+const termsAmount = computed(() => plan.value?.kosten_zoektermen_per_redeneren?.[effort.value] ?? 0);
+const termsCostLabel = computed(() => (plan.value?.betaald ? `± ${money(termsAmount.value, language)}` : t("describe.free_short")));
 // What the image description would see with the chosen margin (free; nothing goes to the model).
 const modelInputUrl = computed(() => `${base.value}/beschrijving/invoer.jpg?marge=${shownMargin.value}`);
 // The same, large (up to 3000 px), for the lightbox: to read and check the text in the image.
@@ -878,6 +920,8 @@ watch(
     hint.value = "";
     margin.value = props.object.beschrijving?.marge ?? DEFAULT_MARGIN;
     descLevel.value = props.object.beschrijving?.beschrijvingsniveau || descLevel.value;
+    termLevel.value = props.object.beschrijving?.detailniveau || "normaal";
+    chosenEffort.value = null;
     shownMargin.value = margin.value;
     loadHistory();
     cancelEditing();
@@ -911,7 +955,7 @@ async function describe(again) {
   // cache (free), but the estimate is asked to confirm all the same.
   if (busy.value) return; // a second click while the first question runs: never asked (or paid) twice
   const paid = again || !description.value;
-  if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(`${t("confirm.action_describe", { name: name.value })}\n\n${t("describe.confirm", { amount: money(plan.value.kosten_schatting_usd, language) })}`, { title: t("confirm.cost_title") }))) return;
+  if (paid && config.betaald && plan.value?.betaald && !(await askConfirm(`${t("confirm.action_describe", { name: name.value })}\n\n${t("describe.confirm", { amount: money(describeAmount.value, language) })}`, { title: t("confirm.cost_title") }))) return;
   busy.value = true;
   seconds.value = 0;
   ticker = setInterval(() => seconds.value++, 1000);
@@ -920,7 +964,7 @@ async function describe(again) {
   const id = props.object.id;
   const previous = descriptionVersion(description.value); // to put back from the message
   try {
-    const body = { opnieuw: again, marge: margin.value, beschrijvingsniveau: descLevel.value };
+    const body = { opnieuw: again, marge: margin.value, beschrijvingsniveau: descLevel.value, detailniveau: termLevel.value, redeneren: effort.value };
     if (props.object.groep && !groupOnly.value) body.alleen_groep = false;
     if (hint.value.trim()) body.aanwijzing = hint.value.trim();
     const result = await post(path, body);
@@ -975,6 +1019,28 @@ function entryText(entry, lang) {
   const length = entry.beschrijvingen?.[descLevel.value];
   if (length) return length[lang] || "";
   return lang === "en" ? entry.beschrijving_en : entry.beschrijving;
+}
+
+// Search terms for 'depicts' from the description that is there, without the image (paid, with
+// a confirmation); they become the proposals in this tab.
+const termsBusy = ref(false);
+async function termsFromDescription() {
+  if (termsBusy.value || !description.value) return;
+  if (config.betaald && plan.value?.betaald && !(await askConfirm(`${t("confirm.action_terms", { name: name.value })}\n\n${t("describe.confirm_terms", { amount: money(termsAmount.value, language) })}`, { title: t("confirm.cost_title") }))) return;
+  const id = props.object.id;
+  termsBusy.value = true;
+  error.value = "";
+  try {
+    const result = await post(`${base.value}/beschrijving/zoektermen`, { detailniveau: termLevel.value, redeneren: effort.value });
+    if (id !== props.object.id) return emit("changed", result.object);
+    emit("changed", result.object);
+    loadPlan();
+    proposalNote.show("success", t("describe.terms_done", { n: result.object.beschrijving?.wikidata_suggesties?.length || 0 }));
+  } catch (e) {
+    if (id === props.object.id) error.value = errorText(t, e);
+  } finally {
+    termsBusy.value = false;
+  }
 }
 
 // Earlier descriptions (kept history plus answers still in the cache), newest first.
@@ -1294,7 +1360,7 @@ async function buildProposals() {
     const info = await itemInfo([...byQ.keys()]);
     for (const row of byQ.values()) {
       const one = info[row.q];
-      if (one) Object.assign(row, { label: one.label?.[language] || one.label?.en || row.label, beschrijving: one.beschrijving?.[language] || "" });
+      if (one) Object.assign(row, { label: inLanguage(one.label, language) || row.label, beschrijving: inLanguage(one.beschrijving, language) });
     }
   } catch {
     // Wikidata not reachable: the rows keep the texts of the search.
@@ -1483,7 +1549,7 @@ const showPrompt = ref(false);
 const editingOwnPrompt = ref(false);
 const ownDraft = ref("");
 const ownPromptError = ref("");
-const promptQuery = () => `?${new URLSearchParams({ beschrijvingsniveau: descLevel.value, marge: String(margin.value), alleen_groep: String(groupOnly.value) })}`;
+const promptQuery = () => `?${new URLSearchParams({ beschrijvingsniveau: descLevel.value, detailniveau: termLevel.value, marge: String(margin.value), alleen_groep: String(groupOnly.value) })}`;
 const currentPromptText = computed(() => (promptInfo.value?.eigen ? promptInfo.value.eigen_prompt?.tekst : "") || "");
 let promptTimer = null;
 async function loadPromptInfo() {
@@ -1508,7 +1574,7 @@ watch(
   },
   { immediate: true }
 );
-watch([descLevel, margin, groupOnly], () => {
+watch([descLevel, termLevel, margin, groupOnly], () => {
   clearTimeout(promptTimer);
   promptTimer = setTimeout(loadPromptInfo, 300);
 });

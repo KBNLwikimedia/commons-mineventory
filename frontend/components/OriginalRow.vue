@@ -17,7 +17,6 @@
       <div class="cc-origineel-item">
         <div class="cc-sdc-itemkop">
           <a class="cc-sdc-label" :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
-          <ai-badge v-if="ai" kind="beschrijving" :model="''" />
           <cdx-button v-if="changeable" action="progressive" weight="quiet" size="small" :aria-label="t('original.other_item')" :title="t('original.other_item')" @click="emit('other')">
             <cdx-icon :icon="cdxIconEdit" size="small" />
           </cdx-button>
@@ -56,11 +55,12 @@ import { CdxButton, CdxIcon, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconEdit, cdxIconTrash } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 import { itemImage } from "../wikidata.js";
-import AiBadge from "./AiBadge.vue";
 
 defineProps({
   // A merged row of OriginalData (its tick box speaks for all its members).
   row: { type: Object, required: true },
+  // From the AI (a search term or suggestion). No mark per row: one AI mark in the heading of the
+  // list explains them all (wish Olaf 17-11-2026); the source line says which rows.
   ai: { type: Boolean, default: false },
   // Whether the pencil (another item) is there.
   changeable: { type: Boolean, default: false },

@@ -152,7 +152,7 @@
         <div class="cc-sdc-blok">
           <div class="cc-sdc-blok-kop">
             <div>
-              <div class="cc-sdc-blok-titel">{{ t("original.proposals") }} <info-dialog :title="t('original.proposals')" :label="t('panel.info_label', { section: t('original.proposals') })" :paragraphs="proposalsInfo" /></div>
+              <div class="cc-sdc-blok-titel">{{ t("original.proposals") }} <ai-badge kind="beeldtaf" /> <info-dialog :title="t('original.proposals')" :label="t('panel.info_label', { section: t('original.proposals') })" :paragraphs="proposalsInfo" /></div>
               <a class="cc-sdc-eigenschap" href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">{{ t("original.sdc_depicts_property") }}</a>
             </div>
           </div>
@@ -388,7 +388,7 @@ import { CdxButton, CdxCombobox, CdxDialog, CdxMessage, CdxRadio, CdxTextArea, C
 import { cdxIconSearch } from "@wikimedia/codex-icons";
 import { errorText, get, objectPath, pagePath, put } from "../api.js";
 import { formatStamp, useT } from "../i18n.js";
-import { bestHit, itemImage, itemInfo, searchItems } from "../wikidata.js";
+import { bestHit, inLanguage, itemImage, itemInfo, searchItems } from "../wikidata.js";
 import { useItemZoom } from "../zoom.js";
 import ItemZoom from "./ItemZoom.vue";
 import { movableDialog } from "../movable.js";
@@ -606,7 +606,7 @@ function reactiveRow(one) {
 const commonsItems = computed(() => {
   const byQ = new Map();
   for (const s of data.value?.op_commons.beeldt_af || []) {
-    const item = byQ.get(s.q) || { q: s.q, label: (config.taal === "en" ? s.label_en : s.label) || s.label || s.q, label_en: s.label_en || "", description: (s.beschrijving || {})[config.taal] || "", positions: 0 };
+    const item = byQ.get(s.q) || { q: s.q, label: (config.taal === "en" ? s.label_en : s.label) || s.label || s.q, label_en: s.label_en || "", description: inLanguage(s.beschrijving, config.taal), positions: 0 };
     if (s.positie) item.positions += 1;
     byQ.set(s.q, item);
   }
@@ -702,8 +702,8 @@ async function describeRows(list) {
     for (const row of list) {
       const one = info[row.q];
       if (!one) continue;
-      row.beschrijving = one.beschrijving?.[config.taal] || "";
-      row.label = one.label?.[config.taal] || one.label?.en || one.label?.nl || row.label;
+      row.beschrijving = inLanguage(one.beschrijving, config.taal);
+      row.label = inLanguage(one.label, config.taal) || row.label;
     }
   } catch {
     // Wikidata not reachable: keep the texts the rows have.

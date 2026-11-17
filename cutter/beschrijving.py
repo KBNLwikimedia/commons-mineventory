@@ -115,7 +115,7 @@ Answer in JSON with these fields:
 - tekst_rond_beeld: legible text directly above, below or beside the object in the margin, verbatim. null if none.
 {descriptions}
 - zekerheid: hoog, middel or laag: how sure you are about the name and the description.
-- wikidata_suggesties: short English search terms (at most {max_suggestions}) for Wikidata items of what this cut-out depicts: first the main subject, then every distinct person, animal, object, vehicle, building or place you name in beschrijving_uitgebreid. One concept per term, singular, as a Wikidata label would be (e.g. "coat of arms", "Catherine of Alexandria", "flying boat", "propeller", "hat"). Search terms only, never Q-ids.
+- wikidata_suggesties: short English search terms (at most {max_suggestions}) for Wikidata items of what this cut-out depicts: {terms_rule} One concept per term, singular, as a Wikidata label would be (e.g. "coat of arms", "Catherine of Alexandria", "flying boat", "propeller", "hat"). Search terms only, never Q-ids.
 
 The image is {title} on Wikimedia Commons. Context from the file page (may be incomplete or wrong, do not treat it as the truth):
 - Description: {description}
@@ -778,6 +778,24 @@ OBJECT_DESCRIPTION_LEVELS = {
 
 
 OBJECT_DESCRIPTION_LEVELS["caption"] = DESCRIPTION_LEVELS["caption"]
+# How many search terms for 'depicts' the AI gives for a cut-out (the Level of detail slider in
+# AI steering, as for the whole image; wish Olaf 17-11-2026). Level -> (at most, the rule).
+OBJECT_TERM_LEVELS = {
+    "hoofdonderwerp": (1, "only the one main subject of this cut-out."),
+    "hoofdzaken": (3, "first the main subject, then at most 2 other prominent people or things you name in beschrijving_uitgebreid."),
+    "normaal": (10, "first the main subject, then every distinct person, animal, object, vehicle, building or place you name in beschrijving_uitgebreid."),
+    "details": (
+        20,
+        "first the main subject, then every distinct person, animal, object, vehicle, building or place you name in beschrijving_uitgebreid, also small details (clothing, accessories, tools, ornaments, things in the background).",
+    ),
+}
+
+
+def object_schema(detail=DEFAULT_DETAIL):
+    """The answer format for a cut-out, with as many search terms as the level of detail allows."""
+    schema = json.loads(json.dumps(SCHEMA))
+    schema["properties"]["wikidata_suggesties"]["maxItems"] = OBJECT_TERM_LEVELS[detail][0]
+    return schema
 OBJECT_SUMMARY_LINES = "\n".join(
     f"- beschrijving_{level}: {rule}\n- beschrijving_{level}_en: {rule_en}" for level, (rule, rule_en) in OBJECT_DESCRIPTION_LEVELS.items()
 ) + "\n  The four beschrijving lengths are separate descriptions of the same cut-out: write each one on its own, do not just cut a longer one."
@@ -785,14 +803,16 @@ OBJECT_SUMMARY_LINES = "\n".join(
 OBJECT_SHOWN = (("nl", "beschrijving"), ("en", "beschrijving_en"))
 
 
-def build_prompt(file, caption=None, hint=None, page_text=None, group=None, members_context=None, surroundings=False, description_level=DEFAULT_DESCRIPTION_LEVEL, clue=""):
+def build_prompt(file, caption=None, hint=None, page_text=None, group=None, members_context=None, surroundings=False, description_level=DEFAULT_DESCRIPTION_LEVEL, clue="", detail=DEFAULT_DETAIL):
     # All four lengths are asked at once (wish Olaf 17-11-2026); description_level only says
     # which one is shown, so it no longer changes the question.
     caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
+    most, terms_rule = OBJECT_TERM_LEVELS.get(detail) or OBJECT_TERM_LEVELS[DEFAULT_DETAIL]
     prompt = INSTRUCTIONS.format(
         descriptions=OBJECT_SUMMARY_LINES,
         kinds=", ".join(KINDS),
-        max_suggestions=MAX_SUGGESTIONS,
+        max_suggestions=most,
+        terms_rule=terms_rule,
         title=f'"{file.get("naam") or file.get("titel")}"',
         cutout_caption=f'"{caption}"' if caption else "none",
         **context(file),
@@ -820,10 +840,8 @@ def build_request(model, prompt, data_url, effort=None, schema=SCHEMA, name="bes
             {
                 "type": "message",
                 "role": "user",
-                "content": [
-                    {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": data_url},
-                ],
+                # Without an image only the text (search terms from a description, wish Olaf).
+                "content": [{"type": "input_text", "text": prompt}, *([{"type": "input_image", "image_url": data_url}] if data_url else [])],
             }
         ],
         "text": {"format": {"type": "json_schema", "name": name, "schema": schema, "strict": True}},
@@ -838,7 +856,45 @@ def build_request(model, prompt, data_url, effort=None, schema=SCHEMA, name="bes
 output_text = extract_output_text
 
 
-def parse_answer(text):
+def schema_name(schema):
+    """The name of an answer format in the request: a cut-out, a page, or search terms only."""
+    fields = schema.get("properties", {})
+    return "beschrijving" if "soort" in fields else "pagina" if "paginasoort" in fields or "zoektermen" in fields else "zoektermen"
+
+
+# Search terms for 'depicts' from a description that is already there (wish Olaf 17-11-2026): only
+# the text goes to the AI, no image, so it costs less than describing anew.
+TERMS_FROM_TEXT = """Below is a description of a cut-out from an image on Wikimedia Commons, written earlier by an AI. Its subject: {subject}.
+
+<<<
+{text}
+>>>
+
+Answer in JSON with one field:
+- wikidata_suggesties: short English search terms (at most {max_suggestions}) for Wikidata items of what the cut-out depicts, as far as this description names it: {terms_rule} One concept per term, singular, as a Wikidata label would be (e.g. "coat of arms", "Catherine of Alexandria", "flying boat", "propeller", "hat"). Search terms only, never Q-ids. Do not add things the description does not name."""
+TERMS_INPUT_TOKENS = 700  # a description and the question, without an image (for the estimate)
+
+
+def terms_schema(detail=DEFAULT_DETAIL):
+    return {
+        "type": "object",
+        "properties": {"wikidata_suggesties": {"type": "array", "items": {"type": "string"}, "maxItems": OBJECT_TERM_LEVELS[detail][0]}},
+        "required": ["wikidata_suggesties"],
+        "additionalProperties": False,
+    }
+
+
+def clean_terms(terms, limit):
+    """Search terms as the model gave them: one line each, no Q-ids, each once, at most `limit`."""
+    cleaned = []
+    for term in terms if isinstance(terms, list) else []:
+        term = " ".join(str(term or "").split())
+        if term and len(term) <= 80 and not re.fullmatch(r"[Qq]\d+", term) and term.lower() not in {t.lower() for t in cleaned}:
+            cleaned.append(term)
+    return cleaned[:limit]
+
+
+def parse_answer(text, max_suggestions=MAX_SUGGESTIONS):
     """The JSON object in the answer (also inside a ```json block). Unknown
     fields are dropped; an unreadable answer becomes the description itself
     with low certainty. Suggestions that look like Q-ids are dropped."""
@@ -879,13 +935,7 @@ def parse_answer(text):
             lengths[level] = {"nl": nl, "en": en}
     if lengths:
         result["beschrijvingen"] = lengths
-    suggestions = data.get("wikidata_suggesties") if isinstance(data.get("wikidata_suggesties"), list) else []
-    cleaned = []
-    for term in suggestions:
-        term = " ".join(str(term or "").split())
-        if term and len(term) <= 80 and not re.fullmatch(r"[Qq]\d+", term) and term.lower() not in {t.lower() for t in cleaned}:
-            cleaned.append(term)
-    result["wikidata_suggesties"] = cleaned[:MAX_SUGGESTIONS]
+    result["wikidata_suggesties"] = clean_terms(data.get("wikidata_suggesties"), max_suggestions)
     return result
 
 
@@ -916,6 +966,10 @@ class DummyVision:
     betaald = False
 
     def describe(self, model, prompt, data_url, obj, effort=None, schema=SCHEMA):
+        if set(schema.get("properties", {})) == {"wikidata_suggesties"}:  # search terms from a text
+            most = schema["properties"]["wikidata_suggesties"].get("maxItems", MAX_SUGGESTIONS)
+            terms = ["flying boat", "propeller", "traveller", "hat", "suitcase"][:most]
+            return {"output_text": json.dumps({"wikidata_suggesties": terms}), "usage": {"input_tokens": 0, "output_tokens": 0}}
         if "zoektermen" in schema.get("properties", {}) or "paginasoort" in schema.get("properties", {}):
             lengths = {
                 "kort": ("Voorbeeld (dummy).", "Example (dummy)."),
@@ -982,7 +1036,7 @@ class MetaVision:
     def describe(self, model, prompt, data_url, obj, effort=None, schema=SCHEMA):
         return self.client.post_json(
             "/responses",
-            build_request(model, prompt, data_url, effort, schema, "beschrijving" if schema is SCHEMA else "pagina"),
+            build_request(model, prompt, data_url, effort, schema, schema_name(schema)),
             model,
             "Geen MODEL_API_KEY ingesteld; een beschrijving is niet mogelijk.",
             no_key_code="no_api_key",
@@ -1068,6 +1122,10 @@ class DescriptionService:
             "redeneren": self._effort(),
             "kosten_schatting_usd": estimate(choice["model"], self._effort()) if paid else 0.0,
             "kosten_standaard_usd": estimate(self.config["BEELDMODEL"], self._effort()) if paid else 0.0,
+            # What a question costs per reasoning effort you may choose (AI steering, wish Olaf 17-11-2026),
+            # and what search terms from the description cost (text only, no image).
+            "kosten_per_redeneren": {e: (estimate(choice["model"], e) if paid else 0.0) for e in CHOSEN_EFFORTS},
+            "kosten_zoektermen_per_redeneren": {e: (estimate(choice["model"], e, TERMS_INPUT_TOKENS) if paid else 0.0) for e in CHOSEN_EFFORTS},
             "budget": self.objects.verbruik.status(user),
         }
 
@@ -1080,10 +1138,11 @@ class DescriptionService:
         overview = self.objects._load_store(file, n).get("inventaris") or {}
         return (overview.get("tekst") or "").strip()[:MAX_PAGE_TEXT]
 
-    def _cache_path(self, file, n, obj, model, hint="", margin=MARGIN, page_text=""):
+    def _cache_path(self, file, n, obj, model, hint="", margin=MARGIN, page_text="", effort=None):
         # The caption, a hint and the margin are part of the question, so another
         # one is another (cached) answer. With the defaults the key is as before.
-        key = f"{file['sha1']}|{n}|{obj['box']}|{self._caption(obj)}|{model}|{self._effort()}|{PROMPT_VERSION}"
+        effort = self._effort() if effort is None else effort
+        key = f"{file['sha1']}|{n}|{obj['box']}|{self._caption(obj)}|{model}|{effort}|{PROMPT_VERSION}"
         if hint:
             key += f"|hint:{hint}"
         if margin != MARGIN:
@@ -1116,9 +1175,14 @@ class DescriptionService:
 
         return cached_bytes(sharded(self.cache_dir.parent / "uitsneden", key, ".jpg"), make)
 
-    def _question(self, file, n, obj, hint, margin, group_focus, description_level):
+    def _question(self, file, n, obj, hint, margin, group_focus, description_level, detail=None):
         """The parts of the question about an object: the prompt as it goes to the model,
-        and what goes into the cache key. Checks the description level."""
+        and what goes into the cache key. Checks the description level and the level of detail
+        of the search terms (without one: what the last answer used)."""
+        if detail is None:
+            detail = (obj.get("beschrijving") or {}).get("detailniveau") or DEFAULT_DETAIL
+        if detail not in OBJECT_TERM_LEVELS:
+            raise DetectionError(f"Onbekend detailniveau '{detail}'; kies uit {', '.join(OBJECT_TERM_LEVELS)}.", status=400, code="invalid_body")
         if description_level is None:
             description_level = (obj.get("beschrijving") or {}).get("beschrijvingsniveau") or DEFAULT_DESCRIPTION_LEVEL
         if description_level not in OBJECT_DESCRIPTION_LEVELS:
@@ -1131,7 +1195,7 @@ class DescriptionService:
         members_context = group_context(obj) if group else ""
         surroundings = bool(group) and margin > 0
         clue, clue_source = detection_clue(obj)
-        standard = build_prompt(file, self._caption(obj), hint, page_text, group, members_context, surroundings, description_level, clue)
+        standard = build_prompt(file, self._caption(obj), hint, page_text, group, members_context, surroundings, description_level, clue, detail)
         own = ((obj.get("prompt_eigen") or {}).get("tekst") or "").strip()
         prompt = (own + HINT_INSTRUCTION.format(hint=hint) if hint else own) if own else standard
         return {
@@ -1141,17 +1205,18 @@ class DescriptionService:
             "clue": "" if own else clue,
             "clue_source": None if own else clue_source,
             "beschrijvingsniveau": description_level,
+            "detailniveau": detail,
             "page_text": page_text,
             "group": group,
             "members_context": members_context,
             "surroundings": surroundings,
         }
 
-    def prompt_preview(self, file, n, object_id, hint=None, margin=None, group_focus=True, description_level=None):
+    def prompt_preview(self, file, n, object_id, hint=None, margin=None, group_focus=True, description_level=None, detail=None):
         """The prompt a question about this object would send, with these settings (the image
         goes along separately). Free: nothing is sent to the model."""
         obj = self.objects._find(file, n, object_id)
-        question = self._question(file, n, obj, clean_hint(hint), clean_margin(margin), group_focus, description_level)
+        question = self._question(file, n, obj, clean_hint(hint), clean_margin(margin), group_focus, description_level, detail)
         return {
             "prompt": question["prompt"],
             # The app's own prompt for these settings, and the one you wrote (null: none).
@@ -1160,6 +1225,7 @@ class DescriptionService:
             "eigen_prompt": obj.get("prompt_eigen"),
             "geschiedenis": obj.get("prompt_geschiedenis") or [],
             "beschrijvingsniveau": question["beschrijvingsniveau"],
+            "detailniveau": question["detailniveau"],
             "marge": clean_margin(margin),
             "aanwijzing": clean_hint(hint) or None,
         }
@@ -1208,27 +1274,39 @@ class DescriptionService:
             amount = estimate(model, effort, input_tokens)
         return {"invoer": tokens_in, "uitvoer": tokens_out, "waarvan_redeneren": tokens_reasoning}, amount
 
-    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None, group_focus=True, description_level=None):
+    def _chosen_effort(self, effort):
+        """The reasoning effort chosen in AI steering (CHOSEN_EFFORTS), else the configured one."""
+        if effort is None:
+            return self._effort()
+        if effort not in CHOSEN_EFFORTS:
+            raise DetectionError(f"Onbekend redeneerniveau '{effort}'; kies uit {', '.join(CHOSEN_EFFORTS)}.", status=400, code="invalid_body")
+        return effort
+
+    def describe(self, file, n, object_id, model=None, again=False, user=None, hint=None, margin=None, group_focus=True, description_level=None, detail=None, effort=None):
         """Describe an object (paid in live mode) and store the answer on it.
         `hint` is an extra instruction from the user for this question;
-        `margin` the share of the box shown around it (default MARGIN)."""
+        `margin` the share of the box shown around it (default MARGIN); `detail` how many
+        search terms (OBJECT_TERM_LEVELS); `effort` the reasoning effort (CHOSEN_EFFORTS)."""
         obj = self.objects._find(file, n, object_id)
         choice = self._model(file, model)
         hint = clean_hint(hint)
         margin = clean_margin(margin)
+        effort = self._chosen_effort(effort)
         # The length of the description (the slider): without one, what the last answer used.
-        question = self._question(file, n, obj, hint, margin, group_focus, description_level)
-        description_level = question["beschrijvingsniveau"]
+        question = self._question(file, n, obj, hint, margin, group_focus, description_level, detail)
+        description_level, detail = question["beschrijvingsniveau"], question["detailniveau"]
         page_text, group, members_context, surroundings = question["page_text"], question["group"], question["members_context"], question["surroundings"]
         # The members (and what they were described as) go into the cache key too: an answer
         # from before the group instruction, or from before a member was described, is not reused.
         key_hint = hint + (f"|groep: {group}" + ("|omgeving" if surroundings else "") if group else "") + (f"|context: {hashlib.sha1(members_context.encode()).hexdigest()[:12]}" if members_context else "")
         key_hint += "|lengtes"  # since 0.42.0 all four lengths in one answer, whichever is shown
+        if detail != DEFAULT_DETAIL:  # how many search terms is part of the question
+            key_hint += f"|detail={detail}"
         if question["clue"]:  # the clue (name, label or search term) is part of the question
             key_hint += f"|aanwijzing detectie: {hashlib.sha1(question['clue'].encode()).hexdigest()[:12]}"
         if question["own"]:  # another prompt is another question
             key_hint += f"|eigen prompt: {hashlib.sha1(question['own'].encode()).hexdigest()[:12]}"
-        path = self._cache_path(file, n, obj, choice["model"], key_hint, margin, page_text)
+        path = self._cache_path(file, n, obj, choice["model"], key_hint, margin, page_text, effort)
         # A saved answer that went meanwhile, or is unreadable (kept aside), counts as none.
         description = read_json(path, None, valid=_is_dict) if self.objects.counts_for_file(file, path) and not again else None
         if description is not None:
@@ -1236,15 +1314,14 @@ class DescriptionService:
             description["uit_cache"] = True
             return self._store(file, n, object_id, show_object_length(description, description_level), user)
 
-        effort = self._effort()
         with self._booking(user, choice["model"], effort):
             page = self.objects.client.load_page(file, n)
             data_url, size = crop_with_margin(self._source_image(file, n), page["breedte"], obj["box"], margin)
             prompt = question["prompt"]
 
-            body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
+            body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort, object_schema(detail))
             tokens, amount = self._tokens_and_cost(body, choice["model"], effort)
-            answer = parse_answer(output_text(body))
+            answer = parse_answer(output_text(body), OBJECT_TERM_LEVELS[detail][0])
             description = {
                 **answer,
                 # Which length is shown: set by show_object_length below (all four are there).
@@ -1260,6 +1337,7 @@ class DescriptionService:
                 "verstuurde_afmetingen": list(size),
                 "promptversie": PROMPT_VERSION,
                 "aanwijzing": hint or None,
+                "detailniveau": detail,  # how many search terms were asked (AI steering)
                 "prompt_eigen": bool(question["own"]),  # asked with a prompt of your own
                 "detectie_aanwijzing": question["clue_source"],  # naam, commons, zoekterm or None
                 "alleen_naar": group or None,  # a group: the AI was asked to look at its members only
@@ -1287,6 +1365,63 @@ class DescriptionService:
         write_json(path, description)
         description["uit_cache"] = False
         return self._store(file, n, object_id, show_object_length(description, description_level), user)
+
+    def terms_from_description(self, file, n, object_id, user=None, detail=None, effort=None, again=False):
+        """Search terms for 'depicts' from the description that is there (its longest length),
+        without the image (paid in live mode, cached; wish Olaf 17-11-2026). They replace the
+        description's wikidata_suggesties; the texts and the version stay as they are."""
+        obj = self.objects._find(file, n, object_id)
+        description = obj.get("beschrijving")
+        if not description:
+            raise DetectionError("Dit object heeft nog geen beschrijving.", status=409, code="no_description")
+        detail = detail or description.get("detailniveau") or DEFAULT_DETAIL
+        if detail not in OBJECT_TERM_LEVELS:
+            raise DetectionError(f"Onbekend detailniveau '{detail}'; kies uit {', '.join(OBJECT_TERM_LEVELS)}.", status=400, code="invalid_body")
+        effort = self._chosen_effort(effort)
+        longest = (description.get("beschrijvingen") or {}).get("uitgebreid") or {}
+        text = " ".join(str(longest.get("en") or longest.get("nl") or description.get("beschrijving_en") or description.get("beschrijving") or "").split())
+        if not text:
+            raise DetectionError("Deze beschrijving heeft geen tekst om zoektermen uit te halen.", status=409, code="no_description")
+        text = text.replace("<<<", "").replace(">>>", "")[:MAX_FIELD]
+        most, rule = OBJECT_TERM_LEVELS[detail]
+        subject = description.get("onderwerp_en") or description.get("onderwerp") or "unknown"
+        prompt = TERMS_FROM_TEXT.format(subject=subject, text=text, max_suggestions=most, terms_rule=rule)
+        choice = self._model(file, None)
+        key = f"termen|{text}|{subject}|{choice['model']}|{effort}|{detail}|1"
+        path = sharded(self.cache_dir, hashlib.sha1(key.encode()).hexdigest(), ".json")
+        found = read_json(path, None, valid=_is_dict) if self.objects.counts_for_file(file, path) and not again else None
+        from_cache = found is not None
+        if from_cache:
+            mark_used(path)
+        else:
+            with self._booking(user, choice["model"], effort, TERMS_INPUT_TOKENS):
+                body = self.vision.describe(choice["model"], prompt, None, self.objects.public(file, n, obj), effort, terms_schema(detail))
+                tokens, amount = self._tokens_and_cost(body, choice["model"], effort, TERMS_INPUT_TOKENS)
+                match = re.search(r"\{.*\}", output_text(body) or "", re.S)
+                try:
+                    data = json.loads(match.group(0)) if match else {}
+                except ValueError:
+                    data = {}
+                if not isinstance(data, dict) or not isinstance(data.get("wikidata_suggesties"), list):
+                    raise DetectionError("Het antwoord van de AI was niet te lezen; probeer het opnieuw.", status=502, code="unreadable_answer")
+                found = {
+                    "wikidata_suggesties": clean_terms(data["wikidata_suggesties"], most),
+                    "model": choice["model"], "redeneren": effort, "detailniveau": detail, "tokens": tokens, "kosten_usd": amount,
+                    "tijdstempel": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                }
+                if self.vision.betaald:
+                    self.objects.verbruik.register(
+                        {"soort": "beschrijving", "bestand": file["mid"], "titel": file["titel"], "pagina": n, "object": object_id,
+                         "term": f"Zoektermen uit de beschrijving ({choice['model']})", "model": choice["model"], "redeneren": effort, "tokens": tokens},
+                        cost=amount, user=user,
+                    )
+            write_json(path, found)
+        with self.objects.editing(file, n, object_id) as (_store, obj):
+            current = obj.get("beschrijving")
+            if current:
+                current["wikidata_suggesties"] = list(found["wikidata_suggesties"])
+                current["zoektermen_uit_tekst"] = {k: found.get(k) for k in ("model", "redeneren", "detailniveau", "tijdstempel")}
+        return {"object": self.objects.public(file, n, obj), "uit_cache": from_cache, "budget": self.objects.verbruik.status(user)}
 
     # -- History of descriptions ------------------------------------------------
 
