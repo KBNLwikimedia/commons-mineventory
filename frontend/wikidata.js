@@ -16,6 +16,32 @@ export function menuItem(hit) {
 /* The image (P18) of a Wikidata item, through our own server. */
 export const itemImage = (q, width = 120) => `${API}/wikidata/${q}/afbeelding?w=${width}`;
 
+// The best Wikidata hit for a search term: the label exactly as the term first ("lemon" the
+// fruit, not "LemON" the band), then the same letters in another case, then a label containing
+// it, else the first hit. Shared by the window for the whole image and that of a cut-out.
+export function bestHit(hits, term) {
+  const exact = String(term || "").trim();
+  const lower = exact.toLowerCase();
+  return (
+    hits.find((h) => h.label === exact) ||
+    hits.find((h) => (h.label || "").toLowerCase() === lower) ||
+    hits.find((h) => (h.label || "").toLowerCase().includes(lower)) ||
+    hits[0] ||
+    null
+  );
+}
+
+// Label and description per Q-id ({Q: {label: {nl, en}, beschrijving: {nl, en}}}), free and cached.
+export async function itemInfo(ids) {
+  const list = [...new Set(ids.filter(Boolean))];
+  const result = {};
+  for (let i = 0; i < list.length; i += 50) {
+    const data = await get(`${API}/wikidata/items${query({ ids: list.slice(i, i + 50).join("|") })}`);
+    Object.assign(result, data.items || {});
+  }
+  return result;
+}
+
 export async function searchItems(term, language) {
   return (await get(`${API}/wikidata/zoek${query({ q: term, taal: language })}`)).resultaten;
 }

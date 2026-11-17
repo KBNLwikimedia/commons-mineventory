@@ -13,18 +13,8 @@
          and under the slider, side by side, asking anew (paid) and removing (free). -->
     <div class="cc-termen-bron">
       <!-- All four lengths come at once: the slider shows another one, live and free (wish Olaf). -->
-      <detail-slider v-model="descLevel" :disabled="busy || Boolean(editing)" :levels="DESCRIPTION_LEVELS" prefix="descdetail" compact>
-        <!-- A Commons caption (at most 250 characters) in one click: puts the slider on that stop.
-             A caption belongs to the structured data on Commons, hence a Commons mark (wish Olaf).
-             Right behind the slider, without a text of its own: the slider already names the
-             length, so "Commons caption" is not said twice (wish Olaf 13-11-2026). -->
-        <template #after>
-          <span class="cc-caption-schakelaar" :title="t('descdetail.caption_help')">
-            <cdx-toggle-switch :model-value="descLevel === 'caption'" :disabled="busy || Boolean(editing)" :aria-label="t('descdetail.caption_switch')" @update:model-value="setCaption" />
-            <commons-logo colour />
-          </span>
-        </template>
-      </detail-slider>
+      <!-- With the Commons-caption switch behind it; the same for a cut-out (DescriptionLength.vue). -->
+      <description-length v-model="descLevel" :disabled="busy || Boolean(editing)" />
       <div class="cc-termen-knoppen">
         <cdx-button action="progressive" weight="quiet" size="small" :disabled="busy" :title="`${t('panel.part_again_help_beschrijving')} ${t('panel.parts_help')}`" @click="emit('again', descLevel)">
           {{ t(hasDescription ? "panel.part_again_beschrijving" : "panel.part_ask_beschrijving") }} <span class="cc-kosten">{{ cost }}</span>
@@ -115,16 +105,15 @@
 </template>
 
 <script setup>
-import CommonsLogo from "./CommonsLogo.vue";
 import { computed, inject, nextTick, reactive, ref, watch } from "vue";
-import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxTextArea, CdxTextInput, CdxToggleSwitch } from "@wikimedia/codex";
+import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, CdxTextArea, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconTrash } from "@wikimedia/codex-icons";
 import { del, errorText, get, pagePath, patch, put } from "../api.js";
 import { fitToText } from "../autosize.js";
 import { confirmDeleteVersion } from "../confirm.js";
 import { formatStamp, useT } from "../i18n.js";
 import { readStored, writeStored } from "../storage.js";
-import DetailSlider from "./DetailSlider.vue";
+import DescriptionLength from "./DescriptionLength.vue";
 import VersionCarousel from "./VersionCarousel.vue";
 import VersionEntry from "./VersionEntry.vue";
 import AiBadge from "./AiBadge.vue";
@@ -144,19 +133,8 @@ const props = defineProps({
 const emit = defineEmits(["changed", "again", "forget"]);
 // The length of the description: that of the overview, else the last one chosen in this browser,
 // else a Commons caption (the default of a new description, wish Olaf 11-11-2026).
-const DESCRIPTION_LEVELS = ["kort", "normaal", "caption", "uitgebreid"];
 const DESC_KEY = "cc-beschrijvingsniveau";
 const descLevel = ref(props.inventory?.beschrijvingsniveau || readStored(DESC_KEY, "caption"));
-// The Wikidata switch: on puts the slider on "caption"; off goes back to the stop before it.
-let levelBeforeCaption = descLevel.value === "caption" ? "normaal" : descLevel.value;
-function setCaption(on) {
-  if (on) {
-    if (descLevel.value !== "caption") levelBeforeCaption = descLevel.value;
-    descLevel.value = "caption";
-  } else {
-    descLevel.value = levelBeforeCaption === "caption" ? "normaal" : levelBeforeCaption;
-  }
-}
 watch(() => props.inventory?.beschrijvingsniveau, (level) => level && (descLevel.value = level));
 watch(descLevel, (level) => {
   writeStored(DESC_KEY, level);

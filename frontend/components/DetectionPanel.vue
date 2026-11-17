@@ -51,7 +51,7 @@
 
       <!-- (3) Depicts without a position: a chip per item; a click lets SAM find it (paid),
            and what is found gets that item as its depicts. Read only: the search word is the English label. -->
-      <cdx-accordion v-if="commonsDepicts.length" v-model="open.beeldtaf" class="cc-deel-uitklap">
+      <cdx-accordion v-if="commonsDepicts.length" v-model="open.beeldtaf" class="cc-deel-uitklap" data-deel="beeldtaf">
         <template #title>{{ t("panel.commons_depicts", { n: commonsDepicts.length }) }}</template>
         <!-- The explanation as a short list (wish Olaf). -->
         <div class="cc-uitleg cc-termen-uitleg">
@@ -360,6 +360,7 @@
         :cost="museCost(pageUsd ?? config.muse.pagina_usd)"
         @ask-caption="emit('inventory', { deel: 'beschrijving', beschrijvingsniveau: 'caption' })"
         @close="originalOpen = false"
+        @locate="locateFromCommons"
       />
     </cdx-accordion>
   </div>
@@ -478,6 +479,17 @@ function setOpen(key, value) {
   nextTick(() => {
     const element = document.querySelector(`[data-sectie="${key}"]`);
     if (element && element.open !== locks[key]) element.open = locks[key];
+  });
+}
+// Open a section because the user asked for something in it (such as "Locate now"), also when it
+// is locked closed (wish Olaf 15-11-2026). The lock then holds it open for this visit; the stored
+// lock is not changed, so after reloading the section is as the user locked it.
+function openAnyway(key) {
+  if (isLocked(key)) locks[key] = true;
+  open[key] = true;
+  nextTick(() => {
+    const element = document.querySelector(`[data-sectie="${key}"]`);
+    if (element && !element.open) element.open = true;
   });
 }
 // A click on the title of a locked section (not on its buttons, nor in a section inside it) does nothing.
@@ -743,6 +755,13 @@ const madeLines = computed(() => {
 // "a [word] here" → pieces, the bracketed one a link.
 const linkPieces = (text) => String(text).split(/(\[[^\]]+\])/).filter(Boolean).map((piece) => (piece.startsWith("[") && piece.endsWith("]") ? { text: piece.slice(1, -1), link: true } : { text: piece, link: false }));
 // Open a part of the AI suggestions and bring it into view.
+// From the window "Structured data": an item on Commons not located yet. Close the window and
+// open "From Commons > Depicts", where a click on its chip lets SAM find it (wish Olaf 15-11-2026).
+async function locateFromCommons() {
+  originalOpen.value = false;
+  openAnyway("commons");
+  await showPart("beeldtaf");
+}
 async function showPart(part) {
   open[part] = true;
   await nextTick();

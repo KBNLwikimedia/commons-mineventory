@@ -191,6 +191,10 @@ def default_concept(file, obj):
     info = wikitekst.info_template(text)
     params = canonical_fields(info)[0] if info else {}  # |year=, |Publication date= … count as the date
     description = obj.get("beschrijving") or {}
+    # With all four lengths (since 0.42.0): the longest for the description in the wikitext, the
+    # Commons caption length for the caption in the structured data (wish Olaf 17-11-2026).
+    lengths = description.get("beschrijvingen") or {}
+    longest, short = lengths.get("uitgebreid") or {}, lengths.get("caption") or {}
     label_nl = obj.get("label_nl") or obj.get("label")
     caption = obj.get("bijschrift") or {}
     date, maker, sources = date_and_maker(file, params)
@@ -201,12 +205,12 @@ def default_concept(file, obj):
         "bestandsnaam": filename(subject_of(obj), file["titel"], "jpg"),
         "formaat": "jpg",
         "beschrijving": {
-            "nl": description.get("beschrijving") or caption.get("tekst") or (label_nl or "").capitalize(),
-            "en": description.get("beschrijving_en") or "",
+            "nl": longest.get("nl") or description.get("beschrijving") or caption.get("tekst") or (label_nl or "").capitalize(),
+            "en": longest.get("en") or description.get("beschrijving_en") or "",
         },
         "caption": {
-            "nl": (description.get("onderwerp") or label_nl or "")[:MAX_CAPTION],
-            "en": (description.get("onderwerp_en") or obj.get("label_en") or "")[:MAX_CAPTION],
+            "nl": (short.get("nl") or description.get("onderwerp") or label_nl or "")[:MAX_CAPTION],
+            "en": (short.get("en") or description.get("onderwerp_en") or obj.get("label_en") or "")[:MAX_CAPTION],
         },
         "datum": date,
         "maker": maker,

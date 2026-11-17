@@ -53,45 +53,56 @@
             </div>
           </div>
           <p class="cc-uitleg">{{ t("original.existing_counts", { found: foundItems.length, total: commonsItems.length }) }} {{ foundItems.length ? t("original.add_position_help") : "" }}</p>
-          <!-- All · None · Invert on the left, right above the tick boxes they set (wish Olaf 13-11-2026). -->
-          <tick-links
-            v-if="foundItems.length"
-            class="cc-klein cc-sdc-selectie"
-            @all="foundItems.forEach((item) => setBoxes(item, item.objects.map((o) => o.id)))"
-            @none="foundItems.forEach((item) => setBoxes(item, []))"
-            @invert="foundItems.forEach((item) => setBoxes(item, item.objects.map((o) => o.id).filter((id) => !boxesFor(item).includes(id))))"
-          />
-          <!-- A table with fixed columns (wish Olaf 13-11-2026): every row lines up. -->
-          <div class="cc-sdc-rij cc-sdc-tabelkop cc-klein" aria-hidden="true">
-            <span></span><span></span>
+          <!-- A table with fixed columns (wish Olaf 13-11-2026): every row lines up. The tick box
+               sits in the column that says what it does, "Add location (bounding box)", with
+               All · None · Invert right above it in the header (wish Olaf 15-11-2026). -->
+          <div class="cc-sdc-rij cc-sdc-rij-bestaand cc-sdc-tabelkop cc-klein">
+            <span></span>
             <span>{{ t("original.col_item") }}</span>
             <span>{{ t("original.col_q") }}</span>
             <span>{{ t("original.col_description") }}</span>
-            <span>{{ t("original.col_status") }}</span>
+            <span>
+              {{ t("original.col_add_location") }}
+              <tick-links
+                v-if="foundItems.length"
+                class="cc-sdc-kop-selectie"
+                @all="foundItems.forEach((item) => setBoxes(item, item.objects.map((o) => o.id)))"
+                @none="foundItems.forEach((item) => setBoxes(item, []))"
+                @invert="foundItems.forEach((item) => setBoxes(item, item.objects.map((o) => o.id).filter((id) => !boxesFor(item).includes(id))))"
+              />
+            </span>
             <span></span>
           </div>
           <ul class="cc-sdc-items">
             <li v-for="item in existingRows" :key="item.q" class="cc-sdc-item" :class="{ 'cc-sdc-item-blijft': !item.canAddPosition }">
-              <div class="cc-sdc-rij">
-                <!-- Ticked: all its objects; half ticked: some of them (choose in the list below). -->
-                <input
-                  v-if="item.canAddPosition"
-                  type="checkbox"
-                  :checked="boxesFor(item).length === item.objects.length"
-                  :indeterminate="boxesFor(item).length > 0 && boxesFor(item).length < item.objects.length"
-                  :aria-label="t('original.add_position_for', { item: item.label })"
-                  @change="setBoxes(item, $event.target.checked ? item.objects.map((o) => o.id) : [])"
-                />
-                <span v-else class="cc-sdc-geen-vinkje" aria-hidden="true"></span>
-                <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(item.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, item.q)" @mouseleave="hideZoom" @error="hideImage" />
+              <div class="cc-sdc-rij cc-sdc-rij-bestaand">
+                <img class="cc-item-beeld" :src="itemImage(item.q)" alt="" loading="lazy" @mouseenter="showZoom($event, item.q)" @mouseleave="hideZoom" @error="hideImage" />
                 <a class="cc-sdc-label" :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.label }}</a>
                 <span class="cc-klein cc-sdc-q">{{ item.q }}</span>
                 <!-- The item's description on Wikidata, in the language of the interface only (wish Olaf). -->
                 <span class="cc-klein cc-sdc-beschrijving">{{ item.description }}</span>
                 <span class="cc-klein cc-sdc-status">
                   <span v-if="item.positions" class="cc-merkje">{{ t("original.with_position", { n: item.positions }) }}</span>
-                  <template v-else-if="item.canAddPosition">{{ boxesFor(item).length ? boxesText(item) : t("original.found_here", { n: item.found }) }}</template>
-                  <span v-else :title="t('original.not_found_title')">{{ t("original.not_found_stays") }}</span>
+                  <template v-else-if="item.canAddPosition">
+                    <!-- Ticked: all its objects; half ticked: some of them (choose with "choose which"). -->
+                    <label class="cc-sdc-vink">
+                      <input
+                        type="checkbox"
+                        :checked="boxesFor(item).length === item.objects.length"
+                        :indeterminate="boxesFor(item).length > 0 && boxesFor(item).length < item.objects.length"
+                        :aria-label="t('original.add_position_for', { item: item.label })"
+                        @change="setBoxes(item, $event.target.checked ? item.objects.map((o) => o.id) : [])"
+                      />
+                      {{ t("original.add_location") }}
+                    </label>
+                    <span class="cc-sdc-vink-uitleg">{{ boxesFor(item).length ? boxesText(item) : t("original.found_here", { n: item.found }) }}</span>
+                  </template>
+                  <template v-else>
+                    <span :title="t('original.not_found_title')">{{ t("original.not_found_stays") }}</span>
+                    <!-- An invitation to locate it after all (wish Olaf 15-11-2026): keeps the choices
+                         as a draft, closes this window and opens "From Commons > Depicts". -->
+                    <button type="button" class="cc-link cc-sdc-vink-uitleg-link" :title="t('original.locate_now_title', { item: item.label })" :disabled="saving" @click="locateNow(item)">{{ t("original.locate_now") }}</button>
+                  </template>
                 </span>
                 <!-- Which of the objects (wish Olaf 13-11-2026): an expander per item, in a column of its own. -->
                 <span class="cc-klein cc-sdc-actie">
@@ -136,86 +147,102 @@
       <section v-show="step === 'nieuw'" class="cc-origineel-stap">
         <h3 class="cc-origineel-stapkop">{{ t("original.step_n", { n: stepNumber("nieuw"), total: steps.length }) }} · {{ t("original.step_new") }}</h3>
         <p class="cc-uitleg">{{ t("original.new_intro") }}</p>
-        <!-- The proposals, with an (i) that explains a row, and All · None · Invert (wish Olaf). -->
-        <h4 class="cc-commons-kop">{{ t("original.proposals") }} <info-dialog :title="t('original.proposals')" :label="t('panel.info_label', { section: t('original.proposals') })" :paragraphs="proposalsInfo" /></h4>
-        <!-- On the left, right above the tick boxes (wish Olaf 13-11-2026). -->
-        <tick-links
-          v-if="proposalRows.length"
-          class="cc-klein cc-sdc-selectie cc-sdc-selectie-rijen"
-          @all="proposalRows.forEach((row) => (row.checked = true))"
-          @none="proposalRows.forEach((row) => (row.checked = false))"
-          @invert="proposalRows.forEach((row) => (row.checked = !row.checked))"
-        />
-        <busy-note v-if="resolving" :message="t('original.resolving')" />
-        <p v-if="!proposalRows.length && !resolving" class="cc-uitleg">{{ t("original.proposals_none") }}</p>
-        <ul class="cc-origineel-rijen">
-          <original-row
-            v-for="row in proposalRows"
-            :key="row.key"
-            v-bind="rowProps(row)"
-            :ai="row.ai"
-            :changeable="Boolean(row.terms.length || row.bronnen.includes('eigen'))"
-            v-on="rowEvents(row)"
-          >
-            <template #source>
-              <div class="cc-klein cc-origineel-bron">
-                {{ row.bronnen.map((b) => t(`original.source_${b}`)).join(" · ") }}<template v-if="row.terms.length"> ({{ row.terms.join(", ") }})</template>
-                <template v-if="row.objecten.length"> · {{ t("original.objects", { n: row.objecten.length }) }}</template>
-              </div>
-              <!-- Rule 4 of 9.7: an object whose cut-out is saved gets its region on the original
-                   with its upload; one statement per object, not two. -->
-              <div v-if="row.objecten.some((o) => o.upload)" class="cc-klein cc-origineel-upload">
-                {{ t("original.with_upload", { n: row.objecten.filter((o) => o.upload).length, names: row.objecten.filter((o) => o.upload).map((o) => o.naam).join(", ") }) }}
-              </div>
-            </template>
-            <!-- "With place", with an (i) that explains it for this very row (wish Olaf). -->
-            <span v-if="row.objecten.length && !data.meerdere_paginas" class="cc-origineel-met-positie">
-              <!-- The property links to Wikidata (a link inside a label does not tick the box). -->
-              <label>
-                <input v-model="row.met_positie" type="checkbox" />
-                {{ t("original.with_position_before") }}
-                (<a href="https://www.wikidata.org/wiki/Property:P2677" target="_blank" rel="noopener">P2677</a>)
-                {{ t("original.with_position_after") }}
-              </label>
-              <info-dialog
-                :title="t('original.with_position_title')"
-                :label="t('panel.info_label', { section: t('original.with_position_title') })"
-                :paragraphs="[
-                  t('original.with_position_on', { item: row.label, n: row.objecten.length }),
-                  t('original.with_position_off', { item: row.label }),
-                  t('original.with_position_default'),
-                ]"
-              />
-            </span>
-          </original-row>
-        </ul>
-        <!-- Search terms without a found object: under their own heading, only along when ticked. -->
-        <div v-if="emptyRows.length" class="cc-origineel-leeg">
-          <h4 class="cc-commons-kop">{{ t("original.terms_without_objects", { n: emptyRows.length }) }}</h4>
-          <ul class="cc-origineel-rijen">
-            <original-row v-for="row in emptyRows" :key="row.key" v-bind="rowProps(row)" ai changeable v-on="rowEvents(row)">
+        <!-- As step 1 and the Structured data tab on Commons (wish Olaf 13-11-2026): a framed block,
+             the search to add an item on top, then one table with fixed columns. -->
+        <div class="cc-sdc-blok">
+          <div class="cc-sdc-blok-kop">
+            <div>
+              <div class="cc-sdc-blok-titel">{{ t("original.proposals") }} <info-dialog :title="t('original.proposals')" :label="t('panel.info_label', { section: t('original.proposals') })" :paragraphs="proposalsInfo" /></div>
+              <a class="cc-sdc-eigenschap" href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">{{ t("original.sdc_depicts_property") }}</a>
+            </div>
+          </div>
+          <!-- Another item, for what the AI did not find: on top, as "Search to add items" on Commons. -->
+          <div class="cc-origineel-zoek cc-sdc-zoek">
+            <cdx-text-input clearable id="cc-origineel-eigen" v-model="ownText" :start-icon="cdxIconSearch" :placeholder="t('original.add_item_placeholder')" :aria-label="t('original.add_item')" @update:model-value="searchOwn" />
+            <ul v-if="ownHits.length" class="cc-origineel-treffers">
+              <li v-for="hit in ownHits" :key="hit.q">
+                <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
+                <button type="button" class="cc-link" @click="addOwn(hit)">{{ hit.label }}</button>
+                <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
+              </li>
+            </ul>
+          </div>
+          <busy-note v-if="resolving" :message="t('original.resolving')" />
+          <p v-if="!proposalRows.length && !emptyRows.length && !resolving" class="cc-uitleg">{{ t("original.proposals_none") }}</p>
+          <!-- On the left, right above the tick boxes (wish Olaf 13-11-2026). -->
+          <tick-links
+            v-if="proposalRows.length + emptyRows.length"
+            class="cc-klein cc-sdc-selectie"
+            @all="[...proposalRows, ...emptyRows].forEach((row) => (row.checked = true))"
+            @none="[...proposalRows, ...emptyRows].forEach((row) => (row.checked = false))"
+            @invert="[...proposalRows, ...emptyRows].forEach((row) => (row.checked = !row.checked))"
+          />
+          <div v-if="proposalRows.length + emptyRows.length" class="cc-sdc-rij cc-sdc-rij-nieuw cc-sdc-tabelkop cc-klein" aria-hidden="true">
+            <span></span><span></span>
+            <span>{{ t("original.col_item") }}</span>
+            <span>{{ t("original.col_q") }}</span>
+            <span>{{ t("original.col_description") }}</span>
+            <span>{{ t("original.col_location") }}</span>
+            <span></span>
+          </div>
+          <ul class="cc-sdc-items">
+            <original-row
+              v-for="row in proposalRows"
+              :key="row.key"
+              v-bind="rowProps(row)"
+              :ai="row.ai"
+              :changeable="Boolean(row.terms.length || row.bronnen.includes('eigen'))"
+              v-on="rowEvents(row)"
+            >
               <template #source>
-                <div class="cc-klein cc-origineel-bron">{{ t("original.source_zoekterm") }} ({{ row.terms.join(", ") }}) · {{ t("original.no_objects") }}</div>
+                <div class="cc-klein cc-origineel-bron">
+                  {{ row.bronnen.map((b) => t(`original.source_${b}`)).join(" · ") }}<template v-if="row.terms.length"> ({{ row.terms.join(", ") }})</template>
+                  <template v-if="row.objecten.length"> · {{ t("original.objects", { n: row.objecten.length }) }}</template>
+                </div>
+                <!-- Rule 4 of 9.7: an object whose cut-out is saved gets its region on the original
+                     with its upload; one statement per object, not two. -->
+                <div v-if="row.objecten.some((o) => o.upload)" class="cc-klein cc-origineel-upload">
+                  {{ t("original.with_upload", { n: row.objecten.filter((o) => o.upload).length, names: row.objecten.filter((o) => o.upload).map((o) => o.naam).join(", ") }) }}
+                </div>
               </template>
+              <!-- "With location", with an (i) that explains it for this very row (wish Olaf). -->
+              <span v-if="row.objecten.length && !data.meerdere_paginas" class="cc-origineel-met-positie">
+                <!-- The property links to Wikidata (a link inside a label does not tick the box). -->
+                <label>
+                  <input v-model="row.met_positie" type="checkbox" />
+                  {{ t("original.with_location_short") }}
+                </label>
+                (<a href="https://www.wikidata.org/wiki/Property:P2677" target="_blank" rel="noopener">P2677</a>)
+                <info-dialog
+                  :title="t('original.with_position_title')"
+                  :label="t('panel.info_label', { section: t('original.with_position_title') })"
+                  :paragraphs="[
+                    t('original.with_position_on', { item: row.label, n: row.objecten.length }),
+                    t('original.with_position_off', { item: row.label }),
+                    t('original.with_position_default'),
+                  ]"
+                />
+              </span>
             </original-row>
           </ul>
-        </div>
-        <!-- A row removed with the bin: yellow, with Undo (wish Olaf 13-11-2026). -->
-        <undo-message :note="rowNote" />
-        <p v-if="hidden.length" class="cc-klein">
-          {{ t("original.hidden_rows", { n: hidden.length }) }}
-          <button type="button" class="cc-link" @click="hidden = []">{{ t("original.hidden_show") }}</button>
-        </p>
-        <!-- Another item, for what the AI did not find. -->
-        <div class="cc-origineel-zoek">
-          <h4 class="cc-commons-kop"><label for="cc-origineel-eigen">{{ t("original.add_item") }}</label></h4>
-          <cdx-text-input clearable id="cc-origineel-eigen" v-model="ownText" :placeholder="t('original.search_placeholder')" @update:model-value="searchOwn" />
-          <ul class="cc-origineel-treffers">
-            <li v-for="hit in ownHits" :key="hit.q">
-              <button type="button" class="cc-link" @click="addOwn(hit)">{{ hit.label }}</button>
-              <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
-            </li>
-          </ul>
+          <!-- Search terms without a found object: under their own heading, only along when ticked. -->
+          <template v-if="emptyRows.length">
+            <h4 class="cc-commons-kop cc-sdc-tussenkop">{{ t("original.terms_without_objects", { n: emptyRows.length }) }}</h4>
+            <ul class="cc-sdc-items">
+              <original-row v-for="row in emptyRows" :key="row.key" v-bind="rowProps(row)" ai changeable v-on="rowEvents(row)">
+                <template #source>
+                  <div class="cc-klein cc-origineel-bron">{{ t("original.source_zoekterm") }} ({{ row.terms.join(", ") }})</div>
+                </template>
+                <span class="cc-origineel-bron">{{ t("original.no_objects") }}</span>
+              </original-row>
+            </ul>
+          </template>
+          <!-- A row removed with the bin: yellow, with Undo (wish Olaf 13-11-2026). -->
+          <undo-message :note="rowNote" />
+          <p v-if="hidden.length" class="cc-klein">
+            {{ t("original.hidden_rows", { n: hidden.length }) }}
+            <button type="button" class="cc-link" @click="hidden = []">{{ t("original.hidden_show") }}</button>
+          </p>
         </div>
       </section>
 
@@ -323,9 +350,7 @@
 
     <!-- A larger view of an item's image while the mouse is on its thumbnail (wish Olaf);
          on the page itself, so the dialog's edges do not cut it off. -->
-    <teleport to="body">
-      <img v-if="zoom.show" class="cc-item-zoom" :src="zoom.src" alt="" :style="{ left: `${zoom.x}px`, top: `${zoom.y}px`, maxWidth: `${zoom.size}px`, maxHeight: `${zoom.size}px` }" />
-    </teleport>
+    <item-zoom :zoom="zoom" />
 
     <template #footer>
       <div class="cc-origineel-voet">
@@ -360,9 +385,12 @@
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { CdxButton, CdxCombobox, CdxDialog, CdxMessage, CdxRadio, CdxTextArea, CdxTextInput } from "@wikimedia/codex";
+import { cdxIconSearch } from "@wikimedia/codex-icons";
 import { errorText, get, objectPath, pagePath, put } from "../api.js";
 import { formatStamp, useT } from "../i18n.js";
-import { itemImage, searchItems } from "../wikidata.js";
+import { bestHit, itemImage, itemInfo, searchItems } from "../wikidata.js";
+import { useItemZoom } from "../zoom.js";
+import ItemZoom from "./ItemZoom.vue";
 import { movableDialog } from "../movable.js";
 import { commonsFileUrl } from "../state.js";
 import { COMMON_LANGUAGES, editSummary, languageFromInput, languageName } from "../original.js";
@@ -384,7 +412,7 @@ const props = defineProps({
   busy: { type: Boolean, default: false },
   cost: { type: String, default: "" },
 });
-const emit = defineEmits(["close", "ask-caption"]);
+const emit = defineEmits(["close", "ask-caption", "locate"]);
 const t = useT();
 const config = inject("config");
 
@@ -412,20 +440,8 @@ const draftState = ref("");
 const keptDraft = ref(null);
 // The image (P18) of a Wikidata item (itemImage); hidden when there is none.
 const hideImage = (event) => (event.target.style.visibility = "hidden");
-// A larger view beside the thumbnail, kept on screen; only for a thumbnail that loaded.
-const ZOOM_SIZE = 260;
-const zoom = reactive({ show: false, src: "", x: 0, y: 0, size: ZOOM_SIZE });
-// `src`: another image than the item's own, such as the cut-out of an object (wish Olaf 13-11-2026).
-function showZoom(event, q, src = "", size = ZOOM_SIZE) {
-  const img = event.target;
-  if (!img.naturalWidth) return;
-  const rect = img.getBoundingClientRect();
-  let x = rect.right + 8;
-  if (x + size > window.innerWidth) x = Math.max(0, rect.left - size - 8);
-  const y = Math.min(Math.max(0, rect.top - 40), window.innerHeight - size - 8);
-  Object.assign(zoom, { show: true, src: src || itemImage(q, 240), x, y, size });
-}
-const hideZoom = () => (zoom.show = false);
+// A larger view beside a thumbnail (zoom.js; `src` can be the cut-out of an object, wish Olaf).
+const { zoom, showZoom, hideZoom } = useItemZoom();
 const commonsUrl = computed(() => commonsFileUrl(props.file.titel, "P180"));
 const langName = (lang) => languageName(lang, config.taal);
 
@@ -515,15 +531,7 @@ async function buildRows() {
     await Promise.all(
       open.slice(i, i + 3).map(async (row) => {
         try {
-          const hits = await searchItems(row.search, "en");
-          const term = row.search.trim().toLowerCase();
-          // The label exactly as the term first ("lemon" the fruit, not "LemON" the band),
-          // then the same letters in another case, then a label containing it, else the first hit.
-          const hit =
-            hits.find((h) => h.label === row.search.trim()) ||
-            hits.find((h) => (h.label || "").toLowerCase() === term) ||
-            hits.find((h) => (h.label || "").toLowerCase().includes(term)) ||
-            hits[0];
+          const hit = bestHit(await searchItems(row.search, "en"), row.search);
           if (hit) Object.assign(row, { q: hit.q, label: hit.label, beschrijving: hit.beschrijving || "" });
         } catch {
           // No answer from Wikidata: the row stays without an item (not shown).
@@ -543,6 +551,9 @@ async function buildRows() {
     hidden.value = [...(d.concept.verborgen || [])];
   }
   rows.value = list.filter((row) => row.q);
+  // The description of the item each row has now, in the language of the interface: the item
+  // from the draft can differ from the search hit, and AI terms are looked up in English (wish Olaf).
+  await describeRows(rows.value);
   // Boxes for existing statements from the draft; a bare Q-id (older drafts) is all its objects.
   addPosition.value = {};
   for (const entry of d.concept?.positie_bij_bestaande || []) {
@@ -681,6 +692,22 @@ function chooseOther(row, hit) {
   for (const member of row.members) Object.assign(member, { q: hit.q, label: hit.label, beschrijving: hit.beschrijving || "", checked: true });
   otherFor.value = null;
   otherHits.value = [];
+  describeRows(row.members);
+}
+// Label and description of the rows' items from Wikidata (free, cached), in the language of the
+// interface; with no answer the rows keep what they have.
+async function describeRows(list) {
+  try {
+    const info = await itemInfo(list.map((row) => row.q));
+    for (const row of list) {
+      const one = info[row.q];
+      if (!one) continue;
+      row.beschrijving = one.beschrijving?.[config.taal] || "";
+      row.label = one.label?.[config.taal] || one.label?.en || one.label?.nl || row.label;
+    }
+  } catch {
+    // Wikidata not reachable: keep the texts the rows have.
+  }
 }
 const ownText = ref("");
 const ownHits = ref([]);
@@ -694,6 +721,7 @@ async function searchOwn(text) {
 function addOwn(hit) {
   if (!rows.value.some((row) => row.q === hit.q)) {
     rows.value.push(newRow({ key: `e:${hit.q}`, q: hit.q, label: hit.label, beschrijving: hit.beschrijving || "", bronnen: ["eigen"], checked: true, met_positie: false }));
+    describeRows([rows.value.at(-1)]);
   } else {
     rows.value.filter((row) => row.q === hit.q).forEach((row) => (row.checked = true));
   }
@@ -867,6 +895,12 @@ function downloadDraft() {
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
+// "Locate now" for an item on Commons that has no object yet: keep the choices as a draft, then
+// let the panel close this window and open "From Commons > Depicts", where it can be located.
+async function locateNow(item) {
+  if (await save()) emit("locate", item.q);
+}
+
 // -- Saving the draft -----------------------------------------------------------------------
 
 async function save() {
@@ -896,8 +930,10 @@ async function save() {
     keptDraft.value = result.concept;
     draftState.value = "";
     savedAt.value = result.concept.bewaard_op;
+    return true;
   } catch (e) {
     error.value = errorText(t, e);
+    return false;
   } finally {
     saving.value = false;
   }

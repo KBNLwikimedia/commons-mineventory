@@ -1,48 +1,53 @@
 <!--
   One row of "Gegevens van deze afbeelding" (OriginalData.vue): a proposal or a search term
-  without objects. Tick box, the item's image, its Wikidata link, the pencil for another item
-  (with its search, free) and the bin. Slot "source" holds where the row comes from; the
-  default slot what comes before the bin ("with place"). The parent keeps the state: the
+  without objects, as a table row with fixed columns (as step 1). Tick box, the item's image,
+  its Wikidata link, the pencil for another item (with its search, free), Q-id, description
+  and the bin. Slot "source" holds where the row comes from; the default slot the column
+  "with location". The parent keeps the state: the
   search text and hits, and the larger view of an image (zoom/unzoom).
 -->
 <template>
-  <li class="cc-origineel-rij">
-    <input v-model="row.checked" type="checkbox" :aria-label="t('original.include', { item: row.label })" />
-    <!-- The item's own image (P18) on Wikidata, where it has one: helps to see whether it is the right item. -->
-    <span :key="row.q" class="cc-item-beeld-kader"><img class="cc-item-beeld" :src="itemImage(row.q)" :alt="t('original.item_image', { item: row.label })" :title="t('original.item_image', { item: row.label })" loading="lazy" @mouseenter="emit('zoom', $event, row.q)" @mouseleave="emit('unzoom')" @error="noImage" /><span class="cc-geen-beeld">{{ t("original.no_image") }}</span></span>
-    <div class="cc-origineel-item">
-      <div>
-        <a :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
-        <span class="cc-klein"> ({{ row.q }})</span>
-        <ai-badge v-if="ai" kind="beschrijving" :model="''" />
-        <cdx-button v-if="changeable" action="progressive" weight="quiet" size="small" :aria-label="t('original.other_item')" :title="t('original.other_item')" @click="emit('other')">
-          <cdx-icon :icon="cdxIconEdit" size="small" />
-        </cdx-button>
+  <!-- A table row with fixed columns, as step 1 (wish Olaf 13-11-2026): tick box, image, item
+       (with where it comes from), Q-id, description, the default slot ("with location") and the bin. -->
+  <li class="cc-sdc-item cc-origineel-rij">
+    <div class="cc-sdc-rij cc-sdc-rij-nieuw">
+      <input v-model="row.checked" type="checkbox" :aria-label="t('original.include', { item: row.label })" />
+      <!-- The item's own image (P18) on Wikidata, where it has one: helps to see whether it is the right item. -->
+      <span :key="row.q" class="cc-item-beeld-kader"><img class="cc-item-beeld" :src="itemImage(row.q)" :alt="t('original.item_image', { item: row.label })" :title="t('original.item_image', { item: row.label })" loading="lazy" @mouseenter="emit('zoom', $event, row.q)" @mouseleave="emit('unzoom')" @error="noImage" /><span class="cc-geen-beeld">{{ t("original.no_image") }}</span></span>
+      <div class="cc-origineel-item">
+        <div class="cc-sdc-itemkop">
+          <a class="cc-sdc-label" :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
+          <ai-badge v-if="ai" kind="beschrijving" :model="''" />
+          <cdx-button v-if="changeable" action="progressive" weight="quiet" size="small" :aria-label="t('original.other_item')" :title="t('original.other_item')" @click="emit('other')">
+            <cdx-icon :icon="cdxIconEdit" size="small" />
+          </cdx-button>
+        </div>
+        <slot name="source" />
       </div>
-      <div v-if="row.beschrijving" class="cc-klein">{{ row.beschrijving }}</div>
-      <slot name="source" />
-      <!-- Another item for this row: search Wikidata (free) and pick. -->
-      <div v-if="searching" class="cc-origineel-zoek">
-        <cdx-text-input
-          clearable
-          :model-value="text"
-          :placeholder="t('original.search_placeholder')"
-          @update:model-value="typed"
-        />
-        <ul class="cc-origineel-treffers">
-          <li v-for="hit in hits" :key="hit.q">
-            <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="emit('zoom', $event, hit.q)" @mouseleave="emit('unzoom')" @error="hideImage" />
-            <button type="button" class="cc-link" @click="emit('choose', hit)">{{ hit.label }}</button>
-            <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
-          </li>
-        </ul>
-        <button type="button" class="cc-link" @click="emit('cancel')">{{ t("actions.cancel") }}</button>
-      </div>
+      <span class="cc-klein cc-sdc-q">{{ row.q }}</span>
+      <span class="cc-klein cc-sdc-beschrijving">{{ row.beschrijving }}</span>
+      <span v-if="$slots.default" class="cc-klein cc-sdc-locatie"><slot /></span>
+      <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('original.hide_row', { item: row.label })" :title="t('original.hide_row', { item: row.label })" @click="emit('hide')">
+        <cdx-icon :icon="cdxIconTrash" size="small" />
+      </cdx-button>
     </div>
-    <slot />
-    <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('original.hide_row', { item: row.label })" :title="t('original.hide_row', { item: row.label })" @click="emit('hide')">
-      <cdx-icon :icon="cdxIconTrash" size="small" />
-    </cdx-button>
+    <!-- Another item for this row: search Wikidata (free) and pick. -->
+    <div v-if="searching" class="cc-origineel-zoek cc-sdc-objecten">
+      <cdx-text-input
+        clearable
+        :model-value="text"
+        :placeholder="t('original.search_placeholder')"
+        @update:model-value="typed"
+      />
+      <ul class="cc-origineel-treffers">
+        <li v-for="hit in hits" :key="hit.q">
+          <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="emit('zoom', $event, hit.q)" @mouseleave="emit('unzoom')" @error="hideImage" />
+          <button type="button" class="cc-link" @click="emit('choose', hit)">{{ hit.label }}</button>
+          <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
+        </li>
+      </ul>
+      <button type="button" class="cc-link" @click="emit('cancel')">{{ t("actions.cancel") }}</button>
+    </div>
   </li>
 </template>
 

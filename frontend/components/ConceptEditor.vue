@@ -392,9 +392,13 @@ function saveStatement({ property, values }) {
   save();
 }
 
-function removeDepicts(q) {
+async function removeDepicts(q, persist = false) {
+  if (!draft.value) return;
   draft.value.beeldt_af = draft.value.beeldt_af.filter((item) => item.q !== q);
+  if (persist) await save();
 }
+// What 'depicts' of the concept holds now: the tab "Beeldt af (P180)" ticks its proposals by it.
+const depicts = computed(() => draft.value?.beeldt_af || []);
 const rendering = ref(false);
 const renderError = ref("");
 let renderTimer = null;
@@ -660,5 +664,5 @@ async function copy(text) {
   }
 }
 
-defineExpose({ reload, addDepicts, openEdit });
+defineExpose({ reload, addDepicts, removeDepicts, depicts, openEdit });
 </script>

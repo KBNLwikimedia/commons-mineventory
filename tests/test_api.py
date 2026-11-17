@@ -930,6 +930,22 @@ def test_merging_keeps_the_depicts_item(app):
         assert merged["id"] == "obj-a" and merged["wikidata"] == "Q1420"
 
 
+def test_item_labels_and_descriptions(app, http, monkeypatch):
+    """GET /wikidata/items: label and description per item, only valid Q-ids, at most 50."""
+    client = app.extensions["commons"]
+    asked = []
+
+    def info(ids):
+        asked.append(ids)
+        return {q: {"label": {"nl": "koplamp", "en": "headlamp"}, "beschrijving": {"nl": "lamp voorop", "en": "lamp at the front"}} for q in ids}
+
+    monkeypatch.setattr(client, "item_info", info)
+    items = http.get("/api/v1/wikidata/items?ids=Q869713|kerk|Q869713").get_json()["items"]
+    assert items == {"Q869713": {"label": {"nl": "koplamp", "en": "headlamp"}, "beschrijving": {"nl": "lamp voorop", "en": "lamp at the front"}}}
+    assert asked == [["Q869713"]]
+    assert http.get("/api/v1/wikidata/items").get_json() == {"items": {}}
+
+
 def test_logo_of_an_item_through_the_server(app, http, monkeypatch):
     """GET /wikidata/{q}/logo: the logo (P154) as an image through the server; 404 without one."""
     client = app.extensions["commons"]

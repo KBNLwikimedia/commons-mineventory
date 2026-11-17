@@ -880,7 +880,8 @@ def description_input(mid, n, object_id):
 def edit_description(mid, n, object_id):
     """Change the texts of the description by hand (free). Body: any of
     {"onderwerp", "onderwerp_en", "bedrijf_of_naam", "beschrijving", "beschrijving_en",
-    "tekst_in_beeld", "tekst_rond_beeld"}."""
+    "tekst_in_beeld", "tekst_rond_beeld"}, and "beschrijvingsniveau" to show another of the
+    four lengths (kort, normaal, caption, uitgebreid; free, no new version)."""
     return jsonify(_descriptions().edit(_page_file(mid, n), n, object_id, _body()))
 
 
@@ -931,6 +932,15 @@ def search_wikidata():
     if language not in ("nl", "en"):
         language = "en"
     return jsonify({"resultaten": _client().search_items(request.args.get("q", ""), language)})
+
+
+@api.get("/wikidata/items")
+def wikidata_items():
+    """Label and description (nl, en) of up to 50 items (free, cached): the window for the
+    whole image shows the description of the item a row has now (wish Olaf 15-11-2026)."""
+    ids = [q for q in dict.fromkeys((request.args.get("ids") or "").split("|")) if QID.fullmatch(q)][:50]
+    info = _client().item_info(ids) if ids else {}
+    return jsonify({"items": {q: {"label": v.get("label") or {}, "beschrijving": v.get("beschrijving") or {}} for q, v in info.items()}})
 
 
 # -- Commons concept (9.1) --------------------------------------------------------------------

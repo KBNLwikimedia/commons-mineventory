@@ -197,9 +197,9 @@
           <!-- What you do with what you found, in four tabs (wish Olaf, 6-11-2026; FO 7.4):
                each with the selection, everything visible, and (group, trash) per kind.
                A button is disabled when there is nothing to do. -->
-          <!-- Two fold-outs, closed by default (wish Olaf): Bulk actions, and Save and export. -->
-          <cdx-accordion v-model="actionsOpen.bulk" class="cc-acties-uitklap">
-          <template #title>{{ t("bulk.title") }}</template>
+          <!-- Bulk actions always in view, right under the list (wish Olaf 17-11-2026: a fold-out hid them); Save and export stays a fold-out, closed by default. -->
+          <section class="cc-bulk-blok" :aria-label="t('bulk.title')">
+          <h3 class="cc-blok-kop cc-bulk-kop">{{ t("bulk.title") }}</h3>
           <!-- What this section is for, in one or two sentences (wish Olaf). -->
           <p class="cc-uitleg cc-sectie-intro">{{ t("bulk.intro") }}</p>
           <!-- Every outcome of the four bulk actions in one fixed place, above the tabs, so it is always in
@@ -260,7 +260,7 @@
             </cdx-tabs>
           </div>
           <busy-note v-if="busy && busyAt === 'objecten'" :message="maskWait || t('busy.describe')" />
-          </cdx-accordion>
+          </section>
           <cdx-accordion v-model="actionsOpen.save" class="cc-acties-uitklap">
           <template #title>{{ t("bulk.save_title") }}</template>
           <p class="cc-uitleg cc-sectie-intro">{{ t("bulk.save_intro") }}</p>

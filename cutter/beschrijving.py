@@ -55,7 +55,7 @@ MAX_MARGIN = 1.0  # the user may choose 0 to 100 % (in steps of 5 %)
 MAX_SIDE = 1024  # pixels of the image sent to the model
 MAX_PREVIEW_SIDE = 4000  # the larger preview in the lightbox, to read the text (never sent)
 CONTEXT_CHARS = 800  # at most this much of the Commons description in the question
-MAX_SUGGESTIONS = 3
+MAX_SUGGESTIONS = 10  # since 0.42.0 also what the longest description names (wish Olaf 17-11-2026)
 BLOCKING_LABELS = {"merk", "persoonlijkheidsrechten", "ter_discussie"}  # no Contributor (6.3)
 
 # USD per million tokens (input, output); docs/beeld-taalmodel.md of the Delpher Uitsnijder.
@@ -88,18 +88,21 @@ SCHEMA = {
         "bedrijf_of_naam": {"type": ["string", "null"]},
         "tekst_in_beeld": {"type": ["string", "null"]},
         "tekst_rond_beeld": {"type": ["string", "null"]},
-        "beschrijving": {"type": "string"},
-        "beschrijving_en": {"type": "string"},
+        # All four lengths of the description in one answer (wish Olaf 17-11-2026), as for the
+        # whole image: the slider then switches between them for free.
+        **{f"beschrijving_{level}{suffix}": {"type": "string"} for level in ("kort", "normaal", "caption", "uitgebreid") for suffix in ("", "_en")},
         "zekerheid": {"type": "string", "enum": ["hoog", "middel", "laag"]},
         "wikidata_suggesties": {"type": "array", "items": {"type": "string"}, "maxItems": MAX_SUGGESTIONS},
     },
     "required": [
         "soort", "onderwerp", "onderwerp_en", "bedrijf_of_naam", "tekst_in_beeld", "tekst_rond_beeld",
-        "beschrijving", "beschrijving_en", "zekerheid", "wikidata_suggesties",
+        *(f"beschrijving_{level}{suffix}" for level in ("kort", "normaal", "caption", "uitgebreid") for suffix in ("", "_en")),
+        "zekerheid", "wikidata_suggesties",
     ],
     "additionalProperties": False,
 }
-TEXT_FIELDS = [k for k, v in SCHEMA["properties"].items() if v["type"] != "array"]
+# The texts of a stored description; "beschrijving" and "beschrijving_en" hold the length shown.
+TEXT_FIELDS = ["soort", "onderwerp", "onderwerp_en", "bedrijf_of_naam", "tekst_in_beeld", "tekst_rond_beeld", "beschrijving", "beschrijving_en", "zekerheid"]
 
 INSTRUCTIONS = """You look at a cut-out from an image on Wikimedia Commons. The cut-out shows one object (for example a coat of arms, portrait, figure, drawing, initial, map or photograph) with a margin around it; the object is in the middle.
 
@@ -110,10 +113,9 @@ Answer in JSON with these fields:
 - bedrijf_of_naam: the person, family, company or place it belongs to, if a name is legible or clearly given in the context; otherwise null. Do not guess.
 - tekst_in_beeld: the text that is legible inside the object itself, verbatim. null if none.
 - tekst_rond_beeld: legible text directly above, below or beside the object in the margin, verbatim. null if none.
-- beschrijving: {description_rule}
-- beschrijving_en: {description_rule_en}
+{descriptions}
 - zekerheid: hoog, middel or laag: how sure you are about the name and the description.
-- wikidata_suggesties: at most {max_suggestions} short English search terms for Wikidata items this cut-out depicts (e.g. "coat of arms", "Catherine of Alexandria"). Search terms only, never Q-ids.
+- wikidata_suggesties: short English search terms (at most {max_suggestions}) for Wikidata items of what this cut-out depicts: first the main subject, then every distinct person, animal, object, vehicle, building or place you name in beschrijving_uitgebreid. One concept per term, singular, as a Wikidata label would be (e.g. "coat of arms", "Catherine of Alexandria", "flying boat", "propeller", "hat"). Search terms only, never Q-ids.
 
 The image is {title} on Wikimedia Commons. Context from the file page (may be incomplete or wrong, do not treat it as the truth):
 - Description: {description}
@@ -473,30 +475,32 @@ def page_description_version(overview):
 SHOWN = (("nl", "samenvatting"), ("en", "samenvatting_en"))
 
 
-def sync_description_length(overview):
+def sync_description_length(overview, shown=SHOWN):
     """Write the shown summary (with its own AI original) back into its length in
-    "beschrijvingen", so each length keeps its hand edits (wish Olaf, 11-11-2026)."""
+    "beschrijvingen", so each length keeps its hand edits (wish Olaf, 11-11-2026).
+    `shown`: the fields that show it (SHOWN for the image, OBJECT_SHOWN for a cut-out)."""
     lengths, level = overview.get("beschrijvingen"), overview.get("beschrijvingsniveau")
     if not isinstance(lengths, dict) or not lengths or level not in DESCRIPTION_LEVELS:
         return
     original = overview.get("ai_origineel") or {}
-    entry = {lang: overview.get(field) or "" for lang, field in SHOWN}
-    ai = {lang: original[field] for lang, field in SHOWN if field in original}
+    entry = {lang: overview.get(field) or "" for lang, field in shown}
+    ai = {lang: original[field] for lang, field in shown if field in original}
     if ai:
         entry["ai_origineel"] = ai
     lengths[level] = entry
 
 
-def show_description_length(overview, level):
+def show_description_length(overview, level, shown=SHOWN):
     """Show another length: its text, with its own hand edits and AI original, becomes
-    the summary of the overview. Free; the other lengths stay as they are."""
-    sync_description_length(overview)
+    the summary of the overview (or the description of a cut-out, with OBJECT_SHOWN).
+    Free; the other lengths stay as they are."""
+    sync_description_length(overview, shown)
     entry = (overview.get("beschrijvingen") or {}).get(level) or {}
-    for lang, field in SHOWN:
+    for lang, field in shown:
         overview[field] = entry.get(lang) or ""
-    shown_fields = {field for _, field in SHOWN}
+    shown_fields = {field for _, field in shown}
     original = {k: v for k, v in (overview.get("ai_origineel") or {}).items() if k not in shown_fields}
-    original.update({field: entry["ai_origineel"][lang] for lang, field in SHOWN if lang in (entry.get("ai_origineel") or {})})
+    original.update({field: entry["ai_origineel"][lang] for lang, field in shown if lang in (entry.get("ai_origineel") or {})})
     if original:
         overview["ai_origineel"] = original
     else:
@@ -504,6 +508,16 @@ def show_description_length(overview, level):
     if "bewerkt" in overview or original:
         overview["bewerkt"] = bool(original)
     overview["beschrijvingsniveau"] = level
+
+
+def show_object_length(description, level):
+    """Show the chosen length of a cut-out's description (made with all four): that one,
+    else "normaal", else the first there is. An older description has only its own."""
+    lengths = description.get("beschrijvingen") or {}
+    if lengths:
+        chosen = level if level in lengths else DEFAULT_DESCRIPTION_LEVEL if DEFAULT_DESCRIPTION_LEVEL in lengths else next(iter(lengths))
+        show_description_length(description, chosen, OBJECT_SHOWN)
+    return description
 
 
 def page_description_snapshot(overview):
@@ -764,14 +778,19 @@ OBJECT_DESCRIPTION_LEVELS = {
 
 
 OBJECT_DESCRIPTION_LEVELS["caption"] = DESCRIPTION_LEVELS["caption"]
+OBJECT_SUMMARY_LINES = "\n".join(
+    f"- beschrijving_{level}: {rule}\n- beschrijving_{level}_en: {rule_en}" for level, (rule, rule_en) in OBJECT_DESCRIPTION_LEVELS.items()
+) + "\n  The four beschrijving lengths are separate descriptions of the same cut-out: write each one on its own, do not just cut a longer one."
+# The fields of the stored description that show the chosen length.
+OBJECT_SHOWN = (("nl", "beschrijving"), ("en", "beschrijving_en"))
 
 
 def build_prompt(file, caption=None, hint=None, page_text=None, group=None, members_context=None, surroundings=False, description_level=DEFAULT_DESCRIPTION_LEVEL, clue=""):
+    # All four lengths are asked at once (wish Olaf 17-11-2026); description_level only says
+    # which one is shown, so it no longer changes the question.
     caption = " ".join((caption or "").split())[:CONTEXT_CHARS]
-    rule, rule_en = OBJECT_DESCRIPTION_LEVELS.get(description_level) or OBJECT_DESCRIPTION_LEVELS[DEFAULT_DESCRIPTION_LEVEL]
     prompt = INSTRUCTIONS.format(
-        description_rule=rule,
-        description_rule_en=rule_en,
+        descriptions=OBJECT_SUMMARY_LINES,
         kinds=", ".join(KINDS),
         max_suggestions=MAX_SUGGESTIONS,
         title=f'"{file.get("naam") or file.get("titel")}"',
@@ -849,6 +868,17 @@ def parse_answer(text):
     if result["zekerheid"] not in ("hoog", "middel", "laag"):
         result["zekerheid"] = "laag"
     result["beschrijving"] = result["beschrijving"] or ""
+    # The four lengths (an answer in the old format has only "beschrijving"); a caption is
+    # never longer than Commons allows.
+    lengths = {}
+    for level in OBJECT_DESCRIPTION_LEVELS:
+        nl, en = (" ".join(str(data.get(f"beschrijving_{level}{suffix}") or "").split())[:MAX_FIELD] for suffix in ("", "_en"))
+        if level == "caption":
+            nl, en = cap_caption(nl), cap_caption(en)
+        if nl or en:
+            lengths[level] = {"nl": nl, "en": en}
+    if lengths:
+        result["beschrijvingen"] = lengths
     suggestions = data.get("wikidata_suggesties") if isinstance(data.get("wikidata_suggesties"), list) else []
     cleaned = []
     for term in suggestions:
@@ -923,10 +953,16 @@ class DummyVision:
             "bedrijf_of_naam": None,
             "tekst_in_beeld": None,
             "tekst_rond_beeld": None,
-            "beschrijving": f"Voorbeeldbeschrijving (dummy, geen echt model) van een {dutch}.",
-            "beschrijving_en": f"Example description (dummy, not a real model) of a {label}.",
+            "beschrijving_kort": f"Een {dutch} (dummy).",
+            "beschrijving_kort_en": f"A {label} (dummy).",
+            "beschrijving_normaal": f"Voorbeeldbeschrijving (dummy, geen echt model) van een {dutch}.",
+            "beschrijving_normaal_en": f"Example description (dummy, not a real model) of a {label}.",
+            "beschrijving_caption": f"Voorbeeldbijschrift voor Commons (dummy, geen echt model): een {dutch}, zoals te zien in deze uitsnede.",
+            "beschrijving_caption_en": f"Example caption for Commons (dummy, no real model): a {label}, as seen in this cut-out.",
+            "beschrijving_uitgebreid": f"Een uitgebreide voorbeeldbeschrijving (dummy, geen echt model) van een {dutch}. Ze noemt wat er te zien is, opvallende details, kleuren en stijl. Zo kun je de schuif uitproberen.",
+            "beschrijving_uitgebreid_en": f"An extensive example description (dummy, no real model) of a {label}. It names what is shown, notable details, colours and style. So you can try the slider.",
             "zekerheid": "laag",
-            "wikidata_suggesties": [label],
+            "wikidata_suggesties": [label, "hat", "propeller"],
         }
         return {"output_text": json.dumps(answer), "usage": {"input_tokens": 0, "output_tokens": 0}}
 
@@ -1187,8 +1223,7 @@ class DescriptionService:
         # The members (and what they were described as) go into the cache key too: an answer
         # from before the group instruction, or from before a member was described, is not reused.
         key_hint = hint + (f"|groep: {group}" + ("|omgeving" if surroundings else "") if group else "") + (f"|context: {hashlib.sha1(members_context.encode()).hexdigest()[:12]}" if members_context else "")
-        if description_level != DEFAULT_DESCRIPTION_LEVEL:  # "normaal" keeps the key from before the slider
-            key_hint += f"|beschrijving={description_level}"
+        key_hint += "|lengtes"  # since 0.42.0 all four lengths in one answer, whichever is shown
         if question["clue"]:  # the clue (name, label or search term) is part of the question
             key_hint += f"|aanwijzing detectie: {hashlib.sha1(question['clue'].encode()).hexdigest()[:12]}"
         if question["own"]:  # another prompt is another question
@@ -1199,7 +1234,7 @@ class DescriptionService:
         if description is not None:
             mark_used(path)
             description["uit_cache"] = True
-            return self._store(file, n, object_id, description, user)
+            return self._store(file, n, object_id, show_object_length(description, description_level), user)
 
         effort = self._effort()
         with self._booking(user, choice["model"], effort):
@@ -1210,13 +1245,10 @@ class DescriptionService:
             body = self.vision.describe(choice["model"], prompt, data_url, self.objects.public(file, n, obj), effort)
             tokens, amount = self._tokens_and_cost(body, choice["model"], effort)
             answer = parse_answer(output_text(body))
-            if description_level == "caption":  # never longer than a caption on Commons may be
-                for key in ("beschrijving", "beschrijving_en"):
-                    if answer.get(key):
-                        answer[key] = cap_caption(answer[key])
             description = {
                 **answer,
-                "beschrijvingsniveau": description_level,
+                # Which length is shown: set by show_object_length below (all four are there).
+                **({} if answer.get("beschrijvingen") else {"beschrijvingsniveau": description_level}),
                 "model": choice["model"],
                 "model_reden": choice["reden"],
                 "model_reden_code": choice["reden_code"],
@@ -1254,15 +1286,18 @@ class DescriptionService:
                 )
         write_json(path, description)
         description["uit_cache"] = False
-        return self._store(file, n, object_id, description, user)
+        return self._store(file, n, object_id, show_object_length(description, description_level), user)
 
     # -- History of descriptions ------------------------------------------------
 
     @staticmethod
     def _same(a, b):
         """Whether two descriptions are the same version (same answer, question, edit and texts)."""
+        a, b = a or {}, b or {}
         keys = ("tijdstempel", "bewerkt_op", "aanwijzing", "marge", "paginatekst", *EDITABLE)
-        return all((a or {}).get(k) == (b or {}).get(k) for k in keys)
+        if a.get("beschrijvingen") and b.get("beschrijvingen"):  # the lengths, whichever one is shown
+            keys = (*(k for k in keys if k not in ("beschrijving", "beschrijving_en")), "beschrijvingen")
+        return all(a.get(k) == b.get(k) for k in keys)
 
     @staticmethod
     def version(description):
@@ -1356,9 +1391,13 @@ class DescriptionService:
             raise DetectionError("Die eerdere beschrijving bestaat niet (meer).", status=404, code="not_found")
         chosen = candidates[0]
         with self.objects.editing(file, n, object_id) as (_store, obj):
+            shown = (obj.get("beschrijving") or {}).get("beschrijvingsniveau")
             self._keep_in_history(obj)
-            chosen = {k: v for k, v in chosen.items() if k != "versie"}
+            chosen = json.loads(json.dumps({k: v for k, v in chosen.items() if k != "versie"}))
             obj["beschrijving_geschiedenis"] = [h for h in obj.get("beschrijving_geschiedenis", []) if not self._same(h, chosen)]
+            # With all four lengths the slider stays where it was.
+            if shown in (chosen.get("beschrijvingen") or {}) and shown != chosen.get("beschrijvingsniveau"):
+                show_description_length(chosen, shown, OBJECT_SHOWN)
             obj["beschrijving"] = chosen
         return self.objects.public(file, n, obj)
 
@@ -1374,16 +1413,29 @@ class DescriptionService:
     def edit(self, file, n, object_id, changes):
         """Change the texts of the stored description by hand. The first time
         a field changes, its AI text is kept in "ai_origineel", so the UI can
-        go back to it. Free: never calls the model."""
+        go back to it. Free: never calls the model. "beschrijvingsniveau" shows another of
+        the four lengths (the slider, no new version); a text edited then belongs to that length."""
+        changes = dict(changes or {})
+        level = changes.pop("beschrijvingsniveau", None)
         unknown = set(changes) - set(EDITABLE)
-        if unknown or not all(isinstance(v, str) for v in changes.values()):
-            raise DetectionError(f"Alleen deze velden zijn te bewerken: {', '.join(EDITABLE)}.", status=400, code="invalid_body")
+        if (not changes and level is None) or unknown or not all(isinstance(v, str) for v in changes.values()):
+            raise DetectionError(f"Alleen deze velden zijn te bewerken: {', '.join(EDITABLE)}, en beschrijvingsniveau.", status=400, code="invalid_body")
+        if level is not None and level not in OBJECT_DESCRIPTION_LEVELS:
+            raise DetectionError(f"Onbekend beschrijvingsniveau '{level}'; kies uit {', '.join(OBJECT_DESCRIPTION_LEVELS)}.", status=400, code="invalid_body")
         with self.objects.lock:
             store = self.objects._load_store(file, n)
             obj = self.objects._find_in(store, object_id)
             description = obj.get("beschrijving")
             if not description:
                 raise DetectionError("Dit object heeft nog geen beschrijving.", status=409, code="no_description")
+            if level is not None and level != description.get("beschrijvingsniveau"):
+                if not (description.get("beschrijvingen") or {}).get(level):
+                    raise DetectionError("Deze lengte is nog niet gemaakt: vraag de beschrijving opnieuw, dan komen alle vier de lengtes.", status=409, code="length_not_made")
+                description = obj["beschrijving"] = json.loads(json.dumps(description))
+                show_description_length(description, level, OBJECT_SHOWN)
+                self.objects._write_store(file, n, store)
+            if description.get("beschrijvingsniveau") == "caption" and any(len(changes.get(field, "").strip()) > CAPTION_MAX for _, field in OBJECT_SHOWN):
+                raise DetectionError(f"Een Commons-caption is hooguit {CAPTION_MAX} tekens.", status=400, code="invalid_body")
             if all((description.get(field) or "") == value.strip() for field, value in changes.items()):
                 return self.objects.public(file, n, obj)  # nothing changes: no new version
             # Version history: the version as it was goes into the history first, so
@@ -1392,6 +1444,7 @@ class DescriptionService:
             obj["beschrijving_geschiedenis"][0] = json.loads(json.dumps(obj["beschrijving_geschiedenis"][0]))
             description = obj["beschrijving"] = json.loads(json.dumps(description))
             _apply_hand_edit(description, {field: value.strip() for field, value in changes.items()})
+            sync_description_length(description, OBJECT_SHOWN)  # the edit belongs to the length shown
             self.objects._write_store(file, n, store)
         return self.objects.public(file, n, obj)
 

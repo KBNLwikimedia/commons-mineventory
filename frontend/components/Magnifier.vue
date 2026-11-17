@@ -263,6 +263,11 @@
 
                 <!-- 1b. The answer. -->
                 <section v-else class="cc-antwoord">
+                  <!-- All four lengths come at once, as for the whole image: the slider shows another one,
+                       live and free, with the Commons-caption switch (wish Olaf 17-11-2026). -->
+                  <div class="cc-termen-bron cc-object-lengte">
+                    <description-length v-model="descLevel" :disabled="busy || Boolean(editingGroup)" prefix="objdetail" />
+                  </div>
                   <dl class="cc-gegevens">
                     <dt>{{ t("describe.kind") }} <ai-badge kind="soort" :model="description.model" /></dt>
                     <dd>{{ fixedValue("kind", description.soort) }} · {{ t("describe.certainty") }}: {{ fixedValue("certainty", description.zekerheid) }}</dd>
@@ -288,7 +293,11 @@
                           </div>
                         </dd>
                         <dd v-else :class="{ 'cc-gelezen-tekst': group.read }">
-                          <template v-if="group.fields.length === 2">{{ description[group.fields[0]] }}<br /><i>{{ description[group.fields[1]] }}</i></template>
+                          <!-- The description in a box of fixed height that scrolls: the slider changes the
+                               length of the text, not the height of the window (as for the whole image). -->
+                          <div v-if="group.key === 'beschrijving'" class="cc-lengte-tekst" tabindex="0"><!-- A length that is not
+                               there: said inside the box, so nothing moves (wish Olaf 17-11-2026). --><span v-if="lengthMissing" class="cc-uitleg cc-lengte-ontbreekt">{{ lengthMissingText }}<br /></span>{{ description[group.fields[0]] }}<br /><i>{{ description[group.fields[1]] }}</i></div>
+                          <template v-else-if="group.fields.length === 2">{{ description[group.fields[0]] }}<br /><i>{{ description[group.fields[1]] }}</i></template>
                           <template v-else>{{ description[group.fields[0]] }}</template>
                           <!-- The pencil after the text: edit this field in place. -->
                           <edit-pencil :label="t(group.label)" :disabled="busy" @click="startEditing(group)" />
@@ -346,8 +355,6 @@
                         <template #help-text>{{ t("describe.hint_help") }}</template>
                         <cdx-text-input clearable v-model="hint" :placeholder="t('describe.hint_placeholder')" :maxlength="300" @keydown.enter="describe(Boolean(description))" />
                       </cdx-field>
-                      <!-- How long the description is, as for the whole image (wish Olaf), with the Commons caption stop. -->
-                      <detail-slider v-model="descLevel" :disabled="busy" :levels="OBJECT_DESCRIPTION_LEVELS" prefix="objdetail" />
                       <label class="cc-marge">
                         <span>{{ t("describe.margin", { pct: Math.round(margin * 100) }) }}</span>
                         <input v-model.number="margin" type="range" min="0" max="1" step="0.05" :aria-label="t('describe.margin_label')" />
@@ -449,7 +456,7 @@
                         </div>
                         <div class="cc-versie-veld">
                           <span class="cc-versie-label">{{ t("version.description") }}</span>
-                          <span class="cc-geschiedenis-beschrijving">{{ language === "en" ? entry.beschrijving_en || entry.beschrijving : entry.beschrijving || entry.beschrijving_en }}</span>
+                          <span class="cc-geschiedenis-beschrijving">{{ entryText(entry, language === "en" ? "en" : "nl") || entryText(entry, language === "en" ? "nl" : "en") }}</span>
                         </div>
                         <div v-if="entry.tekst_in_beeld" class="cc-versie-veld cc-versie-tekst">
                           <span class="cc-versie-label">{{ t("describe.field_tekst_in_beeld") }}</span>
@@ -491,7 +498,7 @@
                     {{ t("describe.suggestions") }}
                     (<a href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">P180</a>)
                   </h3>
-                  <p v-if="description?.wikidata_suggesties?.length" class="cc-klein">{{ t("describe.suggestions_help") }}</p>
+                  <p class="cc-uitleg">{{ t("describe.suggestions_help") }}</p>
                   <!-- Search Wikidata yourself (free, only reading). -->
                   <!-- Autosuggest while typing (Codex Lookup); choosing an item adds it to 'beeldt af'.
                        Enter or Zoeken shows all results as a list below. -->
@@ -511,19 +518,47 @@
                     </cdx-lookup>
                     <cdx-button type="submit" action="progressive" :disabled="!ownTerm.trim()">{{ t("describe.search_button") }}</cdx-button>
                   </form>
-                  <div v-if="description?.wikidata_suggesties?.length" class="cc-knoppen">
-                    <cdx-button action="progressive" v-for="term in description.wikidata_suggesties" :key="term" size="small" @click="searchWikidata(term)">
-                      <cdx-icon :icon="cdxIconSearch" /> {{ term }}
-                    </cdx-button>
-                  </div>
                   <p v-if="searched && !hits.length" class="cc-klein">{{ t("describe.search_none", { term: searched }) }}</p>
                   <ul v-if="hits.length" class="cc-treffers">
                     <li v-for="hit in hits" :key="hit.q">
+                      <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
                       <cdx-button size="small" weight="quiet" action="progressive" @click="addDepicts(hit)">+ {{ hit.label }}</cdx-button>
                       <small><a :href="`https://www.wikidata.org/wiki/${hit.q}`" target="_blank" rel="noopener">{{ hit.q }}</a> · {{ hit.beschrijving }}</small>
                     </li>
                   </ul>
+                  <!-- Ready-made proposals, as for the whole image (wish Olaf 17-11-2026): from the name of
+                       the cut-out, an item it has, and the AI description (also what its longest length
+                       names), each already looked up on Wikidata, with the item's image. A tick puts the
+                       item in 'depicts' of the Commons concept at once; untick takes it out. -->
+                  <busy-note v-if="resolvingProposals" :message="t('original.resolving')" />
+                  <p v-else-if="!shownProposals.length" class="cc-uitleg">{{ t("describe.proposals_none") }}</p>
+                  <template v-if="shownProposals.length">
+                    <tick-links
+                      class="cc-klein cc-sdc-selectie"
+                      @all="shownProposals.forEach((row) => (row.checked = true))"
+                      @none="shownProposals.forEach((row) => (row.checked = false))"
+                      @invert="shownProposals.forEach((row) => (row.checked = !row.checked))"
+                    />
+                    <div class="cc-sdc-rij cc-sdc-rij-nieuw cc-sdc-tabelkop cc-klein" aria-hidden="true">
+                      <span></span><span></span>
+                      <span>{{ t("original.col_item") }}</span>
+                      <span>{{ t("original.col_q") }}</span>
+                      <span>{{ t("original.col_description") }}</span>
+                      <span></span>
+                    </div>
+                    <ul class="cc-sdc-items">
+                      <original-row v-for="row in shownProposals" :key="row.key" v-bind="proposalProps(row)" :ai="row.ai" changeable v-on="proposalEvents(row)">
+                        <template #source>
+                          <div class="cc-klein cc-origineel-bron">
+                            {{ row.bronnen.map((b) => t(`describe.proposal_source_${b}`)).join(" · ") }}<template v-if="row.terms.length"> ({{ row.terms.join(", ") }})</template>
+                          </div>
+                        </template>
+                      </original-row>
+                    </ul>
+                  </template>
+                  <undo-message :note="proposalNote" />
                 </section>
+                <item-zoom :zoom="zoom" />
           </cdx-tab>
         </cdx-tabs>
       </cdx-tab>
@@ -548,7 +583,8 @@ import { cleanText } from "../text.js";
 import VersionCarousel from "./VersionCarousel.vue";
 import VersionEntry from "./VersionEntry.vue";
 import EditPencil from "./EditPencil.vue";
-import DetailSlider from "./DetailSlider.vue";
+import DescriptionLength from "./DescriptionLength.vue";
+import { readStored, writeStored } from "../storage.js";
 import BusyNote from "./BusyNote.vue";
 import ZoomImage from "./ZoomImage.vue";
 import SavedLabel from "./SavedLabel.vue";
@@ -558,7 +594,11 @@ import UndoMessage from "./UndoMessage.vue";
 import { descriptionVersion, promptBack, useUndoMessage, versionBack } from "../undo.js";
 import { movableDialog } from "../movable.js";
 import { fileName, objectName, savedLabel } from "../state.js";
-import { searchItems, wikidataSearcher } from "../wikidata.js";
+import { bestHit, itemImage, itemInfo, searchItems, wikidataSearcher } from "../wikidata.js";
+import { useItemZoom } from "../zoom.js";
+import ItemZoom from "./ItemZoom.vue";
+import OriginalRow from "./OriginalRow.vue";
+import TickLinks from "./TickLinks.vue";
 import { fitToText } from "../autosize.js";
 import AiBadge from "./AiBadge.vue";
 import ConceptEditor from "./ConceptEditor.vue";
@@ -696,15 +736,15 @@ const groupNames = computed(() => {
 // side (0-1): what the last description used, else 25 %.
 const DEFAULT_MARGIN = 0.25;
 const margin = ref(props.object.beschrijving?.marge ?? DEFAULT_MARGIN);
-// How long the description is (the same stops as for the whole image): what the last answer used.
-const OBJECT_DESCRIPTION_LEVELS = ["kort", "normaal", "caption", "uitgebreid"];
-const descLevel = ref(props.object.beschrijving?.beschrijvingsniveau || "normaal");
+// Which length of the description is shown (the same stops as for the whole image): that of the
+// description, else the last one chosen in this browser. The AI makes all four at once.
+const OBJ_DESC_KEY = "cc-object-beschrijvingsniveau";
+const descLevel = ref(props.object.beschrijving?.beschrijvingsniveau || readStored(OBJ_DESC_KEY, "normaal"));
 // What the next question will use besides the defaults, in a few words
 // (shown beside the button and on the folded AI modifiers).
 const modifiersSummary = computed(() => {
   const parts = [];
   if (props.object.groep && !groupOnly.value) parts.push(t("describe.history_group_off"));
-  if (descLevel.value !== "normaal") parts.push(t("descdetail.used", { level: t(`objdetail.${descLevel.value}`) }));
   if (Math.round(margin.value * 100) !== Math.round(DEFAULT_MARGIN * 100)) parts.push(t("describe.history_margin", { pct: Math.round(margin.value * 100) }));
   if (hint.value.trim()) parts.push(t("describe.history_hint", { hint: hint.value.trim() }));
   if (promptInfo.value?.eigen) parts.push(t("pagedescribe.steer_own_prompt"));
@@ -837,7 +877,7 @@ watch(
     removedCaption.value = "";
     hint.value = "";
     margin.value = props.object.beschrijving?.marge ?? DEFAULT_MARGIN;
-    descLevel.value = props.object.beschrijving?.beschrijvingsniveau || "normaal";
+    descLevel.value = props.object.beschrijving?.beschrijvingsniveau || descLevel.value;
     shownMargin.value = margin.value;
     loadHistory();
     cancelEditing();
@@ -900,6 +940,41 @@ async function describe(again) {
     busy.value = false;
     clearInterval(ticker);
   }
+}
+
+// Another length that was made with the others: show it (free, no new version). Each length
+// keeps its own hand edits, as for the whole image.
+watch(() => props.object.beschrijving?.beschrijvingsniveau, (level) => level && (descLevel.value = level));
+watch(descLevel, (level) => {
+  writeStored(OBJ_DESC_KEY, level);
+  const shown = description.value;
+  if (shown && level !== shown.beschrijvingsniveau && shown.beschrijvingen?.[level]) showLength(level);
+});
+async function showLength(level) {
+  const id = props.object.id;
+  error.value = "";
+  try {
+    const changed = await patch(`${base.value}/beschrijving`, { beschrijvingsniveau: level });
+    if (id !== props.object.id) return;
+    describeNote.clear();
+    emit("changed", changed);
+  } catch (e) {
+    error.value = errorText(t, e);
+  }
+}
+// The slider on a length this description does not have: made before the four lengths, or
+// the AI left this one empty. Asking anew brings all four.
+const lengthMissing = computed(() => Boolean(description.value) && descLevel.value !== description.value.beschrijvingsniveau && !description.value.beschrijvingen?.[descLevel.value]);
+const lengthMissingText = computed(() =>
+  Object.keys(description.value?.beschrijvingen || {}).length
+    ? t("describe.length_empty", { level: t(`objdetail.${descLevel.value}`) })
+    : t("describe.length_not_made", { level: t(`objdetail.${description.value?.beschrijvingsniveau || "normaal"}`) }),
+);
+// The text of an earlier version at the length on the slider (since 0.42.0 a version holds all four).
+function entryText(entry, lang) {
+  const length = entry.beschrijvingen?.[descLevel.value];
+  if (length) return length[lang] || "";
+  return lang === "en" ? entry.beschrijving_en : entry.beschrijving;
 }
 
 // Earlier descriptions (kept history plus answers still in the cache), newest first.
@@ -1143,10 +1218,147 @@ async function searchWikidata(term) {
   }
 }
 
+// An item from your own search: into 'depicts' of the concept and onto the list of proposals,
+// ticked; this tab stays, with a message and Undo (wish Olaf 17-11-2026).
 async function addDepicts(hit) {
   await editor.value?.addDepicts({ q: hit.q, label: hit.label });
-  tab.value = "commons";
+  if (!proposals.value.some((row) => row.q === hit.q)) {
+    proposals.value.push(proposalRow({ key: `e:${hit.q}`, q: hit.q, label: hit.label, beschrijving: hit.beschrijving || "", bronnen: ["eigen"] }));
+  }
+  hits.value = [];
+  proposalNote.show("success", t("describe.depicts_added", { item: hit.label }), () => editor.value?.removeDepicts(hit.q, true));
 }
+
+// -- Ready-made proposals for 'depicts' (P180) ------------------------------------------------
+
+const { zoom, showZoom, hideZoom } = useItemZoom();
+const hideImage = (event) => (event.target.style.visibility = "hidden");
+const proposals = ref([]);
+const hiddenProposals = ref([]);
+const resolvingProposals = ref(false);
+const proposalNote = useUndoMessage(t);
+const shownProposals = computed(() => proposals.value.filter((row) => !hiddenProposals.value.includes(row.key)));
+// A row's tick box is whether its item is in 'depicts' of the Commons concept: ticking adds it,
+// unticking removes it, both saved at once.
+function proposalRow(fields) {
+  const row = { key: "", q: null, label: "", beschrijving: "", bronnen: [], terms: [], ai: false, ...fields };
+  Object.defineProperty(row, "checked", {
+    enumerable: true,
+    get: () => Boolean(editor.value?.depicts?.some((d) => d.q === row.q)),
+    set: (on) => (on ? editor.value?.addDepicts({ q: row.q, label: row.label }) : editor.value?.removeDepicts(row.q, true)),
+  });
+  return row;
+}
+// The name of the cut-out as a search term: your own name, else the word the image detection found
+// it with, else its English label (not "rechthoek" or "klik": those are no names).
+function titleTerm(obj) {
+  for (const value of [obj.naam, obj.zoekterm, obj.label_en]) {
+    const term = String(value || "").trim();
+    if (term && !isPlaceholderTerm(term) && term.toLowerCase() !== "groep") return term;
+  }
+  return "";
+}
+async function buildProposals() {
+  const obj = props.object;
+  const id = obj.id;
+  const list = [];
+  if (obj.wikidata) list.push({ key: `q:${obj.wikidata}`, q: obj.wikidata, label: obj.label_item || obj.label_nl || obj.label, bronnen: ["gekozen"], terms: [] });
+  const title = titleTerm(obj);
+  if (title) list.push({ key: `n:${title}`, bronnen: ["titel"], terms: [title], search: title });
+  for (const term of obj.beschrijving?.wikidata_suggesties || []) list.push({ key: `s:${term}`, bronnen: ["suggestie"], terms: [term], search: term, ai: true });
+  resolvingProposals.value = Boolean(list.length);
+  // The terms are looked up on Wikidata (free, cached), a few at a time: the best hit.
+  const open = list.filter((row) => row.search);
+  for (let i = 0; i < open.length; i += 3) {
+    await Promise.all(
+      open.slice(i, i + 3).map(async (row) => {
+        const hit = bestHit(await searchItems(row.search, "en").catch(() => []), row.search);
+        if (hit) Object.assign(row, { q: hit.q, label: hit.label, beschrijving: hit.beschrijving || "" });
+      })
+    );
+    if (id !== props.object.id) return; // another object meanwhile
+  }
+  // One row per item, with all the places it comes from.
+  const byQ = new Map();
+  for (const row of list.filter((r) => r.q)) {
+    const one = byQ.get(row.q);
+    if (!one) byQ.set(row.q, { ...row, key: row.key, bronnen: [...row.bronnen], terms: [...row.terms], ai: Boolean(row.ai) });
+    else {
+      for (const b of row.bronnen) if (!one.bronnen.includes(b)) one.bronnen.push(b);
+      for (const term of row.terms) if (!one.terms.includes(term)) one.terms.push(term);
+      one.ai = one.ai && Boolean(row.ai);
+    }
+  }
+  // Label and description in the language of the interface (the terms are looked up in English).
+  try {
+    const info = await itemInfo([...byQ.keys()]);
+    for (const row of byQ.values()) {
+      const one = info[row.q];
+      if (one) Object.assign(row, { label: one.label?.[language] || one.label?.en || row.label, beschrijving: one.beschrijving?.[language] || "" });
+    }
+  } catch {
+    // Wikidata not reachable: the rows keep the texts of the search.
+  }
+  if (id !== props.object.id) return;
+  proposals.value = [...byQ.values()].map((row) => proposalRow(row));
+  resolvingProposals.value = false;
+}
+// Another item for a row: search Wikidata (free) and pick; a ticked row swaps the item in the concept.
+const otherFor = ref(null);
+const otherText = ref("");
+const otherHits = ref([]);
+let otherAsked = 0;
+async function searchOther(text) {
+  const mine = ++otherAsked;
+  if ((text || "").trim().length < 2) return (otherHits.value = []);
+  const found = await searchItems(text.trim(), language).catch(() => []);
+  if (mine === otherAsked) otherHits.value = found;
+}
+async function chooseOther(row, hit) {
+  const wasIn = row.checked;
+  if (wasIn) await editor.value?.removeDepicts(row.q, true);
+  Object.assign(row, { q: hit.q, label: hit.label, beschrijving: hit.beschrijving || "" });
+  if (wasIn) await editor.value?.addDepicts({ q: hit.q, label: hit.label });
+  otherFor.value = null;
+  otherHits.value = [];
+}
+// Away from the list (the bin): also out of 'depicts' of the concept; Undo puts both back.
+async function hideProposal(row) {
+  const wasIn = row.checked;
+  if (wasIn) await editor.value?.removeDepicts(row.q, true);
+  hiddenProposals.value.push(row.key);
+  proposalNote.show("warning", t("describe.proposal_hidden", { item: row.label }), async () => {
+    hiddenProposals.value = hiddenProposals.value.filter((key) => key !== row.key);
+    if (wasIn) await editor.value?.addDepicts({ q: row.q, label: row.label });
+  });
+}
+const proposalProps = (row) => ({ row, searching: otherFor.value === row.key, text: otherText.value, hits: otherHits.value });
+const proposalEvents = (row) => ({
+  other: () => {
+    otherFor.value = row.key;
+    otherText.value = row.terms[0] || row.label;
+    searchOther(otherText.value);
+  },
+  "update:text": (text) => (otherText.value = text),
+  search: searchOther,
+  choose: (hit) => chooseOther(row, hit),
+  cancel: () => (otherFor.value = null),
+  hide: () => hideProposal(row),
+  zoom: showZoom,
+  unzoom: hideZoom,
+});
+watch(
+  () => [props.object.id, props.object.naam, props.object.wikidata, (props.object.beschrijving?.wikidata_suggesties || []).join("|")],
+  ([id], [before] = []) => {
+    if (id !== before) {
+      hiddenProposals.value = [];
+      otherFor.value = null;
+      proposalNote.clear();
+    }
+    buildProposals();
+  },
+  { immediate: true }
+);
 
 // Download saves the file (named after the Commons concept); view opens it in a new tab.
 function download(kind) {

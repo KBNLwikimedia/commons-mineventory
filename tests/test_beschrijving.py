@@ -96,7 +96,7 @@ def test_meta_vision_request():
     sent = session.calls[0]
     assert sent["url"].endswith("/responses") and sent["headers"]["Authorization"] == "Bearer test-key"
     assert sent["json"]["reasoning"] == {"effort": "low"}
-    assert sent["json"]["text"]["format"]["schema"]["properties"]["wikidata_suggesties"]["maxItems"] == 3
+    assert sent["json"]["text"]["format"]["schema"]["properties"]["wikidata_suggesties"]["maxItems"] == 10
     assert body is FIXTURE
 
 
@@ -420,13 +420,48 @@ def test_commons_context_lists_captions_and_depicts():
 
 
 def test_object_description_length():
+    """All four lengths are asked at once, whichever one is shown (wish Olaf 17-11-2026)."""
     from cutter.beschrijving import build_prompt
 
-    normal = build_prompt({"naam": "x"})
-    assert "one or two sentences in Dutch describing what is shown." in normal  # as before: same cache key
-    caption = build_prompt({"naam": "x"}, description_level="caption")
-    assert "at most 230 characters" in caption and "one or two sentences in Dutch describing" not in caption
-    assert "a paragraph of three to five sentences" in build_prompt({"naam": "x"}, description_level="uitgebreid")
+    prompt = build_prompt({"naam": "x"})
+    assert "- beschrijving_normaal: one or two sentences in Dutch describing what is shown." in prompt
+    assert "- beschrijving_caption: a caption in Dutch for Wikimedia Commons" in prompt and "at most 230 characters" in prompt
+    assert "- beschrijving_uitgebreid_en: the same paragraph in English." in prompt
+    assert build_prompt({"naam": "x"}, description_level="caption") == prompt
+    assert set(f"beschrijving_{lvl}{sfx}" for lvl in ("kort", "normaal", "caption", "uitgebreid") for sfx in ("", "_en")) <= set(beschrijving.SCHEMA["required"])
+    parsed = beschrijving.parse_answer(json.dumps({"soort": "wapen", "beschrijving_caption": "x" * 400, "beschrijving_kort": "Wapen", "beschrijving_kort_en": "Arms"}))
+    assert len(parsed["beschrijvingen"]["caption"]["nl"]) <= 250 and parsed["beschrijvingen"]["kort"] == {"nl": "Wapen", "en": "Arms"}
+
+
+def test_object_lengths_switch_for_free_and_keep_their_edits(objects, album, tmp_path):
+    """The slider shows another length of a cut-out's description, free and without a new
+    version; each length keeps its own hand edits; the concept takes the longest for the
+    wikitext and the Commons length for the caption."""
+    from cutter import concept
+
+    obj = objects.detect(album, 1, "wapen")["objecten"][0]
+    service = DescriptionService(DummyVision(), objects, CONFIG, tmp_path / "cache")
+    first = service.describe(album, 1, obj["id"], description_level="caption")["object"]["beschrijving"]
+    assert first["beschrijvingsniveau"] == "caption" and first["beschrijving"] == first["beschrijvingen"]["caption"]["nl"]
+    assert set(first["beschrijvingen"]) == {"kort", "normaal", "caption", "uitgebreid"}
+    short = service.edit(album, 1, obj["id"], {"beschrijvingsniveau": "kort"})["beschrijving"]
+    assert short["beschrijving"] == first["beschrijvingen"]["kort"]["nl"] and service.history(album, 1, obj["id"]) == []
+    edited = service.edit(album, 1, obj["id"], {"beschrijving": "Mijn korte tekst"})["beschrijving"]
+    assert edited["bewerkt"] and edited["beschrijvingen"]["kort"]["nl"] == "Mijn korte tekst"
+    long = service.edit(album, 1, obj["id"], {"beschrijvingsniveau": "uitgebreid"})["beschrijving"]
+    assert long["beschrijving"] == first["beschrijvingen"]["uitgebreid"]["nl"] and not long["bewerkt"]
+    back = service.edit(album, 1, obj["id"], {"beschrijvingsniveau": "kort"})["beschrijving"]
+    assert back["beschrijving"] == "Mijn korte tekst" and back["bewerkt"] and back["ai_origineel"]["beschrijving"] == first["beschrijvingen"]["kort"]["nl"]
+    with pytest.raises(DetectionError):
+        service.edit(album, 1, obj["id"], {"beschrijvingsniveau": "roman"})
+    service.edit(album, 1, obj["id"], {"beschrijvingsniveau": "caption"})
+    with pytest.raises(DetectionError):
+        service.edit(album, 1, obj["id"], {"beschrijving": "x" * 260})
+    # Asking again from the cache with another length shown is the same version, not a new one.
+    service.describe(album, 1, obj["id"], description_level="normaal")
+    proposal = concept.default_concept(album, objects._find(album, 1, obj["id"]))
+    lengths = objects._find(album, 1, obj["id"])["beschrijving"]["beschrijvingen"]
+    assert proposal["beschrijving"]["nl"] == lengths["uitgebreid"]["nl"] and proposal["caption"]["en"] == lengths["caption"]["en"]
 
 
 def test_detection_clue_tells_what_the_app_knows():

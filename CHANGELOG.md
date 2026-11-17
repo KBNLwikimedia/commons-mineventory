@@ -5,6 +5,25 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-17
+
+### Toegevoegd
+
+- *Wat staat hierop?* > *Beeldt af (P180)* van een uitsnede: kant-en-klare voorstellen, zoals voor de hele afbeelding (wens Olaf), al opgezocht op Wikidata, met een thumbnail van het item (met vergrootglas), de Q-id en de beschrijving. Ze komen uit de naam van de uitsnede (bijv. *boy*), een item dat ze al heeft, en de AI-beschrijving. Een vinkje zet het item meteen in *beeldt af* van het Commons-concept. De AI noemt nu als zoektermen ook alles wat de uitgebreide beschrijving noemt (hooguit 10, in dezelfde vraag). Het vergrootglas en het kiezen van het beste Wikidata-treffer zijn gedeelde code (`zoom.js`, `ItemZoom.vue`, `bestHit`).
+
+- *Wat staat hierop?*: de beschrijving van een uitsnede komt nu in één vraag in alle vier de lengtes, zoals bij de afbeelding als geheel (wens Olaf): *Kort*, *Normaal*, *Commons-caption* (hooguit 250 tekens) en *Uitgebreid*. De schuif *Uitgebreidheid* met de Commons-schakelaar staat boven het antwoord en wisselt gratis; elke lengte houdt haar eigen aanpassingen. Het Commons-concept neemt de alinea als beschrijving in de wikitekst en de Commons-caption als caption in de gestructureerde gegevens. De schuif en de schakelaar zijn één gedeelde component (`DescriptionLength.vue`). API: `PATCH …/objecten/{id}/beschrijving` met `beschrijvingsniveau`. Niets verspringt als je de schuif verzet: de beschrijving staat in een vak van vaste hoogte, het label onder de schuif is altijd één regel, en de melding dat een lengte ontbreekt staat in dat vak.
+
+### Opgelost
+
+- Kies je bij *Nieuwe beeldt af* met het potlood een ander Wikidata-item, of komt een gekozen item terug uit het concept, dan toont de regel nu ook de beschrijving van dát item (was die van het eerst gevonden item). De beschrijvingen staan in de taal van de interface, ook bij AI-zoektermen (die werden in het Engels opgezocht). Nieuw: `GET /api/v1/wikidata/items?ids=…` (gratis).
+
+### Gewijzigd
+
+- De *Bulkacties* (Beschrijven, Ontdubbelen, Groeperen, Prullenbak) staan altijd zichtbaar direct onder de lijst met uitsneden, niet meer in een uitklapper (wens Olaf).
+- Stap 1: bij een item dat nog niet gelokaliseerd is, staat nu *Nu lokaliseren* (wens Olaf). Dat bewaart je keuzes als concept, sluit het venster en opent *Uit Commons* > *Beeldt af*, waar je het item laat zoeken of zelf een kader tekent. Staat *Uit Commons* dicht op slot, dan gaat het toch open; je opgeslagen slot blijft gelden na herladen.
+- Stap 1: het vinkje staat nu in de kolom *Locatie (kader) toevoegen*, met die woorden ernaast, en *Alle · Geen · Omkeren* staat in de kop van die kolom (wens Olaf). Zo is duidelijk dat het vinkje de locatie toevoegt.
+- Stap 2 (*Nieuwe beeldt af*) heeft nu dezelfde vorm als stap 1 (wens Olaf): een omkaderd blok met een tabel met vaste kolommen (item met herkomst, Q-id, beschrijving, *met locatie (kader)*, prullenbak). Het zoekveld om een item toe te voegen staat bovenaan, zoals *Search to add items* op Commons. De thumbnails in stap 1 zijn net zo groot als in stap 2, met dezelfde vergroting bij aanwijzen.
+
 ## [0.41.0] - 2026-11-13
 
 ### Gewijzigd
