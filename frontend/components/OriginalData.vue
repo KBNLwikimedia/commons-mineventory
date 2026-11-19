@@ -77,10 +77,10 @@
             <li v-for="item in existingRows" :key="item.q" class="cc-sdc-item" :class="{ 'cc-sdc-item-blijft': !item.canAddPosition }">
               <div class="cc-sdc-rij cc-sdc-rij-bestaand">
                 <img class="cc-item-beeld" :src="itemImage(item.q)" alt="" loading="lazy" @mouseenter="showZoom($event, item.q)" @mouseleave="hideZoom" @error="hideImage" />
-                <a class="cc-sdc-label" :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.label }}</a>
-                <span class="cc-klein cc-sdc-q">{{ item.q }}</span>
+                <a class="cc-sdc-label" :href="`https://www.wikidata.org/wiki/${item.q}`" target="_blank" rel="noopener">{{ item.label }}</a><language-mark :lang="item.labelTaal" />
+                <span class="cc-klein cc-sdc-q"><qid-link :q="item.q" /></span>
                 <!-- The item's description on Wikidata, in the language of the interface only (wish Olaf). -->
-                <span class="cc-klein cc-sdc-beschrijving">{{ item.description }}</span>
+                <span class="cc-klein cc-sdc-beschrijving">{{ item.description }}<language-mark :lang="item.descriptionTaal" /></span>
                 <span class="cc-klein cc-sdc-status">
                   <span v-if="item.positions" class="cc-merkje">{{ t("original.with_position", { n: item.positions }) }}</span>
                   <template v-else-if="item.canAddPosition">
@@ -163,7 +163,7 @@
               <li v-for="hit in ownHits" :key="hit.q">
                 <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
                 <button type="button" class="cc-link" @click="addOwn(hit)">{{ hit.label }}</button>
-                <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
+                <span class="cc-klein"> (<qid-link :q="hit.q" />) {{ hit.beschrijving }}</span>
               </li>
             </ul>
           </div>
@@ -317,7 +317,7 @@
           <ul class="cc-origineel-commons">
             <li v-for="item in positionChanges" :key="item.q">
               {{ t("original.check_positions_row", { item: item.label, n: item.chosen }) }}
-              <span class="cc-klein">({{ item.q }})</span>
+              <span class="cc-klein">(<qid-link :q="item.q" />)</span>
             </li>
           </ul>
         </div>
@@ -326,7 +326,7 @@
           <ul class="cc-origineel-commons">
             <li v-for="item in depictsChanges" :key="item.q">
               {{ item.withPlace ? t("original.check_depicts_place", { item: item.label, n: item.statements }) : t("original.check_depicts_plain", { item: item.label }) }}
-              <span class="cc-klein">({{ item.q }})</span>
+              <span class="cc-klein">(<qid-link :q="item.q" />)</span>
             </li>
           </ul>
         </div>
@@ -388,7 +388,9 @@ import { CdxButton, CdxCombobox, CdxDialog, CdxMessage, CdxRadio, CdxTextArea, C
 import { cdxIconSearch } from "@wikimedia/codex-icons";
 import { errorText, get, objectPath, pagePath, put } from "../api.js";
 import { formatStamp, useT } from "../i18n.js";
-import { bestHit, inLanguage, itemImage, itemInfo, searchItems } from "../wikidata.js";
+import { bestHit, itemImage, itemInfo, pickLanguage, searchItems, statementName } from "../wikidata.js";
+import LanguageMark from "./LanguageMark.vue";
+import QidLink from "./QidLink.vue";
 import { useItemZoom } from "../zoom.js";
 import ItemZoom from "./ItemZoom.vue";
 import { movableDialog } from "../movable.js";
@@ -606,7 +608,10 @@ function reactiveRow(one) {
 const commonsItems = computed(() => {
   const byQ = new Map();
   for (const s of data.value?.op_commons.beeldt_af || []) {
-    const item = byQ.get(s.q) || { q: s.q, label: (config.taal === "en" ? s.label_en : s.label) || s.label || s.q, label_en: s.label_en || "", description: inLanguage(s.beschrijving, config.taal), positions: 0 };
+    // Name and description carry their language: a fallback gets a mark (wish Olaf 19-11-2026).
+    const name = statementName(s, config.taal);
+    const description = pickLanguage(s.beschrijving, config.taal);
+    const item = byQ.get(s.q) || { q: s.q, label: name.text || s.q, labelTaal: name.lang, label_en: s.label_en || "", description: description.text, descriptionTaal: description.lang, positions: 0 };
     if (s.positie) item.positions += 1;
     byQ.set(s.q, item);
   }
@@ -702,8 +707,10 @@ async function describeRows(list) {
     for (const row of list) {
       const one = info[row.q];
       if (!one) continue;
-      row.beschrijving = inLanguage(one.beschrijving, config.taal);
-      row.label = inLanguage(one.label, config.taal) || row.label;
+      const description = pickLanguage(one.beschrijving, config.taal);
+      const name = pickLanguage(one.label, config.taal);
+      Object.assign(row, { beschrijving: description.text, beschrijvingTaal: description.lang });
+      if (name.text) Object.assign(row, { label: name.text, labelTaal: name.lang });
     }
   } catch {
     // Wikidata not reachable: keep the texts the rows have.

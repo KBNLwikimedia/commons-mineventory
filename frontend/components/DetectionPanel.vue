@@ -92,10 +92,10 @@
               size="small"
               :disabled="busy"
               :title="itemTitle(item)"
-              @click="act('commons-depicts', 'detect', { modus: 'prompt', prompt: itemWord(item), items: { [itemWord(item)]: item.q }, ...(item.noEnglish ? { askWord: true } : {}) })"
+              @click="locateItems([item])"
             >
               <span v-if="item.noEnglish" class="cc-geen-engels" :title="t('panel.no_english_label')" aria-hidden="true">⚠</span>
-              {{ item.label }}<span v-if="item.taal" class="cc-label-taal" :title="t('panel.label_language', { lang: item.taal })"> {{ item.taal }}</span>
+              {{ item.label }}<language-mark :lang="item.taal" />
               <span v-if="itemCount(item) || wasSearched(itemWord(item))" class="cc-term-aantal">{{ itemCount(item) }}</span>
             </cdx-button>
           </span>
@@ -209,7 +209,7 @@
               <!-- The name of the item on Commons ("stairs"), not the AI's word ("staircase"): one thing per chip (wish Olaf). -->
               <span v-for="term in commonsTerms" :key="term.en" class="cc-term cc-term-vast" :class="{ 'cc-term-gevonden': commonsTermCount(term) > 0 }">
                 <cdx-button size="small" disabled :title="t('panel.term_on_commons_help_ai', { term: termLabel(term) })">
-                  {{ commonsLabel(term) }}
+                  {{ commonsLabel(term).text }}<language-mark :lang="commonsLabel(term).lang" />
                   <span v-if="commonsTermCount(term)" class="cc-term-aantal">{{ commonsTermCount(term) }}</span>
                 </cdx-button>
               </span>
@@ -240,7 +240,7 @@
                 size="small"
                 :disabled="busy"
                 :title="termTitle(term)"
-                @click="act('suggestions', 'detect', { modus: 'prompt', prompt: term.en })"
+                @click="act('suggestions', 'detect', { modus: 'prompt', prompt: term.en, labels: termLabels([term]) })"
               >
                 {{ termLabel(term) }}
                 <span v-if="termHits(term) || wasSearched(term.en)" class="cc-term-aantal">{{ termHits(term) }}</span>
@@ -254,7 +254,7 @@
               weight="primary"
               size="small"
               :disabled="busy || !includedTerms.length"
-              @click="act('suggestions', 'detect', { modus: 'prompt', prompt: includedTerms.map((term) => term.en).join(', ') })"
+              @click="act('suggestions', 'detect', { modus: 'prompt', prompt: includedTerms.map((term) => term.en).join(', '), labels: termLabels(includedTerms) })"
             >
               {{ t(termsLabel, { n: includedTerms.length }) }}
               <span class="cc-kosten">{{ cost(includedTerms.length) }}</span>
@@ -381,6 +381,8 @@ import { get, pagePath } from "../api.js";
 import { objectsWithTerm } from "../facets.js";
 import { cleanText } from "../text.js";
 import AiBadge from "./AiBadge.vue";
+import LanguageMark from "./LanguageMark.vue";
+import { statementName } from "../wikidata.js";
 import BusyNote from "./BusyNote.vue";
 import PageDescription from "./PageDescription.vue";
 import InfoDialog from "./InfoDialog.vue";
@@ -540,9 +542,10 @@ const commonsDepicts = computed(() => {
     // A readable name (Dutch/English, the multilingual label, another language, the Q-id last); the
     // English word for SAM, or, without one, the name (the server's dictionary may translate it) and
     // a request to give an English word first (wish Olaf 13-11-2026).
+    // The name carries its language, so a fallback gets a mark (LanguageMark.vue, wish Olaf 19-11-2026).
     const english = statement.label_en || "";
-    const name = config.taal === "en" ? english || statement.label || statement.waarde : statement.label || english || statement.waarde;
-    seen.set(statement.waarde, { q: statement.waarde, label: name, taal: statement.label_taal || "", en: english || statement.label || statement.waarde, noEnglish: !english });
+    const name = statementName(statement, config.taal);
+    seen.set(statement.waarde, { q: statement.waarde, label: name.text, taal: name.lang, en: english || statement.label || statement.waarde, noEnglish: !english });
   }
   return [...seen.values()];
 });
@@ -604,7 +607,11 @@ const itemsRequest = (items) => ({
   prompt: items.map(itemWord).join(", "),
   items: Object.fromEntries(items.map((item) => [itemWord(item), item.q])),
   ...(items.some((item) => item.noEnglish) ? { askWord: true } : {}),
+  // What the window of locating shows per word: the name in the interface language, with its language.
+  labels: Object.fromEntries(items.map((item) => [itemWord(item).toLowerCase(), { text: item.label, lang: item.taal }])),
 });
+// The same for the AI's terms: always in both languages.
+const termLabels = (terms) => Object.fromEntries(terms.map((term) => [String(term.en || "").toLowerCase(), { text: termLabel(term), lang: config.taal }]));
 const locateItems = (items) => act("commons-depicts", "detect", itemsRequest(items));
 // What a set of items really costs: the server knows which words are in the cache (free GET,
 // the same estimate as the confirmation). Until it answers, every word counts.
@@ -656,11 +663,12 @@ const commonsTerms = computed(() => {
     return true;
   });
 });
-// The name of that item on Commons, in the language of the interface.
+// The name of that item on Commons, in the language of the interface ({text, lang}).
 const commonsLabel = (term) => {
   const q = commonsItemFor(term);
-  const statement = (props.file.sdc?.beeldt_af || []).find((st) => st.soort === "item" && st.waarde === q) || {};
-  return (config.taal === "en" ? statement.label_en || statement.label : statement.label || statement.label_en) || termLabel(term);
+  const statement = (props.file.sdc?.beeldt_af || []).find((st) => st.soort === "item" && st.waarde === q);
+  const name = statement ? statementName(statement, config.taal) : { text: "", lang: "" };
+  return name.text ? name : { text: termLabel(term), lang: config.taal };
 };
 const newTerms = computed(() => (props.inventory?.zoektermen || []).filter((term) => !commonsItemFor(term)));
 // How many objects on the image are linked to the depicts item of such a term.

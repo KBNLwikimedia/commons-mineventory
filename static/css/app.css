@@ -435,6 +435,11 @@ h2, h3, h4 { margin: 0.5rem 0; }
 .cc-melding-object { display: inline-flex; gap: 0.4rem; align-items: center; margin-right: 0.5rem; vertical-align: middle; }
 .cc-melding-object img { width: 1.5rem; height: 1.5rem; object-fit: cover; border: 1px solid var(--cc-rand); background: var(--background-color-interactive-subtle, #f8f9fa); flex-shrink: 0; }
 .cc-melding-compact.cdx-message { padding-top: 0.2rem; padding-bottom: 0.2rem; min-height: 0; font-size: 0.875rem; align-items: center; }
+/* The cross of a compact message: Codex puts a 32px button 8px from the top, so in a low box it
+   hung over the bottom edge (seen by Olaf 19-11-2026). Small and centred, with room beside it. */
+.cc-melding-compact.cdx-message.cdx-message--user-dismissable { padding-right: 2.25rem; }
+.cc-melding-compact.cdx-message .cdx-message__dismiss-button.cdx-button { top: 50%; right: 0.4rem; transform: translateY(-50%); min-width: 1.5rem; min-height: 1.5rem; padding: 0.2rem; }
+.cc-melding-compact.cdx-message .cdx-message__dismiss-button .cdx-icon { width: 0.875rem; height: 0.875rem; min-width: 0; min-height: 0; }
 .cc-meldingen:has(.cc-melding-compact) { gap: 0.25rem; }
 .cc-melding-beschrijving { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-objecten-bulk { margin: 0 0 0.75rem; align-items: center; gap: 0.5rem; }
@@ -1057,7 +1062,6 @@ button.cc-sectie-edit:hover { text-decoration: underline; }
 /* A word in the AI-suggestions intro that jumps to its part below. */
 .cc-naar-deel { color: var(--color-progressive, #36c); }
 .cc-geen-engels { color: var(--color-warning, #ab7f2a); margin-right: 0.2rem; }
-.cc-label-taal { font-size: 0.75em; color: var(--cc-tekst-zacht, #54595d); }
 /* "Prompt aanpassen" inside AI steering: a fold-out within the fold-out (wish Olaf). */
 .cc-pagina-prompt .cc-pagina-prompt, .cc-prompt-uitklap { margin-top: 0.5rem; border-top: 1px solid var(--cc-rand); }
 .cc-pagina-prompt-acties { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 0.5rem 0 0.5rem; }
@@ -1256,3 +1260,6 @@ details.cc-ai-bijsturing .cc-schuif-waarde { font-size: 0.8125rem; }
 /* A cut-out: level of detail and reasoning effort in AI steering; search terms from the description (wish Olaf 17-11-2026). */
 .cc-ai-sturing .cc-denkniveau { margin: 0.5rem 0; }
 .cc-object-termen { margin: 0.5rem 0 0.75rem; }
+
+/* A text in another language than the interface (LanguageMark.vue). */
+.cc-taal-vervanger { display: inline-flex; vertical-align: middle; margin-left: 0.25rem; color: var(--color-subtle, #54595d); cursor: help; }

@@ -535,7 +535,7 @@
                     <li v-for="hit in hits" :key="hit.q">
                       <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="showZoom($event, hit.q)" @mouseleave="hideZoom" @error="hideImage" />
                       <cdx-button size="small" weight="quiet" action="progressive" @click="addDepicts(hit)">+ {{ hit.label }}</cdx-button>
-                      <small><a :href="`https://www.wikidata.org/wiki/${hit.q}`" target="_blank" rel="noopener">{{ hit.q }}</a> · {{ hit.beschrijving }}</small>
+                      <small><qid-link :q="hit.q" /> · {{ hit.beschrijving }}</small>
                     </li>
                   </ul>
                   <!-- Search terms from the description that is there, without the image (paid, cheaper than
@@ -618,7 +618,8 @@ import UndoMessage from "./UndoMessage.vue";
 import { descriptionVersion, promptBack, useUndoMessage, versionBack } from "../undo.js";
 import { movableDialog } from "../movable.js";
 import { fileName, objectName, savedLabel } from "../state.js";
-import { bestHit, inLanguage, itemImage, itemInfo, searchItems, wikidataSearcher } from "../wikidata.js";
+import QidLink from "./QidLink.vue";
+import { bestHit, itemImage, itemInfo, pickLanguage, searchItems, wikidataSearcher } from "../wikidata.js";
 import DetailSlider from "./DetailSlider.vue";
 import { useItemZoom } from "../zoom.js";
 import ItemZoom from "./ItemZoom.vue";
@@ -1360,7 +1361,11 @@ async function buildProposals() {
     const info = await itemInfo([...byQ.keys()]);
     for (const row of byQ.values()) {
       const one = info[row.q];
-      if (one) Object.assign(row, { label: inLanguage(one.label, language) || row.label, beschrijving: inLanguage(one.beschrijving, language) });
+      if (!one) continue;
+      const name = pickLanguage(one.label, language);
+      const description = pickLanguage(one.beschrijving, language);
+      Object.assign(row, { beschrijving: description.text, beschrijvingTaal: description.lang });
+      if (name.text) Object.assign(row, { label: name.text, labelTaal: name.lang });
     }
   } catch {
     // Wikidata not reachable: the rows keep the texts of the search.

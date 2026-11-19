@@ -747,6 +747,10 @@ def test_depicts_labels_fall_back_to_a_readable_name():
     assert (rows["Q3"]["label"], rows["Q3"]["label_en"], rows["Q3"]["label_taal"]) == ("Anna Pavlova", "Anna Pavlova", None)
     assert (rows["Q4"]["label"], rows["Q4"]["label_en"], rows["Q4"]["label_taal"]) == ("Flugzeug", None, "de")
     assert (rows["Q5"]["label"], rows["Q5"]["label_en"]) == ("Q5", None)
+    # The labels per language, so the interface can pick its own and mark a fallback (19-11-2026).
+    assert rows["Q2"]["labels"] == {"nl": "matrozenkraag", "en": None, "mul": None, "andere": None}
+    assert rows["Q4"]["labels"]["andere"] == {"taal": "de", "waarde": "Flugzeug"}
+    assert rows["Q5"]["labels"] == {"nl": None, "en": None}
 
 
 

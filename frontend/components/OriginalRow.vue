@@ -16,15 +16,15 @@
       <span :key="row.q" class="cc-item-beeld-kader"><img class="cc-item-beeld" :src="itemImage(row.q)" :alt="t('original.item_image', { item: row.label })" :title="t('original.item_image', { item: row.label })" loading="lazy" @mouseenter="emit('zoom', $event, row.q)" @mouseleave="emit('unzoom')" @error="noImage" /><span class="cc-geen-beeld">{{ t("original.no_image") }}</span></span>
       <div class="cc-origineel-item">
         <div class="cc-sdc-itemkop">
-          <a class="cc-sdc-label" :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a>
+          <a class="cc-sdc-label" :href="`https://www.wikidata.org/wiki/${row.q}`" target="_blank" rel="noopener">{{ row.label }}</a><language-mark :lang="row.labelTaal" />
           <cdx-button v-if="changeable" action="progressive" weight="quiet" size="small" :aria-label="t('original.other_item')" :title="t('original.other_item')" @click="emit('other')">
             <cdx-icon :icon="cdxIconEdit" size="small" />
           </cdx-button>
         </div>
         <slot name="source" />
       </div>
-      <span class="cc-klein cc-sdc-q">{{ row.q }}</span>
-      <span class="cc-klein cc-sdc-beschrijving">{{ row.beschrijving }}</span>
+      <span class="cc-klein cc-sdc-q"><qid-link :q="row.q" /></span>
+      <span class="cc-klein cc-sdc-beschrijving">{{ row.beschrijving }}<language-mark :lang="row.beschrijvingTaal" /></span>
       <span v-if="$slots.default" class="cc-klein cc-sdc-locatie"><slot /></span>
       <cdx-button action="destructive" weight="quiet" size="small" :aria-label="t('original.hide_row', { item: row.label })" :title="t('original.hide_row', { item: row.label })" @click="emit('hide')">
         <cdx-icon :icon="cdxIconTrash" size="small" />
@@ -42,7 +42,7 @@
         <li v-for="hit in hits" :key="hit.q">
           <img class="cc-item-beeld cc-item-beeld-klein" :src="itemImage(hit.q, 60)" alt="" loading="lazy" @mouseenter="emit('zoom', $event, hit.q)" @mouseleave="emit('unzoom')" @error="hideImage" />
           <button type="button" class="cc-link" @click="emit('choose', hit)">{{ hit.label }}</button>
-          <span class="cc-klein"> ({{ hit.q }}) {{ hit.beschrijving }}</span>
+          <span class="cc-klein"> (<qid-link :q="hit.q" />) {{ hit.beschrijving }}</span>
         </li>
       </ul>
       <button type="button" class="cc-link" @click="emit('cancel')">{{ t("actions.cancel") }}</button>
@@ -55,6 +55,8 @@ import { CdxButton, CdxIcon, CdxTextInput } from "@wikimedia/codex";
 import { cdxIconEdit, cdxIconTrash } from "@wikimedia/codex-icons";
 import { useT } from "../i18n.js";
 import { itemImage } from "../wikidata.js";
+import LanguageMark from "./LanguageMark.vue";
+import QidLink from "./QidLink.vue";
 
 defineProps({
   // A merged row of OriginalData (its tick box speaks for all its members).

@@ -321,6 +321,7 @@
       :path="locate.path"
       :prompt="locate.prompt"
       :ask-word="locate.askWord"
+      :labels="locate.labels"
       :paid="config.betaald"
       :sam-usd="config.sam_usd"
       :language="config.taal"
@@ -929,8 +930,9 @@ async function detect(request) {
       // Search words: one window with what is searched, saved answers or SAM anew, the cost, and
       // (folded away) the words themselves to change first (AI steering, wish Olaf 13-11-2026).
       // Without an English label on Wikidata the window opens with the words, asking for one.
-      const { askWord, ...asked } = request;
-      const answer = await askLocate({ path: base, prompt: request.prompt || "", askWord: Boolean(askWord) });
+      // The names per word (in the language of the interface) are only for the window, not for the server.
+      const { askWord, labels, ...asked } = request;
+      const answer = await askLocate({ path: base, prompt: request.prompt || "", askWord: Boolean(askWord), labels: labels || {} });
       if (!answer) return;
       request = {
         ...asked,
@@ -1493,10 +1495,10 @@ function askBulkDescribe(question) {
   return new Promise((resolve) => (bulkDescribeAnswer = resolve));
 }
 // The window of locating: {prompt, als, fresh} to go ahead, null when cancelled.
-const locate = reactive({ open: false, path: "", prompt: "", askWord: false });
+const locate = reactive({ open: false, path: "", prompt: "", askWord: false, labels: {} });
 let locateAnswer = null;
 function askLocate(question) {
-  Object.assign(locate, { askWord: false }, question, { open: true });
+  Object.assign(locate, { askWord: false, labels: {} }, question, { open: true });
   return new Promise((resolve) => (locateAnswer = resolve));
 }
 function answerLocate(answer) {

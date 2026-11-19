@@ -107,6 +107,7 @@ def gather(service, file, n):
             "beeldt_af": [
                 {
                     "q": s["waarde"], "label": s.get("label"), "label_en": s.get("label_en"), "positie": s.get("positie"),
+                    "labels": (info.get(s["waarde"]) or {}).get("label") or s.get("labels") or {},
                     "beschrijving": (info.get(s["waarde"]) or {}).get("beschrijving") or {},
                 }
                 for s in depicts

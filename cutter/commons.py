@@ -602,6 +602,8 @@ class CommonsClient:
             "wikidata": qid,
             "label": (names.get("nl") or names.get("en") or {}).get("value"),
             "label_en": (names.get("en") or names.get("nl") or {}).get("value"),
+            # Per language, so the interface can mark a fallback (wish Olaf 19-11-2026).
+            "labels": {lang: (names.get(lang) or {}).get("value") for lang in ("nl", "en")},
             "titel": titles.get("nl") or titles.get("en") or next(iter(titles.values()), None),
             "beschrijving": {lang: (descriptions.get(lang) or {}).get("value") for lang in ("nl", "en")},
             "datum": date,

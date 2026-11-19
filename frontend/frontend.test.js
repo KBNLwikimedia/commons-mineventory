@@ -1392,3 +1392,42 @@ it("original.js: caption languages and the edit summary for Commons", async () =
   );
   expect(editSummary({ changed: ["en"] })).toBe("Changed caption (en) with Commons Mineventory; AI suggestions checked by the user");
 });
+
+// Wikidata texts in the language of the interface, else a fallback that says which language it is
+// (LanguageMark.vue, wish Olaf 19-11-2026).
+import { inLanguage, pickLanguage, statementName } from "./wikidata.js";
+import LanguageMark from "./components/LanguageMark.vue";
+
+it("picks the interface language and reports a fallback", () => {
+  expect(pickLanguage({ nl: "grote karekiet", en: "great reed warbler" }, "nl")).toEqual({ text: "grote karekiet", lang: "nl" });
+  expect(pickLanguage({ nl: null, en: "great reed warbler" }, "nl")).toEqual({ text: "great reed warbler", lang: "en" });
+  expect(pickLanguage({ en: "great reed warbler" }, "en")).toEqual({ text: "great reed warbler", lang: "en" });
+  expect(pickLanguage({ mul: "Phragmites australis" }, "nl")).toEqual({ text: "Phragmites australis", lang: "mul" });
+  expect(pickLanguage({ andere: { taal: "de", waarde: "Flugzeug" } }, "nl")).toEqual({ text: "Flugzeug", lang: "de" });
+  expect(pickLanguage(null, "nl")).toEqual({ text: "", lang: "" });
+  expect(inLanguage({ en: "egg" }, "nl")).toBe("egg");
+  expect(statementName({ waarde: "Q1", labels: { nl: null, en: "bird nest", mul: null, andere: null } }, "nl")).toEqual({ text: "bird nest", lang: "en" });
+  expect(statementName({ waarde: "Q1", label: "vogelnest", label_en: "bird nest" }, "en")).toEqual({ text: "bird nest", lang: "en" });
+  expect(statementName({ waarde: "Q9" }, "nl")).toEqual({ text: "Q9", lang: "" });
+});
+
+it("shows the language icon only for a fallback, with the language in the mouse-over", () => {
+  const global = { provide: { config: { taal: "nl" }, t: (key, params) => `${key} ${JSON.stringify(params)}` } };
+  expect(mount(LanguageMark, { props: { lang: "nl" }, global }).find(".cc-taal-vervanger").exists()).toBe(false);
+  const mark = mount(LanguageMark, { props: { lang: "en" }, global }).find(".cc-taal-vervanger");
+  expect(mark.exists()).toBe(true);
+  expect(mark.attributes("title")).toContain("language.fallback");
+  expect(mark.attributes("title")).toContain('"code":"en"');
+});
+
+// Every Q-id is a link to its item on Wikidata (QidLink.vue, wish Olaf 19-11-2026).
+import QidLink from "./components/QidLink.vue";
+
+it("shows a Q-id as a link to Wikidata, and other text as it is", () => {
+  const global = { provide: { t: (key) => key } };
+  const link = mount(QidLink, { props: { q: "Q1137226" }, global }).find("a");
+  expect(link.attributes("href")).toBe("https://www.wikidata.org/wiki/Q1137226");
+  expect(link.attributes("target")).toBe("_blank");
+  expect(link.text()).toBe("Q1137226");
+  expect(mount(QidLink, { props: { q: "geen" }, global }).find("a").exists()).toBe(false);
+});

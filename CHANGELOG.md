@@ -5,6 +5,19 @@ De opmaak volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/) en het 
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-19
+
+### Toegevoegd
+
+- **Taalicoontje bij een vervangende taal** (wens Olaf): staat een naam of beschrijving van Wikidata niet in de taal van de interface, dan volgt een klein taalicoontje; de mouse-over zegt in welke taal de tekst wel staat (bijv. "Niet in het Nederlands op Wikidata; dit is de tekst in het Engels (en)"). Eén gedeelde component (`LanguageMark.vue`), op alle plekken met zo'n vervanger: de *beeldt af*-knoppen in het detectiepaneel (ook de namen bij *Staat al op Commons*), het venster *Objecten lokaliseren*, *Naar Commons* (stap 1 en 2), de voorstellen in het tabblad *Beeldt af (P180)* van een uitsnede en de naam van het werk in de bestandsgegevens. Vervangt het oude taalcodetje bij items zonder Nederlands of Engels label.
+- **Q-ids zijn links naar Wikidata** (wens Olaf): overal waar de app een Q-id toont (de voorstellen bij een uitsnede, *Naar Commons* stap 1, 2 en de controle, de zoekresultaten, het werk, de bron van een tekst), opent een klik het item in een nieuw tabblad. Eén gedeelde component (`QidLink.vue`).
+- API: elke *beeldt af*-verklaring in `sdc` en in `op_commons` van `GET …/origineel` heeft nu `labels` (per taal: `nl`, `en`, `mul`, `andere`); het werk heeft `labels` (`nl`, `en`).
+
+### Gewijzigd
+
+- **Objecten lokaliseren** toont de items in de taal van de interface (bijv. *Grote karekiet, vogelnest, ei, riet*) en niet meer de Engelse zoekwoorden voor SAM; zonder Nederlands label het Engelse, met het taalicoontje (wens Olaf). SAM krijgt nog steeds de Engelse woorden; die staan onder *AI-bijsturing*. Een woord dat je daar verandert, staat in de lijst zoals je het typte.
+- **Kruisje van een compacte melding** (bijv. *De beschrijving is klaar.*): klein en verticaal in het midden van de balk; het hing over de onderrand (wens Olaf).
+
 ## [0.43.0] - 2026-11-17
 
 ### Toegevoegd

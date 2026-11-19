@@ -20,9 +20,25 @@ export const itemImage = (q, width = 120) => `${API}/wikidata/${q}/afbeelding?w=
 // interface; without one the other of nl/en, then the multilingual label, then another language
 // (wish Olaf 17-11-2026: never empty when Wikidata has something). "" when there is nothing.
 export function inLanguage(texts, language) {
-  if (!texts) return "";
+  return pickLanguage(texts, language).text;
+}
+
+// The same, with the language it is in ({text, lang}), so a fallback can carry a mark
+// (LanguageMark.vue, wish Olaf 19-11-2026). lang is "" when there is no text.
+export function pickLanguage(texts, language) {
+  if (!texts) return { text: "", lang: "" };
   const other = language === "en" ? "nl" : "en";
-  return texts[language] || texts[other] || texts.mul || texts.andere?.waarde || "";
+  for (const lang of [language, other, "mul"]) if (texts[lang]) return { text: texts[lang], lang };
+  if (texts.andere?.waarde) return { text: texts.andere.waarde, lang: texts.andere.taal || "" };
+  return { text: "", lang: "" };
+}
+
+// The name of a depicts statement of the SDC (label per language from the server), else the
+// one-language fields of before 0.44.0, else the Q-id (without a language, so no mark).
+export function statementName(statement, language) {
+  const picked = pickLanguage(statement?.labels || { nl: statement?.label_taal ? "" : statement?.label, en: statement?.label_en }, language);
+  if (picked.text) return picked;
+  return { text: statement?.label || statement?.waarde || statement?.q || "", lang: statement?.label_taal || "" };
 }
 
 // The best Wikidata hit for a search term: the label exactly as the term first ("lemon" the

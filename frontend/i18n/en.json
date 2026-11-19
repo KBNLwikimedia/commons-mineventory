@@ -621,6 +621,8 @@
   "kind.strip": "comic strip",
   "kind.tekening": "drawing",
   "kind.wapen": "coat of arms",
+  "language.fallback": "Not in {wanted} on Wikidata; this is the text in {lang} ({code}).",
+  "language.fallback_mul": "Not in {wanted} on Wikidata; this is the multilingual label (mul).",
   "layout.column_close": "Slide the {name} column away",
   "layout.column_open": "Show the {name} column",
   "layout.history_empty": "Nothing viewed yet.",
@@ -1164,7 +1166,6 @@
   "panel.inventory": "What is on this page?",
   "panel.inventory_help": "The AI page overview looks at the whole page and suggests search terms.",
   "panel.inventory_text": "Text in and under the image:",
-  "panel.label_language": "Name in another language ({lang}): the item has no Dutch or English label on Wikidata.",
   "panel.mode_dummy": "Test mode (dummy detection): everything is free.",
   "panel.mode_live": "Live: AI image detection ({sam}) and AI image description ({muse}) via the Meta Model API. Paid actions ask for confirmation.",
   "panel.no_english_label": "This item has no English label on Wikidata. The AI image detection (SAM) searches in English: on a click you first fill in an English search word.",
@@ -1415,5 +1416,6 @@
   "viewer.zoom_in": "Zoom in",
   "viewer.zoom_now": "Current zoom",
   "viewer.zoom_out": "Zoom out",
-  "viewer.zoom_slider": "Zoom (slider)"
+  "viewer.zoom_slider": "Zoom (slider)",
+  "wikidata.open_item": "Open {q} on Wikidata (new tab)"
 }

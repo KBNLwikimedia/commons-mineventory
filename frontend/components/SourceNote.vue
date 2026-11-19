@@ -2,7 +2,7 @@
 <template>
   <span v-if="source.bron === 'wikidata'">
     {{ t("origin.wikidata") }}
-    <a :href="`https://www.wikidata.org/wiki/${source.item}`" target="_blank" rel="noopener">{{ source.item }}</a>,
+    <qid-link :q="source.item" />,
     <template v-if="source.eigenschap === 'onbekend'">{{ t("origin.unknown") }}</template>
     <a v-else :href="`https://www.wikidata.org/wiki/Property:${source.eigenschap}`" target="_blank" rel="noopener">{{ source.eigenschap }}</a>.
   </span>
@@ -12,6 +12,7 @@
 
 <script setup>
 import { useT } from "../i18n.js";
+import QidLink from "./QidLink.vue";
 
 defineProps({ source: { type: Object, required: true } });
 const t = useT();

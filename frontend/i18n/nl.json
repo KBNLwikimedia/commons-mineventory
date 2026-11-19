@@ -621,6 +621,8 @@
   "kind.strip": "strip",
   "kind.tekening": "tekening",
   "kind.wapen": "wapen",
+  "language.fallback": "Niet in het {wanted} op Wikidata; dit is de tekst in het {lang} ({code}).",
+  "language.fallback_mul": "Niet in het {wanted} op Wikidata; dit is het meertalige label (mul).",
   "layout.column_close": "Kolom {name} inschuiven",
   "layout.column_open": "Kolom {name} tonen",
   "layout.history_empty": "Nog niets bekeken.",
@@ -1164,7 +1166,6 @@
   "panel.inventory": "Wat staat op deze pagina?",
   "panel.inventory_help": "Het AI-paginaoverzicht bekijkt de hele pagina en stelt zoektermen voor.",
   "panel.inventory_text": "Tekst in en onder de afbeelding:",
-  "panel.label_language": "Naam in een andere taal ({lang}): het item heeft geen Nederlands of Engels label op Wikidata.",
   "panel.mode_dummy": "Proefmodus (dummydetectie): alles is gratis.",
   "panel.mode_live": "Live: AI-beelddetectie ({sam}) en AI-beeldbeschrijving ({muse}) via de Meta Model API. Betaalde acties vragen om bevestiging.",
   "panel.no_english_label": "Dit item heeft op Wikidata geen Engels label. De AI-beelddetectie (SAM) zoekt in het Engels: bij een klik vul je eerst een Engels zoekwoord in.",
@@ -1415,5 +1416,6 @@
   "viewer.zoom_in": "Inzoomen",
   "viewer.zoom_now": "Huidige zoom",
   "viewer.zoom_out": "Uitzoomen",
-  "viewer.zoom_slider": "Zoomen (schuif)"
+  "viewer.zoom_slider": "Zoomen (schuif)",
+  "wikidata.open_item": "{q} openen op Wikidata (nieuw tabblad)"
 }

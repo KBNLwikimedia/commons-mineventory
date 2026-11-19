@@ -163,6 +163,9 @@ def summary(parsed, labels=None):
                 "label_en": (label(s["waarde"]).get("en") or label(s["waarde"]).get("mul")) if s["soort"] == "item" else None,
                 # The language of the name when it is not Dutch or English (e.g. "de"), for a small mark.
                 "label_taal": other_language(label(s["waarde"])) if s["soort"] == "item" else None,
+                # The labels per language ({nl, en, mul, andere}), so the interface can pick its own
+                # language and mark a fallback (wish Olaf 19-11-2026).
+                "labels": dict(label(s["waarde"])) if s["soort"] == "item" else None,
                 **({"positie": (s["kwalificatoren"].get("P2677") or [None])[0]} if key == "beeldt_af" else {}),
             }
             for s in parsed.get(key, [])

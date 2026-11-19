@@ -88,8 +88,8 @@
             <template v-if="file.werk">
               <dt>{{ t("file.work") }}<wikidata-logo class="cc-wikidata-na" /></dt>
               <dd>
-                <a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener">{{ workName }}</a>
-                <small class="cc-qid"><a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener">{{ file.werk.wikidata }}</a></small>
+                <a :href="`https://www.wikidata.org/wiki/${file.werk.wikidata}`" target="_blank" rel="noopener">{{ workName }}</a><language-mark :lang="workLanguage" />
+                <small class="cc-qid"><qid-link :q="file.werk.wikidata" /></small>
                 <small class="cc-werk-via">{{ t(file.werk.via === "sdc" ? "file.work_via_sdc" : "file.work_via_template") }}</small>
               </dd>
               <template v-for="row in workRows" :key="row.key">
@@ -123,6 +123,9 @@ import { CdxAccordion, CdxButton, CdxField, CdxIcon, CdxInfoChip, CdxMessage, Cd
 import { cdxIconCut, cdxIconLinkExternal, cdxIconSearch } from "@wikimedia/codex-icons";
 import { cropToolLink } from "../state.js";
 import { useT } from "../i18n.js";
+import { pickLanguage } from "../wikidata.js";
+import LanguageMark from "./LanguageMark.vue";
+import QidLink from "./QidLink.vue";
 import RightsLabel from "./RightsLabel.vue";
 
 const props = defineProps({
@@ -141,10 +144,13 @@ const cropTool = computed(() => cropToolLink(props.file));
 const pageTitle = computed(() => `File:${props.file.naam || String(props.file.titel || "").replace(/^File:/, "")}`.replace(/ /g, "_"));
 const usageLink = computed(() => `https://commons.wikimedia.org/wiki/Special:GlobalUsage/${encodeURIComponent(pageTitle.value.replace(/^File:/, ""))}`);
 const historyLink = computed(() => `https://commons.wikimedia.org/w/index.php?${new URLSearchParams({ title: pageTitle.value, action: "history" })}`);
-const workName = computed(() => {
+// The name of the work in the language of the interface, else the other one (with a mark, wish Olaf 19-11-2026).
+const workPicked = computed(() => {
   const work = props.file?.werk || {};
-  return (language === "en" ? work.label_en || work.label : work.label || work.label_en) || work.wikidata;
+  return pickLanguage(work.labels || { nl: work.label, en: work.label_en }, language);
 });
+const workName = computed(() => workPicked.value.text || props.file?.werk?.wikidata);
+const workLanguage = computed(() => (workPicked.value.text ? workPicked.value.lang : ""));
 const WIKIDATA = "https://www.wikidata.org/wiki/";
 function itemParts(items) {
   return (items || []).map((item) => ({

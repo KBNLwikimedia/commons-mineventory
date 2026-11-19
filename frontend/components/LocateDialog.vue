@@ -21,7 +21,7 @@
   >
     <p>{{ t("locate.intro") }}</p>
     <ul class="cc-lokaliseren-termen">
-      <li v-for="(word, i) in shownWords" :key="i">{{ word }}</li>
+      <li v-for="(shown, i) in shownNames" :key="i">{{ shown.text }}<language-mark :lang="shown.lang" /></li>
     </ul>
     <p class="cc-bevestig-noot">{{ t("locate.note") }}</p>
 
@@ -69,6 +69,7 @@ import { computed, ref, watch } from "vue";
 import { CdxAccordion, CdxDialog, CdxField, CdxMessage, CdxRadio, CdxTextInput } from "@wikimedia/codex";
 import { errorText, get } from "../api.js";
 import { money, useT } from "../i18n.js";
+import LanguageMark from "./LanguageMark.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -81,6 +82,9 @@ const props = defineProps({
   language: { type: String, default: "nl" },
   // An item without an English label on Wikidata: open the words at once and ask for an English one.
   askWord: { type: Boolean, default: false },
+  // The name per search word in the language of the interface, with its language
+  // ({"great reed warbler": {text: "grote karekiet", lang: "nl"}}); a word without one shows as it is.
+  labels: { type: Object, default: () => ({}) },
 });
 // answer: {prompt, als, fresh} to locate, or null when cancelled.
 const emit = defineEmits(["answer"]);
@@ -97,6 +101,20 @@ const steerOpen = ref(false);
 
 const usd = (calls) => money(props.paid ? calls * props.samUsd : 0, props.language);
 const shownWords = computed(() => words.value.map((w) => w.trim()).filter(Boolean));
+// What the list shows (wish Olaf 19-11-2026): the name in the interface language, e.g. Dutch, with
+// a mark when it is a fallback; a word you changed under AI steering shows as you typed it.
+const shownNames = computed(() =>
+  terms.value.length
+    ? terms.value
+        .map((term, i) => {
+          const word = (words.value[i] || "").trim();
+          if (!word) return null;
+          const name = word.toLowerCase() === term.en.toLowerCase() ? props.labels[String(term.term).toLowerCase()] || props.labels[term.en.toLowerCase()] : null;
+          return name?.text ? name : { text: word, lang: "" };
+        })
+        .filter(Boolean)
+    : shownWords.value.map((word) => ({ text: word, lang: "" }))
+);
 const changedCount = computed(() => terms.value.filter((term, i) => (words.value[i] || "").trim().toLowerCase() !== term.en.toLowerCase()).length);
 // The search as it goes: the (changed) words, then the words to leave out.
 const searchPrompt = computed(() => [shownWords.value.join(", "), ...minus.value.map((m) => `min ${m.term}`)].join(" "));
